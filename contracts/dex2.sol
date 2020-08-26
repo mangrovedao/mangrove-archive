@@ -164,9 +164,8 @@ contract Dex {
     if (prev != 0) { 
       orders[prev].next = orderId; 
     } else {
-      best = orderId;
+	best = orderId;
     }
-
     if (next != 0) { 
       orders[next].prev = orderId; 
     }
@@ -188,6 +187,10 @@ contract Dex {
   function findPosition(uint wants, uint gives, uint pivotId) internal view returns (uint32 ,uint32) {
 
     Order memory pivot = orders[pivotId];
+    if (!isOrder(pivot)) { // in case pivotId is not or no longer a valid order
+	    pivot = orders[best] ;
+	    pivotId = best ;
+	}
 
     if (better(pivot.wants, pivot.gives, wants, gives)) { // o is better or as good, we follow next
 
@@ -234,7 +237,7 @@ contract Dex {
 
   // setting takerWants to max_int and takergives to however much you're ready to spend will
   // not work, you'll just be asking for a ~0 price.
-  function marketOrder(uint orderId, uint takerWants, uint takerGives) external {
+  function marketOrderFrom(uint orderId, uint takerWants, uint takerGives) external {
     require(open);
     require(uint32(orderId) == orderId);
     require(uint128(takerWants) == takerWants);
@@ -244,7 +247,8 @@ contract Dex {
     uint localTakerGives;
     Order memory order;
 
-    while (takerWants >= dustPerGasWanted * minGasWanted && orderId != 0) {
+    uint minTakerWants = dustPerGasWanted * minGasWanted ;
+    while (takerWants >= minTakerWants && orderId != 0) {
       order = orders[orderId];
 
       require(isOrder(order));
@@ -256,8 +260,8 @@ contract Dex {
       if (makerWouldWant <= takerGives) {
 
         localTakerWants = min(order.gives, takerWants);
-        localTakerGives = min(makerWouldWant, takerGives);
-
+        localTakerGives = min(order.wants, makerWouldWant);
+	
         bool success = executeOrder(
           order,
           orderId,
@@ -272,6 +276,9 @@ contract Dex {
 
         orderId = order.next;
 
+      }
+      else {
+	  break; // or revert depending on market order type (see price fill or kill order type of oasis)
       }
     }
   }
