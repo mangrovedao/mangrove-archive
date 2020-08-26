@@ -8,7 +8,7 @@ interface ERC20 {
 
 interface Maker {
   // Maker should check msg.sender is Dex[REQ_TOKEN][OFR_TOKEN] or remember its orders
-  function execute(uint takerWants, uint takerGives) external;
+  function execute(uint takerWants, uint takerGives) payable external ;
 }
 //TODO recheck insert on empty OB
 
@@ -36,6 +36,7 @@ contract Dex {
   address immutable OFR_TOKEN; // ofr_token is the token orders give
 
   bool open = true; // a closed market cannot make/take orders
+  bool modifyOB = true ; // whether a modification of the OB is permitted
   uint lastId = 0; // (32)
   mapping (uint => Order) orders;
   mapping (address => uint) freeWei;
@@ -126,21 +127,22 @@ contract Dex {
   }
 
   function cancelOrder(uint orderId) external {
-    Order memory order = orders[orderId];
-    if (msg.sender == order.maker) {
-      deleteOrder(order, orderId);
-      freeWei[msg.sender] += order.penaltyPerGas * order.gasWanted;
-    }
+      require(modifyOB);
+      Order memory order = orders[orderId];
+      if (msg.sender == order.maker) {
+	  deleteOrder(order, orderId);
+	  freeWei[msg.sender] += order.penaltyPerGas * order.gasWanted;
+      }
   }
 
   function newOrder(uint wants, uint gives, uint gasWanted, uint pivotId) external {
     require(open);
+    require(modifyOB);
     require(uint128(wants) == wants);
     require(uint128(gives) == gives);
     require(uint128(gasWanted) == gasWanted);
     require(uint32(pivotId) == pivotId);
     require(gives >= gasWanted * dustPerGasWanted);
-
 
     (uint32 prev, uint32 next) = findPosition(wants, gives, pivotId);
 
@@ -239,6 +241,7 @@ contract Dex {
   // not work, you'll just be asking for a ~0 price.
   function marketOrderFrom(uint orderId, uint takerWants, uint takerGives) external {
     require(open);
+    require(modifyOB);
     require(uint32(orderId) == orderId);
     require(uint128(takerWants) == takerWants);
     require(uint128(takerGives) == takerGives);
@@ -301,6 +304,7 @@ contract Dex {
 
   function externalExecuteOrder(uint orderId, uint takerGives, uint takerWants) external {
     require(open);
+    require(modifyOB);
     require(uint32(orderId) == orderId);
     require(uint128(takerGives) == takerGives);
     require(uint128(takerWants) == takerWants);
@@ -322,7 +326,7 @@ contract Dex {
 
     uint maxPenalty = order.penaltyPerGas * order.gasWanted;
 
-    try this._executeOrder(order.maker,msg.sender,order.gasWanted,takerGives,takerWants) {
+    try this._executeOrder(order.maker,msg.sender,order.gasWanted,takerGives,takerWants,maxPenalty) {
       freeWei[order.maker] += maxPenalty;
       return true;
     } catch {
@@ -346,10 +350,10 @@ contract Dex {
   }
 
 
-  function _executeOrder(address maker, address taker, uint gasWanted, uint takerGives, uint takerWants) public {
-    transferToken(REQ_TOKEN,taker,maker,takerGives);
-    Maker(maker).execute{gas:gasWanted}(takerWants,takerGives);
-    transferToken(OFR_TOKEN,maker,taker,takerWants);
+  function _executeOrder(address maker, address taker, uint gasWanted, uint takerGives, uint takerWants, uint maxPenalty) public {
+      transferToken(REQ_TOKEN,taker,maker,takerGives); // Flash loan REQ_TOKEN
+      Maker(maker).execute{value: maxPenalty, gas:gasWanted}(takerWants,takerGives); // Flash loan penalty --check if gas costly
+      transferToken(OFR_TOKEN,maker,taker,takerWants);
   }
 
   // Avoid "no return value" bug
