@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 
 interface ERC20 {
-  function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+  function transferFrom(address sender, address recipient, uint amount) external returns (bool);
 }
 
 interface Maker {
@@ -14,24 +14,27 @@ interface Maker {
 
 
 contract Dex {
+  uint constant DUST_PER_GAS_WANTED_BASE = 2**32;
+  uint constant PENALTY_PER_GAS_BASE = 2**16; // (from 6.5e-5 gwei/gas up to 280k gwei/gas)
+  uint constant REQ_BASE = 2**32;
+  uint constant OFR_BASE = 2**32;
 
   struct Order {
     uint32 prev;      // better order
     uint32 next;      // worse order
     uint32 gasWanted; // gas requested
-    uint128 penaltyPerGas; // in wei
-    uint128 wants;     // amount requested
-    uint128 gives;     // amount on order
-    address maker;  // market maker
+    uint32 penaltyPerGas; // in PENALTY_PER_GAS_BASE 
+    uint64 wants;     // amount requested in OFR_BASE OFR_TOKEN
+    uint64 gives;     // amount on order in REQ_BASE REQ_TOKEN
   }
 
   address admin;
   uint best; // (32)
   uint minFinishGas; // (32) min gas available
-  uint dustPerGasWanted; // (128) min amount to offer per gas requested
+  uint dustPerGasWanted; // (32) min amount to offer per gas requested, in DUST_PER_GAS_WANTED_BASE OFR_TOKEN;
   uint minGasWanted; // (32) minimal amount of gas you can ask for; also used for market order's dust estimation
   // TODO Do not remove offer when partially filled
-  uint penaltyPerGas; // (128)
+  uint penaltyPerGas; // (32) in PENALTY_PER_GAS_BASE wei;
   address immutable REQ_TOKEN; // req_token is the token orders wants
   address immutable OFR_TOKEN; // ofr_token is the token orders give
 
@@ -39,6 +42,7 @@ contract Dex {
   bool modifyOB = true ; // whether a modification of the OB is permitted
   uint lastId = 0; // (32)
   mapping (uint => Order) orders;
+  mapping (uint => address) makers;
   mapping (address => uint) freeWei;
 
   // TODO low gascost bookkeeping methods
@@ -75,9 +79,10 @@ contract Dex {
     if (isAdmin(msg.sender)) { open = false; }
   }
 
-  function setDustPerGasWanted(uint newValue) internal {
+  function setDustPerGasWanted(uint _newValue) internal {
+    uint newValue = _newValue / DUST_PER_GAS_WANTED_BASE;
     require(newValue > 0);
-    require(uint64(newValue) == newValue);
+    require(uint32(newValue) == newValue);
     dustPerGasWanted = newValue;
   }
 
@@ -86,7 +91,8 @@ contract Dex {
     minFinishGas = newValue;
   }
 
-  function setPenaltyPerGas(uint newValue) internal {
+  function setPenaltyPerGas(uint _newValue) internal {
+    uint newValue = _newValue / PENALTY_PER_GAS_BASE;
     require(uint128(newValue) == newValue);
     penaltyPerGas = newValue;
   }
@@ -127,26 +133,29 @@ contract Dex {
   }
 
   function cancelOrder(uint orderId) external {
-      require(modifyOB);
-      Order memory order = orders[orderId];
-      if (msg.sender == order.maker) {
-	  deleteOrder(order, orderId);
-	  freeWei[msg.sender] += order.penaltyPerGas * order.gasWanted;
-      }
+    require(modifyOB);
+    Order memory order = orders[orderId];
+    if (msg.sender == makers[orderId]) {
+      deleteOrder(order, orderId);
+      freeWei[msg.sender] += order.penaltyPerGas * PENALTY_PER_GAS_BASE * order.gasWanted;
+    }
   }
 
-  function newOrder(uint wants, uint gives, uint gasWanted, uint pivotId) external {
+  function newOrder(uint _wants, uint _gives, uint gasWanted, uint pivotId) external {
     require(open);
     require(modifyOB);
-    require(uint128(wants) == wants);
-    require(uint128(gives) == gives);
-    require(uint128(gasWanted) == gasWanted);
+    require(_gives >= gasWanted * dustPerGasWanted * DUST_PER_GAS_WANTED_BASE);
+    uint wants = _wants / REQ_BASE;
+    uint gives = _gives / OFR_BASE;
+    require(uint64(wants) == wants);
+    require(uint64(gives) == gives);
+    require(uint32(gasWanted) == gasWanted);
     require(uint32(pivotId) == pivotId);
-    require(gives >= gasWanted * dustPerGasWanted);
+
 
     (uint32 prev, uint32 next) = findPosition(wants, gives, pivotId);
 
-    uint maxPenalty = gasWanted * penaltyPerGas;
+    uint maxPenalty = gasWanted * penaltyPerGas * PENALTY_PER_GAS_BASE;
 
     require(freeWei[msg.sender] >= maxPenalty);
     freeWei[msg.sender] -= maxPenalty;
@@ -156,18 +165,20 @@ contract Dex {
     orders[orderId] = Order({
       prev: prev,
       next: next,
-      wants: uint128(wants),
-      gives: uint128(gives),
+      wants: uint64(wants),
+      gives: uint64(gives),
       gasWanted: uint32(gasWanted),
-      penaltyPerGas: uint128(penaltyPerGas),
-      maker: msg.sender
+      penaltyPerGas: uint32(penaltyPerGas)
     });
+
+    makers[orderId] = msg.sender;
 
     if (prev != 0) { 
       orders[prev].next = orderId; 
     } else {
-	best = orderId;
+      best = orderId;
     }
+
     if (next != 0) { 
       orders[next].prev = orderId; 
     }
@@ -189,10 +200,11 @@ contract Dex {
   function findPosition(uint wants, uint gives, uint pivotId) internal view returns (uint32 ,uint32) {
 
     Order memory pivot = orders[pivotId];
+
     if (!isOrder(pivot)) { // in case pivotId is not or no longer a valid order
-	    pivot = orders[best] ;
-	    pivotId = best ;
-	}
+      pivot = orders[best];
+      pivotId = best;
+    }
 
     if (better(pivot.wants, pivot.gives, wants, gives)) { // o is better or as good, we follow next
 
@@ -239,18 +251,19 @@ contract Dex {
 
   // setting takerWants to max_int and takergives to however much you're ready to spend will
   // not work, you'll just be asking for a ~0 price.
-  function marketOrderFrom(uint orderId, uint takerWants, uint takerGives) external {
+  function marketOrderFrom(uint orderId, uint _takerWants, uint _takerGives) external {
     require(open);
-    require(modifyOB);
+    uint takerWants = _takerWants / OFR_BASE;
+    uint takerGives = _takerGives / REQ_BASE;
     require(uint32(orderId) == orderId);
-    require(uint128(takerWants) == takerWants);
-    require(uint128(takerGives) == takerGives);
+    require(uint64(takerWants) == takerWants);
+    require(uint64(takerGives) == takerGives);
 
     uint localTakerWants;
     uint localTakerGives;
     Order memory order;
 
-    uint minTakerWants = dustPerGasWanted * minGasWanted ;
+    uint minTakerWants = dustPerGasWanted * DUST_PER_GAS_WANTED_BASE * minGasWanted ;
     while (takerWants >= minTakerWants && orderId != 0) {
       order = orders[orderId];
 
@@ -264,7 +277,7 @@ contract Dex {
 
         localTakerWants = min(order.gives, takerWants);
         localTakerGives = min(order.wants, makerWouldWant);
-	
+
         bool success = executeOrder(
           order,
           orderId,
@@ -279,9 +292,8 @@ contract Dex {
 
         orderId = order.next;
 
-      }
-      else {
-	  break; // or revert depending on market order type (see price fill or kill order type of oasis)
+      } else {
+        break; // or revert depending on market order type (see price fill or kill order type of oasis)
       }
     }
   }
@@ -289,6 +301,7 @@ contract Dex {
   function deleteOrder(Order memory order, uint orderId) internal {
 
     delete orders[orderId];
+    delete makers[orderId];
 
     if (order.prev != 0) {
       orders[order.prev].next = order.next;
@@ -302,12 +315,14 @@ contract Dex {
   }
 
 
-  function externalExecuteOrder(uint orderId, uint takerGives, uint takerWants) external {
+  function externalExecuteOrder(uint orderId, uint _takerGives, uint _takerWants) external {
     require(open);
     require(modifyOB);
+    uint takerWants = _takerWants / OFR_BASE;
+    uint takerGives = _takerGives / REQ_BASE;
     require(uint32(orderId) == orderId);
-    require(uint128(takerGives) == takerGives);
-    require(uint128(takerWants) == takerWants);
+    require(uint64(takerGives) == takerGives);
+    require(uint64(takerWants) == takerWants);
 
     Order memory order = orders[orderId];
     require(isOrder(order));
@@ -324,10 +339,11 @@ contract Dex {
 
     require(oldGas >= order.gasWanted + minFinishGas);
 
-    uint maxPenalty = order.penaltyPerGas * order.gasWanted;
+    uint maxPenalty = order.penaltyPerGas * PENALTY_PER_GAS_BASE * order.gasWanted;
 
-    try this._executeOrder(order.maker,msg.sender,order.gasWanted,takerGives,takerWants,maxPenalty) {
-      freeWei[order.maker] += maxPenalty;
+    address maker = makers[orderId];
+    try this._executeOrder(maker,msg.sender,order.gasWanted,takerGives,takerWants,maxPenalty) {
+      freeWei[maker] += maxPenalty;
       return true;
     } catch {
 
@@ -340,7 +356,7 @@ contract Dex {
       // maxPenalty fits into 160, and 32+128 = 192 we're fine
       uint nonPenalty = ((order.gasWanted - gasUsed) * maxPenalty) / (2 * order.gasWanted);
 
-      freeWei[order.maker] += nonPenalty;
+      freeWei[maker] += nonPenalty;
       // TODO goutte de sueur: should we not say freeWei[msg.sender] += maxPenalty-nonPenalty ?
       msg.sender.transfer(maxPenalty-nonPenalty);
 
@@ -351,9 +367,9 @@ contract Dex {
 
 
   function _executeOrder(address maker, address taker, uint gasWanted, uint takerGives, uint takerWants, uint maxPenalty) public {
-      transferToken(REQ_TOKEN,taker,maker,takerGives); // Flash loan REQ_TOKEN
-      Maker(maker).execute{value: maxPenalty, gas:gasWanted}(takerWants,takerGives); // Flash loan penalty --check if gas costly
-      transferToken(OFR_TOKEN,maker,taker,takerWants);
+    transferToken(REQ_TOKEN,taker,maker, takerGives * REQ_BASE);
+    Maker(maker).execute{value: maxPenalty, gas:gasWanted}(takerWants * OFR_BASE, takerGives * REQ_BASE); // Flash loan penalty --check if gas costly
+    transferToken(OFR_TOKEN,maker,taker,takerWants * OFR_BASE);
   }
 
   // Avoid "no return value" bug
