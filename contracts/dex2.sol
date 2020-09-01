@@ -425,12 +425,14 @@ contract Dex {
         uint256 takerWants,
         uint256 maxPenalty
     ) public {
+        modifyOB = false; // preventing reentrance
         transferToken(REQ_TOKEN, taker, maker, takerGives * REQ_BASE);
         Maker(maker).execute{value: maxPenalty, gas: gasWanted}(
             takerWants * OFR_BASE,
             takerGives * REQ_BASE
         ); // Flash loan penalty --check if gas costly
         transferToken(OFR_TOKEN, maker, taker, takerWants * OFR_BASE);
+        modifyOB = true; // end of critical zone
     }
 
     // Avoid "no return value" bug
