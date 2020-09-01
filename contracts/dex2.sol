@@ -285,8 +285,7 @@ contract Dex {
     uint256 orderId,
     uint256 _takerWants,
     uint256 _takerGives
-  ) external {
-    require(open);
+  ) internal {
     uint256 takerWants = _takerWants / OFR_BASE;
     uint256 takerGives = _takerGives / REQ_BASE;
     require(uint32(orderId) == orderId);
