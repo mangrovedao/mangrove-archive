@@ -18,8 +18,8 @@ interface Maker {
 contract Dex {
   uint256 constant DUST_PER_GAS_WANTED_BASE = 2**32;
   uint256 constant PENALTY_PER_GAS_BASE = 2**16; // (from 6.5e-5 gwei/gas up to 280k gwei/gas)
-  uint256 constant REQ_BASE = 2**32;
-  uint256 constant OFR_BASE = 2**32;
+  uint256 immutable REQ_BASE; // 2**32 suggested.
+  uint256 immutable OFR_BASE; // 2**32 suggested. So a stored value of n OFR_TOKEN means n*2**32 OFR_TOKEN.
 
   struct Order {
     uint32 prev; // better order
@@ -59,7 +59,9 @@ contract Dex {
     uint256 initialPenaltyPerGas,
     uint256 initialMinGasWanted,
     address reqToken,
-    address ofrToken
+    address ofrToken,
+    uint256 reqBase,
+    uint256 ofrBase
   ) {
     admin = initialAdmin;
     THIS = address(this);
@@ -69,6 +71,8 @@ contract Dex {
     setMinGasWanted(initialMinGasWanted);
     REQ_TOKEN = reqToken;
     OFR_TOKEN = ofrToken;
+    REQ_BASE = reqBase;
+    OFR_BASE = ofrBase;
   }
 
   function isAdmin(address maybeAdmin) internal view returns (bool) {
@@ -402,8 +406,7 @@ contract Dex {
         msg.sender,
         order.gasWanted,
         takerGives,
-        takerWants,
-        maxPenalty
+        takerWant
       )
      {
       freeWei[maker] += maxPenalty;
@@ -431,8 +434,7 @@ contract Dex {
     address taker,
     uint256 gasWanted,
     uint256 takerGives,
-    uint256 takerWants,
-    uint256 maxPenalty
+    uint256 takerWants
   ) external {
     require(msg.sender == THIS);
     modifyOB = false; // preventing reentrance
