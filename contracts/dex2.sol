@@ -41,6 +41,7 @@ contract Dex {
   uint256 penaltyPerGas; // (32) in PENALTY_PER_GAS_BASE wei;
   address immutable REQ_TOKEN; // req_token is the token orders wants
   address immutable OFR_TOKEN; // ofr_token is the token orders give
+  address immutable THIS; // prevent a delegatecall entry into _executeOrder.
 
   bool open = true; // a closed market cannot make/take orders
   bool modifyOB = true; // whether a modification of the OB is permitted
@@ -63,6 +64,7 @@ contract Dex {
     address ofrToken
   ) {
     admin = initialAdmin;
+    THIS = address(this);
     setDustPerGasWanted(initialDustPerGasWanted);
     setMinFinishGas(initialMinFinishGas);
     setPenaltyPerGas(initialPenaltyPerGas);
@@ -433,7 +435,8 @@ contract Dex {
     uint256 takerGives,
     uint256 takerWants,
     uint256 maxPenalty
-  ) public {
+  ) external {
+    require(msg.sender == THIS);
     modifyOB = false; // preventing reentrance
     transferToken(REQ_TOKEN, taker, maker, takerGives * REQ_BASE);
     Maker(maker).execute{value: maxPenalty, gas: gasWanted}(
