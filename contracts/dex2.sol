@@ -187,6 +187,7 @@ contract Dex {
     require(uint64(wants) == wants);
     require(uint64(gives) == gives);
     require(uint32(gasWanted) == gasWanted);
+    require(gasWanted > 0); // division by gasWanted occurs later
     require(uint32(pivotId) == pivotId);
 
     (uint32 prev, uint32 next) = findPosition(wants, gives, pivotId);
@@ -414,7 +415,6 @@ contract Dex {
 
       // penalty = (order.max_penalty/2) * (1 + gasUsed/order.gas)
       // nonpenalty = (1 - gasUsed/order.gas) * (order.max_penalty/2);
-      // TODO check gasWanted > 0
       // subtraction breaks if gasUsed does not fit into 32 bits. Should be impossible.
       // maxPenalty fits into 160, and 32+128 = 192 we're fine
       uint256 nonPenalty = ((order.gasWanted - gasUsed) * maxPenalty) /
