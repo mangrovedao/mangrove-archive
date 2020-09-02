@@ -323,7 +323,7 @@ contract Dex {
       // here we normalize how much the maker would ask for takerWant
       uint256 makerWouldWant = (takerWants * order.wants) / order.gives;
       if (makerWouldWant <= takerGives) {
-        localTakerWants = min(order.gives, takerWants);
+        localTakerWants = min(order.gives, takerWants); // the result of this determines the next line
         localTakerGives = min(order.wants, makerWouldWant);
 
         bool success = executeOrder(
