@@ -15,8 +15,6 @@ interface Maker {
   function execute(uint256 takerWants, uint256 takerGives) external payable;
 }
 
-//TODO recheck insert on empty OB
-
 contract Dex {
   uint256 constant DUST_PER_GAS_WANTED_BASE = 2**32;
   uint256 constant PENALTY_PER_GAS_BASE = 2**16; // (from 6.5e-5 gwei/gas up to 280k gwei/gas)
