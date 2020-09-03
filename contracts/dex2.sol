@@ -29,21 +29,21 @@ contract Dex {
     address maker;
   }
 
-  address admin;
-  uint256 takerFee; // in basis points
-  uint256 best; // (32)
-  uint256 minFinishGas; // (32) min gas available
-  uint256 dustPerGasWanted; // (32) min amount to offer per gas requested, in OFR_TOKEN;
-  uint256 minGasWanted; // (32) minimal amount of gas you can ask for; also used for market order's dust estimation
+  uint256 public takerFee; // in basis points
+  uint256 public best; // (32)
+  uint256 public minFinishGas; // (32) min gas available
+  uint256 public dustPerGasWanted; // (32) min amount to offer per gas requested, in OFR_TOKEN;
+  uint256 public minGasWanted; // (32) minimal amount of gas you can ask for; also used for market order's dust estimation
+  bool public open = true; // a closed market cannot make/take orders
   // TODO Do not remove offer when partially filled
-  uint256 penaltyPerGas; // (32) in wei;
-  address immutable REQ_TOKEN; // req_token is the token orders wants
-  address immutable OFR_TOKEN; // ofr_token is the token orders give
-  address immutable THIS; // prevent a delegatecall entry into _executeOrder.
+  uint256 public penaltyPerGas; // (32) in wei;
+  address public immutable REQ_TOKEN; // req_token is the token orders wants
+  address public immutable OFR_TOKEN; // ofr_token is the token orders give
 
-  bool open = true; // a closed market cannot make/take orders
-  bool modifyOB = true; // whether a modification of the OB is permitted
-  uint256 lastId = 0; // (32)
+  address private admin;
+  address private immutable THIS; // prevent a delegatecall entry into _executeOrder.
+  bool private modifyOB = true; // whether a modification of the OB is permitted
+  uint256 private lastId = 0; // (32)
   mapping(uint256 => Order) orders;
   mapping(uint256 => OrderDetail) orderDetails;
   mapping(address => uint256) freeWei;
