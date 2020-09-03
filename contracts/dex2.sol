@@ -44,6 +44,7 @@ contract Dex {
   address private immutable THIS; // prevent a delegatecall entry into _executeOrder.
   bool private modifyOB = true; // whether a modification of the OB is permitted
   uint256 private lastId = 0; // (32)
+
   mapping(uint256 => Order) orders;
   mapping(uint256 => OrderDetail) orderDetails;
   mapping(address => uint256) freeWei;
@@ -333,6 +334,11 @@ contract Dex {
         break; // or revert depending on market order type (see price fill or kill order type of oasis)
       }
     }
+  }
+
+  // implements a market order with condition the minimal delivered volume
+  function conditionalOrder(uint256 takerWants, uint256 takerGives) external {
+    marketOrderFrom(best, takerWants, takerGives);
   }
 
   function deleteOrder(Order memory order, uint256 orderId) internal {
