@@ -406,7 +406,7 @@ contract Dex {
         msg.sender,
         order.gasWanted,
         takerGives,
-        takerWant
+        takerWants
       )
      {
       freeWei[maker] += maxPenalty;
@@ -439,11 +439,11 @@ contract Dex {
     require(msg.sender == THIS);
     modifyOB = false; // preventing reentrance
     transferToken(REQ_TOKEN, taker, maker, takerGives * REQ_BASE);
-    Maker(maker).execute{value: maxPenalty, gas: gasWanted}(
+    Maker(maker).execute{gas: gasWanted}(
       takerWants * OFR_BASE,
       takerGives * REQ_BASE
-    ); // Flash loan penalty --check if gas costly
-    uint256 _takerWants = takerwants * OFR_BASE;
+    );
+    uint256 _takerWants = takerWants * OFR_BASE;
     transferToken(
       OFR_TOKEN,
       maker,
