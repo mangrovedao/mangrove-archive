@@ -445,12 +445,7 @@ contract Dex {
       takerGives * REQ_BASE
     );
     uint256 _takerWants = takerWants * OFR_BASE;
-    transferToken(
-      OFR_TOKEN,
-      maker,
-      address(this),
-      (_takerWants * takerFee) / 10000
-    );
+    transferToken(OFR_TOKEN, maker, THIS, (_takerWants * takerFee) / 10000);
     transferToken(
       OFR_TOKEN,
       maker,
