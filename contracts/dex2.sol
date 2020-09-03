@@ -31,6 +31,7 @@ contract Dex {
   }
 
   address admin;
+  uint256 takerFee;
   uint256 best; // (32)
   uint256 minFinishGas; // (32) min gas available
   uint256 dustPerGasWanted; // (32) min amount to offer per gas requested, in DUST_PER_GAS_WANTED_BASE OFR_TOKEN;
