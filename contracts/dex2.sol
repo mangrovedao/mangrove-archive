@@ -336,8 +336,10 @@ contract Dex {
     }
   }
 
-  // implements a market order with condition the minimal delivered volume
-  function conditionalOrder(uint256 takerWants, uint256 takerGives) external {
+  // implements a market order with condition on the minimal delivered volume
+  function conditionalMarketOrder(uint256 takerWants, uint256 takerGives)
+    external
+  {
     marketOrderFrom(best, takerWants, takerGives);
   }
 
