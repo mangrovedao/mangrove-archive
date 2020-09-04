@@ -12,7 +12,11 @@ interface ERC20 {
 
 interface Maker {
   // Maker should check msg.sender is Dex[REQ_TOKEN][OFR_TOKEN] or remember its orders
-  function execute(uint256 takerWants, uint256 takerGives) external payable;
+  function execute(
+    uint256 takerWants,
+    uint256 takerGives,
+    uint64 orderPenaltyPerGas
+  ) external;
 }
 
 contract Dex {
@@ -394,11 +398,12 @@ contract Dex {
 
     try
       this._executeOrder(
-        orderDetail.maker,
         msg.sender,
-        orderDetail.gasWanted,
         takerGives,
-        takerWants
+        takerWants,
+        orderDetail.gasWanted,
+        orderDetail.penaltyPerGas,
+        orderDetail.maker
       )
      {
       freeWei[orderDetail.maker] += maxPenalty;
@@ -422,20 +427,25 @@ contract Dex {
   }
 
   function _executeOrder(
-    address maker,
     address taker,
-    uint256 gasWanted,
     uint256 takerGives,
-    uint256 takerWants
+    uint256 takerWants,
+    uint32 orderGasWanted,
+    uint64 orderPenaltyPerGas,
+    address orderMaker
   ) external {
     require(msg.sender == THIS);
     modifyOB = false; // preventing reentrance
-    transferToken(REQ_TOKEN, taker, maker, takerGives);
-    Maker(maker).execute{gas: gasWanted}(takerWants, takerGives);
-    transferToken(OFR_TOKEN, maker, THIS, (takerWants * takerFee) / 10000);
+    transferToken(REQ_TOKEN, taker, orderMaker, takerGives);
+    Maker(orderMaker).execute{gas: orderGasWanted}(
+      takerWants,
+      takerGives,
+      orderPenaltyPerGas
+    );
+    transferToken(OFR_TOKEN, orderMaker, THIS, (takerWants * takerFee) / 10000);
     transferToken(
       OFR_TOKEN,
-      maker,
+      orderMaker,
       taker,
       (takerWants * (10000 - takerFee)) / 10000
     );
