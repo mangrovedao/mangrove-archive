@@ -3,14 +3,12 @@ pragma solidity ^0.7.0;
 
 interface ERC20 {
   function transferFrom(
-    address sender,
-    address recipient,
-    uint256 amount
+    address,
+    address,
+    uint256
   ) external returns (bool);
 
-  function approve(address _spender, uint256 _value)
-    external
-    returns (bool success);
+  function approve(address, uint256) external returns (bool);
 }
 
 interface Dex {
