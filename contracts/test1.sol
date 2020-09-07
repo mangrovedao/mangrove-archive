@@ -30,6 +30,8 @@ contract Maker {
     address ofrToken,
     address dex2
   ) {
+    require(Dex(dex2).REQ_TOKEN() == reqToken);
+    require(Dex(dex2).OFR_TOKEN() == ofrToken);
     REQ_TOKEN = reqToken;
     OFR_TOKEN = ofrToken;
     DEX = dex2;
@@ -41,10 +43,8 @@ contract Maker {
     uint256 takerGives,
     uint64 orderPenaltyPerGas
   ) external {
-    require(
-      (msg.sender == DEX) &&
-        (ERC20(REQ_TOKEN).balanceOf(THIS) < takerWants) &&
-        (ERC20(REQ_TOKEN).approve(DEX, takerWants))
-    );
+    require(msg.sender == DEX);
+    //giving allowance to DEX in order to credit taker
+    require(ERC20(OFR_TOKEN).approve(DEX, takerWants));
   }
 }
