@@ -37,7 +37,12 @@ contract Maker {
     address payable dex2
   ) {
     require(Dex(dex2).REQ_TOKEN() == reqToken);
+    require(Dex(dex2).OFR_TOKEN() == ofrToken);
     execGas = 1000;
+    REQ_TOKEN = reqToken;
+    OFR_TOKEN = ofrToken;
+    DEX = dex2;
+    THIS = address(this);
   }
 
   function setExecGas(uint256 cost) external {
@@ -56,11 +61,6 @@ contract Maker {
       (penaltyPerGas * execGas); //enabling delegatecall
     require(available >= 0, "Insufficient provision to push order.");
     Dex(DEX).newOrder(wants, gives, execGas, position);
-    require(Dex(dex2).OFR_TOKEN() == ofrToken);
-    REQ_TOKEN = reqToken;
-    OFR_TOKEN = ofrToken;
-    DEX = dex2;
-    THIS = address(this);
   }
 
   function execute(
