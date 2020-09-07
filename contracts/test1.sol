@@ -8,11 +8,15 @@ interface ERC20 {
     uint256 amount
   ) external returns (bool);
 
-  function balanceOf(address owner) external view returns (uint256 balance);
-
   function approve(address _spender, uint256 _value)
     external
     returns (bool success);
+}
+
+interface Dex {
+  function REQ_TOKEN() external returns (address);
+
+  function OFR_TOKEN() external returns (address);
 }
 
 contract Maker {
