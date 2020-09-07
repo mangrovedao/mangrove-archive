@@ -152,6 +152,10 @@ contract Dex {
     return order.gives > 0;
   }
 
+  function balanceOf(address maker) external returns (uint256) {
+    return freeWei[maker];
+  }
+
   receive() external payable {
     freeWei[msg.sender] += msg.value;
   }
