@@ -59,7 +59,7 @@ contract Maker {
     uint256 penaltyPerGas = Dex(DEX).penaltyPerGas(); //current price per gas spent in offer fails
     uint256 available = Dex(DEX).balanceOf(address(this)) -
       (penaltyPerGas * execGas); //enabling delegatecall
-    require(available >= 0, "Insufficient provision to push order.");
+    require(available >= 0, "Insufficient funds to push order.");
     Dex(DEX).newOrder(wants, gives, execGas, position);
   }
 
