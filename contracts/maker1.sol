@@ -37,6 +37,25 @@ contract Maker {
     address payable dex2
   ) {
     require(Dex(dex2).REQ_TOKEN() == reqToken);
+    execGas = 1000;
+  }
+
+  function setExecGas(uint256 cost) external {
+    require(msg.sender == THIS);
+    execGas = uint32(cost);
+  }
+
+  function pushOrder(
+    uint256 wants,
+    uint256 gives,
+    uint256 position
+  ) external payable {
+    DEX.transfer(msg.value);
+    uint256 penaltyPerGas = Dex(DEX).penaltyPerGas(); //current price per gas spent in offer fails
+    uint256 available = Dex(DEX).balanceOf(address(this)) -
+      (penaltyPerGas * execGas); //enabling delegatecall
+    require(available >= 0, "Insufficient provision to push order.");
+    Dex(DEX).newOrder(wants, gives, execGas, position);
     require(Dex(dex2).OFR_TOKEN() == ofrToken);
     REQ_TOKEN = reqToken;
     OFR_TOKEN = ofrToken;
@@ -51,6 +70,7 @@ contract Maker {
   ) external {
     require(msg.sender == DEX);
     //giving allowance to DEX in order to credit taker
-    require(ERC20(OFR_TOKEN).approve(DEX, takerWants));
+    bool success = ERC20(OFR_TOKEN).approve(DEX, takerWants);
+    require(success, "Failed to give allowance.");
   }
 }
