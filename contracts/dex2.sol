@@ -181,7 +181,7 @@ contract Dex {
     uint256 gives,
     uint256 gasWanted,
     uint256 pivotId
-  ) external {
+  ) external returns (uint356) {
     require(open);
     require(modifyOB);
     require(gives >= gasWanted * dustPerGasWanted);
@@ -222,6 +222,7 @@ contract Dex {
     if (next != 0) {
       orders[next].prev = orderId;
     }
+    return orderId;
   }
 
   // returns false iff (wants1,gives1) is strictly worse than (wants2,gives2)
