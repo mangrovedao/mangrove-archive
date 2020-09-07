@@ -15,20 +15,20 @@ interface Dex {
     uint256 makerGives,
     uint256 gasWanted,
     uint256 pivotId
-  ) external;
+  ) external returns (uint256);
 
   function balanceOf(address maker) external returns (uint256);
 
-  function best() external returns (uint256);
-
   function penaltyPerGas() external returns (uint256);
+
+  function withdraw(uint256) external;
 }
 
 contract Maker {
   address immutable REQ_TOKEN;
   address immutable OFR_TOKEN;
   address payable immutable DEX; // Address of a (REQ_TOKEN,OFR_TOKEN) DEX
-  address private immutable THIS;
+  address private immutable ADMIN;
   uint32 private execGas;
 
   constructor(
@@ -38,15 +38,17 @@ contract Maker {
   ) {
     require(Dex(dex2).REQ_TOKEN() == reqToken);
     require(Dex(dex2).OFR_TOKEN() == ofrToken);
+    bool success = ERC20(ofrToken).approve(dex2, 2**256 - 1);
+    require(success, "Failed to give allowance.");
     execGas = 1000;
     REQ_TOKEN = reqToken;
     OFR_TOKEN = ofrToken;
     DEX = dex2;
-    THIS = address(this);
+    ADMIN = msg.sender;
   }
 
   function setExecGas(uint256 cost) external {
-    require(msg.sender == THIS);
+    require(msg.sender == ADMIN);
     execGas = uint32(cost);
   }
 
@@ -59,18 +61,17 @@ contract Maker {
     uint256 penaltyPerGas = Dex(DEX).penaltyPerGas(); //current price per gas spent in offer fails
     uint256 available = Dex(DEX).balanceOf(address(this)) -
       (penaltyPerGas * execGas); //enabling delegatecall
-    require(available >= 0, "Insufficient funds to push order.");
+    require(available >= 0, "Insufficient funds to push order."); //better fail early
     Dex(DEX).newOrder(wants, gives, execGas, position);
   }
 
+  receive() external payable {}
+
   function execute(
-    uint256 takerWants,
-    uint256 takerGives,
-    uint64 orderPenaltyPerGas
-  ) external {
+    uint256,
+    uint256,
+    uint256
+  ) external view {
     require(msg.sender == DEX);
-    //giving allowance to DEX in order to credit taker
-    bool success = ERC20(OFR_TOKEN).approve(DEX, takerWants);
-    require(success, "Failed to give allowance.");
   }
 }
