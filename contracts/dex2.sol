@@ -459,7 +459,6 @@ contract Dex {
       takerGives,
       orderPenaltyPerGas
     );
-    transferToken(OFR_TOKEN, orderMaker, THIS, (takerWants * takerFee) / 10000);
     transferToken(
       OFR_TOKEN,
       orderMaker,
