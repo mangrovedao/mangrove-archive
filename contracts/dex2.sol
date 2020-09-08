@@ -188,7 +188,7 @@ contract Dex {
     uint256 gives,
     uint256 gasWanted,
     uint256 pivotId
-  ) external returns (uint356) {
+  ) external returns (uint256) {
     require(open);
     require(modifyOB);
     require(gives >= gasWanted * dustPerGasWanted);
