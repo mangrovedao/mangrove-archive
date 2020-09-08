@@ -25,44 +25,70 @@ interface Dex {
 }
 
 contract Maker {
-  address immutable REQ_TOKEN;
-  address immutable OFR_TOKEN;
-  address payable immutable DEX; // Address of a (REQ_TOKEN,OFR_TOKEN) DEX
+  address immutable A_TOKEN;
+  address immutable B_TOKEN;
+  address payable immutable DEXAB; // Address of a (A,B) DEX
+  address payable immutable DEXBA; // Address of a (B,A) DEX
   address private immutable ADMIN;
-  uint32 private execGas;
+  uint256 private execGas;
 
   constructor(
-    address reqToken,
-    address ofrToken,
-    address payable dex2
+    address tk_A,
+    address tk_B,
+    address payable dexAB,
+    address payable dexBA
   ) {
-    require(Dex(dex2).REQ_TOKEN() == reqToken);
-    require(Dex(dex2).OFR_TOKEN() == ofrToken);
-    bool success = ERC20(ofrToken).approve(dex2, 2**256 - 1);
-    require(success, "Failed to give allowance.");
+    require(
+      (Dex(dexAB).REQ_TOKEN() == tk_A) && (Dex(dexAB).OFR_TOKEN() == tk_B)
+    );
+    require(
+      (Dex(dexBA).REQ_TOKEN() == tk_B) && (Dex(dexBA).OFR_TOKEN() == tk_A)
+    );
+    bool successAB = ERC20(tk_A).approve(dexAB, 2**256 - 1);
+    bool successBA = ERC20(tk_B).approve(dexBA, 2**256 - 1);
+    require(successAB && successBA, "Failed to give allowance.");
+
     execGas = 1000;
-    REQ_TOKEN = reqToken;
-    OFR_TOKEN = ofrToken;
-    DEX = dex2;
+    A_TOKEN = tk_A;
+    B_TOKEN = tk_B;
+    DEXAB = dexAB;
+    DEXBA = dexBA;
     ADMIN = msg.sender;
   }
 
   function setExecGas(uint256 cost) external {
     require(msg.sender == ADMIN);
-    execGas = uint32(cost);
+    execGas = cost;
+  }
+
+  function selectDex(address tk1, address tk2)
+    internal
+    view
+    returns (address payable)
+  {
+    if ((tk1 == A_TOKEN) && (tk2 == B_TOKEN)) {
+      return DEXAB;
+    }
+    if ((tk1 == B_TOKEN) && (tk2 == A_TOKEN)) {
+      return DEXBA;
+    }
+    require(false);
   }
 
   function pushOrder(
+    address tk1,
+    address tk2,
     uint256 wants,
     uint256 gives,
     uint256 position
   ) external payable {
-    DEX.transfer(msg.value);
-    uint256 penaltyPerGas = Dex(DEX).penaltyPerGas(); //current price per gas spent in offer fails
-    uint256 available = Dex(DEX).balanceOf(address(this)) -
+    address payable dex = selectDex(tk1, tk2);
+    dex.transfer(msg.value);
+    uint256 penaltyPerGas = Dex(dex).penaltyPerGas(); //current price per gas spent in offer fails
+    uint256 available = Dex(dex).balanceOf(address(this)) -
       (penaltyPerGas * execGas); //enabling delegatecall
     require(available >= 0, "Insufficient funds to push order."); //better fail early
-    Dex(DEX).newOrder(wants, gives, execGas, position);
+    Dex(dex).newOrder(wants, gives, execGas, position);
   }
 
   receive() external payable {}
@@ -71,7 +97,5 @@ contract Maker {
     uint256,
     uint256,
     uint256
-  ) external view {
-    require(msg.sender == DEX);
-  }
+  ) external view {}
 }
