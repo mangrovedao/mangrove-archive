@@ -93,9 +93,15 @@ contract Dex {
     }
   }
 
-  function closeMarket() external {
+  function updateTransferGas(uint256 gas) external {
     if (isAdmin(msg.sender)) {
-      open = false;
+      transferGas = gas;
+    }
+  }
+
+  function toggleMarketState() external {
+    if (isAdmin(msg.sender)) {
+      open = !open;
     }
   }
 
