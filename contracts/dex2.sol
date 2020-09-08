@@ -48,6 +48,7 @@ contract Dex {
   address private immutable THIS; // prevent a delegatecall entry into _executeOrder.
   bool private modifyOB = true; // whether a modification of the OB is permitted
   uint256 private lastId = 0; // (32)
+  uint256 private transferGas = 2300; //default amount of gas given for a transfer
 
   mapping(uint256 => Order) orders;
   mapping(uint256 => OrderDetail) orderDetails;
@@ -74,6 +75,12 @@ contract Dex {
     setMinGasWanted(initialMinGasWanted);
     REQ_TOKEN = reqToken;
     OFR_TOKEN = ofrToken;
+  }
+
+  //Emulates the transfer function, but with adjustable gas transfer
+  function dexTransfer(address payable addr, uint256 amount) internal {
+    (bool success, ) = addr.call{gas: transferGas, value: amount}("");
+    require(success);
   }
 
   function isAdmin(address maybeAdmin) internal view returns (bool) {
@@ -163,7 +170,7 @@ contract Dex {
   function withdraw(uint256 amount) external {
     require(freeWei[msg.sender] >= amount);
     freeWei[msg.sender] -= amount;
-    msg.sender.transfer(amount);
+    dexTransfer(msg.sender, amount);
   }
 
   function cancelOrder(uint256 orderId) external {
@@ -425,8 +432,7 @@ contract Dex {
 
       freeWei[orderDetail.maker] += nonPenalty;
       // TODO goutte de sueur: should we not say freeWei[msg.sender] += maxPenalty-nonPenalty ?
-      msg.sender.transfer(maxPenalty - nonPenalty);
-
+      dexTransfer(msg.sender, maxPenalty - nonPenalty);
       return false;
     }
   }
