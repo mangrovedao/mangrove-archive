@@ -99,9 +99,9 @@ contract Dex {
     }
   }
 
-  function toggleMarketState() external {
+  function closeMarket() external {
     if (isAdmin(msg.sender)) {
-      open = !open;
+      open = false;
     }
   }
 
