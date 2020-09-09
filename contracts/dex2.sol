@@ -83,6 +83,46 @@ contract Dex {
     require(success);
   }
 
+  // Splits a uint32 n into 4 bytes in array b, starting from position start.
+  function push32ToBytes(
+    uint32 n,
+    bytes memory b,
+    uint256 start
+  ) internal pure {
+    for (uint256 i = 0; i < 4; i++) {
+      b[start + i] = bytes1(uint8(n / (2**(8 * (3 - i)))));
+    }
+  }
+
+  function push32PairToBytes(
+    uint32 n,
+    uint32 m,
+    bytes memory b,
+    uint256 start
+  ) internal pure {
+    push32ToBytes(n, b, 8 * start);
+    push32ToBytes(m, b, 8 * start + 4);
+  }
+
+  function pull32FromBytes(bytes memory b, uint256 start)
+    internal
+    pure
+    returns (uint32 n)
+  {
+    for (uint256 i = 0; i < 4; i++) {
+      n = n + uint32(uint8(b[start + i]) * (2**(8 * (3 - i))));
+    }
+  }
+
+  function pull32PairFromBytes(bytes memory b, uint256 start)
+    internal
+    pure
+    returns (uint32 n, uint32 m)
+  {
+    n = pull32FromBytes(b, 8 * start);
+    m = pull32FromBytes(b, 8 * start + 4);
+  }
+
   function isAdmin(address maybeAdmin) internal view returns (bool) {
     return maybeAdmin == admin;
   }
@@ -165,7 +205,7 @@ contract Dex {
     return order.gives > 0;
   }
 
-  function balanceOf(address maker) external returns (uint256) {
+  function balanceOf(address maker) external view returns (uint256) {
     return freeWei[maker];
   }
 
@@ -315,8 +355,10 @@ contract Dex {
   function marketOrderFrom(
     uint256 orderId,
     uint256 takerWants,
-    uint256 takerGives
-  ) internal {
+    uint256 takerGives,
+    uint256 snipeLength,
+    address payable sender
+  ) public returns (bytes memory) {
     require(uint32(orderId) == orderId);
     require(uint96(takerWants) == takerWants);
     require(uint96(takerGives) == takerGives);
@@ -325,8 +367,10 @@ contract Dex {
     uint256 localTakerGives;
     Order memory order;
 
-    uint256 minTakerWants = dustPerGasWanted * minGasWanted;
-    while (takerWants >= minTakerWants && orderId != 0) {
+    bytes memory failures = new bytes(snipeLength);
+    uint256 failureIndex;
+
+    while (takerWants >= dustPerGasWanted * minGasWanted && orderId != 0) {
       order = orders[orderId];
 
       require(isOrder(order));
@@ -339,21 +383,81 @@ contract Dex {
         localTakerWants = min(order.gives, takerWants); // the result of this determines the next line
         localTakerGives = min(order.wants, makerWouldWant);
 
-        bool success = executeOrder(
+        (bool success, uint256 gasUsed) = executeOrder(
           order,
           orderId,
           localTakerWants,
-          localTakerGives
+          localTakerGives,
+          sender
         );
 
         if (success) {
           takerWants -= localTakerWants;
           takerGives -= localTakerGives;
+        } else if (failureIndex < snipeLength) {
+          push32PairToBytes(
+            uint32(orderId),
+            uint32(gasUsed),
+            failures,
+            failureIndex++
+          );
         }
-
         orderId = order.next;
       } else {
         break; // or revert depending on market order type (see price fill or kill order type of oasis)
+      }
+      return failures;
+    }
+  }
+
+  function _snipingMarketOrderFrom(
+    uint256 orderId,
+    uint256 takerWants,
+    uint256 takerGives,
+    uint256 snipeLength,
+    address payable sender
+  ) external returns (bytes memory) {
+    // must wrap this to avoid bubbling up "fake failures" from other calls.
+    try
+      this.marketOrderFrom(orderId, takerWants, takerGives, snipeLength, sender)
+    returns (bytes memory failures) {
+      revert(string(failures));
+    } catch (bytes memory e) {
+      return e;
+    }
+  }
+
+  function snipingMarketOrderFrom(
+    uint256 fromOrderId,
+    uint256 takerWants,
+    uint256 takerGives,
+    uint256 snipeLength
+  ) external {
+    require(msg.sender == THIS);
+    try
+      this._snipingMarketOrderFrom(
+        fromOrderId,
+        takerWants,
+        takerGives,
+        snipeLength,
+        msg.sender
+      )
+    returns (bytes memory error) {
+      uint256 length = error.length;
+      assembly {
+        revert(error, add(length, 32))
+      }
+    } catch (bytes memory failures) {
+      uint256 failureIndex;
+      while (failureIndex < failures.length) {
+        (uint32 snipedOrderId, uint32 gasUsed) = pull32PairFromBytes(
+          failures,
+          failureIndex++
+        );
+        Order memory order = orders[snipedOrderId];
+        OrderDetail memory orderDetail = orderDetails[snipedOrderId];
+        deleteOrder(order, snipedOrderId);
+        applyPenalty(msg.sender, gasUsed, orderDetail);
       }
     }
   }
@@ -362,7 +466,7 @@ contract Dex {
   function conditionalMarketOrder(uint256 takerWants, uint256 takerGives)
     external
   {
-    marketOrderFrom(best, takerWants, takerGives);
+    marketOrderFrom(best, takerWants, takerGives, 0, msg.sender);
   }
 
   function deleteOrder(Order memory order, uint256 orderId) internal {
@@ -394,15 +498,35 @@ contract Dex {
 
     Order memory order = orders[orderId];
     require(isOrder(order));
-    executeOrder(order, orderId, takerGives, takerWants);
+    executeOrder(order, orderId, takerGives, takerWants, msg.sender);
+  }
+
+  function applyPenalty(
+    address payable sender,
+    uint256 gasUsed,
+    OrderDetail memory orderDetail
+  ) internal {
+    uint256 maxPenalty = orderDetail.penaltyPerGas * orderDetail.gasWanted;
+
+    // penalty = (order.max_penalty/2) * (1 + gasUsed/order.gas)
+    // nonpenalty = (1 - gasUsed/order.gas) * (order.max_penalty/2);
+    // subtraction breaks if gasUsed does not fit into 32 bits. Should be impossible.
+    // maxPenalty fits into 160, and 32+128 = 192 we're fine
+    uint256 nonPenalty = ((orderDetail.gasWanted - gasUsed) * maxPenalty) /
+      (2 * orderDetail.gasWanted);
+
+    freeWei[orderDetail.maker] += nonPenalty;
+    // TODO goutte de sueur: should we not say freeWei[msg.sender] += maxPenalty-nonPenalty ?
+    dexTransfer(sender, maxPenalty - nonPenalty);
   }
 
   function executeOrder(
     Order memory order,
     uint256 orderId,
     uint256 takerGives,
-    uint256 takerWants
-  ) internal returns (bool) {
+    uint256 takerWants,
+    address payable sender
+  ) internal returns (bool, uint256) {
     // Delete order (no partial fill yet)
     OrderDetail memory orderDetail = orderDetails[orderId];
     deleteOrder(order, orderId);
@@ -412,11 +536,9 @@ contract Dex {
 
     require(oldGas >= orderDetail.gasWanted + minFinishGas);
 
-    uint256 maxPenalty = orderDetail.penaltyPerGas * orderDetail.gasWanted;
-
     try
       this._executeOrder(
-        msg.sender,
+        sender,
         takerGives,
         takerWants,
         orderDetail.gasWanted,
@@ -424,22 +546,12 @@ contract Dex {
         orderDetail.maker
       )
      {
-      freeWei[orderDetail.maker] += maxPenalty;
-      return true;
+      applyPenalty(sender, 0, orderDetail);
+      return (true, 0);
     } catch {
       uint256 gasUsed = oldGas - gasleft();
-
-      // penalty = (order.max_penalty/2) * (1 + gasUsed/order.gas)
-      // nonpenalty = (1 - gasUsed/order.gas) * (order.max_penalty/2);
-      // subtraction breaks if gasUsed does not fit into 32 bits. Should be impossible.
-      // maxPenalty fits into 160, and 32+128 = 192 we're fine
-      uint256 nonPenalty = ((orderDetail.gasWanted - gasUsed) * maxPenalty) /
-        (2 * orderDetail.gasWanted);
-
-      freeWei[orderDetail.maker] += nonPenalty;
-      // TODO goutte de sueur: should we not say freeWei[msg.sender] += maxPenalty-nonPenalty ?
-      dexTransfer(msg.sender, maxPenalty - nonPenalty);
-      return false;
+      applyPenalty(sender, gasUsed, orderDetail);
+      return (false, gasUsed);
     }
   }
 
