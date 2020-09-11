@@ -584,6 +584,14 @@ contract Dex2 {
         transferToken(
           OFR_TOKEN,
           orderMaker,
+          THIS,
+          (takerWants * takerFee) / 10000
+        )
+      );
+      require(
+        transferToken(
+          OFR_TOKEN,
+          orderMaker,
           taker,
           (takerWants * (10000 - takerFee)) / 10000
         )
