@@ -423,7 +423,10 @@ contract Dex2 {
     try
       this.marketOrderFrom(takerWants, takerGives, snipeLength, orderId, sender)
     returns (bytes memory failures) {
-      revert(string(failures));
+      uint256 length = failures.length;
+      assembly {
+        revert(failures, add(length, 32))
+      }
     } catch (bytes memory e) {
       return e;
     }
