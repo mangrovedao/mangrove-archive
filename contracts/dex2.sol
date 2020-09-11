@@ -35,7 +35,7 @@ contract Dex {
 
   uint256 public takerFee; // in basis points
   uint256 public best; // (32)
-  uint256 public minFinishGas; // (32) min gas available
+  uint256 private minFinishGas; // (32) min gas available
   uint256 public dustPerGasWanted; // (32) min amount to offer per gas requested, in OFR_TOKEN;
   uint256 public minGasWanted; // (32) minimal amount of gas you can ask for; also used for market order's dust estimation
   bool public open = true; // a closed market cannot make/take orders
