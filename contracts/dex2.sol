@@ -225,6 +225,7 @@ contract Dex {
     if (msg.sender == orderDetail.maker) {
       Order memory order = orders[orderId];
       deleteOrder(order, orderId);
+      // Freeing provisioned penalty for maker
       freeWei[msg.sender] += orderDetail.penaltyPerGas * orderDetail.gasWanted;
     }
   }
@@ -383,7 +384,7 @@ contract Dex {
         localTakerWants = min(order.gives, takerWants); // the result of this determines the next line
         localTakerGives = min(order.wants, makerWouldWant);
 
-        (bool success, uint256 gasUsed) = executeOrder(
+        (bool success, uint256 gasUsedForFailure) = executeOrder(
           order,
           orderId,
           localTakerWants,
@@ -397,7 +398,7 @@ contract Dex {
         } else if (failureIndex < snipeLength) {
           push32PairToBytes(
             uint32(orderId),
-            uint32(gasUsed),
+            uint32(gasUsedForFailure),
             failures,
             failureIndex++
           );
