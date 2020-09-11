@@ -19,7 +19,7 @@ interface Maker {
   ) external;
 }
 
-contract Dex {
+contract Dex2 {
   struct Order {
     uint32 prev; // better order
     uint32 next; // worse order
