@@ -419,6 +419,7 @@ contract Dex2 {
     uint256 snipeLength,
     address payable sender
   ) external returns (bytes memory) {
+    require(msg.sender == THIS);
     // must wrap this to avoid bubbling up "fake failures" from other calls.
     try
       this.marketOrderFrom(takerWants, takerGives, snipeLength, orderId, sender)
@@ -438,7 +439,6 @@ contract Dex2 {
     uint256 takerGives,
     uint256 snipeLength
   ) external {
-    require(msg.sender == THIS);
     try
       this._snipingMarketOrderFrom(
         fromOrderId,
