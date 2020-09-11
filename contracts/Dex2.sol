@@ -354,10 +354,10 @@ contract Dex2 {
   // setting takerWants to max_int and takergives to however much you're ready to spend will
   // not work, you'll just be asking for a ~0 price.
   function marketOrderFrom(
-    uint256 orderId,
     uint256 takerWants,
     uint256 takerGives,
     uint256 snipeLength,
+    uint256 orderId,
     address payable sender
   ) public returns (bytes memory) {
     require(uint32(orderId) == orderId);
@@ -371,7 +371,8 @@ contract Dex2 {
     bytes memory failures = new bytes(snipeLength);
     uint256 failureIndex;
 
-    while (takerWants >= dustPerGasWanted * minGasWanted && orderId != 0) {
+    uint256 minTakerWants = dustPerGasWanted * minGasWanted;
+    while (takerWants >= minTakerWants && orderId != 0) {
       order = orders[orderId];
 
       require(isOrder(order));
@@ -379,34 +380,34 @@ contract Dex2 {
       // is the taker ready to take less per unit than the maker is ready to give per unit?
       // takerWants/takerGives <= order.ofrAmount / order.reqAmount
       // here we normalize how much the maker would ask for takerWant
-      uint256 makerWouldWant = (takerWants * order.wants) / order.gives;
-      if (makerWouldWant <= takerGives) {
-        localTakerWants = min(order.gives, takerWants); // the result of this determines the next line
-        localTakerGives = min(order.wants, makerWouldWant);
+        uint256 makerWouldWant = (takerWants * order.wants) / order.gives;
+        if (makerWouldWant <= takerGives) {
+          localTakerWants = min(order.gives, takerWants); // the result of this determines the next line
+          localTakerGives = min(order.wants, makerWouldWant);
 
-        (bool success, uint256 gasUsedForFailure) = executeOrder(
-          order,
-          orderId,
-          localTakerWants,
-          localTakerGives,
-          sender
-        );
-
-        if (success) {
-          takerWants -= localTakerWants;
-          takerGives -= localTakerGives;
-        } else if (failureIndex < snipeLength) {
-          push32PairToBytes(
-            uint32(orderId),
-            uint32(gasUsedForFailure),
-            failures,
-            failureIndex++
+          (bool success, uint256 gasUsedForFailure) = executeOrder(
+            order,
+            orderId,
+            localTakerWants,
+            localTakerGives,
+            sender
           );
+
+          if (success) {
+            takerWants -= localTakerWants;
+            takerGives -= localTakerGives;
+          } else if (failureIndex < snipeLength) {
+            push32PairToBytes(
+              uint32(orderId),
+              uint32(gasUsedForFailure),
+              failures,
+              failureIndex++
+            );
+          }
+          orderId = order.next;
+        } else {
+          break; // or revert depending on market order type (see price fill or kill order type of oasis)
         }
-        orderId = order.next;
-      } else {
-        break; // or revert depending on market order type (see price fill or kill order type of oasis)
-      }
       return failures;
     }
   }
@@ -420,7 +421,7 @@ contract Dex2 {
   ) external returns (bytes memory) {
     // must wrap this to avoid bubbling up "fake failures" from other calls.
     try
-      this.marketOrderFrom(orderId, takerWants, takerGives, snipeLength, sender)
+      this.marketOrderFrom(takerWants, takerGives, snipeLength, orderId, sender)
     returns (bytes memory failures) {
       revert(string(failures));
     } catch (bytes memory e) {
@@ -467,7 +468,7 @@ contract Dex2 {
   function conditionalMarketOrder(uint256 takerWants, uint256 takerGives)
     external
   {
-    marketOrderFrom(best, takerWants, takerGives, 0, msg.sender);
+    marketOrderFrom(takerWants, takerGives, 0, best, msg.sender);
   }
 
   function deleteOrder(Order memory order, uint256 orderId) internal {
