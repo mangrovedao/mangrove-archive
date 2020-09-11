@@ -368,7 +368,7 @@ contract Dex2 {
     uint256 localTakerGives;
     Order memory order;
 
-    bytes memory failures = new bytes(snipeLength);
+    bytes memory failures = new bytes(8 * snipeLength);
     uint256 failureIndex;
 
     uint256 minTakerWants = dustPerGasWanted * minGasWanted;
