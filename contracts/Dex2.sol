@@ -380,34 +380,34 @@ contract Dex2 {
       // is the taker ready to take less per unit than the maker is ready to give per unit?
       // takerWants/takerGives <= order.ofrAmount / order.reqAmount
       // here we normalize how much the maker would ask for takerWant
-        uint256 makerWouldWant = (takerWants * order.wants) / order.gives;
-        if (makerWouldWant <= takerGives) {
-          localTakerWants = min(order.gives, takerWants); // the result of this determines the next line
-          localTakerGives = min(order.wants, makerWouldWant);
+      uint256 makerWouldWant = (takerWants * order.wants) / order.gives;
+      if (makerWouldWant <= takerGives) {
+        localTakerWants = min(order.gives, takerWants); // the result of this determines the next line
+        localTakerGives = min(order.wants, makerWouldWant);
 
-          (bool success, uint256 gasUsedForFailure) = executeOrder(
-            order,
-            orderId,
-            localTakerWants,
-            localTakerGives,
-            sender
+        (bool success, uint256 gasUsedForFailure) = executeOrder(
+          order,
+          orderId,
+          localTakerWants,
+          localTakerGives,
+          sender
+        );
+
+        if (success) {
+          takerWants -= localTakerWants;
+          takerGives -= localTakerGives;
+        } else if (failureIndex < snipeLength) {
+          push32PairToBytes(
+            uint32(orderId),
+            uint32(gasUsedForFailure),
+            failures,
+            failureIndex++
           );
-
-          if (success) {
-            takerWants -= localTakerWants;
-            takerGives -= localTakerGives;
-          } else if (failureIndex < snipeLength) {
-            push32PairToBytes(
-              uint32(orderId),
-              uint32(gasUsedForFailure),
-              failures,
-              failureIndex++
-            );
-          }
-          orderId = order.next;
-        } else {
-          break; // or revert depending on market order type (see price fill or kill order type of oasis)
         }
+        orderId = order.next;
+      } else {
+        break; // or revert depending on market order type (see price fill or kill order type of oasis)
+      }
       return failures;
     }
   }
@@ -550,7 +550,8 @@ contract Dex2 {
         orderDetail.penaltyPerGas,
         orderDetail.maker
       )
-     {
+    returns (bool flashSuccess) {
+      require(flashSuccess);
       applyPenalty(sender, 0, orderDetail);
       return (true, 0);
     } catch {
@@ -567,22 +568,30 @@ contract Dex2 {
     uint32 orderGasWanted,
     uint64 orderPenaltyPerGas,
     address orderMaker
-  ) external {
+  ) external returns (bool) {
     require(msg.sender == THIS);
-    modifyOB = false; // preventing reentrance
-    transferToken(REQ_TOKEN, taker, orderMaker, takerGives);
-    Maker(orderMaker).execute{gas: orderGasWanted}(
-      takerWants,
-      takerGives,
-      orderPenaltyPerGas
-    );
-    transferToken(
-      OFR_TOKEN,
-      orderMaker,
-      taker,
-      (takerWants * (10000 - takerFee)) / 10000
-    );
-    modifyOB = true; // end of critical zone
+
+    if (transferToken(REQ_TOKEN, taker, orderMaker, takerGives)) {
+      modifyOB = false; // preventing reentrance
+      Maker(orderMaker).execute{gas: orderGasWanted}(
+        takerWants,
+        takerGives,
+        orderPenaltyPerGas
+      );
+      modifyOB = true; // preventing reentrance
+
+      require(
+        transferToken(
+          OFR_TOKEN,
+          orderMaker,
+          taker,
+          (takerWants * (10000 - takerFee)) / 10000
+        )
+      );
+      return true;
+    } else {
+      return false;
+    }
   }
 
   // Avoid "no return value" bug
@@ -600,9 +609,6 @@ contract Dex2 {
       value
     );
     (bool success, bytes memory data) = token.call(cd);
-    require(
-      success && (data.length == 0 || abi.decode(data, (bool))),
-      "Failed to transfer token"
-    );
+    return (success && (data.length == 0 || abi.decode(data, (bool))));
   }
 }
