@@ -609,7 +609,7 @@ contract Dex2 {
     address from,
     address to,
     uint256 value
-  ) internal {
+  ) internal returns (bool) {
     bytes memory cd = abi.encodeWithSelector(
       ERC20(token).transferFrom.selector,
       from,
