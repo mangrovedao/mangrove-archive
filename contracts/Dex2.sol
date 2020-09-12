@@ -541,6 +541,10 @@ contract Dex2 {
 
     require(oldGas >= orderDetail.gasWanted + minFinishGas);
 
+    uint256 dexFee = (takerFee +
+      (takerFee * dustPerGasWanted * orderDetail.gasWanted) /
+      order.gives) / 2;
+
     try
       this._executeOrder(
         sender,
@@ -548,12 +552,14 @@ contract Dex2 {
         takerWants,
         orderDetail.gasWanted,
         orderDetail.penaltyPerGas,
-        orderDetail.maker
+        orderDetail.maker,
+        dexFee
       )
     returns (bool flashSuccess) {
+      uint256 gasUsed = oldGas - gasleft();
       require(flashSuccess);
       applyPenalty(sender, 0, orderDetail);
-      return (true, 0);
+      return (true, gasUsed);
     } catch {
       uint256 gasUsed = oldGas - gasleft();
       applyPenalty(sender, gasUsed, orderDetail);
@@ -567,7 +573,8 @@ contract Dex2 {
     uint256 takerWants,
     uint32 orderGasWanted,
     uint64 orderPenaltyPerGas,
-    address orderMaker
+    address orderMaker,
+    uint256 dexFee
   ) external returns (bool) {
     require(msg.sender == THIS);
 
@@ -585,7 +592,7 @@ contract Dex2 {
           OFR_TOKEN,
           orderMaker,
           THIS,
-          (takerWants * takerFee) / 10000
+          (takerWants * dexFee) / 10000
         )
       );
       require(
