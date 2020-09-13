@@ -520,7 +520,7 @@ contract Dex2 {
     // subtraction breaks if gasUsed does not fit into 32 bits. Should be impossible.
     // maxPenalty fits into 160, and 32+128 = 192 we're fine
     uint256 nonPenalty = ((orderDetail.gasWanted - gasUsed) * maxLocalPenalty) /
-      (2 * orderDetail.gasWanted);
+      orderDetail.gasWanted;
 
     freeWei[orderDetail.maker] += nonPenalty;
     dexTransfer(
