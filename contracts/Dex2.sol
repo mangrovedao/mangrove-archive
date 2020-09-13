@@ -28,19 +28,20 @@ contract Dex2 {
   }
 
   struct OrderDetail {
-    uint32 gasWanted; // gas requested
-    uint64 penaltyPerGas;
+    uint24 gasWanted; // gas requested
+    uint24 minFinishGas; // global minFinishGas at order creation time
+    uint48 penaltyPerGas; // global penaltyPerGas at order creation time
     address maker;
   }
 
   uint256 public takerFee; // in basis points
   uint256 public best; // (32)
-  uint256 private minFinishGas; // (32) min gas available
+  uint256 private minFinishGas; // (24) min gas available
   uint256 public dustPerGasWanted; // (32) min amount to offer per gas requested, in OFR_TOKEN;
   uint256 public minGasWanted; // (32) minimal amount of gas you can ask for; also used for market order's dust estimation
   bool public open = true; // a closed market cannot make/take orders
   // TODO Do not remove offer when partially filled
-  uint256 public penaltyPerGas; // (32) in wei;
+  uint256 public penaltyPerGas; // (48) in wei;
   address public immutable REQ_TOKEN; // req_token is the token orders wants
   address public immutable OFR_TOKEN; // ofr_token is the token orders give
 
@@ -157,12 +158,12 @@ contract Dex2 {
   }
 
   function setMinFinishGas(uint256 newValue) internal {
-    require(uint32(newValue) == newValue);
+    require(uint24(newValue) == newValue);
     minFinishGas = newValue;
   }
 
   function setPenaltyPerGas(uint256 newValue) internal {
-    require(uint64(newValue) == newValue);
+    require(uint48(newValue) == newValue);
     penaltyPerGas = newValue;
   }
 
@@ -241,13 +242,13 @@ contract Dex2 {
     require(gives >= gasWanted * dustPerGasWanted);
     require(uint96(wants) == wants);
     require(uint96(gives) == gives);
-    require(uint32(gasWanted) == gasWanted);
+    require(uint24(gasWanted) == gasWanted);
     require(gasWanted > 0); // division by gasWanted occurs later
     require(uint32(pivotId) == pivotId);
 
     (uint32 prev, uint32 next) = findPosition(wants, gives, pivotId);
 
-    uint256 maxPenalty = gasWanted * penaltyPerGas;
+    uint256 maxPenalty = (gasWanted + minFinishGas) * penaltyPerGas;
 
     require(freeWei[msg.sender] >= maxPenalty);
     freeWei[msg.sender] -= maxPenalty;
@@ -262,8 +263,9 @@ contract Dex2 {
     });
 
     orderDetails[orderId] = OrderDetail({
-      gasWanted: uint32(gasWanted),
-      penaltyPerGas: uint64(penaltyPerGas),
+      gasWanted: uint24(gasWanted),
+      minFinishGas: uint24(minFinishGas),
+      penaltyPerGas: uint48(penaltyPerGas),
       maker: msg.sender
     });
 
@@ -511,18 +513,23 @@ contract Dex2 {
     uint256 gasUsed,
     OrderDetail memory orderDetail
   ) internal {
-    uint256 maxPenalty = orderDetail.penaltyPerGas * orderDetail.gasWanted;
+    uint256 maxLocalPenalty = orderDetail.penaltyPerGas * orderDetail.gasWanted;
 
     // penalty = (order.max_penalty/2) * (1 + gasUsed/order.gas)
     // nonpenalty = (1 - gasUsed/order.gas) * (order.max_penalty/2);
     // subtraction breaks if gasUsed does not fit into 32 bits. Should be impossible.
     // maxPenalty fits into 160, and 32+128 = 192 we're fine
-    uint256 nonPenalty = ((orderDetail.gasWanted - gasUsed) * maxPenalty) /
+    uint256 nonPenalty = ((orderDetail.gasWanted - gasUsed) * maxLocalPenalty) /
       (2 * orderDetail.gasWanted);
 
     freeWei[orderDetail.maker] += nonPenalty;
-    // TODO goutte de sueur: should we not say freeWei[msg.sender] += maxPenalty-nonPenalty ?
-    dexTransfer(sender, maxPenalty - nonPenalty);
+    dexTransfer(
+      sender,
+      orderDetail.minFinishGas *
+        orderDetail.penaltyPerGas +
+        maxLocalPenalty -
+        nonPenalty
+    );
   }
 
   function executeOrder(
