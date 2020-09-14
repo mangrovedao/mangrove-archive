@@ -248,10 +248,11 @@ contract Dex2 {
 
     (uint32 prev, uint32 next) = findPosition(wants, gives, pivotId);
 
-    uint256 maxPenalty = (gasWanted + minFinishGas) * penaltyPerGas;
-
-    require(freeWei[msg.sender] >= maxPenalty);
-    freeWei[msg.sender] -= maxPenalty;
+    {
+      uint256 maxPenalty = (gasWanted + minFinishGas) * penaltyPerGas;
+      require(freeWei[msg.sender] >= maxPenalty);
+      freeWei[msg.sender] -= maxPenalty;
+    }
 
     uint32 orderId = uint32(++lastId);
 
