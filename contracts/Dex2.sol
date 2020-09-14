@@ -390,11 +390,14 @@ contract Dex2 {
       // is the taker ready to take less per unit than the maker is ready to give per unit?
       // takerWants/takerGives <= order.ofrAmount / order.reqAmount
       // here we normalize how much the maker would ask for takerWant
+
       uint256 makerWouldWant = (takerWants * order.wants) / order.gives;
       if (makerWouldWant <= takerGives) {
+        // price is OK for taker
         localTakerWants = min(order.gives, takerWants); // the result of this determines the next line
         localTakerGives = min(order.wants, makerWouldWant);
 
+        //if success, gasUsedForFailure == 0
         (bool success, uint256 gasUsedForFailure) = executeOrder(
           order,
           orderId,
@@ -404,9 +407,11 @@ contract Dex2 {
         );
 
         if (success) {
+          //proceeding with market order
           takerWants -= localTakerWants;
           takerGives -= localTakerGives;
         } else if (failureIndex < snipeLength) {
+          // storing orderId and gas used for cancellation
           push32PairToBytes(
             uint32(orderId),
             uint32(gasUsedForFailure),
@@ -416,8 +421,12 @@ contract Dex2 {
         }
         orderId = order.next;
       } else {
+        // price is not OK for taker
         break; // or revert depending on market order type (see price fill or kill order type of oasis)
       }
+
+      // Function throws list of failures if market order was successful
+      // returns the error message otherwise
       return failures;
     }
   }
@@ -438,10 +447,12 @@ contract Dex2 {
       // Failing orders have been collected in [failures]
       evmRevert(failures);
     } catch (bytes memory e) {
-      return e;
+      return e; // Market order failed to complete.
     }
   }
 
+  // run and revert a market order so as to collect orderId's that are failing
+  // snipeLength is the number of failing orders one is trying to catch
   function snipingMarketOrderFrom(
     uint256 fromOrderId,
     uint256 takerWants,
