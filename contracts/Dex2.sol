@@ -347,6 +347,13 @@ contract Dex2 {
     return a < b ? a : b;
   }
 
+  function evmRevert(bytes memory data) internal pure {
+    uint256 length = data.length;
+    assembly {
+      revert(data, add(length, 32))
+    }
+  }
+
   // ask for a volume by setting takerWants to however much you want and
   // takerGive to max_uint. Any price will be accepted.
 
@@ -427,10 +434,9 @@ contract Dex2 {
     try
       this.marketOrderFrom(takerWants, takerGives, snipeLength, orderId, sender)
     returns (bytes memory failures) {
-      uint256 length = failures.length;
-      assembly {
-        revert(failures, add(length, 32))
-      }
+      // MarketOrder finished w/o reverting
+      // Failing orders have been collected in [failures]
+      evmRevert(failures);
     } catch (bytes memory e) {
       return e;
     }
@@ -451,10 +457,7 @@ contract Dex2 {
         msg.sender
       )
     returns (bytes memory error) {
-      uint256 length = error.length;
-      assembly {
-        revert(error, add(length, 32))
-      }
+      evmRevert(error);
     } catch (bytes memory failures) {
       uint256 failureIndex;
       while (failureIndex < failures.length) {
