@@ -103,14 +103,29 @@ contract Maker {
     uint256 gives,
     uint256 position
   ) external payable {
-    address payable dex = selectDex(tk1, tk2);
-    dex.transfer(msg.value);
-    uint256 penaltyPerGas = Dex(dex).penaltyPerGas(); //current price per gas spent in offer fails
-    uint256 available = Dex(dex).balanceOf(address(this)) -
-      (penaltyPerGas * execGas); //enabling delegatecall
-    require(available >= 0, "Insufficient funds to push order."); //better fail early
-    uint256 orderId = Dex(dex).newOrder(wants, gives, execGas, position);
-    orderStatus[orderId] = dex;
+    if (msg.sender == admin) {
+      address payable dex = selectDex(tk1, tk2);
+      dex.transfer(msg.value);
+      uint256 penaltyPerGas = Dex(dex).penaltyPerGas(); //current price per gas spent in offer fails
+      uint256 available = Dex(dex).balanceOf(address(this)) -
+        (penaltyPerGas * execGas); //enabling delegatecall
+      require(available >= 0, "Insufficient funds to push order."); //better fail early
+      uint256 orderId = Dex(dex).newOrder(wants, gives, execGas, position);
+      orderStatus[orderId] = dex;
+    }
+  }
+
+  function pullOrder(
+    address tk1,
+    address tk2,
+    uint256 orderId
+  ) external {
+    if (msg.sender == admin) {
+      address dex = selectDex(tk1, tk2);
+      require(orderStatus[orderId] == dex);
+      uint256 releasedWei = Dex(dex).cancelOrder(orderId); // Dex will release provision of orderId
+      Dex(dex).withdraw(releasedWei);
+    }
   }
 
   receive() external payable {}
@@ -147,6 +162,6 @@ contract Maker {
     uint256,
     uint256
   ) external {
-    acceptOrder(orderId, msg.sender);
+    validate(orderId, msg.sender);
   }
 }
