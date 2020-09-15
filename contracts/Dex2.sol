@@ -221,15 +221,18 @@ contract Dex2 {
     dexTransfer(msg.sender, amount);
   }
 
-  function cancelOrder(uint256 orderId) external {
+  function cancelOrder(uint256 orderId) external returns (uint256) {
     require(modifyOB);
     OrderDetail memory orderDetail = orderDetails[orderId];
     if (msg.sender == orderDetail.maker) {
       Order memory order = orders[orderId];
       deleteOrder(order, orderId);
       // Freeing provisioned penalty for maker
-      freeWei[msg.sender] += orderDetail.penaltyPerGas * orderDetail.gasWanted;
+      uint256 provision = orderDetail.penaltyPerGas * orderDetail.gasWanted;
+      freeWei[msg.sender] += provision;
+      return provision;
     }
+    return 0;
   }
 
   function newOrder(
