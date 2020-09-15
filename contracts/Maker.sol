@@ -27,7 +27,9 @@ interface Dex {
 
   function penaltyPerGas() external returns (uint256);
 
-  function withdraw(uint256) external;
+  function withdraw(uint256 amount) external;
+
+  function cancelOrder(uint256 orderId) external returns (uint256 releasedWei);
 }
 
 contract Maker {
