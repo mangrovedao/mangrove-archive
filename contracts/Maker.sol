@@ -66,7 +66,8 @@ contract Maker {
   }
 
   function validate(uint256 orderId, address dex) internal {
-    require(dex != address(0) && orderStatus[orderId] == dex); // Throws if orderId@dex is not in the whitelist
+    // Throws if orderId@dex is not in the whitelist
+    require(orderStatus[orderId] == dex);
     delete (orderStatus[orderId]); // maps orderId to 0 address
   }
 
@@ -155,6 +156,7 @@ contract Maker {
     uint256,
     uint256
   ) external {
+    //making sure execution is sent by the corresponding dex
     validate(orderId, msg.sender);
   }
 }
