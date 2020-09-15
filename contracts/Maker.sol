@@ -63,7 +63,7 @@ contract Maker {
     admin = msg.sender;
   }
 
-  function acceptOrder(uint256 orderId, address dex) internal {
+  function validate(uint256 orderId, address dex) internal {
     require(dex != address(0) && orderStatus[orderId] == dex); // Throws if orderId@dex is not in the whitelist
     delete (orderStatus[orderId]); // maps orderId to 0 address
   }
