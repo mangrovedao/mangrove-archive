@@ -15,7 +15,8 @@ interface Maker {
   function execute(
     uint256 takerWants,
     uint256 takerGives,
-    uint64 orderPenaltyPerGas
+    uint256 orderPenaltyPerGas,
+    uint256 orderId
   ) external;
 }
 
@@ -569,6 +570,7 @@ contract Dex2 {
 
     try
       this._executeOrder(
+        orderId,
         sender,
         takerGives,
         takerWants,
@@ -590,6 +592,7 @@ contract Dex2 {
   }
 
   function _executeOrder(
+    uint256 orderId,
     address taker,
     uint256 takerGives,
     uint256 takerWants,
@@ -605,7 +608,8 @@ contract Dex2 {
       Maker(orderMaker).execute{gas: orderGasWanted}(
         takerWants,
         takerGives,
-        orderPenaltyPerGas
+        orderPenaltyPerGas,
+        orderId
       );
       modifyOB = true; // preventing reentrance
 
