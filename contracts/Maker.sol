@@ -130,7 +130,7 @@ contract Maker {
 
   receive() external payable {}
 
-  function transferWEI(uint256 amount, address payable receiver) external {
+  function transferWei(uint256 amount, address payable receiver) external {
     if (msg.sender == admin) {
       receiver.transfer(amount);
     }
