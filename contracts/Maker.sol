@@ -139,19 +139,11 @@ contract Maker {
 
   function transferToken(
     address token,
-    address from,
     address to,
     uint256 value
   ) external returns (bool) {
     if (msg.sender == admin) {
-      bytes memory cd = abi.encodeWithSelector(
-        ERC20(token).transferFrom.selector,
-        from,
-        to,
-        value
-      );
-      (bool success, bytes memory data) = token.call(cd);
-      return (success && (data.length == 0 || abi.decode(data, (bool))));
+      return ERC20(token).transferFrom(address(this), to, value);
     } else {
       return false;
     }
