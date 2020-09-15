@@ -37,7 +37,7 @@ contract Maker {
   address payable immutable DEXBA; // Address of a (B,A) DEX
   address private admin;
   uint256 private execGas;
-  mapping(uint256 => bool) orderStatus;
+  mapping(uint256 => address) orderStatus;
 
   constructor(
     address tk_A,
@@ -63,9 +63,9 @@ contract Maker {
     admin = msg.sender;
   }
 
-  function acceptOrder(uint256 orderId) internal {
-    require(orderStatus[orderId]); // Throws if orderId is not in the whitelist
-    delete (orderStatus[orderId]); // sets status of orderId to false
+  function acceptOrder(uint256 orderId, address dex) internal {
+    require(dex != address(0) && orderStatus[orderId] == dex); // Throws if orderId@dex is not in the whitelist
+    delete (orderStatus[orderId]); // maps orderId to 0 address
   }
 
   function setExecGas(uint256 cost) external {
@@ -108,7 +108,7 @@ contract Maker {
       (penaltyPerGas * execGas); //enabling delegatecall
     require(available >= 0, "Insufficient funds to push order."); //better fail early
     uint256 orderId = Dex(dex).newOrder(wants, gives, execGas, position);
-    orderStatus[orderId] = true;
+    orderStatus[orderId] = dex;
   }
 
   receive() external payable {}
@@ -145,6 +145,6 @@ contract Maker {
     uint256,
     uint256
   ) external {
-    acceptOrder(orderId);
+    acceptOrder(orderId, msg.sender);
   }
 }
