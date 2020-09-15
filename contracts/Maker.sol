@@ -3,6 +3,12 @@ pragma solidity ^0.7.0;
 
 interface ERC20 {
   function approve(address dexAddr, uint256 amount) external returns (bool);
+
+  function transferFrom(
+    address sender,
+    address recipient,
+    uint256 amount
+  ) external returns (bool);
 }
 
 interface Dex {
@@ -29,8 +35,9 @@ contract Maker {
   address immutable B_TOKEN;
   address payable immutable DEXAB; // Address of a (A,B) DEX
   address payable immutable DEXBA; // Address of a (B,A) DEX
-  address private immutable ADMIN;
+  address private admin;
   uint256 private execGas;
+  mapping(uint256 => bool) orderStatus;
 
   constructor(
     address tk_A,
@@ -53,12 +60,24 @@ contract Maker {
     B_TOKEN = tk_B;
     DEXAB = dexAB;
     DEXBA = dexBA;
-    ADMIN = msg.sender;
+    admin = msg.sender;
+  }
+
+  function acceptOrder(uint256 orderId) internal {
+    require(orderStatus[orderId]); // Throws if orderId is not in the whitelist
+    delete (orderStatus[orderId]); // sets status of orderId to false
   }
 
   function setExecGas(uint256 cost) external {
-    require(msg.sender == ADMIN);
-    execGas = cost;
+    if (msg.sender == admin) {
+      execGas = cost;
+    }
+  }
+
+  function setAdmin(address newAdmin) external {
+    if (msg.sender == admin) {
+      admin = newAdmin;
+    }
   }
 
   function selectDex(address tk1, address tk2)
@@ -88,14 +107,44 @@ contract Maker {
     uint256 available = Dex(dex).balanceOf(address(this)) -
       (penaltyPerGas * execGas); //enabling delegatecall
     require(available >= 0, "Insufficient funds to push order."); //better fail early
-    Dex(dex).newOrder(wants, gives, execGas, position);
+    uint256 orderId = Dex(dex).newOrder(wants, gives, execGas, position);
+    orderStatus[orderId] = true;
   }
 
   receive() external payable {}
 
+  function transferWEI(uint256 amount, address payable receiver) external {
+    if (msg.sender == admin) {
+      receiver.transfer(amount);
+    }
+  }
+
+  function transferToken(
+    address token,
+    address from,
+    address to,
+    uint256 value
+  ) external returns (bool) {
+    if (msg.sender == admin) {
+      bytes memory cd = abi.encodeWithSelector(
+        ERC20(token).transferFrom.selector,
+        from,
+        to,
+        value
+      );
+      (bool success, bytes memory data) = token.call(cd);
+      return (success && (data.length == 0 || abi.decode(data, (bool))));
+    } else {
+      return false;
+    }
+  }
+
   function execute(
+    uint256 orderId,
     uint256,
     uint256,
     uint256
-  ) external view {}
+  ) external {
+    acceptOrder(orderId);
+  }
 }
