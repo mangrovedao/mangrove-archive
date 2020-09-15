@@ -128,6 +128,7 @@ contract Maker {
     }
   }
 
+  //need to be able to receive WEIs for collecting freed provisions
   receive() external payable {}
 
   function transferWei(uint256 amount, address payable receiver) external {
