@@ -48,7 +48,7 @@ contract Dex2 {
 
   address private admin;
   address private immutable THIS; // prevent a delegatecall entry into _executeOrder.
-  bool private modifyOB = true; // whether a modification of the OB is permitted
+  bool public modifyOB = true; // whether a modification of the OB is permitted
   uint256 private lastId = 0; // (32)
   uint256 private transferGas = 2300; //default amount of gas given for a transfer
 
