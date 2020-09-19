@@ -380,15 +380,14 @@ contract Dex2 {
 
     uint256 localTakerWants;
     uint256 localTakerGives;
-    Order memory order;
+    Order memory order = orders[orderId];
+    uint256 pastOrderId = order.prev;
 
     bytes memory failures = new bytes(8 * snipeLength);
     uint256 failureIndex;
 
     uint256 minTakerWants = dustPerGasWanted * minGasWanted;
     while (takerWants >= minTakerWants && orderId != 0) {
-      order = orders[orderId];
-
       require(isOrder(order));
 
       // is the taker ready to take less per unit than the maker is ready to give per unit?
@@ -409,6 +408,7 @@ contract Dex2 {
           localTakerGives,
           sender
         );
+        _deleteOrder(orderId);
 
         if (success) {
           //proceeding with market order
@@ -424,11 +424,15 @@ contract Dex2 {
           );
         }
         orderId = order.next;
+        order = orders[orderId];
       } else {
         // price is not OK for taker
         break; // or revert depending on market order type (see price fill or kill order type of oasis)
       }
     }
+
+    stitchOrders(initialOrderId, orderId);
+
     // Function throws list of failures if market order was successful
     // returns the error message otherwise
     return failures;
@@ -494,19 +498,26 @@ contract Dex2 {
     marketOrderFrom(takerWants, takerGives, 0, best, msg.sender);
   }
 
-  function deleteOrder(Order memory order, uint256 orderId) internal {
+  function stitchOrders(uint256 past, uint256 future) internal {
+    if (past != 0) {
+      orders[past].next = future;
+    } else {
+      best = future;
+    }
+
+    if (future != 0) {
+      orders[future].prev = past;
+    }
+  }
+
+  function _deleteOrder(uint256 orderId) internal {
     delete orders[orderId];
     delete orderDetails[orderId];
+  }
 
-    if (order.prev != 0) {
-      orders[order.prev].next = order.next;
-    } else {
-      best = order.next;
-    }
-
-    if (order.next != 0) {
-      orders[order.next].prev = order.prev;
-    }
+  function deleteOrder(Order memory order, uint256 orderId) internal {
+    _deleteOrder(orderId);
+    stitchOrders(order.prev, order.next);
   }
 
   function externalExecuteOrder(
@@ -524,6 +535,7 @@ contract Dex2 {
     Order memory order = orders[orderId];
     require(isOrder(order));
     executeOrder(order, orderId, takerGives, takerWants, msg.sender);
+    deleteOrder(order, orderId);
   }
 
   function applyPenalty(
@@ -559,7 +571,6 @@ contract Dex2 {
   ) internal returns (bool, uint256) {
     // Delete order (no partial fill yet)
     OrderDetail memory orderDetail = orderDetails[orderId];
-    deleteOrder(order, orderId);
 
     // Execute order
     uint256 oldGas = gasleft();
