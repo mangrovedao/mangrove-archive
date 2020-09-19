@@ -428,11 +428,10 @@ contract Dex2 {
         // price is not OK for taker
         break; // or revert depending on market order type (see price fill or kill order type of oasis)
       }
-
-      // Function throws list of failures if market order was successful
-      // returns the error message otherwise
-      return failures;
     }
+    // Function throws list of failures if market order was successful
+    // returns the error message otherwise
+    return failures;
   }
 
   function _snipingMarketOrderFrom(
