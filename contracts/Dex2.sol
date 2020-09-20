@@ -48,7 +48,7 @@ contract Dex2 {
 
   address private admin;
   address private immutable THIS; // prevent a delegatecall entry into _executeOrder.
-  bool private modifyOB = true; // whether a modification of the OB is permitted
+  bool public modifyOB = true; // whether a modification of the OB is permitted
   uint256 private lastId = 0; // (32)
   uint256 private transferGas = 2300; //default amount of gas given for a transfer
 
@@ -387,6 +387,7 @@ contract Dex2 {
     uint256 failureIndex;
 
     uint256 minTakerWants = dustPerGasWanted * minGasWanted;
+    modifyOB = false;
     while (takerWants >= minTakerWants && orderId != 0) {
       require(isOrder(order));
 
@@ -430,9 +431,8 @@ contract Dex2 {
         break; // or revert depending on market order type (see price fill or kill order type of oasis)
       }
     }
-
+    modifyOB = true;
     stitchOrders(initialOrderId, orderId);
-
     // Function throws list of failures if market order was successful
     // returns the error message otherwise
     return failures;
@@ -534,7 +534,9 @@ contract Dex2 {
 
     Order memory order = orders[orderId];
     require(isOrder(order));
+    modifyOB = false;
     executeOrder(order, orderId, takerGives, takerWants, msg.sender);
+    modifyOB = true;
     deleteOrder(order, orderId);
   }
 
@@ -617,14 +619,12 @@ contract Dex2 {
     require(msg.sender == THIS);
 
     if (transferToken(REQ_TOKEN, taker, orderMaker, takerGives)) {
-      modifyOB = false; // preventing reentrance
       Maker(orderMaker).execute{gas: orderGasWanted}(
         takerWants,
         takerGives,
         orderPenaltyPerGas,
         orderId
       );
-      modifyOB = true; // preventing reentrance
 
       require(
         transferToken(
