@@ -36,7 +36,7 @@ contract Dex2 {
   }
 
   uint256 public takerFee; // in basis points
-  uint256 public best; // (32)
+  uint256 private best; // (32)
   uint256 private minFinishGas; // (24) min gas available
   uint256 public dustPerGasWanted; // (32) min amount to offer per gas requested, in OFR_TOKEN;
   uint256 public minGasWanted; // (32) minimal amount of gas you can ask for; also used for market order's dust estimation
@@ -48,12 +48,12 @@ contract Dex2 {
 
   address private admin;
   address private immutable THIS; // prevent a delegatecall entry into _executeOrder.
-  bool private modifyOB = true; // whether a modification of the OB is permitted
+  bool public modifyOB = true; // whether a modification of the OB is permitted
   uint256 private lastId = 0; // (32)
   uint256 private transferGas = 2300; //default amount of gas given for a transfer
 
-  mapping(uint256 => Order) orders;
-  mapping(uint256 => OrderDetail) orderDetails;
+  mapping(uint256 => Order) private orders;
+  mapping(uint256 => OrderDetail) private orderDetails;
   mapping(address => uint256) freeWei;
 
   // TODO low gascost bookkeeping methods
@@ -94,6 +94,11 @@ contract Dex2 {
     for (uint256 i = 0; i < 4; i++) {
       b[start + i] = bytes1(uint8(n / (2**(8 * (3 - i)))));
     }
+  }
+
+  function getBest() external view returns (uint256) {
+    require(modifyOB);
+    return best;
   }
 
   function push32PairToBytes(
@@ -380,15 +385,15 @@ contract Dex2 {
 
     uint256 localTakerWants;
     uint256 localTakerGives;
-    Order memory order;
+    Order memory order = orders[orderId];
+    uint256 pastOrderId = order.prev;
 
     bytes memory failures = new bytes(8 * snipeLength);
     uint256 failureIndex;
 
-    uint256 minTakerWants = dustPerGasWanted * minGasWanted;
-    while (takerWants >= minTakerWants && orderId != 0) {
-      order = orders[orderId];
-
+    modifyOB = false;
+    // inlining (minTakerWants = dustPerGasWanted*minGasWanted) to avoid stack too deep
+    while (takerWants >= dustPerGasWanted * minGasWanted && orderId != 0) {
       require(isOrder(order));
 
       // is the taker ready to take less per unit than the maker is ready to give per unit?
@@ -409,6 +414,7 @@ contract Dex2 {
           localTakerGives,
           sender
         );
+        _deleteOrder(orderId);
 
         if (success) {
           //proceeding with market order
@@ -424,15 +430,17 @@ contract Dex2 {
           );
         }
         orderId = order.next;
+        order = orders[orderId];
       } else {
         // price is not OK for taker
         break; // or revert depending on market order type (see price fill or kill order type of oasis)
       }
-
-      // Function throws list of failures if market order was successful
-      // returns the error message otherwise
-      return failures;
     }
+    modifyOB = true;
+    stitchOrders(pastOrderId, orderId);
+    // Function throws list of failures if market order was successful
+    // returns the error message otherwise
+    return failures;
   }
 
   function _snipingMarketOrderFrom(
@@ -495,19 +503,26 @@ contract Dex2 {
     marketOrderFrom(takerWants, takerGives, 0, best, msg.sender);
   }
 
-  function deleteOrder(Order memory order, uint256 orderId) internal {
+  function stitchOrders(uint256 past, uint256 future) internal {
+    if (past != 0) {
+      orders[past].next = uint32(future);
+    } else {
+      best = future;
+    }
+
+    if (future != 0) {
+      orders[future].prev = uint32(past);
+    }
+  }
+
+  function _deleteOrder(uint256 orderId) internal {
     delete orders[orderId];
     delete orderDetails[orderId];
+  }
 
-    if (order.prev != 0) {
-      orders[order.prev].next = order.next;
-    } else {
-      best = order.next;
-    }
-
-    if (order.next != 0) {
-      orders[order.next].prev = order.prev;
-    }
+  function deleteOrder(Order memory order, uint256 orderId) internal {
+    _deleteOrder(orderId);
+    stitchOrders(order.prev, order.next);
   }
 
   function externalExecuteOrder(
@@ -524,7 +539,10 @@ contract Dex2 {
 
     Order memory order = orders[orderId];
     require(isOrder(order));
+    modifyOB = false;
     executeOrder(order, orderId, takerGives, takerWants, msg.sender);
+    modifyOB = true;
+    deleteOrder(order, orderId);
   }
 
   function applyPenalty(
@@ -560,7 +578,6 @@ contract Dex2 {
   ) internal returns (bool, uint256) {
     // Delete order (no partial fill yet)
     OrderDetail memory orderDetail = orderDetails[orderId];
-    deleteOrder(order, orderId);
 
     // Execute order
     uint256 oldGas = gasleft();
@@ -607,14 +624,12 @@ contract Dex2 {
     require(msg.sender == THIS);
 
     if (transferToken(REQ_TOKEN, taker, orderMaker, takerGives)) {
-      modifyOB = false; // preventing reentrance
       Maker(orderMaker).execute{gas: orderGasWanted}(
         takerWants,
         takerGives,
         orderPenaltyPerGas,
         orderId
       );
-      modifyOB = true; // preventing reentrance
 
       require(
         transferToken(
