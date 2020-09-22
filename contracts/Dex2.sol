@@ -13,9 +13,6 @@ interface ERC20 {
 interface Maker {
   // Maker should check msg.sender is Dex[REQ_TOKEN][OFR_TOKEN] or remember its orders
   function execute(
-    uint256 takerWants,
-    uint256 takerGives,
-    uint256 orderPenaltyPerGas,
     uint256 orderId
   ) external;
 }
@@ -596,7 +593,6 @@ contract Dex2 {
     uint256 takerWants,
     address payable sender
   ) internal returns (bool, uint256) {
-    // Delete order (no partial fill yet)
     OrderDetail memory orderDetail = orderDetails[orderId];
 
     // Execute order
@@ -615,7 +611,6 @@ contract Dex2 {
         takerGives,
         takerWants,
         orderDetail.gasWanted,
-        orderDetail.penaltyPerGas,
         orderDetail.maker,
         dexFee
       )
@@ -637,19 +632,14 @@ contract Dex2 {
     uint256 takerGives,
     uint256 takerWants,
     uint32 orderGasWanted,
-    uint64 orderPenaltyPerGas,
+//    uint64 orderPenaltyPerGas,
     address orderMaker,
     uint256 dexFee
   ) external returns (bool) {
     require(msg.sender == THIS);
 
     if (transferToken(REQ_TOKEN, taker, orderMaker, takerGives)) {
-      Maker(orderMaker).execute{gas: orderGasWanted}(
-        takerWants,
-        takerGives,
-        orderPenaltyPerGas,
-        orderId
-      );
+      Maker(orderMaker).execute{gas: orderGasWanted}(orderId);
 
       require(
         transferToken(
