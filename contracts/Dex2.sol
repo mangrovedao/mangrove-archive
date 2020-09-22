@@ -505,13 +505,13 @@ contract Dex2 {
 
   function stitchOrders(uint256 past, uint256 future) internal {
     if (past != 0) {
-      orders[past].next = future;
+      orders[past].next = uint32(future);
     } else {
       best = future;
     }
 
     if (future != 0) {
-      orders[future].prev = past;
+      orders[future].prev = uint32(past);
     }
   }
 
