@@ -36,7 +36,7 @@ contract Dex2 {
   }
 
   uint256 public takerFee; // in basis points
-  uint256 public best; // (32)
+  uint256 private best; // (32)
   uint256 private minFinishGas; // (24) min gas available
   uint256 public dustPerGasWanted; // (32) min amount to offer per gas requested, in OFR_TOKEN;
   uint256 public minGasWanted; // (32) minimal amount of gas you can ask for; also used for market order's dust estimation
@@ -52,8 +52,8 @@ contract Dex2 {
   uint256 private lastId = 0; // (32)
   uint256 private transferGas = 2300; //default amount of gas given for a transfer
 
-  mapping(uint256 => Order) orders;
-  mapping(uint256 => OrderDetail) orderDetails;
+  mapping(uint256 => Order) private orders;
+  mapping(uint256 => OrderDetail) private orderDetails;
   mapping(address => uint256) freeWei;
 
   // TODO low gascost bookkeeping methods
@@ -94,6 +94,11 @@ contract Dex2 {
     for (uint256 i = 0; i < 4; i++) {
       b[start + i] = bytes1(uint8(n / (2**(8 * (3 - i)))));
     }
+  }
+
+  function getBest() external {
+    require(modifyOB);
+    return best;
   }
 
   function push32PairToBytes(
