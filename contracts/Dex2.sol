@@ -101,6 +101,25 @@ contract Dex2 {
     return best;
   }
 
+  function getOrderInfo(uint256 orderId) external view
+  returns (uint96,uint96,uint24,uint24,uint48,address){
+    require(accessOB); // to prevent frontrunning attacks
+    Order memory order = orders[orderId];
+    if (isOrder(order)){
+      OrderDetail memory orderDetail = orderDetails[orderId];
+      return (
+        order.wants,
+        order.gives,
+        orderDetail.gasWanted,
+        orderDetail.minFinishGas, // global minFinishGas at order creation time
+        orderDetail.penaltyPerGas, // global penaltyPerGas at order creation time
+        orderDetail.maker) ;
+      }
+    else {
+      return (0,0,0,0,0,address(0));
+    }
+  }
+
   function push32PairToBytes(
     uint32 n,
     uint32 m,
