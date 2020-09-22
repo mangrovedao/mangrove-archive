@@ -391,9 +391,9 @@ contract Dex2 {
     bytes memory failures = new bytes(8 * snipeLength);
     uint256 failureIndex;
 
-    uint256 minTakerWants = dustPerGasWanted * minGasWanted;
     modifyOB = false;
-    while (takerWants >= minTakerWants && orderId != 0) {
+    // inlining (minTakerWants = dustPerGasWanted*minGasWanted) to avoid stack too deep
+    while (takerWants >= dustPerGasWanted * minGasWanted && orderId != 0) {
       require(isOrder(order));
 
       // is the taker ready to take less per unit than the maker is ready to give per unit?
