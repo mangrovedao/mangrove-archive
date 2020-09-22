@@ -150,12 +150,7 @@ contract Maker {
     }
   }
 
-  function execute(
-    uint256 takerWants,
-    uint256 takerGives,
-    uint256 orderPenaltyPerGas,
-    uint256 orderId
-  ) external {
+  function execute(uint256 orderId) external {
     //making sure execution is sent by the corresponding dex
     validate(orderId, msg.sender);
   }
