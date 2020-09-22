@@ -426,6 +426,7 @@ contract Dex2 {
         localTakerGives = min(order.wants, makerWouldWant);
 
         //if success, gasUsedForFailure == 0
+        //Warning: orderId is deleted *after* execution
         (bool success, uint256 gasUsedForFailure) = executeOrder(
           order,
           orderId,
