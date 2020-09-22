@@ -437,7 +437,7 @@ contract Dex2 {
       }
     }
     modifyOB = true;
-    stitchOrders(initialOrderId, orderId);
+    stitchOrders(pastOrderId, orderId);
     // Function throws list of failures if market order was successful
     // returns the error message otherwise
     return failures;
