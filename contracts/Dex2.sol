@@ -48,7 +48,7 @@ contract Dex2 {
 
   address private admin;
   address private immutable THIS; // prevent a delegatecall entry into _executeOrder.
-  bool public modifyOB = true; // whether a modification of the OB is permitted
+  bool public accessOB = true; // whether a modification of the OB is permitted
   uint256 private lastId = 0; // (32)
   uint256 private transferGas = 2300; //default amount of gas given for a transfer
 
@@ -97,7 +97,7 @@ contract Dex2 {
   }
 
   function getBest() external view returns (uint256) {
-    require(modifyOB);
+    require(accessOB);
     return best;
   }
 
@@ -227,7 +227,7 @@ contract Dex2 {
   }
 
   function cancelOrder(uint256 orderId) external returns (uint256) {
-    require(modifyOB);
+    require(accessOB);
     OrderDetail memory orderDetail = orderDetails[orderId];
     if (msg.sender == orderDetail.maker) {
       Order memory order = orders[orderId];
@@ -247,7 +247,7 @@ contract Dex2 {
     uint256 pivotId
   ) external returns (uint256) {
     require(open);
-    require(modifyOB);
+    require(accessOB);
     require(gives >= gasWanted * dustPerGasWanted);
     require(uint96(wants) == wants);
     require(uint96(gives) == gives);
@@ -391,7 +391,7 @@ contract Dex2 {
     bytes memory failures = new bytes(8 * snipeLength);
     uint256 failureIndex;
 
-    modifyOB = false;
+    accessOB = false;
     // inlining (minTakerWants = dustPerGasWanted*minGasWanted) to avoid stack too deep
     while (takerWants >= dustPerGasWanted * minGasWanted && orderId != 0) {
       require(isOrder(order));
@@ -436,7 +436,7 @@ contract Dex2 {
         break; // or revert depending on market order type (see price fill or kill order type of oasis)
       }
     }
-    modifyOB = true;
+    accessOB = true;
     stitchOrders(pastOrderId, orderId);
     // Function throws list of failures if market order was successful
     // returns the error message otherwise
@@ -532,16 +532,16 @@ contract Dex2 {
     uint256 takerWants
   ) external {
     require(open);
-    require(modifyOB);
+    require(accessOB);
     require(uint32(orderId) == orderId);
     require(uint96(takerGives) == takerGives);
     require(uint96(takerWants) == takerWants);
 
     Order memory order = orders[orderId];
     require(isOrder(order));
-    modifyOB = false;
+    accessOB = false;
     executeOrder(order, orderId, takerGives, takerWants, msg.sender);
-    modifyOB = true;
+    accessOB = true;
     deleteOrder(order, orderId);
   }
 
