@@ -96,7 +96,7 @@ contract Dex2 {
     }
   }
 
-  function getBest() external {
+  function getBest() external view returns (uint256) {
     require(modifyOB);
     return best;
   }
