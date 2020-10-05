@@ -12,7 +12,7 @@ npm install
 npx buidler test-solidity
 ```
 
-#### What you an do
+#### What you can do
 
 - Use Buidler's `console.log` in contracts for debugging; those logs survive transaction revert. More in [Buidler's documentation](https://buidler.dev/buidler-evm/#console-log). Example:
 
