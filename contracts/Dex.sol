@@ -1,23 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 
 pragma solidity ^0.7.0;
+pragma experimental ABIEncoderV2;
 
-interface ERC20 {
-  function transferFrom(
-    address sender,
-    address recipient,
-    uint256 amount
-  ) external returns (bool);
-}
+import "./interfaces.sol";
+import "@nomiclabs/buidler/console.sol";
 
-interface Maker {
-  // Maker should check msg.sender is Dex[REQ_TOKEN][OFR_TOKEN] or remember its orders
-  function execute(
-    uint256 orderId
-  ) external;
-}
-
-contract Dex2 {
+contract Dex {
   struct Order {
     uint32 prev; // better order
     uint32 next; // worse order
@@ -34,14 +23,14 @@ contract Dex2 {
 
   uint256 public takerFee; // in basis points
   uint256 private best; // (32)
-  uint256 private minFinishGas; // (24) min gas available
+  uint256 public minFinishGas; // (24) min gas available
   uint256 public dustPerGasWanted; // (32) min amount to offer per gas requested, in OFR_TOKEN;
   uint256 public minGasWanted; // (32) minimal amount of gas you can ask for; also used for market order's dust estimation
   bool public open = true; // a closed market cannot make/take orders
   // TODO Do not remove offer when partially filled
   uint256 public penaltyPerGas; // (48) in wei;
-  address public immutable REQ_TOKEN; // req_token is the token orders wants
-  address public immutable OFR_TOKEN; // ofr_token is the token orders give
+  IERC20 public immutable OFR_TOKEN; // ofr_token is the token orders give
+  IERC20 public immutable REQ_TOKEN; // req_token is the token orders wants
 
   address private admin;
   address private immutable THIS; // prevent a delegatecall entry into _executeOrder.
@@ -63,8 +52,8 @@ contract Dex2 {
     uint256 initialMinFinishGas,
     uint256 initialPenaltyPerGas,
     uint256 initialMinGasWanted,
-    address reqToken,
-    address ofrToken
+    IERC20 ofrToken,
+    IERC20 reqToken
   ) {
     admin = initialAdmin;
     THIS = address(this);
@@ -72,14 +61,14 @@ contract Dex2 {
     setMinFinishGas(initialMinFinishGas);
     setPenaltyPerGas(initialPenaltyPerGas);
     setMinGasWanted(initialMinGasWanted);
-    REQ_TOKEN = reqToken;
     OFR_TOKEN = ofrToken;
+    REQ_TOKEN = reqToken;
   }
 
   //Emulates the transfer function, but with adjustable gas transfer
   function dexTransfer(address payable addr, uint256 amount) internal {
     (bool success, ) = addr.call{gas: transferGas, value: amount}("");
-    require(success);
+    require(success, "dexTransfer failed");
   }
 
   // Splits a uint32 n into 4 bytes in array b, starting from position start.
@@ -94,7 +83,7 @@ contract Dex2 {
   }
 
   function getBest() external view returns (uint256) {
-    require(accessOB);
+    require(accessOB, "OB not accessible");
     return best;
   }
 
@@ -150,7 +139,7 @@ contract Dex2 {
     return maybeAdmin == admin;
   }
 
-  function updateOwner(address newValue) external {
+  function updateAdmin(address newValue) external {
     if (isAdmin(msg.sender)) {
       admin = newValue;
     }
@@ -169,28 +158,28 @@ contract Dex2 {
   }
 
   function setDustPerGasWanted(uint256 newValue) internal {
-    require(newValue > 0);
+    require(newValue > 0, "dustPerGasWanted must be > 0");
     require(uint32(newValue) == newValue);
     dustPerGasWanted = newValue;
   }
 
   function setTakerFee(uint256 newValue) internal {
-    require(newValue <= 10000); // at most 14 bits
+    require(newValue <= 10000, "takerFee is in bps, must be <= 10000"); // at most 14 bits
     takerFee = newValue;
   }
 
   function setMinFinishGas(uint256 newValue) internal {
-    require(uint24(newValue) == newValue);
+    require(uint24(newValue) == newValue, "minFinishGas is 24 bits wide");
     minFinishGas = newValue;
   }
 
   function setPenaltyPerGas(uint256 newValue) internal {
-    require(uint48(newValue) == newValue);
+    require(uint48(newValue) == newValue, "penaltyPerGas is 48 bits wide");
     penaltyPerGas = newValue;
   }
 
   function setMinGasWanted(uint256 newValue) internal {
-    require(uint32(newValue) == newValue);
+    require(uint32(newValue) == newValue, "minGasWanted is 32 bits wide");
     minGasWanted = newValue;
   }
 
@@ -237,13 +226,16 @@ contract Dex2 {
   }
 
   function withdraw(uint256 amount) external {
-    require(freeWei[msg.sender] >= amount);
+    require(
+      freeWei[msg.sender] >= amount,
+      "cannot withdraw more than available in freeWei"
+    );
     freeWei[msg.sender] -= amount;
     dexTransfer(msg.sender, amount);
   }
 
   function cancelOrder(uint256 orderId) external returns (uint256) {
-    require(accessOB);
+    require(accessOB, "OB not accessible");
     OrderDetail memory orderDetail = orderDetails[orderId];
     if (msg.sender == orderDetail.maker) {
       Order memory order = orders[orderId];
@@ -262,22 +254,20 @@ contract Dex2 {
     uint256 gasWanted,
     uint256 pivotId
   ) external returns (uint256) {
-    require(open);
-    require(accessOB);
-    require(gives >= gasWanted * dustPerGasWanted);
-    require(uint96(wants) == wants);
-    require(uint96(gives) == gives);
-    require(uint24(gasWanted) == gasWanted);
-    require(gasWanted > 0); // division by gasWanted occurs later
-    require(uint32(pivotId) == pivotId);
+    require(open, "no new order on closed market");
+    require(accessOB, "OB not modifiable");
+    require(gives >= gasWanted * dustPerGasWanted, "offering below dust limit");
+    require(uint96(wants) == wants, "wants is 96 bits wide");
+    require(uint96(gives) == gives, "gives is 96 bits wide");
+    require(uint24(gasWanted) == gasWanted, "gasWanted is 24 bits wide");
+    require(gasWanted > 0, "gasWanted > 0"); // division by gasWanted occurs later
+    require(uint32(pivotId) == pivotId, "pivotId is 32 bits wide");
 
     (uint32 prev, uint32 next) = findPosition(wants, gives, pivotId);
 
-    {
-      uint256 maxPenalty = (gasWanted + minFinishGas) * penaltyPerGas;
-      require(freeWei[msg.sender] >= maxPenalty);
-      freeWei[msg.sender] -= maxPenalty;
-    }
+    uint256 maxPenalty = (gasWanted + minFinishGas) * penaltyPerGas;
+    //require(freeWei[msg.sender] >= maxPenalty, "insufficient penalty provision to create order");
+    freeWei[msg.sender] -= maxPenalty;
 
     uint32 orderId = uint32(++lastId);
 
@@ -395,13 +385,14 @@ contract Dex2 {
     uint256 orderId,
     address payable sender
   ) public returns (bytes memory) {
-    require(uint32(orderId) == orderId);
-    require(uint96(takerWants) == takerWants);
-    require(uint96(takerGives) == takerGives);
+    require(uint32(orderId) == orderId, "orderId is 32 bits wide");
+    require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
+    require(uint96(takerGives) == takerGives, "takerGives is 96 bits wide");
 
     uint256 localTakerWants;
     uint256 localTakerGives;
     Order memory order = orders[orderId];
+    require(isOrder(order), "invalid order");
     uint256 pastOrderId = order.prev;
 
     bytes memory failures = new bytes(8 * snipeLength);
@@ -410,8 +401,6 @@ contract Dex2 {
     accessOB = false;
     // inlining (minTakerWants = dustPerGasWanted*minGasWanted) to avoid stack too deep
     while (takerWants >= dustPerGasWanted * minGasWanted && orderId != 0) {
-      require(isOrder(order));
-
       // is the taker ready to take less per unit than the maker is ready to give per unit?
       // takerWants/takerGives <= order.ofrAmount / order.reqAmount
       // here we normalize how much the maker would ask for takerWant
@@ -467,7 +456,7 @@ contract Dex2 {
     uint256 snipeLength,
     address payable sender
   ) external returns (bytes memory) {
-    require(msg.sender == THIS);
+    require(msg.sender == THIS, "caller must be dex");
     // must wrap this to avoid bubbling up "fake failures" from other calls.
     try
       this.marketOrderFrom(takerWants, takerGives, snipeLength, orderId, sender)
@@ -545,20 +534,30 @@ contract Dex2 {
   function externalExecuteOrder(
     //snipe order
     uint256 orderId,
-    uint256 takerGives,
     uint256 takerWants
   ) external {
-    require(open);
-    require(accessOB);
-    require(uint32(orderId) == orderId);
-    require(uint96(takerGives) == takerGives);
-    require(uint96(takerWants) == takerWants);
+    require(open, "no new order on closed market");
+    require(accessOB, "OB not modifiable");
+    require(uint32(orderId) == orderId, "orderId is 32 bits wide");
+    require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
 
     Order memory order = orders[orderId];
-    require(isOrder(order));
-    accessOB = false;
-    executeOrder(order, orderId, takerGives, takerWants, msg.sender);
-    accessOB = true;
+    require(isOrder(order), "invalid order");
+
+    uint256 localTakerWants = min(order.gives, takerWants);
+    uint256 localTakerGives = (localTakerWants * order.wants) / order.gives;
+
+    modifyOB = false;
+    (bool success, ) = executeOrder(
+      order,
+      orderId,
+      localTakerGives,
+      localTakerWants,
+      msg.sender
+    );
+    require(success, "maker could not complete trade");
+    modifyOB = true;
+
     deleteOrder(order, orderId);
   }
 
@@ -567,23 +566,14 @@ contract Dex2 {
     uint256 gasUsed,
     OrderDetail memory orderDetail
   ) internal {
-    uint256 maxLocalPenalty = orderDetail.penaltyPerGas * orderDetail.gasWanted;
+    uint256 maxPenalty = (orderDetail.gasWanted + orderDetail.minFinishGas) *
+      orderDetail.penaltyPerGas;
 
-    // penalty = (order.max_penalty/2) * (1 + gasUsed/order.gas)
-    // nonpenalty = (1 - gasUsed/order.gas) * (order.max_penalty/2);
-    // subtraction breaks if gasUsed does not fit into 32 bits. Should be impossible.
-    // maxPenalty fits into 160, and 32+128 = 192 we're fine
-    uint256 nonPenalty = ((orderDetail.gasWanted - gasUsed) * maxLocalPenalty) /
-      orderDetail.gasWanted;
+    //is gasUsed covering enough operation?
+    uint256 penalty = min(gasUsed * orderDetail.penaltyPerGas, maxPenalty);
 
-    freeWei[orderDetail.maker] += nonPenalty;
-    dexTransfer(
-      sender,
-      orderDetail.minFinishGas *
-        orderDetail.penaltyPerGas +
-        maxLocalPenalty -
-        nonPenalty
-    );
+    freeWei[orderDetail.maker] += maxPenalty - penalty;
+    dexTransfer(sender, penalty);
   }
 
   function executeOrder(
@@ -598,7 +588,10 @@ contract Dex2 {
     // Execute order
     uint256 oldGas = gasleft();
 
-    require(oldGas >= orderDetail.gasWanted + minFinishGas);
+    require(
+      oldGas >= orderDetail.gasWanted + minFinishGas,
+      "not enough gas left to safely execute order"
+    );
 
     uint256 dexFee = (takerFee +
       (takerFee * dustPerGasWanted * orderDetail.gasWanted) /
@@ -616,10 +609,12 @@ contract Dex2 {
       )
     returns (bool flashSuccess) {
       uint256 gasUsed = oldGas - gasleft();
-      require(flashSuccess);
+      require(flashSuccess, "taker failed to send tokens to maker");
       applyPenalty(sender, 0, orderDetail);
       return (true, gasUsed);
-    } catch {
+    } catch (
+      bytes memory /*reason*/
+    ) {
       uint256 gasUsed = oldGas - gasleft();
       applyPenalty(sender, gasUsed, orderDetail);
       return (false, gasUsed);
@@ -636,10 +631,16 @@ contract Dex2 {
     address orderMaker,
     uint256 dexFee
   ) external returns (bool) {
-    require(msg.sender == THIS);
+    require(msg.sender == THIS, "caller must be dex");
 
     if (transferToken(REQ_TOKEN, taker, orderMaker, takerGives)) {
-      Maker(orderMaker).execute{gas: orderGasWanted}(orderId);
+      // Execute order
+      IMaker(orderMaker).execute{gas: orderGasWanted}(
+        takerWants,
+        takerGives,
+        orderPenaltyPerGas,
+        orderId
+      );
 
       require(
         transferToken(
@@ -647,7 +648,8 @@ contract Dex2 {
           orderMaker,
           THIS,
           (takerWants * dexFee) / 10000
-        )
+        ),
+        "fail transfer to dex"
       );
       require(
         transferToken(
@@ -655,7 +657,8 @@ contract Dex2 {
           orderMaker,
           taker,
           (takerWants * (10000 - takerFee)) / 10000
-        )
+        ),
+        "fail transfer to taker"
       );
       return true;
     } else {
@@ -666,18 +669,18 @@ contract Dex2 {
   // Avoid "no return value" bug
   // https://soliditydeveloper.com/safe-erc20
   function transferToken(
-    address token,
+    IERC20 token,
     address from,
     address to,
     uint256 value
   ) internal returns (bool) {
     bytes memory cd = abi.encodeWithSelector(
-      ERC20(token).transferFrom.selector,
+      token.transferFrom.selector,
       from,
       to,
       value
     );
-    (bool success, bytes memory data) = token.call(cd);
+    (bool success, bytes memory data) = address(token).call(cd);
     return (success && (data.length == 0 || abi.decode(data, (bool))));
   }
 }

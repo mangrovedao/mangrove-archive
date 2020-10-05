@@ -1,38 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
 
-interface ERC20 {
-  function approve(address dexAddr, uint256 amount) external returns (bool);
+import "./interfaces.sol";
+import "./Dex.sol";
 
-  function transferFrom(
-    address sender,
-    address recipient,
-    uint256 amount
-  ) external returns (bool);
-}
-
-interface Dex {
-  function REQ_TOKEN() external returns (address);
-
-  function OFR_TOKEN() external returns (address);
-
-  function newOrder(
-    uint256 makerWants,
-    uint256 makerGives,
-    uint256 gasWanted,
-    uint256 pivotId
-  ) external returns (uint256);
-
-  function balanceOf(address maker) external returns (uint256);
-
-  function penaltyPerGas() external returns (uint256);
-
-  function withdraw(uint256 amount) external;
-
-  function cancelOrder(uint256 orderId) external returns (uint256 releasedWei);
-}
-
-contract Maker {
+contract Maker is IMaker {
   address immutable A_TOKEN;
   address immutable B_TOKEN;
   address payable immutable DEXAB; // Address of a (A,B) DEX
@@ -48,13 +20,15 @@ contract Maker {
     address payable dexBA
   ) {
     require(
-      (Dex(dexAB).REQ_TOKEN() == tk_A) && (Dex(dexAB).OFR_TOKEN() == tk_B)
+      (address(Dex(dexAB).REQ_TOKEN()) == tk_A) &&
+        (address(Dex(dexAB).OFR_TOKEN()) == tk_B)
     );
     require(
-      (Dex(dexBA).REQ_TOKEN() == tk_B) && (Dex(dexBA).OFR_TOKEN() == tk_A)
+      (address(Dex(dexBA).REQ_TOKEN()) == tk_B) &&
+        (address(Dex(dexBA).OFR_TOKEN()) == tk_A)
     );
-    bool successAB = ERC20(tk_A).approve(dexAB, 2**256 - 1);
-    bool successBA = ERC20(tk_B).approve(dexBA, 2**256 - 1);
+    bool successAB = IERC20(tk_A).approve(dexAB, 2**256 - 1);
+    bool successBA = IERC20(tk_B).approve(dexBA, 2**256 - 1);
     require(successAB && successBA, "Failed to give allowance.");
 
     execGas = 1000;
@@ -122,7 +96,7 @@ contract Maker {
     uint256 orderId
   ) external {
     if (msg.sender == admin) {
-      address dex = selectDex(tk1, tk2);
+      address payable dex = selectDex(tk1, tk2);
       require(orderStatus[orderId] == dex);
       uint256 releasedWei = Dex(dex).cancelOrder(orderId); // Dex will release provision of orderId
       Dex(dex).withdraw(releasedWei);
@@ -144,13 +118,18 @@ contract Maker {
     uint256 value
   ) external returns (bool) {
     if (msg.sender == admin) {
-      return ERC20(token).transferFrom(address(this), to, value);
+      return IERC20(token).transferFrom(address(this), to, value);
     } else {
       return false;
     }
   }
 
-  function execute(uint256 orderId) external {
+  function execute(
+    uint256 orderId,
+    uint256,
+    uint256,
+    uint256
+  ) external override {
     //making sure execution is sent by the corresponding dex
     validate(orderId, msg.sender);
   }
