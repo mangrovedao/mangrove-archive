@@ -87,23 +87,29 @@ contract Dex {
     return best;
   }
 
-  function getOrderInfo(uint256 orderId) external view
-  returns (uint96,uint96,uint24,uint24,uint48,address){
+  function getOrderInfo(uint256 orderId)
+    external
+    view
+    returns (
+      uint256,
+      uint256,
+      uint256,
+      uint256,
+      uint256,
+      address
+    )
+  {
     require(accessOB); // to prevent frontrunning attacks
     Order memory order = orders[orderId];
-    if (isOrder(order)){
-      OrderDetail memory orderDetail = orderDetails[orderId];
-      return (
-        order.wants,
-        order.gives,
-        orderDetail.gasWanted,
-        orderDetail.minFinishGas, // global minFinishGas at order creation time
-        orderDetail.penaltyPerGas, // global penaltyPerGas at order creation time
-        orderDetail.maker) ;
-      }
-    else {
-      return (0,0,0,0,0,address(0));
-    }
+    OrderDetail memory orderDetail = orderDetails[orderId];
+    return (
+      order.wants,
+      order.gives,
+      orderDetail.gasWanted,
+      orderDetail.minFinishGas, // global minFinishGas at order creation time
+      orderDetail.penaltyPerGas, // global penaltyPerGas at order creation time
+      orderDetail.maker
+    );
   }
 
   function push32PairToBytes(
@@ -627,7 +633,7 @@ contract Dex {
     uint256 takerGives,
     uint256 takerWants,
     uint32 orderGasWanted,
-//    uint64 orderPenaltyPerGas,
+    //    uint64 orderPenaltyPerGas,
     address orderMaker,
     uint256 dexFee
   ) external returns (bool) {
