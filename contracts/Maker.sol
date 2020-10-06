@@ -11,7 +11,6 @@ contract Maker is IMaker {
   address payable immutable DEXBA; // Address of a (B,A) DEX
   address private admin;
   uint256 private execGas;
-  mapping(uint256 => address) orderStatus;
 
   constructor(
     address tk_A,
@@ -41,8 +40,7 @@ contract Maker is IMaker {
 
   function validate(uint256 orderId, address dex) internal {
     // Throws if orderId@dex is not in the whitelist
-    require(orderStatus[orderId] == dex);
-    delete (orderStatus[orderId]); // maps orderId to 0 address
+    require(dex == DEXAB || dex == DEXBA);
   }
 
   function setExecGas(uint256 cost) external {
@@ -86,7 +84,6 @@ contract Maker is IMaker {
         (penaltyPerGas * execGas); //enabling delegatecall
       require(available >= 0, "Insufficient funds to push order."); //better fail early
       uint256 orderId = Dex(dex).newOrder(wants, gives, execGas, position);
-      orderStatus[orderId] = dex;
     }
   }
 
@@ -97,7 +94,6 @@ contract Maker is IMaker {
   ) external {
     if (msg.sender == admin) {
       address payable dex = selectDex(tk1, tk2);
-      require(orderStatus[orderId] == dex);
       uint256 releasedWei = Dex(dex).cancelOrder(orderId); // Dex will release provision of orderId
       Dex(dex).withdraw(releasedWei);
     }
