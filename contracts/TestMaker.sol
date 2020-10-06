@@ -24,8 +24,8 @@ contract TestMaker is IMaker, Passthrough {
     uint256 gives,
     uint256 gasWanted,
     uint256 pivotId
-  ) public {
-    dex.newOrder(wants, gives, gasWanted, pivotId);
+  ) public returns (uint256) {
+    return (dex.newOrder(wants, gives, gasWanted, pivotId));
   }
 
   function fund(uint256 amount) public {
