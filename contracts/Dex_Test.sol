@@ -80,7 +80,7 @@ contract Dex_Test is Test {
       gasWanted: 2300,
       pivotId: 0
     });
-    uint256 orderId = dex.lastId();
+    uint256 orderId = dex.getLastId();
 
     uint256 orderAmount = 0.5 ether;
 

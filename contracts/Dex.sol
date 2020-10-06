@@ -65,6 +65,11 @@ contract Dex {
     REQ_TOKEN = reqToken;
   }
 
+  function getLastId() public view returns (uint256) {
+    require(accessOB, "OB not accessible");
+    return lastId;
+  }
+
   //Emulates the transfer function, but with adjustable gas transfer
   function dexTransfer(address payable addr, uint256 amount) internal {
     (bool success, ) = addr.call{gas: transferGas, value: amount}("");
@@ -553,7 +558,7 @@ contract Dex {
     uint256 localTakerWants = min(order.gives, takerWants);
     uint256 localTakerGives = (localTakerWants * order.wants) / order.gives;
 
-    modifyOB = false;
+    accessOB = false;
     (bool success, ) = executeOrder(
       order,
       orderId,
@@ -562,7 +567,7 @@ contract Dex {
       msg.sender
     );
     require(success, "maker could not complete trade");
-    modifyOB = true;
+    accessOB = true;
 
     deleteOrder(order, orderId);
   }
@@ -610,6 +615,7 @@ contract Dex {
         takerGives,
         takerWants,
         orderDetail.gasWanted,
+        orderDetail.penaltyPerGas,
         orderDetail.maker,
         dexFee
       )
@@ -633,7 +639,7 @@ contract Dex {
     uint256 takerGives,
     uint256 takerWants,
     uint32 orderGasWanted,
-    //    uint64 orderPenaltyPerGas,
+    uint64 orderPenaltyPerGas,
     address orderMaker,
     uint256 dexFee
   ) external returns (bool) {
