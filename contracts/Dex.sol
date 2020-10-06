@@ -241,7 +241,7 @@ contract Dex {
   }
 
   function cancelOrder(uint256 orderId) external returns (uint256) {
-    require(accessOB, "OB not accessible");
+    require(accessOB, "reentrancy not allowed on OB functions");
     OrderDetail memory orderDetail = orderDetails[orderId];
     if (msg.sender == orderDetail.maker) {
       Order memory order = orders[orderId];
@@ -261,7 +261,7 @@ contract Dex {
     uint256 pivotId
   ) external returns (uint256) {
     require(open, "no new order on closed market");
-    require(accessOB, "OB not modifiable");
+    require(accessOB, "reentrancy not allowed on OB functions");
     require(gives >= gasWanted * dustPerGasWanted, "offering below dust limit");
     require(uint96(wants) == wants, "wants is 96 bits wide");
     require(uint96(gives) == gives, "gives is 96 bits wide");
@@ -543,7 +543,7 @@ contract Dex {
     uint256 takerWants
   ) external {
     require(open, "no new order on closed market");
-    require(accessOB, "OB not modifiable");
+    require(accessOB, "reentrancy not allowed on OB functions");
     require(uint32(orderId) == orderId, "orderId is 32 bits wide");
     require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
 
