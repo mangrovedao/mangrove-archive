@@ -610,6 +610,7 @@ contract Dex {
         takerGives,
         takerWants,
         orderDetail.gasWanted,
+        orderDetail.penaltyPerGas,
         orderDetail.maker,
         dexFee
       )
@@ -633,7 +634,7 @@ contract Dex {
     uint256 takerGives,
     uint256 takerWants,
     uint32 orderGasWanted,
-    //    uint64 orderPenaltyPerGas,
+    uint64 orderPenaltyPerGas,
     address orderMaker,
     uint256 dexFee
   ) external returns (bool) {
