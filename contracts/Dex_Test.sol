@@ -74,13 +74,13 @@ contract Dex_Test is Test {
     uint256 init_tkr_a_bal = aToken.balanceOf(address(taker));
     uint256 init_tkr_b_bal = bToken.balanceOf(address(taker));
 
-    maker.newOrder({
+    uint256 orderId = maker.newOrder({
       wants: 1 ether,
       gives: 1 ether,
       gasWanted: 2300,
       pivotId: 0
     });
-    uint256 orderId = dex.lastId();
+    //    uint256 orderId = dex.lastId();
 
     uint256 orderAmount = 0.5 ether;
 
