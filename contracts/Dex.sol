@@ -65,6 +65,11 @@ contract Dex {
     REQ_TOKEN = reqToken;
   }
 
+  function getLastId() public view returns (uint256) {
+    require(accessOB, "OB not accessible");
+    return lastId;
+  }
+
   //Emulates the transfer function, but with adjustable gas transfer
   function dexTransfer(address payable addr, uint256 amount) internal {
     (bool success, ) = addr.call{gas: transferGas, value: amount}("");
