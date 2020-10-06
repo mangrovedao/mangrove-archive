@@ -553,7 +553,7 @@ contract Dex {
     uint256 localTakerWants = min(order.gives, takerWants);
     uint256 localTakerGives = (localTakerWants * order.wants) / order.gives;
 
-    modifyOB = false;
+    accessOB = false;
     (bool success, ) = executeOrder(
       order,
       orderId,
@@ -562,7 +562,7 @@ contract Dex {
       msg.sender
     );
     require(success, "maker could not complete trade");
-    modifyOB = true;
+    accessOB = true;
 
     deleteOrder(order, orderId);
   }
