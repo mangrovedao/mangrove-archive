@@ -38,11 +38,6 @@ contract Maker is IMaker {
     admin = msg.sender;
   }
 
-  function validate(uint256 orderId, address dex) internal {
-    // Throws if orderId@dex is not in the whitelist
-    require(dex == DEXAB || dex == DEXBA);
-  }
-
   function setExecGas(uint256 cost) external {
     if (msg.sender == admin) {
       execGas = cost;
@@ -83,7 +78,7 @@ contract Maker is IMaker {
       uint256 available = Dex(dex).balanceOf(address(this)) -
         (penaltyPerGas * execGas); //enabling delegatecall
       require(available >= 0, "Insufficient funds to push order."); //better fail early
-      uint256 orderId = Dex(dex).newOrder(wants, gives, execGas, position);
+      Dex(dex).newOrder(wants, gives, execGas, position); // discards orderId
     }
   }
 
@@ -121,12 +116,12 @@ contract Maker is IMaker {
   }
 
   function execute(
-    uint256 orderId,
+    uint256,
     uint256,
     uint256,
     uint256
-  ) external override {
+  ) external override view {
     //making sure execution is sent by the corresponding dex
-    validate(orderId, msg.sender);
+    require((msg.sender == DEXAB) || (msg.sender == DEXBA));
   }
 }
