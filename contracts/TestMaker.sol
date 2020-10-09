@@ -28,7 +28,7 @@ contract TestMaker is IMaker, Passthrough {
     return (dex.newOrder(wants, gives, gasWanted, pivotId));
   }
 
-  function fund(uint256 amount) public {
+  function provisionDex(uint256 amount) public {
     (bool success, ) = address(dex).call{value: amount}("");
     require(success);
   }

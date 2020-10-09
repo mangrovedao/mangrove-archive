@@ -51,7 +51,7 @@ contract Dex_Test is Test {
     taker = new TestTaker(dex);
 
     address(maker).transfer(100 ether);
-    maker.fund(10 ether);
+    maker.provisionDex(10 ether);
     aToken.mint(address(maker), 5 ether);
     bToken.mint(address(taker), 5 ether);
     maker.approve(aToken, 5 ether);
