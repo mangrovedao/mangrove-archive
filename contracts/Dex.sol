@@ -282,6 +282,7 @@ contract Dex {
 
     uint32 orderId = uint32(++lastId);
 
+    //TODO Check if Solidity optimizer prefers this or orders[i].a = a'; ... ; orders[i].b = b'
     orders[orderId] = Order({
       prev: prev,
       next: next,
