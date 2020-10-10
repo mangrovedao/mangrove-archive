@@ -27,7 +27,6 @@ contract Dex {
   uint256 public dustPerGasWanted; // (32) min amount to offer per gas requested, in OFR_TOKEN;
   uint256 public minGasWanted; // (32) minimal amount of gas you can ask for; also used for market order's dust estimation
   bool public open = true; // a closed market cannot make/take orders
-  // TODO Do not remove offer when partially filled
   uint256 public penaltyPerGas; // (48) in wei;
   IERC20 public immutable OFR_TOKEN; // ofr_token is the token orders give
   IERC20 public immutable REQ_TOKEN; // req_token is the token orders wants
@@ -432,7 +431,13 @@ contract Dex {
           localTakerGives,
           sender
         );
-        _deleteOrder(orderId);
+
+        if (order.gives - localTakerWants >= dustPerGasWanted * minGasWanted) {
+          orders[orderId].gives = uint96(order.gives - localTakerWants);
+          orders[orderId].wants = uint96(order.wants - localTakerGives);
+        } else {
+          _deleteOrder(orderId);
+        }
 
         if (success) {
           //proceeding with market order
@@ -570,7 +575,12 @@ contract Dex {
     require(success, "maker could not complete trade");
     accessOB = true;
 
-    deleteOrder(order, orderId);
+    if (order.gives - localTakerWants >= dustPerGasWanted * minGasWanted) {
+      orders[orderId].gives = uint96(order.gives - localTakerWants);
+      orders[orderId].wants = uint96(order.wants - localTakerGives);
+    } else {
+      deleteOrder(order, orderId);
+    }
   }
 
   function applyPenalty(
