@@ -408,7 +408,7 @@ contract Dex {
     uint256 pastOrderId = order.prev;
 
     bytes memory failures = new bytes(8 * snipeLength);
-    uint256 failureIndex;
+    uint256 numFailures;
 
     accessOB = false;
     // inlining (minTakerWants = dustPerGasWanted*minGasWanted) to avoid stack too deep
@@ -438,13 +438,13 @@ contract Dex {
           //proceeding with market order
           takerWants -= localTakerWants;
           takerGives -= localTakerGives;
-        } else if (failureIndex < snipeLength) {
+        } else if (numFailures < snipeLength) {
           // storing orderId and gas used for cancellation
           push32PairToBytes(
             uint32(orderId),
             uint32(gasUsedForFailure),
             failures,
-            failureIndex++
+            numFailures++
           );
         }
         orderId = order.next;
