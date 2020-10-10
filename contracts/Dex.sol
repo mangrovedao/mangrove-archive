@@ -392,7 +392,7 @@ contract Dex {
   function marketOrderFrom(
     uint256 takerWants,
     uint256 takerGives,
-    uint256 snipeLength,
+    uint256 punishLength,
     uint256 orderId,
     address payable sender
   ) public returns (bytes memory) {
@@ -406,7 +406,7 @@ contract Dex {
     require(isOrder(order), "invalid order");
     uint256 pastOrderId = order.prev;
 
-    bytes memory failures = new bytes(8 * snipeLength);
+    bytes memory failures = new bytes(8 * punishLength);
     uint256 numFailures;
 
     accessOB = false;
@@ -443,7 +443,7 @@ contract Dex {
           //proceeding with market order
           takerWants -= localTakerWants;
           takerGives -= localTakerGives;
-        } else if (numFailures < snipeLength) {
+        } else if (numFailures < punishLength) {
           // storing orderId and gas used for cancellation
           push32PairToBytes(
             uint32(orderId),
@@ -466,17 +466,23 @@ contract Dex {
     return failures;
   }
 
-  function _snipingMarketOrderFrom(
+  function _punishingMarketOrderFrom(
     uint256 orderId,
     uint256 takerWants,
     uint256 takerGives,
-    uint256 snipeLength,
+    uint256 punishLength,
     address payable sender
   ) external returns (bytes memory) {
     require(msg.sender == THIS, "caller must be dex");
     // must wrap this to avoid bubbling up "fake failures" from other calls.
     try
-      this.marketOrderFrom(takerWants, takerGives, snipeLength, orderId, sender)
+      this.marketOrderFrom(
+        takerWants,
+        takerGives,
+        punishLength,
+        orderId,
+        sender
+      )
     returns (bytes memory failures) {
       // MarketOrder finished w/o reverting
       // Failing orders have been collected in [failures]
@@ -487,19 +493,19 @@ contract Dex {
   }
 
   // run and revert a market order so as to collect orderId's that are failing
-  // snipeLength is the number of failing orders one is trying to catch
-  function snipingMarketOrderFrom(
+  // punishLength is the number of failing orders one is trying to catch
+  function punishingMarketOrderFrom(
     uint256 fromOrderId,
     uint256 takerWants,
     uint256 takerGives,
-    uint256 snipeLength
+    uint256 punishLength
   ) external {
     try
-      this._snipingMarketOrderFrom(
+      this._punishingMarketOrderFrom(
         fromOrderId,
         takerWants,
         takerGives,
-        snipeLength,
+        punishLength,
         msg.sender
       )
     returns (bytes memory error) {
@@ -507,13 +513,13 @@ contract Dex {
     } catch (bytes memory failures) {
       uint256 failureIndex;
       while (failureIndex < failures.length) {
-        (uint32 snipedOrderId, uint32 gasUsed) = pull32PairFromBytes(
+        (uint32 punishedOrderId, uint32 gasUsed) = pull32PairFromBytes(
           failures,
           failureIndex++
         );
-        Order memory order = orders[snipedOrderId];
-        OrderDetail memory orderDetail = orderDetails[snipedOrderId];
-        deleteOrder(order, snipedOrderId);
+        Order memory order = orders[punishedOrderId];
+        OrderDetail memory orderDetail = orderDetails[punishedOrderId];
+        deleteOrder(order, punishedOrderId);
         applyPenalty(msg.sender, gasUsed, orderDetail);
       }
     }
