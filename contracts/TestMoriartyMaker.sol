@@ -24,7 +24,7 @@ contract TestMoriartyMaker is IMaker, Passthrough {
       // second call to execute always fails
       assert(false);
     } else {
-      shouldFail = true;
+      shouldFail = true; //consumes dummy order
     }
   }
 
@@ -36,7 +36,7 @@ contract TestMoriartyMaker is IMaker, Passthrough {
   ) public returns (uint256) {
     uint256 orderId = (dex.newOrder(wants, gives, gasWanted, pivotId));
     uint256 minDustPerGas = dex.dustPerGasWanted();
-    dex.newOrder(0, minDustPerGas, 1, 0);
+    dex.newOrder(0, minDustPerGas, 1, 0); //dummy order
     return orderId;
   }
 

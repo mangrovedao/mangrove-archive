@@ -20,4 +20,8 @@ contract TestTaker is ITaker {
   function take(uint256 orderId, uint256 wants) external override {
     dex.externalExecuteOrder(orderId, wants);
   }
+
+  function mo(uint256 wants, uint256 gives) external override {
+    dex.conditionalMarketOrder(wants, gives);
+  }
 }

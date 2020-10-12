@@ -12,6 +12,8 @@ interface IMaker {
 
 interface ITaker {
   function take(uint256 orderId, uint256 wants) external;
+
+  function mo(uint256 wants, uint256 gives) external;
 }
 
 // IERC20 From OpenZeppelin code

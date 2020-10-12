@@ -111,4 +111,23 @@ contract Dex_Test is Test {
       "incorrect taker B balance"
     );
   }
+
+  function moriartyMaketOrder_test() public {
+    // Maker adds dummy order
+    maker.newOrder({
+      wants: 1 ether,
+      gives: 1 ether,
+      gasWanted: 2300,
+      pivotId: 0
+    });
+
+    uint256 orderAmount = 0.5 ether;
+    try taker.mo({wants: orderAmount, gives: orderAmount})  {
+      testFail("taking moriarty offer should fail");
+    } catch Error(
+      string memory /*reason*/
+    ) {
+      testSuccess();
+    }
+  }
 }
