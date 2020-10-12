@@ -7,18 +7,26 @@ import "./Passthrough.sol";
 
 contract TestMoriartyMaker is IMaker, Passthrough {
   Dex dex;
-  mapping(uint256 => bool) private shouldFail;
+  bool shouldFail;
 
   constructor(Dex _dex) {
     dex = _dex;
+    shouldFail = false;
   }
 
   function execute(
-    uint256 takerWants,
-    uint256 takerGives,
-    uint256 orderPenaltyPerGas,
-    uint256 orderId
-  ) public override {}
+    uint256,
+    uint256,
+    uint256,
+    uint256
+  ) public override {
+    if (shouldFail) {
+      // second call to execute always fails
+      assert(false);
+    } else {
+      shouldFail = true;
+    }
+  }
 
   function newOrder(
     uint256 wants,
@@ -27,8 +35,8 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     uint256 pivotId
   ) public returns (uint256) {
     uint256 orderId = (dex.newOrder(wants, gives, gasWanted, pivotId));
-    uint256 minDustPerGas = dex.dustPerGastWanted();
-    uint256 dummyOrder = dex.newOrder(0, minDustPerGas, 1, 0);
+    uint256 minDustPerGas = dex.dustPerGasWanted();
+    dex.newOrder(0, minDustPerGas, 1, 0);
     return orderId;
   }
 
