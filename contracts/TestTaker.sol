@@ -13,15 +13,15 @@ contract TestTaker is ITaker {
 
   receive() external payable {}
 
-  function approve(IERC20 token, uint256 amount) external {
+  function approve(IERC20 token, uint amount) external {
     token.approve(address(dex), amount);
   }
 
-  function take(uint256 orderId, uint256 wants) external override {
+  function take(uint orderId, uint wants) external override {
     dex.externalExecuteOrder(orderId, wants);
   }
 
-  function mo(uint256 wants, uint256 gives) external override {
+  function mo(uint wants, uint gives) external override {
     dex.conditionalMarketOrder(wants, gives);
   }
 }

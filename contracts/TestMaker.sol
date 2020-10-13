@@ -13,27 +13,27 @@ contract TestMaker is IMaker, Passthrough {
   }
 
   function execute(
-    uint256 takerWants,
-    uint256 takerGives,
-    uint256 orderPenaltyPerGas,
-    uint256 orderId
+    uint takerWants,
+    uint takerGives,
+    uint orderPenaltyPerGas,
+    uint orderId
   ) public override {}
 
   function newOrder(
-    uint256 wants,
-    uint256 gives,
-    uint256 gasWanted,
-    uint256 pivotId
-  ) public returns (uint256) {
+    uint wants,
+    uint gives,
+    uint gasWanted,
+    uint pivotId
+  ) public returns (uint) {
     return (dex.newOrder(wants, gives, gasWanted, pivotId));
   }
 
-  function provisionDex(uint256 amount) public {
+  function provisionDex(uint amount) public {
     (bool success, ) = address(dex).call{value: amount}("");
     require(success);
   }
 
-  function approve(IERC20 token, uint256 amount) public {
+  function approve(IERC20 token, uint amount) public {
     token.approve(address(dex), amount);
   }
 

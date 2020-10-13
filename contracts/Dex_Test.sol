@@ -69,26 +69,26 @@ contract Dex_Test is Test {
   }
 
   function basicMarketOrder_test() public {
-    uint256 init_mkr_a_bal = aToken.balanceOf(address(maker));
-    uint256 init_mkr_b_bal = bToken.balanceOf(address(maker));
-    uint256 init_tkr_a_bal = aToken.balanceOf(address(taker));
-    uint256 init_tkr_b_bal = bToken.balanceOf(address(taker));
+    uint init_mkr_a_bal = aToken.balanceOf(address(maker));
+    uint init_mkr_b_bal = bToken.balanceOf(address(maker));
+    uint init_tkr_a_bal = aToken.balanceOf(address(taker));
+    uint init_tkr_b_bal = bToken.balanceOf(address(taker));
 
-    uint256 orderId = maker.newOrder({
+    uint orderId = maker.newOrder({
       wants: 1 ether,
       gives: 1 ether,
       gasWanted: 2300,
       pivotId: 0
     });
 
-    uint256 orderAmount = 0.5 ether;
+    uint orderAmount = 0.5 ether;
 
     taker.take({orderId: orderId, wants: orderAmount});
 
-    uint256 expec_mkr_a_bal = init_mkr_a_bal - orderAmount;
-    uint256 expec_mkr_b_bal = init_mkr_b_bal + orderAmount;
-    uint256 expec_tkr_a_bal = init_tkr_a_bal + orderAmount;
-    uint256 expec_tkr_b_bal = init_tkr_b_bal - orderAmount;
+    uint expec_mkr_a_bal = init_mkr_a_bal - orderAmount;
+    uint expec_mkr_b_bal = init_mkr_b_bal + orderAmount;
+    uint expec_tkr_a_bal = init_tkr_a_bal + orderAmount;
+    uint expec_tkr_b_bal = init_tkr_b_bal - orderAmount;
 
     testEq(
       expec_mkr_a_bal,
@@ -121,7 +121,7 @@ contract Dex_Test is Test {
       pivotId: 0
     });
 
-    uint256 orderAmount = 0.5 ether;
+    uint orderAmount = 0.5 ether;
     try taker.mo({wants: orderAmount, gives: orderAmount})  {
       testFail("taking moriarty offer should fail");
     } catch Error(

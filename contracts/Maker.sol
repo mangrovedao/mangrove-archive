@@ -10,7 +10,7 @@ contract Maker is IMaker {
   address payable immutable DEXAB; // Address of a (A,B) DEX
   address payable immutable DEXBA; // Address of a (B,A) DEX
   address private admin;
-  uint256 private execGas;
+  uint private execGas;
 
   constructor(
     address tk_A,
@@ -38,7 +38,7 @@ contract Maker is IMaker {
     admin = msg.sender;
   }
 
-  function setExecGas(uint256 cost) external {
+  function setExecGas(uint cost) external {
     if (msg.sender == admin) {
       execGas = cost;
     }
@@ -67,15 +67,15 @@ contract Maker is IMaker {
   function pushOrder(
     address tk1,
     address tk2,
-    uint256 wants,
-    uint256 gives,
-    uint256 position
+    uint wants,
+    uint gives,
+    uint position
   ) external payable {
     if (msg.sender == admin) {
       address payable dex = selectDex(tk1, tk2);
       dex.transfer(msg.value);
-      uint256 penaltyPerGas = Dex(dex).penaltyPerGas(); //current price per gas spent in offer fails
-      uint256 available = Dex(dex).balanceOf(address(this)) -
+      uint penaltyPerGas = Dex(dex).penaltyPerGas(); //current price per gas spent in offer fails
+      uint available = Dex(dex).balanceOf(address(this)) -
         (penaltyPerGas * execGas); //enabling delegatecall
       require(available >= 0, "Insufficient funds to push order."); //better fail early
       Dex(dex).newOrder(wants, gives, execGas, position); // discards orderId
@@ -85,11 +85,11 @@ contract Maker is IMaker {
   function pullOrder(
     address tk1,
     address tk2,
-    uint256 orderId
+    uint orderId
   ) external {
     if (msg.sender == admin) {
       address payable dex = selectDex(tk1, tk2);
-      uint256 releasedWei = Dex(dex).cancelOrder(orderId); // Dex will release provision of orderId
+      uint releasedWei = Dex(dex).cancelOrder(orderId); // Dex will release provision of orderId
       Dex(dex).withdraw(releasedWei);
     }
   }
@@ -97,7 +97,7 @@ contract Maker is IMaker {
   //need to be able to receive WEIs for collecting freed provisions
   receive() external payable {}
 
-  function transferWei(uint256 amount, address payable receiver) external {
+  function transferWei(uint amount, address payable receiver) external {
     if (msg.sender == admin) {
       receiver.transfer(amount);
     }
@@ -106,7 +106,7 @@ contract Maker is IMaker {
   function transferToken(
     address token,
     address to,
-    uint256 value
+    uint value
   ) external returns (bool) {
     if (msg.sender == admin) {
       return IERC20(token).transferFrom(address(this), to, value);
@@ -116,11 +116,11 @@ contract Maker is IMaker {
   }
 
   function execute(
-    uint256,
-    uint256,
-    uint256,
-    uint256
-  ) external override view {
+    uint,
+    uint,
+    uint,
+    uint
+  ) external view override {
     //making sure execution is sent by the corresponding dex
     require((msg.sender == DEXAB) || (msg.sender == DEXBA));
   }

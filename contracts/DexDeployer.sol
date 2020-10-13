@@ -12,10 +12,10 @@ contract DexDeployer {
   }
 
   function deploy(
-    uint256 initialDustPerGasWanted,
-    uint256 initialMinFinishGas,
-    uint256 initialPenaltyPerGas,
-    uint256 initialMinGasWanted,
+    uint initialDustPerGasWanted,
+    uint initialMinFinishGas,
+    uint initialPenaltyPerGas,
+    uint initialMinGasWanted,
     IERC20 ofrToken,
     IERC20 reqToken
   ) external returns (Dex) {

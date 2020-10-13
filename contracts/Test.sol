@@ -22,16 +22,11 @@ contract Test {
     emit TestTrue(true, "Success");
   }
 
-  event TestEqUint(
-    bool success,
-    uint256 actual,
-    uint256 expected,
-    string message
-  );
+  event TestEqUint(bool success, uint actual, uint expected, string message);
 
   function testEq(
-    uint256 actual,
-    uint256 expected,
+    uint actual,
+    uint expected,
     string memory message
   ) internal {
     bool success = actual == expected;

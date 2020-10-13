@@ -14,7 +14,7 @@ contract Passthrough {
   function calls(
     address addr,
     bytes4 signature,
-    uint256 arg1
+    uint arg1
   ) public returns (bool, bytes memory) {
     return addr.call(abi.encodeWithSelector(signature, arg1));
   }
@@ -22,8 +22,8 @@ contract Passthrough {
   function calls(
     address addr,
     bytes4 signature,
-    uint256 arg1,
-    uint256 arg2
+    uint arg1,
+    uint arg2
   ) public returns (bool, bytes memory) {
     return addr.call(abi.encodeWithSelector(signature, arg1, arg2));
   }
@@ -31,9 +31,9 @@ contract Passthrough {
   function calls(
     address addr,
     bytes4 signature,
-    uint256 arg1,
-    uint256 arg2,
-    uint256 arg3
+    uint arg1,
+    uint arg2,
+    uint arg3
   ) public returns (bool, bytes memory) {
     return addr.call(abi.encodeWithSelector(signature, arg1, arg2, arg3));
   }
@@ -41,10 +41,10 @@ contract Passthrough {
   function calls(
     address addr,
     bytes4 signature,
-    uint256 arg1,
-    uint256 arg2,
-    uint256 arg3,
-    uint256 arg4
+    uint arg1,
+    uint arg2,
+    uint arg3,
+    uint arg4
   ) public returns (bool, bytes memory) {
     return addr.call(abi.encodeWithSelector(signature, arg1, arg2, arg3, arg4));
   }
