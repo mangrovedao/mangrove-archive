@@ -33,7 +33,6 @@ contract Dex {
   IERC20 public immutable REQ_TOKEN; // req_token is the token orders wants
 
   address private admin;
-  address private immutable THIS; // prevent a delegatecall entry into swapTokens
   bool public accessOB = true; // whether a modification of the OB is permitted
   uint private lastId = 0; // (32)
   uint private transferGas = 2300; //default amount of gas given for a transfer
@@ -56,7 +55,6 @@ contract Dex {
     IERC20 reqToken
   ) {
     admin = initialAdmin;
-    THIS = address(this);
     setDustPerGasWanted(initialDustPerGasWanted);
     setMinFinishGas(initialMinFinishGas);
     setPenaltyPerGas(initialPenaltyPerGas);
@@ -630,7 +628,7 @@ contract Dex {
     address orderMaker,
     uint dexFee
   ) external returns (bool) {
-    require(msg.sender == THIS, "caller must be dex");
+    require(msg.sender == address(this), "caller must be dex");
 
     if (transferToken(REQ_TOKEN, taker, orderMaker, takerGives)) {
       // Execute order
@@ -645,7 +643,7 @@ contract Dex {
         transferToken(
           OFR_TOKEN,
           orderMaker,
-          THIS,
+          address(this),
           (takerWants * dexFee) / 10000
         ),
         "fail transfer to dex"
@@ -726,7 +724,7 @@ contract Dex {
     address payable taker
   ) external returns (bytes memory) {
     // must wrap this to avoid bubbling up "fake failures" from other calls.
-    require(msg.sender == THIS, "caller must be dex");
+    require(msg.sender == address(this), "caller must be dex");
     try
       this.secureInternalMarketOrderFrom(
         takerWants,
@@ -751,7 +749,7 @@ contract Dex {
     uint orderId,
     address payable taker
   ) external returns (uint[] memory) {
-    require(msg.sender == THIS, "caller must be dex");
+    require(msg.sender == address(this), "caller must be dex");
     return
       internalMarketOrderFrom(
         takerWants,
@@ -767,7 +765,7 @@ contract Dex {
     uint punishLength,
     address payable taker
   ) external returns (bytes memory) {
-    require(msg.sender == THIS, "caller must be dex");
+    require(msg.sender == address(this), "caller must be dex");
     try this.secureInternalSnipes(targets, punishLength, taker) returns (
       uint[] memory failures
     ) {
@@ -782,7 +780,7 @@ contract Dex {
     uint punishLength,
     address payable taker
   ) external returns (uint[] memory) {
-    require(msg.sender == THIS, "caller must be dex");
+    require(msg.sender == address(this), "caller must be dex");
     return internalSnipes(targets, punishLength, taker);
   }
 
