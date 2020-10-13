@@ -4,7 +4,8 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "./interfaces.sol";
-import "@nomiclabs/buidler/console.sol";
+
+//import "@nomiclabs/buidler/console.sol";
 
 contract Dex {
   struct Order {
@@ -32,7 +33,7 @@ contract Dex {
   IERC20 public immutable REQ_TOKEN; // req_token is the token orders wants
 
   address private admin;
-  address private immutable THIS; // prevent a delegatecall entry into _executeOrder.
+  address private immutable THIS; // prevent a delegatecall entry into swapTokens
   bool public accessOB = true; // whether a modification of the OB is permitted
   uint256 private lastId = 0; // (32)
   uint256 private transferGas = 2300; //default amount of gas given for a transfer
@@ -75,17 +76,6 @@ contract Dex {
     require(success, "dexTransfer failed");
   }
 
-  // Splits a uint32 n into 4 bytes in array b, starting from position start.
-  function push32ToBytes(
-    uint32 n,
-    bytes memory b,
-    uint256 start
-  ) internal pure {
-    for (uint256 i = 0; i < 4; i++) {
-      b[start + i] = bytes1(uint8(n / (2**(8 * (3 - i)))));
-    }
-  }
-
   function getBest() external view returns (uint256) {
     require(accessOB, "OB not accessible");
     return best;
@@ -114,35 +104,6 @@ contract Dex {
       orderDetail.penaltyPerGas, // global penaltyPerGas at order creation time
       orderDetail.maker
     );
-  }
-
-  function push32PairToBytes(
-    uint32 n,
-    uint32 m,
-    bytes memory b,
-    uint256 start
-  ) internal pure {
-    push32ToBytes(n, b, 8 * start);
-    push32ToBytes(m, b, 8 * start + 4);
-  }
-
-  function pull32FromBytes(bytes memory b, uint256 start)
-    internal
-    pure
-    returns (uint32 n)
-  {
-    for (uint256 i = 0; i < 4; i++) {
-      n = n + uint32(uint8(b[start + i]) * (2**(8 * (3 - i))));
-    }
-  }
-
-  function pull32PairFromBytes(bytes memory b, uint256 start)
-    internal
-    pure
-    returns (uint32 n, uint32 m)
-  {
-    n = pull32FromBytes(b, 8 * start);
-    m = pull32FromBytes(b, 8 * start + 4);
   }
 
   function isAdmin(address maybeAdmin) internal view returns (bool) {
@@ -373,10 +334,18 @@ contract Dex {
     return a < b ? a : b;
   }
 
+  // Low-level reverts for different data types
   function evmRevert(bytes memory data) internal pure {
     uint256 length = data.length;
     assembly {
       revert(data, add(length, 32))
+    }
+  }
+
+  function evmRevert(uint256[] memory data) internal pure {
+    uint256 length = data.length;
+    assembly {
+      revert(data, add(mul(length, 32), 32))
     }
   }
 
@@ -389,13 +358,13 @@ contract Dex {
 
   // setting takerWants to max_int and takergives to however much you're ready to spend will
   // not work, you'll just be asking for a ~0 price.
-  function marketOrderFrom(
+  function internalMarketOrderFrom(
     uint256 takerWants,
     uint256 takerGives,
     uint256 punishLength,
     uint256 orderId,
-    address payable sender
-  ) public returns (bytes memory) {
+    address payable taker
+  ) internal returns (uint256[] memory) {
     require(uint32(orderId) == orderId, "orderId is 32 bits wide");
     require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
     require(uint96(takerGives) == takerGives, "takerGives is 96 bits wide");
@@ -406,7 +375,7 @@ contract Dex {
     require(isOrder(order), "invalid order");
     uint256 pastOrderId = order.prev;
 
-    bytes memory failures = new bytes(8 * punishLength);
+    uint256[] memory failures = new uint256[](2 * punishLength);
     uint256 numFailures;
 
     accessOB = false;
@@ -424,33 +393,33 @@ contract Dex {
 
         //if success, gasUsedForFailure == 0
         //Warning: orderId is deleted *after* execution
-        (bool success, uint256 gasUsedForFailure) = executeOrder(
+        (bool success, uint256 gasUsedForFailure) = flashSwapTokens(
           order,
           orderId,
           localTakerWants,
           localTakerGives,
-          sender
+          taker
         );
-
-        if (order.gives - localTakerWants >= dustPerGasWanted * minGasWanted) {
-          orders[orderId].gives = uint96(order.gives - localTakerWants);
-          orders[orderId].wants = uint96(order.wants - localTakerGives);
-        } else {
-          _deleteOrder(orderId);
-        }
 
         if (success) {
           //proceeding with market order
           takerWants -= localTakerWants;
           takerGives -= localTakerGives;
-        } else if (numFailures < punishLength) {
-          // storing orderId and gas used for cancellation
-          push32PairToBytes(
-            uint32(orderId),
-            uint32(gasUsedForFailure),
-            failures,
-            numFailures++
-          );
+          if (
+            order.gives - localTakerWants >= dustPerGasWanted * minGasWanted
+          ) {
+            orders[orderId].gives = uint96(order.gives - localTakerWants);
+            orders[orderId].wants = uint96(order.wants - localTakerGives);
+          } else {
+            _deleteOrder(orderId);
+          }
+        } else {
+          _deleteOrder(orderId);
+          if (numFailures++ < punishLength) {
+            // storing orderId and gas used for cancellation
+            failures[2 * numFailures] = orderId;
+            failures[2 * numFailures + 1] = gasUsedForFailure;
+          }
         }
         orderId = order.next;
         order = orders[orderId];
@@ -463,73 +432,74 @@ contract Dex {
     stitchOrders(pastOrderId, orderId);
     // Function throws list of failures if market order was successful
     // returns the error message otherwise
+    assembly {
+      mstore(failures, mul(2, numFailures))
+    } // reduce failures array size
     return failures;
   }
 
-  function _punishingMarketOrderFrom(
-    uint256 orderId,
-    uint256 takerWants,
-    uint256 takerGives,
-    uint256 punishLength,
-    address payable sender
-  ) external returns (bytes memory) {
-    require(msg.sender == THIS, "caller must be dex");
-    // must wrap this to avoid bubbling up "fake failures" from other calls.
-    try
-      this.marketOrderFrom(
-        takerWants,
-        takerGives,
-        punishLength,
-        orderId,
-        sender
-      )
-    returns (bytes memory failures) {
-      // MarketOrder finished w/o reverting
-      // Failing orders have been collected in [failures]
-      evmRevert(failures);
-    } catch (bytes memory e) {
-      return e; // Market order failed to complete.
-    }
+  function snipe(uint256 orderId, uint256 takerWants) external {
+    require(open, "no new order on closed market");
+    require(accessOB, "reentrancy not allowed on OB functions");
+    require(uint32(orderId) == orderId, "orderId is 32 bits wide");
+    require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
+
+    Order memory order = orders[orderId];
+    require(isOrder(order), "bad orderId");
+
+    (bool success, ) = executeOrder(orderId, order, takerWants, msg.sender);
+    require(success, "execute order failed");
   }
 
-  // run and revert a market order so as to collect orderId's that are failing
-  // punishLength is the number of failing orders one is trying to catch
-  function punishingMarketOrderFrom(
-    uint256 fromOrderId,
-    uint256 takerWants,
-    uint256 takerGives,
-    uint256 punishLength
-  ) external {
-    try
-      this._punishingMarketOrderFrom(
-        fromOrderId,
-        takerWants,
-        takerGives,
-        punishLength,
-        msg.sender
-      )
-    returns (bytes memory error) {
-      evmRevert(error);
-    } catch (bytes memory failures) {
-      uint256 failureIndex;
-      while (failureIndex < failures.length) {
-        (uint32 punishedOrderId, uint32 gasUsed) = pull32PairFromBytes(
-          failures,
-          failureIndex++
+  function snipes(uint256[] calldata targets) external {
+    require(open, "no new order on closed market");
+    require(accessOB, "reentrancy not allowed on OB functions");
+
+    internalSnipes(targets, 0, msg.sender);
+  }
+
+  function internalSnipes(
+    uint256[] calldata targets,
+    uint256 punishLength,
+    address payable taker
+  ) internal returns (uint256[] memory) {
+    uint256 targetIndex;
+    uint256 numFailures;
+    uint256[] memory failures = new uint256[](punishLength * 2);
+    accessOB = false;
+    while (targetIndex < targets.length) {
+      uint256 orderId = targets[2 * targetIndex];
+      uint256 takerWants = targets[2 * targetIndex + 1];
+      require(uint32(orderId) == orderId, "orderId is 32 bits wide");
+      require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
+      Order memory order = orders[orderId];
+      if (isOrder(order)) {
+        (bool success, uint256 gasUsed) = executeOrder(
+          orderId,
+          order,
+          takerWants,
+          taker
         );
-        Order memory order = orders[punishedOrderId];
-        OrderDetail memory orderDetail = orderDetails[punishedOrderId];
-        deleteOrder(order, punishedOrderId);
-        applyPenalty(msg.sender, gasUsed, orderDetail);
+        if (!success && numFailures < punishLength) {
+          failures[2 * numFailures] = orderId;
+          failures[2 * numFailures + 1] = gasUsed;
+          numFailures++;
+        }
       }
+      targetIndex++;
+      accessOB = true;
     }
+    assembly {
+      mstore(failures, mul(2, numFailures))
+    } /* reduce failures array size */
+    return failures;
   }
 
   // implements a market order with condition on the minimal delivered volume
   function conditionalMarketOrder(uint256 takerWants, uint256 takerGives)
     external
   {
-    marketOrderFrom(takerWants, takerGives, 0, best, msg.sender);
+    internalMarketOrderFrom(takerWants, takerGives, 0, best, msg.sender);
   }
 
   function stitchOrders(uint256 past, uint256 future) internal {
@@ -554,31 +524,28 @@ contract Dex {
     stitchOrders(order.prev, order.next);
   }
 
-  function externalExecuteOrder(
-    //snipe order
+  // internal order execution
+  // does not check for reentrancy
+  // does not check for parameter validity
+  // computes reqToken
+  // cleanup OB after execution
+  function executeOrder(
     uint256 orderId,
-    uint256 takerWants
-  ) external {
-    require(open, "no new order on closed market");
-    require(accessOB, "reentrancy not allowed on OB functions");
-    require(uint32(orderId) == orderId, "orderId is 32 bits wide");
-    require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
-
-    Order memory order = orders[orderId];
-    require(isOrder(order), "invalid order");
-
+    Order memory order,
+    uint256 takerWants,
+    address payable taker
+  ) internal returns (bool, uint256) {
     uint256 localTakerWants = min(order.gives, takerWants);
     uint256 localTakerGives = (localTakerWants * order.wants) / order.gives;
 
     accessOB = false;
-    (bool success, ) = executeOrder(
+    (bool success, uint256 gasUsed) = flashSwapTokens(
       order,
       orderId,
       localTakerGives,
       localTakerWants,
-      msg.sender
+      taker
     );
-    require(success, "maker could not complete trade");
     accessOB = true;
 
     if (order.gives - localTakerWants >= dustPerGasWanted * minGasWanted) {
@@ -587,6 +554,7 @@ contract Dex {
     } else {
       deleteOrder(order, orderId);
     }
+    return (success, gasUsed);
   }
 
   function applyPenalty(
@@ -604,7 +572,10 @@ contract Dex {
     dexTransfer(sender, penalty);
   }
 
-  function executeOrder(
+  // swap tokens according to parameters.
+  // trusts caller
+  // uses flashlend to ensure postcondition
+  function flashSwapTokens(
     Order memory order,
     uint256 orderId,
     uint256 takerGives,
@@ -626,7 +597,7 @@ contract Dex {
       order.gives) / 2;
 
     try
-      this._executeOrder(
+      this.swapTokens(
         orderId,
         sender,
         takerGives,
@@ -650,7 +621,8 @@ contract Dex {
     }
   }
 
-  function _executeOrder(
+  // swap tokens, no checks except msg.sender, throws if bad postcondition
+  function swapTokens(
     uint256 orderId,
     address taker,
     uint256 takerGives,
@@ -693,6 +665,127 @@ contract Dex {
     } else {
       return false;
     }
+  }
+
+  // run and revert a market order so as to collect orderId's that are failing
+  // punishLength is the number of failing orders one is trying to catch
+  function punishingMarketOrderFrom(
+    uint256 fromOrderId,
+    uint256 takerWants,
+    uint256 takerGives,
+    uint256 punishLength
+  ) external {
+    try
+      this.internalPunishingMarketOrderFrom(
+        fromOrderId,
+        takerWants,
+        takerGives,
+        punishLength,
+        msg.sender
+      )
+    returns (bytes memory error) {
+      evmRevert(error);
+    } catch (bytes memory failureBytes) {
+      punish(failureBytes, msg.sender);
+    }
+  }
+
+  function punishingSnipes(uint256[] calldata targets, uint256 punishLength)
+    external
+  {
+    try
+      this.internalPunishingSnipes(targets, punishLength, msg.sender)
+    returns (bytes memory error) {
+      evmRevert(error);
+    } catch (bytes memory failureBytes) {
+      punish(failureBytes, msg.sender);
+    }
+  }
+
+  function punish(bytes memory failureBytes, address payable taker) internal {
+    uint256 failureIndex;
+    uint256[] memory failures;
+    assembly {
+      failures := failureBytes
+    }
+    uint256 numFailures = failures.length / 2;
+    while (failureIndex < numFailures) {
+      uint256 punishedOrderId = failures[failureIndex * 2];
+      uint256 gasUsed = failures[failureIndex * 2 + 1];
+      Order memory order = orders[punishedOrderId];
+      OrderDetail memory orderDetail = orderDetails[punishedOrderId];
+      deleteOrder(order, punishedOrderId);
+      applyPenalty(taker, gasUsed, orderDetail);
+      failureIndex++;
+    }
+  }
+
+  function internalPunishingMarketOrderFrom(
+    uint256 orderId,
+    uint256 takerWants,
+    uint256 takerGives,
+    uint256 punishLength,
+    address payable taker
+  ) external returns (bytes memory) {
+    // must wrap this to avoid bubbling up "fake failures" from other calls.
+    require(msg.sender == THIS, "caller must be dex");
+    try
+      this.secureInternalMarketOrderFrom(
+        takerWants,
+        takerGives,
+        punishLength,
+        orderId,
+        taker
+      )
+    returns (uint256[] memory failures) {
+      // MarketOrder finished w/o reverting
+      // Failing orders have been collected in [failures]
+      evmRevert(failures);
+    } catch (bytes memory error) {
+      return error; // Market order failed to complete.
+    }
+  }
+
+  function secureInternalMarketOrderFrom(
+    uint256 takerWants,
+    uint256 takerGives,
+    uint256 punishLength,
+    uint256 orderId,
+    address payable taker
+  ) external returns (uint256[] memory) {
+    require(msg.sender == THIS, "caller must be dex");
+    return
+      internalMarketOrderFrom(
+        takerWants,
+        takerGives,
+        punishLength,
+        orderId,
+        taker
+      );
+  }
+
+  function internalPunishingSnipes(
+    uint256[] calldata targets,
+    uint256 punishLength,
+    address payable taker
+  ) external returns (bytes memory) {
+    require(msg.sender == THIS, "caller must be dex");
+    try this.secureInternalSnipes(targets, punishLength, taker) returns (
+      uint256[] memory failures
+    ) {
+      evmRevert(failures);
+    } catch (bytes memory error) {
+      return error;
+    }
+  }
+
+  function secureInternalSnipes(
+    uint256[] calldata targets,
+    uint256 punishLength,
+    address payable taker
+  ) external returns (uint256[] memory) {
+    require(msg.sender == THIS, "caller must be dex");
+    return internalSnipes(targets, punishLength, taker);
   }
 
   // Avoid "no return value" bug
