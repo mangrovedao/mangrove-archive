@@ -18,7 +18,7 @@ contract TestTaker is ITaker {
   }
 
   function take(uint orderId, uint wants) external override {
-    dex.externalExecuteOrder(orderId, wants);
+    dex.snipe(orderId, wants);
   }
 
   function mo(uint wants, uint gives) external override {

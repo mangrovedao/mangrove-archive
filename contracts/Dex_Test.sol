@@ -7,6 +7,7 @@ import "./DexDeployer.sol";
 import "./Dex.sol";
 import "./TestToken.sol";
 import "./TestMaker.sol";
+import "./TestMoriartyMaker.sol";
 import "./TestTaker.sol";
 import "./interfaces.sol";
 import "@nomiclabs/buidler/console.sol";
@@ -15,26 +16,27 @@ import "@nomiclabs/buidler/console.sol";
 // Otherwise bytecode can be too large. See EIP 170 for more on size limit:
 // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
 contract Dex_Test_Pre {
-  function setup() public returns (DexDeployer) {
-    return (new DexDeployer(msg.sender));
-  }
-}
-
-contract Dex_Test is Test {
-  Dex dex;
-  DexDeployer deployer;
-  TestMaker maker;
-  TestTaker taker;
-  TestToken aToken;
-  TestToken bToken;
-
-  constructor(Dex_Test_Pre pretest) {
-    deployer = pretest.setup();
-  }
-
-  function _beforeAll() public {
+  function setup()
+    public
+    returns (
+      TestToken,
+      TestToken,
+      TestMaker,
+      TestMoriartyMaker,
+      TestTaker,
+      Dex
+    )
+  {
+    DexDeployer deployer;
+    TestToken aToken;
+    TestToken bToken;
+    TestMaker maker;
+    TestMoriartyMaker evilMaker;
+    TestTaker taker;
+    deployer = new DexDeployer(msg.sender);
     aToken = new TestToken(address(this), "A", "$A");
     bToken = new TestToken(address(this), "B", "$B");
+    Dex dex;
 
     deployer.deploy({
       initialDustPerGasWanted: 100,
@@ -44,12 +46,27 @@ contract Dex_Test is Test {
       ofrToken: aToken,
       reqToken: bToken
     });
-
     dex = deployer.dexes(aToken, bToken);
-
     maker = new TestMaker(dex);
+    evilMaker = new TestMoriartyMaker(dex);
     taker = new TestTaker(dex);
+    return (aToken, bToken, maker, evilMaker, taker, dex);
+  }
+}
 
+contract Dex_Test is Test {
+  Dex dex;
+  TestMoriartyMaker evilMaker;
+  TestMaker maker;
+  TestTaker taker;
+  TestToken aToken;
+  TestToken bToken;
+
+  constructor(Dex_Test_Pre pretest) {
+    (aToken, bToken, maker, evilMaker, taker, dex) = pretest.setup();
+  }
+
+  function _beforeAll() public {
     address(maker).transfer(100 ether);
     maker.provisionDex(10 ether);
     aToken.mint(address(maker), 5 ether);

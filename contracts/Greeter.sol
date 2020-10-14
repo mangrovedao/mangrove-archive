@@ -42,21 +42,21 @@ contract Greeter_Test is Test {
     testTrue(false, "bool test false fail");
   }
 
-  function deep_failing_test() public {
+  function deep_failing_test() public view {
     console.log("in deep_failing_test");
     bad();
   }
 
-  function bad() public {
+  function bad() public view {
     console.log("in bad");
     bad2();
   }
 
-  function bad2() public {
+  function bad2() public view {
     this.bad3();
   }
 
-  function bad3() public {
+  function bad3() public pure {
     require(false, "bad3 failure");
   }
 }
