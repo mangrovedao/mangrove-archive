@@ -235,7 +235,10 @@ contract Dex {
     (uint32 prev, uint32 next) = findPosition(wants, gives, pivotId);
 
     uint maxPenalty = (gasWanted + minFinishGas) * penaltyPerGas;
-    //require(freeWei[msg.sender] >= maxPenalty, "insufficient penalty provision to create order");
+    require(
+      freeWei[msg.sender] >= maxPenalty,
+      "insufficient penalty provision to create order"
+    );
     freeWei[msg.sender] -= maxPenalty;
 
     uint32 orderId = uint32(++lastId);
