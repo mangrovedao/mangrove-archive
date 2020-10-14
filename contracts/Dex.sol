@@ -488,8 +488,8 @@ contract Dex {
         }
       }
       targetIndex++;
-      accessOB = true;
     }
+    accessOB = true;
     assembly {
       mstore(failures, mul(2, numFailures))
     } /* reduce failures array size */
