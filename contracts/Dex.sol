@@ -63,8 +63,20 @@ contract Dex {
     REQ_TOKEN = reqToken;
   }
 
-  function getLastId() public view returns (uint) {
+  function requireOpenOB() internal {
+    require(open, "market is closed");
+  }
+
+  function requireAccessibleOB() internal {
     require(accessOB, "OB not accessible");
+  }
+
+  function requireDexSender() internal {
+    require(msg.sender == address(this), "caller must be dex");
+  }
+
+  function getLastId() public view returns (uint) {
+    requireAccessibleOB();
     return lastId;
   }
 
@@ -72,6 +84,11 @@ contract Dex {
   function dexTransfer(address payable addr, uint amount) internal {
     (bool success, ) = addr.call{gas: transferGas, value: amount}("");
     require(success, "dexTransfer failed");
+  }
+
+  function getBest() external view returns (uint) {
+    requireAccessibleOB();
+    return best;
   }
 
   function getOrderInfo(uint orderId)
@@ -87,7 +104,7 @@ contract Dex {
       address
     )
   {
-    require(accessOB); // to prevent frontrunning attacks
+    requireAccessibleOB();
     Order memory order = orders[orderId];
     OrderDetail memory orderDetail = orderDetails[orderId];
     return (
@@ -201,7 +218,7 @@ contract Dex {
   }
 
   function cancelOrder(uint orderId) external returns (uint) {
-    require(accessOB, "reentrancy not allowed on OB functions");
+    requireAccessibleOB();
     OrderDetail memory orderDetail = orderDetails[orderId];
     if (msg.sender == orderDetail.maker) {
       Order memory order = orders[orderId];
@@ -220,8 +237,8 @@ contract Dex {
     uint gasWanted,
     uint pivotId
   ) external returns (uint) {
-    require(open, "no new order on closed market");
-    require(accessOB, "reentrancy not allowed on OB functions");
+    requireOpenOB();
+    requireAccessibleOB();
     require(gives >= gasWanted * dustPerGasWanted, "offering below dust limit");
     require(uint96(wants) == wants, "wants is 96 bits wide");
     require(uint96(gives) == gives, "gives is 96 bits wide");
@@ -437,8 +454,8 @@ contract Dex {
   }
 
   function snipe(uint orderId, uint takerWants) external {
-    require(open, "no new order on closed market");
-    require(accessOB, "reentrancy not allowed on OB functions");
+    requireOpenOB();
+    requireAccessibleOB();
     require(uint32(orderId) == orderId, "orderId is 32 bits wide");
     require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
 
@@ -450,8 +467,8 @@ contract Dex {
   }
 
   function snipes(uint[] calldata targets) external {
-    require(open, "no new order on closed market");
-    require(accessOB, "reentrancy not allowed on OB functions");
+    requireOpenOB();
+    requireAccessibleOB();
 
     internalSnipes(targets, 0, msg.sender);
   }
@@ -628,7 +645,7 @@ contract Dex {
     address orderMaker,
     uint dexFee
   ) external returns (bool) {
-    require(msg.sender == address(this), "caller must be dex");
+    requireDexSender();
 
     if (transferToken(REQ_TOKEN, taker, orderMaker, takerGives)) {
       // Execute order
@@ -724,7 +741,7 @@ contract Dex {
     address payable taker
   ) external returns (bytes memory) {
     // must wrap this to avoid bubbling up "fake failures" from other calls.
-    require(msg.sender == address(this), "caller must be dex");
+    requireDexSender();
     try
       this.secureInternalMarketOrderFrom(
         takerWants,
@@ -749,7 +766,7 @@ contract Dex {
     uint orderId,
     address payable taker
   ) external returns (uint[] memory) {
-    require(msg.sender == address(this), "caller must be dex");
+    requireDexSender();
     return
       internalMarketOrderFrom(
         takerWants,
@@ -765,7 +782,7 @@ contract Dex {
     uint punishLength,
     address payable taker
   ) external returns (bytes memory) {
-    require(msg.sender == address(this), "caller must be dex");
+    requireDexSender();
     try this.secureInternalSnipes(targets, punishLength, taker) returns (
       uint[] memory failures
     ) {
@@ -780,7 +797,7 @@ contract Dex {
     uint punishLength,
     address payable taker
   ) external returns (uint[] memory) {
-    require(msg.sender == address(this), "caller must be dex");
+    requireDexSender();
     return internalSnipes(targets, punishLength, taker);
   }
 
