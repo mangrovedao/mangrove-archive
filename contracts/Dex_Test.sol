@@ -15,28 +15,39 @@ import "@nomiclabs/buidler/console.sol";
 // Pretest contracts are for deploying large contracts independently.
 // Otherwise bytecode can be too large. See EIP 170 for more on size limit:
 // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
-contract Dex_Test_Pre {
+
+contract Dex_Test_Pre_Pre_Pre_Pre {
+  function setup() public returns (TestToken, TestToken) {
+    TestToken aToken;
+    TestToken bToken;
+    aToken = new TestToken(address(this), "A", "$A");
+    bToken = new TestToken(address(this), "B", "$B");
+    return (aToken, bToken);
+  }
+}
+
+contract Dex_Test_Pre_Pre_Pre {
+  Dex_Test_Pre_Pre_Pre_Pre pre4;
+
+  constructor(Dex_Test_Pre_Pre_Pre_Pre _pre4) {
+    pre4 = _pre4;
+  }
+
   function setup()
     public
     returns (
       TestToken,
       TestToken,
-      TestMaker,
-      TestMoriartyMaker,
-      TestTaker,
       Dex
     )
   {
     DexDeployer deployer;
     TestToken aToken;
     TestToken bToken;
-    TestMaker maker;
-    TestMoriartyMaker evilMaker;
-    TestTaker taker;
+
+    (aToken, bToken) = pre4.setup();
+
     deployer = new DexDeployer(msg.sender);
-    aToken = new TestToken(address(this), "A", "$A");
-    bToken = new TestToken(address(this), "B", "$B");
-    Dex dex;
 
     deployer.deploy({
       initialDustPerGasWanted: 100,
@@ -46,11 +57,60 @@ contract Dex_Test_Pre {
       ofrToken: aToken,
       reqToken: bToken
     });
-    dex = deployer.dexes(aToken, bToken);
+
+    return (aToken, bToken, deployer.dexes(aToken, bToken));
+  }
+}
+
+contract Dex_Test_Pre_Pre {
+  Dex_Test_Pre_Pre_Pre pre3;
+  TestToken aToken;
+  TestToken bToken;
+  Dex dex;
+
+  constructor(Dex_Test_Pre_Pre_Pre _pre3) {
+    pre3 = _pre3;
+  }
+
+  function setup()
+    public
+    returns (
+      TestToken,
+      TestToken,
+      Dex,
+      TestTaker
+    )
+  {
+    (aToken, bToken, dex) = pre3.setup();
+    return (aToken, bToken, dex, new TestTaker(dex));
+  }
+}
+
+contract Dex_Test_Pre {
+  Dex_Test_Pre_Pre pre2;
+
+  constructor(Dex_Test_Pre_Pre _pre2) {
+    pre2 = _pre2;
+  }
+
+  function setup()
+    public
+    returns (
+      TestToken,
+      TestToken,
+      Dex,
+      TestTaker,
+      TestMaker,
+      TestMoriartyMaker
+    )
+  {
+    (TestToken aToken, TestToken bToken, Dex dex, TestTaker taker) = pre2
+      .setup();
+    TestMaker maker;
     maker = new TestMaker(dex);
+    TestMoriartyMaker evilMaker;
     evilMaker = new TestMoriartyMaker(dex);
-    taker = new TestTaker(dex);
-    return (aToken, bToken, maker, evilMaker, taker, dex);
+    return (aToken, bToken, dex, taker, maker, evilMaker);
   }
 }
 
@@ -62,16 +122,20 @@ contract Dex_Test is Test {
   TestToken aToken;
   TestToken bToken;
 
-  constructor(Dex_Test_Pre pretest) {
-    (aToken, bToken, maker, evilMaker, taker, dex) = pretest.setup();
+  constructor(Dex_Test_Pre pre) {
+    (aToken, bToken, dex, taker, maker, evilMaker) = pre.setup();
   }
 
   function _beforeAll() public {
     address(maker).transfer(100 ether);
     maker.provisionDex(10 ether);
+    address(evilMaker).transfer(100 ether);
+    evilMaker.provisionDex(10 ether);
     aToken.mint(address(maker), 5 ether);
+    aToken.mint(address(evilMaker), 5 ether);
     bToken.mint(address(taker), 5 ether);
     maker.approve(aToken, 5 ether);
+    evilMaker.approve(aToken, 5 ether);
     taker.approve(bToken, 5 ether);
   }
 
