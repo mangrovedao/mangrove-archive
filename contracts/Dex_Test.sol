@@ -10,6 +10,7 @@ import "./TestMaker.sol";
 import "./TestMoriartyMaker.sol";
 import "./TestTaker.sol";
 import "./interfaces.sol";
+import "./Display.sol";
 import "@nomiclabs/buidler/console.sol";
 
 // Pretest contracts are for deploying large contracts independently.
@@ -114,7 +115,7 @@ contract Dex_Test_Pre {
   }
 }
 
-contract Dex_Test is Test {
+contract Dex_Test is Test, Display {
   Dex dex;
   TestMoriartyMaker evilMaker;
   TestMaker maker;
