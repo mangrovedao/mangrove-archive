@@ -23,7 +23,7 @@ contract Dex {
   }
 
   uint public takerFee; // in basis points
-  uint private best; // (32)
+  uint public best; // (32)
   uint public minFinishGas; // (24) min gas available
   uint public dustPerGasWanted; // (32) min amount to offer per gas requested, in OFR_TOKEN;
   uint public minGasWanted; // (32) minimal amount of gas you can ask for; also used for market order's dust estimation
@@ -74,15 +74,11 @@ contract Dex {
     require(success, "dexTransfer failed");
   }
 
-  function getBest() external view returns (uint) {
-    require(accessOB, "OB not accessible");
-    return best;
-  }
-
   function getOrderInfo(uint orderId)
     external
     view
     returns (
+      uint,
       uint,
       uint,
       uint,
@@ -97,6 +93,7 @@ contract Dex {
     return (
       order.wants,
       order.gives,
+      order.next,
       orderDetail.gasWanted,
       orderDetail.minFinishGas, // global minFinishGas at order creation time
       orderDetail.penaltyPerGas, // global penaltyPerGas at order creation time
