@@ -9,7 +9,7 @@ import "./interfaces.sol";
 
 contract Dex {
   struct Order {
-    uint32 prev; // better order
+    uint32 prev; // better orderm
     uint32 next; // worse order
     uint96 wants; // amount requested in OFR_TOKEN
     uint96 gives; // amount on order in REQ_TOKEN
