@@ -63,15 +63,15 @@ contract Dex {
     REQ_TOKEN = reqToken;
   }
 
-  function requireOpenOB() internal {
+  function requireOpenOB() internal view {
     require(open, "market is closed");
   }
 
-  function requireAccessibleOB() internal {
+  function requireAccessibleOB() internal view {
     require(accessOB, "OB not accessible");
   }
 
-  function requireDexSender() internal {
+  function requireDexSender() internal view {
     require(msg.sender == address(this), "caller must be dex");
   }
 
@@ -680,6 +680,7 @@ contract Dex {
     }
   }
 
+  /*
   // run and revert a market order so as to collect orderId's that are failing
   // punishLength is the number of failing orders one is trying to catch
   function punishingMarketOrderFrom(
@@ -800,6 +801,7 @@ contract Dex {
     requireDexSender();
     return internalSnipes(targets, punishLength, taker);
   }
+  */
 
   // Avoid "no return value" bug
   // https://soliditydeveloper.com/safe-erc20

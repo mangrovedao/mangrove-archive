@@ -1,5 +1,6 @@
 //usePlugin("@nomiclabs/buidler-truffle5");
 usePlugin("@nomiclabs/buidler-ethers");
+usePlugin("buidler-deploy");
 const test_solidity = require("./lib/test_solidity.js");
 
 // Special task for running Solidity tests
