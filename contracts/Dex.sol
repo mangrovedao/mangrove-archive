@@ -34,8 +34,8 @@ contract Dex {
 
   address private admin;
   bool public accessOB = true; // whether a modification of the OB is permitted
-  uint private lastId = 0; // (32)
   uint private transferGas = 2300; //default amount of gas given for a transfer
+  uint private lastId; // (32)
 
   mapping(uint => Order) private orders;
   mapping(uint => OrderDetail) private orderDetails;
