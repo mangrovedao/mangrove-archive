@@ -4,42 +4,25 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "./interfaces.sol";
+import "./DexCommon.sol";
+import "./DexLib.sol";
 
 //import "@nomiclabs/buidler/console.sol";
 
 contract Dex {
-  struct Order {
-    uint32 prev; // better orderm
-    uint32 next; // worse order
-    uint96 wants; // amount requested in OFR_TOKEN
-    uint96 gives; // amount on order in REQ_TOKEN
-  }
+  address public immutable OFR_TOKEN; // ofr_token is the token orders give
+  address public immutable REQ_TOKEN; // req_token is the token orders wants
 
-  struct OrderDetail {
-    uint24 gasWanted; // gas requested
-    uint24 minFinishGas; // global minFinishGas at order creation time
-    uint48 penaltyPerGas; // global penaltyPerGas at order creation time
-    address maker;
-  }
+  Config private config;
 
-  uint public takerFee; // in basis points
-  uint public best; // (32)
-  uint public minFinishGas; // (24) min gas available
-  uint public dustPerGasWanted; // (32) min amount to offer per gas requested, in OFR_TOKEN;
-  uint public minGasWanted; // (32) minimal amount of gas you can ask for; also used for market order's dust estimation
-  bool public open = true; // a closed market cannot make/take orders
-  uint public penaltyPerGas; // (48) in wei;
-  IERC20 public immutable OFR_TOKEN; // ofr_token is the token orders give
-  IERC20 public immutable REQ_TOKEN; // req_token is the token orders wants
-
-  address private admin;
+  bool public open = true;
   bool public accessOB = true; // whether a modification of the OB is permitted
-  uint private transferGas = 2300; //default amount of gas given for a transfer
+  UintContainer public best; // (32)
   uint private lastId; // (32)
 
   mapping(uint => Order) private orders;
   mapping(uint => OrderDetail) private orderDetails;
-  mapping(address => uint) freeWei;
+  mapping(address => uint) private freeWei;
 
   // TODO low gascost bookkeeping methods
   //updateOrder(constant price)
@@ -51,16 +34,29 @@ contract Dex {
     uint initialMinFinishGas,
     uint initialPenaltyPerGas,
     uint initialMinGasWanted,
-    IERC20 ofrToken,
-    IERC20 reqToken
+    address ofrToken,
+    address reqToken
   ) {
-    admin = initialAdmin;
-    setDustPerGasWanted(initialDustPerGasWanted);
-    setMinFinishGas(initialMinFinishGas);
-    setPenaltyPerGas(initialPenaltyPerGas);
-    setMinGasWanted(initialMinGasWanted);
     OFR_TOKEN = ofrToken;
     REQ_TOKEN = reqToken;
+    DexLib.setConfigKey(config, ConfigKey.admin, initialAdmin);
+    DexLib.setConfigKey(
+      config,
+      ConfigKey.dustPerGasWanted,
+      initialDustPerGasWanted
+    );
+    DexLib.setConfigKey(config, ConfigKey.minFinishGas, initialMinFinishGas);
+    DexLib.setConfigKey(config, ConfigKey.penaltyPerGas, initialPenaltyPerGas);
+    DexLib.setConfigKey(config, ConfigKey.minGasWanted, initialMinGasWanted);
+    DexLib.setConfigKey(config, ConfigKey.transferGas, 2300);
+  }
+
+  function requireSelfSend() internal view {
+    require(msg.sender == address(this), "caller must be dex");
+  }
+
+  function requireAdmin() internal view returns (bool) {
+    require(address(this) == msg.sender, "not admin");
   }
 
   function requireOpenOB() internal view {
@@ -71,24 +67,25 @@ contract Dex {
     require(accessOB, "OB not accessible");
   }
 
-  function requireDexSender() internal view {
-    require(msg.sender == address(this), "caller must be dex");
-  }
-
   function getLastId() public view returns (uint) {
     requireAccessibleOB();
     return lastId;
   }
 
+  function closeMarket() external {
+    requireAdmin();
+    open = false;
+  }
+
   //Emulates the transfer function, but with adjustable gas transfer
   function dexTransfer(address payable addr, uint amount) internal {
-    (bool success, ) = addr.call{gas: transferGas, value: amount}("");
+    (bool success, ) = addr.call{gas: config.transferGas, value: amount}("");
     require(success, "dexTransfer failed");
   }
 
   function getBest() external view returns (uint) {
     requireAccessibleOB();
-    return best;
+    return best.value;
   }
 
   function getOrderInfo(uint orderId)
@@ -118,86 +115,22 @@ contract Dex {
     );
   }
 
-  function isAdmin(address maybeAdmin) internal view returns (bool) {
-    return maybeAdmin == admin;
+  function setConfigKey(ConfigKey key, uint value) external {
+    requireAdmin();
+    DexLib.setConfigKey(config, key, value);
   }
 
-  function updateAdmin(address newValue) external {
-    if (isAdmin(msg.sender)) {
-      admin = newValue;
-    }
+  function setConfigKey(ConfigKey key, address value) external {
+    requireAdmin();
+    DexLib.setConfigKey(config, key, value);
   }
 
-  function updateTransferGas(uint gas) external {
-    if (isAdmin(msg.sender)) {
-      transferGas = gas;
-    }
+  function getConfigUint(ConfigKey key) external view returns (uint) {
+    return DexLib.getConfigUint(config, key);
   }
 
-  function closeMarket() external {
-    if (isAdmin(msg.sender)) {
-      open = false;
-    }
-  }
-
-  function setDustPerGasWanted(uint newValue) internal {
-    require(newValue > 0, "dustPerGasWanted must be > 0");
-    require(uint32(newValue) == newValue);
-    dustPerGasWanted = newValue;
-  }
-
-  function setTakerFee(uint newValue) internal {
-    require(newValue <= 10000, "takerFee is in bps, must be <= 10000"); // at most 14 bits
-    takerFee = newValue;
-  }
-
-  function setMinFinishGas(uint newValue) internal {
-    require(uint24(newValue) == newValue, "minFinishGas is 24 bits wide");
-    minFinishGas = newValue;
-  }
-
-  function setPenaltyPerGas(uint newValue) internal {
-    require(uint48(newValue) == newValue, "penaltyPerGas is 48 bits wide");
-    penaltyPerGas = newValue;
-  }
-
-  function setMinGasWanted(uint newValue) internal {
-    require(uint32(newValue) == newValue, "minGasWanted is 32 bits wide");
-    minGasWanted = newValue;
-  }
-
-  function updateDustPerGasWanted(uint newValue) external {
-    if (isAdmin(msg.sender)) {
-      setDustPerGasWanted(newValue);
-    }
-  }
-
-  function updateTakerFee(uint newValue) external {
-    if (isAdmin(msg.sender)) {
-      setTakerFee(newValue);
-    }
-  }
-
-  function updateMinFinishGas(uint newValue) external {
-    if (isAdmin(msg.sender)) {
-      setMinFinishGas(newValue);
-    }
-  }
-
-  function updatePenaltyPerGas(uint newValue) external {
-    if (isAdmin(msg.sender)) {
-      setPenaltyPerGas(newValue);
-    }
-  }
-
-  function updateMinGasWanted(uint newValue) external {
-    if (isAdmin(msg.sender)) {
-      setMinGasWanted(newValue);
-    }
-  }
-
-  function isOrder(Order memory order) internal pure returns (bool) {
-    return order.gives > 0;
+  function getConfigAddress(ConfigKey key) external view returns (address) {
+    return DexLib.getConfigAddress(config, key);
   }
 
   function balanceOf(address maker) external view returns (uint) {
@@ -222,7 +155,7 @@ contract Dex {
     OrderDetail memory orderDetail = orderDetails[orderId];
     if (msg.sender == orderDetail.maker) {
       Order memory order = orders[orderId];
-      deleteOrder(order, orderId);
+      internalDeleteOrder(order, orderId);
       // Freeing provisioned penalty for maker
       uint provision = orderDetail.penaltyPerGas * orderDetail.gasWanted;
       freeWei[msg.sender] += provision;
@@ -239,129 +172,23 @@ contract Dex {
   ) external returns (uint) {
     requireOpenOB();
     requireAccessibleOB();
-    require(gives >= gasWanted * dustPerGasWanted, "offering below dust limit");
-    require(uint96(wants) == wants, "wants is 96 bits wide");
-    require(uint96(gives) == gives, "gives is 96 bits wide");
-    require(uint24(gasWanted) == gasWanted, "gasWanted is 24 bits wide");
-    require(gasWanted > 0, "gasWanted > 0"); // division by gasWanted occurs later
-    require(uint32(pivotId) == pivotId, "pivotId is 32 bits wide");
-
-    (uint32 prev, uint32 next) = findPosition(wants, gives, pivotId);
-
-    uint maxPenalty = (gasWanted + minFinishGas) * penaltyPerGas;
-    require(
-      freeWei[msg.sender] >= maxPenalty,
-      "insufficient penalty provision to create order"
-    );
-    freeWei[msg.sender] -= maxPenalty;
-
-    uint32 orderId = uint32(++lastId);
-
-    //TODO Check if Solidity optimizer prefers this or orders[i].a = a'; ... ; orders[i].b = b'
-    orders[orderId] = Order({
-      prev: prev,
-      next: next,
-      wants: uint96(wants),
-      gives: uint96(gives)
-    });
-
-    orderDetails[orderId] = OrderDetail({
-      gasWanted: uint24(gasWanted),
-      minFinishGas: uint24(minFinishGas),
-      penaltyPerGas: uint48(penaltyPerGas),
-      maker: msg.sender
-    });
-
-    if (prev != 0) {
-      orders[prev].next = orderId;
-    } else {
-      best = orderId;
-    }
-
-    if (next != 0) {
-      orders[next].prev = orderId;
-    }
-    return orderId;
-  }
-
-  // returns false iff (wants1,gives1) is strictly worse than (wants2,gives2)
-  function better(
-    uint wants1,
-    uint gives1,
-    uint wants2,
-    uint gives2
-  ) internal pure returns (bool) {
-    return wants1 * gives2 <= wants2 * gives1;
-  }
-
-  // 1. add a ghost order orderId with (want,gives) in the right position
-  //    you should make sure that the order orderId has the correct price
-  // 2. not trying to be a stable sort
-  //    but giving privilege to earlier orders
-  // 3. to use the least gas, consider which orders would surround yours (with older orders being sorted first)
-  //    give any of those as _refId
-  //    no analysis was done if garbage ids are allowed
-  function findPosition(
-    uint wants,
-    uint gives,
-    uint pivotId
-  ) internal view returns (uint32, uint32) {
-    Order memory pivot = orders[pivotId];
-
-    if (!isOrder(pivot)) {
-      // in case pivotId is not or no longer a valid order
-      pivot = orders[best];
-      pivotId = best;
-    }
-
-    if (better(pivot.wants, pivot.gives, wants, gives)) {
-      // o is better or as good, we follow next
-
-      Order memory pivotNext;
-      while (pivot.next != 0) {
-        pivotNext = orders[pivot.next];
-        if (better(pivotNext.wants, pivotNext.gives, wants, gives)) {
-          pivotId = pivot.next;
-          pivot = pivotNext;
-        } else {
-          break;
-        }
-      }
-      return (uint32(pivotId), pivot.next); // this is also where we end up with an empty OB
-    } else {
-      // o is strictly worse, we follow prev
-
-      Order memory pivotPrev;
-      while (pivot.prev != 0) {
-        pivotPrev = orders[pivot.prev];
-        if (better(pivotPrev.wants, pivotPrev.gives, wants, gives)) {
-          break;
-        } else {
-          pivotId = pivot.prev;
-          pivot = pivotPrev;
-        }
-      }
-      return (pivot.prev, uint32(pivotId));
-    }
+    return
+      DexLib.newOrder(
+        config,
+        freeWei,
+        orders,
+        orderDetails,
+        best,
+        ++lastId,
+        wants,
+        gives,
+        gasWanted,
+        pivotId
+      );
   }
 
   function min(uint a, uint b) internal pure returns (uint) {
     return a < b ? a : b;
-  }
-
-  // Low-level reverts for different data types
-  function evmRevert(bytes memory data) internal pure {
-    uint length = data.length;
-    assembly {
-      revert(data, add(length, 32))
-    }
-  }
-
-  function evmRevert(uint[] memory data) internal pure {
-    uint length = data.length;
-    assembly {
-      revert(data, add(mul(length, 32), 32))
-    }
   }
 
   // ask for a volume by setting takerWants to however much you want and
@@ -395,7 +222,10 @@ contract Dex {
 
     accessOB = false;
     // inlining (minTakerWants = dustPerGasWanted*minGasWanted) to avoid stack too deep
-    while (takerWants >= dustPerGasWanted * minGasWanted && orderId != 0) {
+    while (
+      takerWants >= config.dustPerGasWanted * config.minGasWanted &&
+      orderId != 0
+    ) {
       // is the taker ready to take less per unit than the maker is ready to give per unit?
       // takerWants/takerGives <= order.ofrAmount / order.reqAmount
       // here we normalize how much the maker would ask for takerWant
@@ -421,15 +251,16 @@ contract Dex {
           takerWants -= localTakerWants;
           takerGives -= localTakerGives;
           if (
-            order.gives - localTakerWants >= dustPerGasWanted * minGasWanted
+            order.gives - localTakerWants >=
+            config.dustPerGasWanted * config.minGasWanted
           ) {
             orders[orderId].gives = uint96(order.gives - localTakerWants);
             orders[orderId].wants = uint96(order.wants - localTakerGives);
           } else {
-            _deleteOrder(orderId);
+            dirtyDeleteOrder(orderId);
           }
         } else {
-          _deleteOrder(orderId);
+          dirtyDeleteOrder(orderId);
           if (numFailures++ < punishLength) {
             // storing orderId and gas used for cancellation
             failures[2 * numFailures] = orderId;
@@ -512,14 +343,14 @@ contract Dex {
 
   // implements a market order with condition on the minimal delivered volume
   function conditionalMarketOrder(uint takerWants, uint takerGives) external {
-    internalMarketOrderFrom(takerWants, takerGives, 0, best, msg.sender);
+    internalMarketOrderFrom(takerWants, takerGives, 0, best.value, msg.sender);
   }
 
   function stitchOrders(uint past, uint future) internal {
     if (past != 0) {
       orders[past].next = uint32(future);
     } else {
-      best = future;
+      best.value = future;
     }
 
     if (future != 0) {
@@ -527,13 +358,13 @@ contract Dex {
     }
   }
 
-  function _deleteOrder(uint orderId) internal {
+  function dirtyDeleteOrder(uint orderId) internal {
     delete orders[orderId];
     delete orderDetails[orderId];
   }
 
-  function deleteOrder(Order memory order, uint orderId) internal {
-    _deleteOrder(orderId);
+  function internalDeleteOrder(Order memory order, uint orderId) internal {
+    dirtyDeleteOrder(orderId);
     stitchOrders(order.prev, order.next);
   }
 
@@ -561,11 +392,14 @@ contract Dex {
     );
     accessOB = true;
 
-    if (order.gives - localTakerWants >= dustPerGasWanted * minGasWanted) {
+    if (
+      order.gives - localTakerWants >=
+      config.dustPerGasWanted * config.minGasWanted
+    ) {
       orders[orderId].gives = uint96(order.gives - localTakerWants);
       orders[orderId].wants = uint96(order.wants - localTakerGives);
     } else {
-      deleteOrder(order, orderId);
+      internalDeleteOrder(order, orderId);
     }
     return (success, gasUsed);
   }
@@ -601,86 +435,55 @@ contract Dex {
     uint oldGas = gasleft();
 
     require(
-      oldGas >= orderDetail.gasWanted + minFinishGas,
+      oldGas >= orderDetail.gasWanted + config.minFinishGas,
       "not enough gas left to safely execute order"
     );
 
-    uint dexFee = (takerFee +
-      (takerFee * dustPerGasWanted * orderDetail.gasWanted) /
+    uint dexFee = (config.takerFee +
+      (config.takerFee * config.dustPerGasWanted * orderDetail.gasWanted) /
       order.gives) / 2;
 
-    try
-      this.swapTokens(
+    (bool noRevert, bytes memory retdata) = address(DexLib).delegatecall(
+      abi.encodeWithSelector(
+        DexLib.swapTokens.selector,
+        OFR_TOKEN,
+        REQ_TOKEN,
         orderId,
-        sender,
         takerGives,
         takerWants,
-        orderDetail.gasWanted,
-        orderDetail.penaltyPerGas,
-        orderDetail.maker,
-        dexFee
+        sender,
+        dexFee,
+        config.takerFee,
+        orderDetail
       )
-    returns (bool flashSuccess) {
-      uint gasUsed = oldGas - gasleft();
+    );
+    uint gasUsed = oldGas - gasleft();
+    if (noRevert) {
+      bool flashSuccess = abi.decode(retdata, (bool));
       require(flashSuccess, "taker failed to send tokens to maker");
       applyPenalty(sender, 0, orderDetail);
       return (true, gasUsed);
-    } catch (
-      bytes memory /*reason*/
-    ) {
-      uint gasUsed = oldGas - gasleft();
+    } else {
       applyPenalty(sender, gasUsed, orderDetail);
       return (false, gasUsed);
     }
   }
 
-  // swap tokens, no checks except msg.sender, throws if bad postcondition
-  function swapTokens(
-    uint orderId,
-    address taker,
-    uint takerGives,
-    uint takerWants,
-    uint32 orderGasWanted,
-    uint64 orderPenaltyPerGas,
-    address orderMaker,
-    uint dexFee
-  ) external returns (bool) {
-    requireDexSender();
-
-    if (transferToken(REQ_TOKEN, taker, orderMaker, takerGives)) {
-      // Execute order
-      IMaker(orderMaker).execute{gas: orderGasWanted}(
-        takerWants,
-        takerGives,
-        orderPenaltyPerGas,
-        orderId
-      );
-
-      require(
-        transferToken(
-          OFR_TOKEN,
-          orderMaker,
-          address(this),
-          (takerWants * dexFee) / 10000
-        ),
-        "fail transfer to dex"
-      );
-      require(
-        transferToken(
-          OFR_TOKEN,
-          orderMaker,
-          taker,
-          (takerWants * (10000 - takerFee)) / 10000
-        ),
-        "fail transfer to taker"
-      );
-      return true;
-    } else {
-      return false;
+  // Low-level reverts for different data types
+  function evmRevert(bytes memory data) internal pure {
+    uint length = data.length;
+    assembly {
+      revert(data, add(length, 32))
     }
   }
 
-  /*
+  function evmRevert(uint[] memory data) internal pure {
+    uint length = data.length;
+    assembly {
+      revert(data, add(mul(length, 32), 32))
+    }
+  }
+
   // run and revert a market order so as to collect orderId's that are failing
   // punishLength is the number of failing orders one is trying to catch
   function punishingMarketOrderFrom(
@@ -728,7 +531,7 @@ contract Dex {
       uint gasUsed = failures[failureIndex * 2 + 1];
       Order memory order = orders[punishedOrderId];
       OrderDetail memory orderDetail = orderDetails[punishedOrderId];
-      deleteOrder(order, punishedOrderId);
+      internalDeleteOrder(order, punishedOrderId);
       applyPenalty(taker, gasUsed, orderDetail);
       failureIndex++;
     }
@@ -742,7 +545,7 @@ contract Dex {
     address payable taker
   ) external returns (bytes memory) {
     // must wrap this to avoid bubbling up "fake failures" from other calls.
-    requireDexSender();
+    requireSelfSend();
     try
       this.secureInternalMarketOrderFrom(
         takerWants,
@@ -767,7 +570,7 @@ contract Dex {
     uint orderId,
     address payable taker
   ) external returns (uint[] memory) {
-    requireDexSender();
+    requireSelfSend();
     return
       internalMarketOrderFrom(
         takerWants,
@@ -783,7 +586,7 @@ contract Dex {
     uint punishLength,
     address payable taker
   ) external returns (bytes memory) {
-    requireDexSender();
+    requireSelfSend();
     try this.secureInternalSnipes(targets, punishLength, taker) returns (
       uint[] memory failures
     ) {
@@ -798,26 +601,7 @@ contract Dex {
     uint punishLength,
     address payable taker
   ) external returns (uint[] memory) {
-    requireDexSender();
+    requireSelfSend();
     return internalSnipes(targets, punishLength, taker);
-  }
-  */
-
-  // Avoid "no return value" bug
-  // https://soliditydeveloper.com/safe-erc20
-  function transferToken(
-    IERC20 token,
-    address from,
-    address to,
-    uint value
-  ) internal returns (bool) {
-    bytes memory cd = abi.encodeWithSelector(
-      token.transferFrom.selector,
-      from,
-      to,
-      value
-    );
-    (bool success, bytes memory data) = address(token).call(cd);
-    return (success && (data.length == 0 || abi.decode(data, (bool))));
   }
 }

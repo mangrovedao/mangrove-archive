@@ -5,6 +5,7 @@ pragma solidity ^0.7.0;
 import "./Test.sol";
 import "./DexDeployer.sol";
 import "./Dex.sol";
+import "./DexCommon.sol";
 import "./TestToken.sol";
 import "./TestMaker.sol";
 import "./TestMoriartyMaker.sol";
@@ -35,10 +36,10 @@ library DexPre1 {
       initialMinFinishGas: 30000,
       initialPenaltyPerGas: 300,
       initialMinGasWanted: 30000,
-      ofrToken: aToken,
-      reqToken: bToken
+      ofrToken: address(aToken),
+      reqToken: address(bToken)
     });
-    return deployer.dexes(aToken, bToken);
+    return deployer.dexes(address(aToken), address(bToken));
   }
 }
 
@@ -83,7 +84,7 @@ contract Dex_Test is Test {
   }
 
   function zeroDust_test() public {
-    try dex.updateDustPerGasWanted(0)  {
+    try dex.setConfigKey(ConfigKey.dustPerGasWanted, 0)  {
       testFail("zero dustPerGastWanted should revert");
     } catch Error(
       string memory /*reason*/

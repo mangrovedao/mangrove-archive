@@ -55,11 +55,11 @@ contract Dex_Test_Pre_Pre_Pre {
       initialMinFinishGas: 30000,
       initialPenaltyPerGas: 300,
       initialMinGasWanted: 30000,
-      ofrToken: aToken,
-      reqToken: bToken
+      ofrToken: address(aToken),
+      reqToken: address(bToken)
     });
 
-    return (aToken, bToken, deployer.dexes(aToken, bToken));
+    return (aToken, bToken, deployer.dexes(address(aToken), address(bToken)));
   }
 }
 
@@ -141,7 +141,7 @@ contract Dex_Test is Test, Display {
   }
 
   function zeroDust_test() public {
-    try dex.updateDustPerGasWanted(0)  {
+    try dex.setConfigKey(ConfigKey.dustPerGasWanted, 0)  {
       testFail("zero dustPerGastWanted should revert");
     } catch Error(
       string memory /*reason*/
