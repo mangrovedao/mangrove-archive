@@ -126,8 +126,8 @@ contract Dex_Test is Test, Display {
 
   function testDex(Spec[] memory orderList, string memory message) internal {
     uint orderId = dex.best();
+    bool success = true;
     for (uint i = 0; i < orderList.length; i++) {
-      bool success = true;
       (
         uint wants,
         uint gives,
@@ -192,29 +192,37 @@ contract Dex_Test is Test, Display {
       gasWanted: gasWanted,
       minFinishGas: dex.minFinishGas(),
       penaltyPerGas: dex.penaltyPerGas(),
-  function takeFromSpec(Spec memory spec, uint taken)
-  internal pure returns (Spec memory){
-    return Spec({
-      orderId: spec.orderId,
-      wants: spec.wants-(taken*spec.wants/spec.gives),
-      gives: spec.gives-taken,
-      gasWanted: spec.gasWanted,
-      minFinishGas: spec.minFinishGas,
-      penaltyPerGas: spec.penaltyPerGas,
-      maker: spec.maker
-    });
-  }
-
-  function take(TestTaker taker, uint orderId, uint wants, Spec memory spec)
-  internal returns (Spec memory) {
-    uint taken = taker.take(orderId,wants);
-    Spec memory newspec = takeFromSpec(spec,taken);
-    return newspec;
-  }
-
       maker: address(maker)
     });
     return (spec, orderId);
+  }
+
+  function takeFromSpec(Spec memory spec, uint taken)
+    internal
+    pure
+    returns (Spec memory)
+  {
+    return
+      Spec({
+        orderId: spec.orderId,
+        wants: spec.wants - ((taken * spec.wants) / spec.gives),
+        gives: spec.gives - taken,
+        gasWanted: spec.gasWanted,
+        minFinishGas: spec.minFinishGas,
+        penaltyPerGas: spec.penaltyPerGas,
+        maker: spec.maker
+      });
+  }
+
+  function take(
+    TestTaker taker,
+    uint orderId,
+    uint wants,
+    Spec memory spec
+  ) internal returns (Spec memory) {
+    uint taken = taker.take(orderId, wants);
+    Spec memory newspec = takeFromSpec(spec, taken);
+    return newspec;
   }
 
   function basicMarketOrder_test() public {
@@ -246,14 +254,13 @@ contract Dex_Test is Test, Display {
 
     uint orderAmount = 0.3 ether;
 
-//    taker.take({orderId: orderId1, wants: orderAmount});
+    //    taker.take({orderId: orderId1, wants: orderAmount});
 
-    Spec memory newspec1 = take(taker,orderId1,orderAmount,spec1);
+    Spec memory newspec1 = take(taker, orderId1, orderAmount, spec1);
     specOB[1] = newspec1;
 
     // Testing correct update of OB
     testDex(specOB, "OB has partially consumed order 1");
-
 
     uint expec_mkr_a_bal = init_mkr_a_bal - orderAmount;
     uint expec_mkr_b_bal = init_mkr_b_bal + orderAmount;
