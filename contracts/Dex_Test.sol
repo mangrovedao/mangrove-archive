@@ -124,9 +124,10 @@ contract Dex_Test is Test, Display {
       });
   }
 
-  function testDex(Spec[] memory orderList) internal {
+  function testDex(Spec[] memory orderList, string memory message) internal {
     uint orderId = dex.best();
     for (uint i = 0; i < orderList.length; i++) {
+      bool success = true;
       (
         uint wants,
         uint gives,
@@ -137,28 +138,28 @@ contract Dex_Test is Test, Display {
         address maker
       ) = dex.getOrderInfo(orderId);
       Spec memory spec = orderList[i];
-      testEq(spec.orderId, orderId, "incorrect order Id");
-      testEq(spec.wants, wants, "incorrect wanted price");
-      testEq(spec.gives, gives, "incorrect give price");
-      testEq(spec.gasWanted, gasWanted, "incorrect gas wanted");
-      testEq(spec.minFinishGas, minFinishGas, "incorrect min finish gas");
-      testEq(spec.penaltyPerGas, penaltyPerGas, "incorrect penalty");
-      testEq(spec.maker, maker, "incorrect maker address");
+      success = success && testEq(spec.orderId, orderId, "incorrect order Id");
+      success = success && testEq(spec.wants, wants, "incorrect wanted price");
+      success = success && testEq(spec.gives, gives, "incorrect give price");
+      success =
+        success &&
+        testEq(spec.gasWanted, gasWanted, "incorrect gas wanted");
+      success =
+        success &&
+        testEq(spec.minFinishGas, minFinishGas, "incorrect min finish gas");
+      success =
+        success &&
+        testEq(spec.penaltyPerGas, penaltyPerGas, "incorrect penalty");
+      success = success && testEq(spec.maker, maker, "incorrect maker address");
+      if (success) {
+        testSuccess();
+      }
       orderId = nextId;
     }
-  }
-
-  function _beforeAll() public {
-    address(maker).transfer(100 ether);
-    maker.provisionDex(10 ether);
-    address(evilMaker).transfer(100 ether);
-    evilMaker.provisionDex(10 ether);
-    aToken.mint(address(maker), 5 ether);
-    aToken.mint(address(evilMaker), 5 ether);
-    bToken.mint(address(taker), 5 ether);
-    maker.approve(aToken, 5 ether);
-    evilMaker.approve(aToken, 5 ether);
-    taker.approve(bToken, 5 ether);
+    if (success) {
+      console.logString(message);
+    }
+    logOrderBook(dex);
   }
 
   function zeroDust_test() public {
