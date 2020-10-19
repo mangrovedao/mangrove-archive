@@ -59,7 +59,7 @@ library DexPre3 {
   }
 }
 
-contract Dex_Test is Test {
+contract Dex_Test is Test, Display {
   Dex dex;
   TestMoriartyMaker evilMaker;
   TestMaker maker;
