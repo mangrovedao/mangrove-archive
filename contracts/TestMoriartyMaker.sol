@@ -15,10 +15,10 @@ contract TestMoriartyMaker is IMaker, Passthrough {
   }
 
   function execute(
-    uint256,
-    uint256,
-    uint256,
-    uint256
+    uint,
+    uint,
+    uint,
+    uint
   ) public override {
     if (shouldFail) {
       // second call to execute always fails
@@ -29,23 +29,23 @@ contract TestMoriartyMaker is IMaker, Passthrough {
   }
 
   function newOrder(
-    uint256 wants,
-    uint256 gives,
-    uint256 gasWanted,
-    uint256 pivotId
-  ) public returns (uint256) {
-    uint256 orderId = (dex.newOrder(wants, gives, gasWanted, pivotId));
-    uint256 minDustPerGas = dex.dustPerGasWanted();
-    dex.newOrder(0, minDustPerGas, 1, 0); //dummy order
-    return orderId;
+    uint wants,
+    uint gives,
+    uint gasWanted,
+    uint pivotId
+  ) public returns (uint, uint) {
+    uint orderId = (dex.newOrder(wants, gives, gasWanted, pivotId));
+    uint minDustPerGas = dex.dustPerGasWanted();
+    uint dummyId = dex.newOrder(0, minDustPerGas, 1, 0); //dummy order
+    return (orderId, dummyId);
   }
 
-  function provisionDex(uint256 amount) public {
+  function provisionDex(uint amount) public {
     (bool success, ) = address(dex).call{value: amount}("");
     require(success);
   }
 
-  function approve(IERC20 token, uint256 amount) public {
+  function approve(IERC20 token, uint amount) public {
     token.approve(address(dex), amount);
   }
 
