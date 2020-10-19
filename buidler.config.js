@@ -26,7 +26,7 @@ task(
 module.exports = {
   defaultNetwork: "buidlerevm",
   networks: {
-    buidlerevm: {},
+    buidlerevm: {blockGasLimit: 7000000000},
     localhost: {
       url: "http://127.0.0.1:8545",
     },
