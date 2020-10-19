@@ -11,7 +11,7 @@ interface IMaker {
 }
 
 interface ITaker {
-  function take(uint orderId, uint wants) external;
+  function take(uint orderId, uint wants) external returns (uint);
 
   function mo(uint wants, uint gives) external;
 }

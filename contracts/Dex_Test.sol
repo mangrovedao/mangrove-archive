@@ -180,18 +180,38 @@ contract Dex_Test is Test, Display {
     uint pivotId
   ) internal returns (Spec memory, uint) {
     uint orderId = maker.newOrder({
-      wants: 1 ether,
-      gives: 1 ether,
-      gasWanted: 2300,
-      pivotId: 0
+      wants: wants,
+      gives: gives,
+      gasWanted: gasWanted,
+      pivotId: pivotId
     });
     Spec memory spec = specOf({
       orderId: orderId,
-      wants: 1 ether,
-      gives: 1 ether,
-      gasWanted: 2300,
+      wants: wants,
+      gives: gives,
+      gasWanted: gasWanted,
       minFinishGas: dex.minFinishGas(),
       penaltyPerGas: dex.penaltyPerGas(),
+  function takeFromSpec(Spec memory spec, uint taken)
+  internal pure returns (Spec memory){
+    return Spec({
+      orderId: spec.orderId,
+      wants: spec.wants-(taken*spec.wants/spec.gives),
+      gives: spec.gives-taken,
+      gasWanted: spec.gasWanted,
+      minFinishGas: spec.minFinishGas,
+      penaltyPerGas: spec.penaltyPerGas,
+      maker: spec.maker
+    });
+  }
+
+  function take(TestTaker taker, uint orderId, uint wants, Spec memory spec)
+  internal returns (Spec memory) {
+    uint taken = taker.take(orderId,wants);
+    Spec memory newspec = takeFromSpec(spec,taken);
+    return newspec;
+  }
+
       maker: address(maker)
     });
     return (spec, orderId);
@@ -222,11 +242,18 @@ contract Dex_Test is Test, Display {
     specOB[1] = spec1;
 
     // Testing correct insertion in OB
-    testDex(specOB);
+    testDex(specOB, "OB has correctly inserted the 2 orders");
 
-    uint orderAmount = 0.5 ether;
+    uint orderAmount = 0.3 ether;
 
-    taker.take({orderId: orderId1, wants: orderAmount});
+//    taker.take({orderId: orderId1, wants: orderAmount});
+
+    Spec memory newspec1 = take(taker,orderId1,orderAmount,spec1);
+    specOB[1] = newspec1;
+
+    // Testing correct update of OB
+    testDex(specOB, "OB has partially consumed order 1");
+
 
     uint expec_mkr_a_bal = init_mkr_a_bal - orderAmount;
     uint expec_mkr_b_bal = init_mkr_b_bal + orderAmount;
