@@ -7,6 +7,7 @@ import "./DexDeployer.sol";
 import "./Dex.sol";
 import "./TestToken.sol";
 import "./TestMaker.sol";
+import "./MakerDeployer.sol";
 import "./TestMoriartyMaker.sol";
 import "./TestTaker.sol";
 import "./interfaces.sol";
@@ -20,6 +21,7 @@ import "@nomiclabs/buidler/console.sol";
 // Pretest libraries are for deploying large contracts independently.
 // Otherwise bytecode can be too large. See EIP 170 for more on size limit:
 // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
+
 library DexPre0 {
   function setup() external returns (TestToken, TestToken) {
     return (
@@ -48,8 +50,8 @@ library DexPre1 {
 }
 
 library DexPre2 {
-  function setup(Dex dex) external returns (TestMaker, TestMoriartyMaker) {
-    return (new TestMaker(dex), new TestMoriartyMaker(dex));
+  function setup(Dex dex) external returns (MakerDeployer) {
+    return (new MakerDeployer(dex));
   }
 }
 
@@ -61,11 +63,11 @@ library DexPre3 {
 
 contract Dex_Test is Test, Display {
   Dex dex;
-  TestMoriartyMaker evilMaker;
-  TestMaker maker;
   TestTaker taker;
+  MakerDeployer makers;
   TestToken aToken;
   TestToken bToken;
+  uint constant nMakers = 3;
 
   function a_beforeAll() public {
     //console.log("IN BEFORE ALL");
