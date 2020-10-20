@@ -405,7 +405,7 @@ contract Dex {
   }
 
   function applyPenalty(
-    address payable sender,
+    address payable taker,
     uint gasUsed,
     OrderDetail memory orderDetail
   ) internal {
@@ -416,7 +416,7 @@ contract Dex {
     uint penalty = min(gasUsed * orderDetail.penaltyPerGas, maxPenalty);
 
     freeWei[orderDetail.maker] += maxPenalty - penalty;
-    dexTransfer(sender, penalty);
+    dexTransfer(taker, penalty);
   }
 
   // swap tokens according to parameters.
@@ -427,7 +427,7 @@ contract Dex {
     uint orderId,
     uint takerGives,
     uint takerWants,
-    address payable sender
+    address payable taker
   ) internal returns (bool, uint) {
     OrderDetail memory orderDetail = orderDetails[orderId];
 
@@ -451,7 +451,7 @@ contract Dex {
         orderId,
         takerGives,
         takerWants,
-        sender,
+        taker,
         dexFee,
         config.takerFee,
         orderDetail
@@ -461,10 +461,10 @@ contract Dex {
     if (noRevert) {
       bool flashSuccess = abi.decode(retdata, (bool));
       require(flashSuccess, "taker failed to send tokens to maker");
-      applyPenalty(sender, 0, orderDetail);
+      applyPenalty(taker, 0, orderDetail);
       return (true, gasUsed);
     } else {
-      applyPenalty(sender, gasUsed, orderDetail);
+      applyPenalty(taker, gasUsed, orderDetail);
       return (false, gasUsed);
     }
   }
