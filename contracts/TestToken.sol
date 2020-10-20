@@ -16,7 +16,7 @@ contract TestToken is ERC20 {
   }
 
   function mint(address to, uint amount) external {
-    require(msg.sender == admin, "non-admin minting");
+    //    require(msg.sender == admin, "non-admin minting");
     _mint(to, amount);
   }
 }
