@@ -103,7 +103,7 @@ contract Dex_Test is Test, Display {
   }
 
   function zeroDust_test() public {
-    try dex.setConfigKey(DC.ConfigKey.dustPerGasWanted, 0)  {
+    try dex.setConfigKey(ConfigKey.dustPerGasWanted, 0)  {
       testFail("zero dustPerGastWanted should revert");
     } catch Error(
       string memory /*reason*/

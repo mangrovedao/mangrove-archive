@@ -36,7 +36,7 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     uint pivotId
   ) public returns (uint) {
     uint orderId = (dex.newOrder(wants, gives, gasWanted, pivotId));
-    uint minDustPerGas = dex.getConfigUint(DC.ConfigKey.dustPerGasWanted);
+    uint minDustPerGas = dex.getConfigUint(ConfigKey.dustPerGasWanted);
     dex.newOrder(0, minDustPerGas, 1, 0); //dummy order
     return orderId;
   }

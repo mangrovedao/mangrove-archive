@@ -13,15 +13,15 @@ contract Dex {
   address public immutable OFR_TOKEN; // ofr_token is the token orders give
   address public immutable REQ_TOKEN; // req_token is the token orders wants
 
-  DC.Config private config;
+  Config private config;
 
   bool public open = true;
   bool public accessOB = true; // whether a modification of the OB is permitted
-  DC.UintContainer public best; // (32)
+  UintContainer public best; // (32)
   uint private lastId; // (32)
 
-  mapping(uint => DC.Order) private orders;
-  mapping(uint => DC.OrderDetail) private orderDetails;
+  mapping(uint => Order) private orders;
+  mapping(uint => OrderDetail) private orderDetails;
   mapping(address => uint) private freeWei;
 
   // TODO low gascost bookkeeping methods
@@ -39,20 +39,16 @@ contract Dex {
   ) {
     OFR_TOKEN = ofrToken;
     REQ_TOKEN = reqToken;
-    DexLib.setConfigKey(config, DC.ConfigKey.admin, initialAdmin);
+    DexLib.setConfigKey(config, ConfigKey.admin, initialAdmin);
     DexLib.setConfigKey(
       config,
-      DC.ConfigKey.dustPerGasWanted,
+      ConfigKey.dustPerGasWanted,
       initialDustPerGasWanted
     );
-    DexLib.setConfigKey(config, DC.ConfigKey.minFinishGas, initialMinFinishGas);
-    DexLib.setConfigKey(
-      config,
-      DC.ConfigKey.penaltyPerGas,
-      initialPenaltyPerGas
-    );
-    DexLib.setConfigKey(config, DC.ConfigKey.minGasWanted, initialMinGasWanted);
-    DexLib.setConfigKey(config, DC.ConfigKey.transferGas, 2300);
+    DexLib.setConfigKey(config, ConfigKey.minFinishGas, initialMinFinishGas);
+    DexLib.setConfigKey(config, ConfigKey.penaltyPerGas, initialPenaltyPerGas);
+    DexLib.setConfigKey(config, ConfigKey.minGasWanted, initialMinGasWanted);
+    DexLib.setConfigKey(config, ConfigKey.transferGas, 2300);
   }
 
   function requireSelfSend() internal view {
@@ -106,8 +102,8 @@ contract Dex {
     )
   {
     requireAccessibleOB();
-    DC.Order memory order = orders[orderId];
-    DC.OrderDetail memory orderDetail = orderDetails[orderId];
+    Order memory order = orders[orderId];
+    OrderDetail memory orderDetail = orderDetails[orderId];
     return (
       order.wants,
       order.gives,
@@ -119,21 +115,21 @@ contract Dex {
     );
   }
 
-  function setConfigKey(DC.ConfigKey key, uint value) external {
+  function setConfigKey(ConfigKey key, uint value) external {
     requireAdmin();
     DexLib.setConfigKey(config, key, value);
   }
 
-  function setConfigKey(DC.ConfigKey key, address value) external {
+  function setConfigKey(ConfigKey key, address value) external {
     requireAdmin();
     DexLib.setConfigKey(config, key, value);
   }
 
-  function getConfigUint(DC.ConfigKey key) external view returns (uint) {
+  function getConfigUint(ConfigKey key) external view returns (uint) {
     return DexLib.getConfigUint(config, key);
   }
 
-  function getConfigAddress(DC.ConfigKey key) external view returns (address) {
+  function getConfigAddress(ConfigKey key) external view returns (address) {
     return DexLib.getConfigAddress(config, key);
   }
 
@@ -156,9 +152,9 @@ contract Dex {
 
   function cancelOrder(uint orderId) external returns (uint) {
     requireAccessibleOB();
-    DC.OrderDetail memory orderDetail = orderDetails[orderId];
+    OrderDetail memory orderDetail = orderDetails[orderId];
     if (msg.sender == orderDetail.maker) {
-      DC.Order memory order = orders[orderId];
+      Order memory order = orders[orderId];
       internalDeleteOrder(order, orderId);
       // Freeing provisioned penalty for maker
       uint provision = orderDetail.penaltyPerGas * orderDetail.gasWanted;
@@ -217,8 +213,8 @@ contract Dex {
 
     uint localTakerWants;
     uint localTakerGives;
-    DC.Order memory order = orders[orderId];
-    require(DC.isOrder(order), "invalid order");
+    Order memory order = orders[orderId];
+    require(isOrder(order), "invalid order");
     uint pastOrderId = order.prev;
 
     uint[] memory failures = new uint[](2 * punishLength);
@@ -294,8 +290,8 @@ contract Dex {
     require(uint32(orderId) == orderId, "orderId is 32 bits wide");
     require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
 
-    DC.Order memory order = orders[orderId];
-    require(DC.isOrder(order), "bad orderId");
+    Order memory order = orders[orderId];
+    require(isOrder(order), "bad orderId");
 
     (bool success, ) = executeOrder(orderId, order, takerWants, msg.sender);
     require(success, "execute order failed");
@@ -322,8 +318,8 @@ contract Dex {
       uint takerWants = targets[2 * targetIndex + 1];
       require(uint32(orderId) == orderId, "orderId is 32 bits wide");
       require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
-      DC.Order memory order = orders[orderId];
-      if (DC.isOrder(order)) {
+      Order memory order = orders[orderId];
+      if (isOrder(order)) {
         (bool success, uint gasUsed) = executeOrder(
           orderId,
           order,
@@ -367,7 +363,7 @@ contract Dex {
     delete orderDetails[orderId];
   }
 
-  function internalDeleteOrder(DC.Order memory order, uint orderId) internal {
+  function internalDeleteOrder(Order memory order, uint orderId) internal {
     dirtyDeleteOrder(orderId);
     stitchOrders(order.prev, order.next);
   }
@@ -379,7 +375,7 @@ contract Dex {
   // cleanup OB after execution
   function executeOrder(
     uint orderId,
-    DC.Order memory order,
+    Order memory order,
     uint takerWants,
     address payable taker
   ) internal returns (bool, uint) {
@@ -411,7 +407,7 @@ contract Dex {
   function applyPenalty(
     address payable taker,
     uint gasUsed,
-    DC.OrderDetail memory orderDetail
+    OrderDetail memory orderDetail
   ) internal {
     uint maxPenalty = (orderDetail.gasWanted + orderDetail.minFinishGas) *
       orderDetail.penaltyPerGas;
@@ -427,13 +423,13 @@ contract Dex {
   // trusts caller
   // uses flashlend to ensure postcondition
   function flashSwapTokens(
-    DC.Order memory order,
+    Order memory order,
     uint orderId,
     uint takerGives,
     uint takerWants,
     address payable taker
   ) internal returns (bool, uint) {
-    DC.OrderDetail memory orderDetail = orderDetails[orderId];
+    OrderDetail memory orderDetail = orderDetails[orderId];
     // Execute order
     uint oldGas = gasleft();
 
@@ -532,8 +528,8 @@ contract Dex {
     while (failureIndex < numFailures) {
       uint punishedOrderId = failures[failureIndex * 2];
       uint gasUsed = failures[failureIndex * 2 + 1];
-      DC.Order memory order = orders[punishedOrderId];
-      DC.OrderDetail memory orderDetail = orderDetails[punishedOrderId];
+      Order memory order = orders[punishedOrderId];
+      OrderDetail memory orderDetail = orderDetails[punishedOrderId];
       internalDeleteOrder(order, punishedOrderId);
       applyPenalty(taker, gasUsed, orderDetail);
       failureIndex++;
