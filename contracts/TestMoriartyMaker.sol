@@ -3,6 +3,7 @@ pragma solidity ^0.7.0;
 
 import "./interfaces.sol";
 import "./Dex.sol";
+import "./DexCommon.sol";
 import "./Passthrough.sol";
 
 contract TestMoriartyMaker is IMaker, Passthrough {
@@ -33,11 +34,11 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     uint gives,
     uint gasWanted,
     uint pivotId
-  ) public returns (uint, uint) {
+  ) public returns (uint) {
     uint orderId = (dex.newOrder(wants, gives, gasWanted, pivotId));
-    uint minDustPerGas = dex.dustPerGasWanted();
-    uint dummyId = dex.newOrder(0, minDustPerGas, 1, 0); //dummy order
-    return (orderId, dummyId);
+    uint minDustPerGas = dex.getConfigUint(DC.ConfigKey.dustPerGasWanted);
+    dex.newOrder(0, minDustPerGas, 1, 0); //dummy order
+    return orderId;
   }
 
   function provisionDex(uint amount) public {

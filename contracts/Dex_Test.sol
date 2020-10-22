@@ -5,18 +5,14 @@ pragma solidity ^0.7.0;
 import "./Test.sol";
 import "./DexDeployer.sol";
 import "./Dex.sol";
+import "./DexCommon.sol";
 import "./TestToken.sol";
 import "./TestMaker.sol";
 import "./MakerDeployer.sol";
 import "./TestMoriartyMaker.sol";
 import "./TestTaker.sol";
 import "./interfaces.sol";
-import "./Display.sol";
 import "@nomiclabs/buidler/console.sol";
-
-// Pretest contracts are for deploying large contracts independently.
-// Otherwise bytecode can be too large. See EIP 170 for more on size limit:
-// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
 
 // Pretest libraries are for deploying large contracts independently.
 // Otherwise bytecode can be too large. See EIP 170 for more on size limit:
@@ -42,16 +38,16 @@ library DexPre1 {
       initialMinFinishGas: 30000,
       initialPenaltyPerGas: 300,
       initialMinGasWanted: 30000,
-      ofrToken: aToken,
-      reqToken: bToken
+      ofrToken: address(aToken),
+      reqToken: address(bToken)
     });
-    return deployer.dexes(aToken, bToken);
+    return deployer.dexes(address(aToken), address(bToken));
   }
 }
 
 library DexPre2 {
-  function setup(Dex dex) external returns (MakerDeployer) {
-    return (new MakerDeployer(dex));
+  function setup(Dex dex) external returns (TestMaker, TestMoriartyMaker) {
+    return (new TestMaker(dex), new TestMoriartyMaker(dex));
   }
 }
 
@@ -61,7 +57,7 @@ library DexPre3 {
   }
 }
 
-contract Dex_Test is Test, Display {
+contract Dex_Test is Test {
   Dex dex;
   TestTaker taker;
   MakerDeployer makers;
@@ -94,11 +90,9 @@ contract Dex_Test is Test, Display {
     makers.provisionForAll(10 ether); // each maker provsions 10 ethers
     makers.mintForAll(aToken, 5 ether);
     bToken.mint(address(taker), 5 ether);
-    taker.approve(bToken, 5 ether);
-  }
 
   function zeroDust_test() public {
-    try dex.updateDustPerGasWanted(0)  {
+    try dex.setConfigKey(DC.ConfigKey.dustPerGasWanted, 0)  {
       testFail("zero dustPerGastWanted should revert");
     } catch Error(
       string memory /*reason*/
@@ -117,7 +111,6 @@ contract Dex_Test is Test, Display {
       gasWanted: 2300,
       pivotId: 0
     });
-
     orderId = maker2.newOrder({
       wants: 1 ether,
       gives: 0.5 ether,
@@ -144,6 +137,13 @@ contract Dex_Test is Test, Display {
     taker.take(orderId, orderAmount);
     logOrderBook(dex);
 
+    uint orderAmount = 0.5 ether;
+    taker.take({orderId: orderId, wants: orderAmount});
+    uint expec_mkr_a_bal = init_mkr_a_bal - orderAmount;
+    uint expec_mkr_b_bal = init_mkr_b_bal + orderAmount;
+    uint expec_tkr_a_bal = init_tkr_a_bal + orderAmount;
+    uint expec_tkr_b_bal = init_tkr_b_bal - orderAmount;
+
     testEq(
       init_mkr_a_bal - orderAmount,
       aToken.balanceOf(address(makers.getMaker(2))),
@@ -165,23 +165,4 @@ contract Dex_Test is Test, Display {
       "incorrect taker B balance"
     );
   }
-
-  // function moriartyMaketOrder_test() public {
-  //   // Maker adds dummy order
-  //   maker.newOrder({
-  //     wants: 1 ether,
-  //     gives: 1 ether,
-  //     gasWanted: 2300,
-  //     pivotId: 0
-  //   });
-  //
-  //   uint orderAmount = 0.5 ether;
-  //   try taker.mo({wants: orderAmount, gives: orderAmount})  {
-  //     testFail("taking moriarty offer should fail");
-  //   } catch Error(
-  //     string memory /*reason*/
-  //   ) {
-  //     testSuccess();
-  //   }
-  // }
 }

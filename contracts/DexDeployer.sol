@@ -5,7 +5,7 @@ import "./Dex.sol";
 
 contract DexDeployer {
   address public admin;
-  mapping(IERC20 => mapping(IERC20 => Dex)) public dexes;
+  mapping(address => mapping(address => Dex)) public dexes;
 
   constructor(address initialAdmin) {
     admin = initialAdmin;
@@ -16,8 +16,8 @@ contract DexDeployer {
     uint initialMinFinishGas,
     uint initialPenaltyPerGas,
     uint initialMinGasWanted,
-    IERC20 ofrToken,
-    IERC20 reqToken
+    address ofrToken,
+    address reqToken
   ) external returns (Dex) {
     require(isAdmin(msg.sender));
 
