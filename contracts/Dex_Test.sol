@@ -140,30 +140,35 @@ contract Dex_Test is Test, Display {
     uint init_tkr_a_bal = aToken.balanceOf(address(taker));
     uint init_tkr_b_bal = bToken.balanceOf(address(taker));
 
+    console.log("%d/%d", init_mkr_a_bal, init_mkr_b_bal);
+    console.log("%d/%d", init_tkr_a_bal, init_tkr_b_bal);
+
     taker.take(orderId, orderAmount);
     logOrderBook(dex);
 
     taker.take({orderId: orderId, takerWants: orderAmount});
 
+    console.log("Checking taker balance...");
     testEq(
-      init_mkr_a_bal - orderAmount,
-      aToken.balanceOf(address(makers.getMaker(2))),
-      "incorrect maker A balance"
-    );
-    testEq(
-      init_mkr_b_bal + orderAmount * price,
-      bToken.balanceOf(address(makers.getMaker(2))),
-      "incorrect maker B balance"
-    );
-    testEq(
-      init_tkr_a_bal + orderAmount,
-      aToken.balanceOf(address(taker)),
+      aToken.balanceOf(address(taker)), // actual
+      init_tkr_a_bal + orderAmount, // expected
       "incorrect taker A balance"
     );
     testEq(
-      init_tkr_b_bal - orderAmount * price,
       bToken.balanceOf(address(taker)),
+      init_tkr_b_bal - orderAmount * price,
       "incorrect taker B balance"
+    );
+    console.log("Checking maker balance...");
+    testEq(
+      aToken.balanceOf(address(maker2)),
+      init_mkr_a_bal - orderAmount,
+      "incorrect maker A balance"
+    );
+    testEq(
+      bToken.balanceOf(address(maker2)),
+      init_mkr_b_bal + orderAmount * price,
+      "incorrect maker B balance"
     );
   }
 }
