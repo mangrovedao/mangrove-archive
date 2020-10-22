@@ -49,7 +49,7 @@ contract MakerDeployer {
       console.logAddress(makers[i]);
       TestMaker(makers[i]).provisionDex(amount);
       t.mint(makers[i], perMaker);
-      TestMaker(makers[i]).approve(t, perMaker);
+      TestMaker(makers[i]).approve(t, amount);
     }
   }
 

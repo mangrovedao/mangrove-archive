@@ -13,6 +13,7 @@ import "./TestMoriartyMaker.sol";
 import "./TestTaker.sol";
 import "./interfaces.sol";
 import "@nomiclabs/buidler/console.sol";
+import "./Display.sol";
 
 // Pretest libraries are for deploying large contracts independently.
 // Otherwise bytecode can be too large. See EIP 170 for more on size limit:
@@ -46,8 +47,8 @@ library DexPre1 {
 }
 
 library DexPre2 {
-  function setup(Dex dex) external returns (TestMaker, TestMoriartyMaker) {
-    return (new TestMaker(dex), new TestMoriartyMaker(dex));
+  function setup(Dex dex) external returns (MakerDeployer) {
+    return (new MakerDeployer(dex));
   }
 }
 
@@ -57,7 +58,7 @@ library DexPre3 {
   }
 }
 
-contract Dex_Test is Test {
+contract Dex_Test is Test, Display {
   Dex dex;
   TestTaker taker;
   MakerDeployer makers;
@@ -90,6 +91,7 @@ contract Dex_Test is Test {
     makers.provisionForAll(10 ether); // each maker provsions 10 ethers
     makers.mintForAll(aToken, 5 ether);
     bToken.mint(address(taker), 5 ether);
+  }
 
   function zeroDust_test() public {
     try dex.setConfigKey(DC.ConfigKey.dustPerGasWanted, 0)  {
@@ -137,8 +139,7 @@ contract Dex_Test is Test {
     taker.take(orderId, orderAmount);
     logOrderBook(dex);
 
-    uint orderAmount = 0.5 ether;
-    taker.take({orderId: orderId, wants: orderAmount});
+    taker.take({orderId: orderId, takerWants: orderAmount});
     uint expec_mkr_a_bal = init_mkr_a_bal - orderAmount;
     uint expec_mkr_b_bal = init_mkr_b_bal + orderAmount;
     uint expec_tkr_a_bal = init_tkr_a_bal + orderAmount;
