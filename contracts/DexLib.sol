@@ -5,6 +5,8 @@ pragma experimental ABIEncoderV2;
 import "./DexCommon.sol";
 import "./interfaces.sol";
 
+//import "@nomiclabs/buidler/console.sol";
+
 library DexLib {
   function setConfigKey(
     DC.Config storage config,
@@ -94,7 +96,6 @@ library DexLib {
   ) external returns (bool) {
     // WARNING Should be unnecessary as long as swapTokens is in a library
     //requireSelfSend();
-
     if (transferToken(reqToken, taker, orderDetail.maker, takerGives)) {
       // Execute order
       IMaker(orderDetail.maker).execute{gas: orderDetail.gasWanted}(

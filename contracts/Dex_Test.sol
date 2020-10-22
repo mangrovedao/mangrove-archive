@@ -66,22 +66,26 @@ contract Dex_Test is Test, Display {
   TestToken bToken;
   uint constant nMakers = 3;
 
-  function deployToken_beforeAll() public {
+  function a_deployToken_beforeAll() public {
     //console.log("IN BEFORE ALL");
     (aToken, bToken) = DexPre0.setup();
   }
 
-  function deployDex_beforeAll() public {
+  function b_deployDex_beforeAll() public {
+    console.log("A token address:");
+    console.logAddress(address(aToken));
+    console.log("B token address:");
+    console.logAddress(address(bToken));
     dex = DexPre1.setup(aToken, bToken);
   }
 
-  function deployMakersTaker_beforeAll() public {
+  function c_deployMakersTaker_beforeAll() public {
     makers = DexPre2.setup(dex);
     makers.deploy(nMakers);
     taker = DexPre3.setup(dex);
   }
 
-  function provisionAll_beforeAll() public {
+  function d_provisionAll_beforeAll() public {
     // low level tranfer because makers needs gas to transfer to each maker
     (bool success, ) = address(makers).call{gas: gasleft(), value: 50 ether}(
       ""
@@ -133,41 +137,36 @@ contract Dex_Test is Test, Display {
 
     logOrderBook(dex);
     uint orderAmount = 0.3 ether; //of a token
-    uint price = 1 ether / 0.5 ether;
+    uint price = 1 / 0.5; // price of order2
 
     uint init_mkr_a_bal = aToken.balanceOf(address(maker2));
     uint init_mkr_b_bal = bToken.balanceOf(address(maker2));
     uint init_tkr_a_bal = aToken.balanceOf(address(taker));
     uint init_tkr_b_bal = bToken.balanceOf(address(taker));
 
-    console.log("%d/%d", init_mkr_a_bal, init_mkr_b_bal);
-    console.log("%d/%d", init_tkr_a_bal, init_tkr_b_bal);
-
-    taker.take(orderId, orderAmount);
+    uint taken = taker.take({orderId: orderId, takerWants: orderAmount});
     logOrderBook(dex);
-
-    taker.take({orderId: orderId, takerWants: orderAmount});
 
     console.log("Checking taker balance...");
     testEq(
-      aToken.balanceOf(address(taker)), // actual
-      init_tkr_a_bal + orderAmount, // expected
-      "incorrect taker A balance"
+      bToken.balanceOf(address(taker)),
+      init_tkr_b_bal - taken * price,
+      "incorrect taker B balance"
     );
     testEq(
-      bToken.balanceOf(address(taker)),
-      init_tkr_b_bal - orderAmount * price,
-      "incorrect taker B balance"
+      aToken.balanceOf(address(taker)), // actual
+      init_tkr_a_bal + taken, // expected
+      "incorrect taker A balance"
     );
     console.log("Checking maker balance...");
     testEq(
       aToken.balanceOf(address(maker2)),
-      init_mkr_a_bal - orderAmount,
+      init_mkr_a_bal - taken,
       "incorrect maker A balance"
     );
     testEq(
       bToken.balanceOf(address(maker2)),
-      init_mkr_b_bal + orderAmount * price,
+      init_mkr_b_bal + taken * price,
       "incorrect maker B balance"
     );
   }

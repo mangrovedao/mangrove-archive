@@ -30,7 +30,7 @@ contract MakerDeployer {
     return makers.length;
   }
 
-  function getMaker(uint i) external returns (TestMaker) {
+  function getMaker(uint i) external view returns (TestMaker) {
     return TestMaker(makers[i]);
   }
 

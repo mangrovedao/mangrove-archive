@@ -434,7 +434,6 @@ contract Dex {
     address payable taker
   ) internal returns (bool, uint) {
     DC.OrderDetail memory orderDetail = orderDetails[orderId];
-
     // Execute order
     uint oldGas = gasleft();
 

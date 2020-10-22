@@ -4,6 +4,7 @@ pragma solidity ^0.7.0;
 import "./interfaces.sol";
 import "./Dex.sol";
 import "./Passthrough.sol";
+import "@nomiclabs/buidler/console.sol";
 
 contract TestMaker is IMaker, Passthrough {
   Dex dex;
@@ -13,11 +14,13 @@ contract TestMaker is IMaker, Passthrough {
   }
 
   function execute(
-    uint takerWants,
-    uint takerGives,
-    uint orderPenaltyPerGas,
+    uint,
+    uint,
+    uint,
     uint orderId
-  ) public override {}
+  ) public view override {
+    console.log("\t !! Maker is being called for order %d", orderId);
+  }
 
   function newOrder(
     uint wants,
