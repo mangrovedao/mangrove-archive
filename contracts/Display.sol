@@ -7,7 +7,6 @@ import "@nomiclabs/buidler/console.sol";
 contract Display {
   function logOrderBook(Dex dex) internal view {
     uint orderId = dex.best();
-    bool best = true;
     console.log("----------");
     while (orderId != 0) {
       (
@@ -19,12 +18,10 @@ contract Display {
         uint penaltyPerGas,
         address makerAddr
       ) = dex.getOrderInfo(orderId);
+      console.log("[order %d] %d/%d", orderId, wants/0.01 ether, gives/0.01 ether);
+      console.log("(%d gas, %d to finish, %d penalty)", gasWanted, minFinishGas, penaltyPerGas);
       console.logAddress(makerAddr);
-      //      console.log("%c Essai",'background: #222; color: #bada55');
-      console.log("[order %d] %d/%d", orderId, wants, gives);
-      console.log("(%d gas)", gasWanted);
       orderId = nextId;
-      best = false;
     }
     console.log("----------");
   }

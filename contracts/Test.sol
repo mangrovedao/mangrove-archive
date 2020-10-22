@@ -24,13 +24,18 @@ contract Test {
 
   event TestEqUint(bool success, uint actual, uint expected, string message);
 
+  function min(uint a, uint b) internal pure returns (uint) {
+    return a < b ? a : b;
+  }
+
   function testEq(
     uint actual,
     uint expected,
     string memory message
-  ) internal {
+  ) internal returns (bool) {
     bool success = actual == expected;
     emit TestEqUint(success, actual, expected, message);
+    return success;
   }
 
   event TestEqString(
@@ -44,9 +49,10 @@ contract Test {
     string memory actual,
     string memory expected,
     string memory message
-  ) internal {
+  ) internal returns (bool) {
     bool success = keccak256(bytes((actual))) == keccak256(bytes((expected)));
     emit TestEqString(success, actual, expected, message);
+    return success;
   }
 
   event TestEqAddress(
@@ -60,9 +66,10 @@ contract Test {
     address actual,
     address expected,
     string memory message
-  ) internal {
+  ) internal returns (bool) {
     bool success = actual == expected;
     emit TestEqAddress(success, actual, expected, message);
+    return success;
   }
 
   event TestEqBytes(bool success, bytes actual, bytes expected, string message);
@@ -71,8 +78,9 @@ contract Test {
     bytes memory actual,
     bytes memory expected,
     string memory message
-  ) internal {
+  ) internal returns (bool) {
     bool success = keccak256((actual)) == keccak256((expected));
     emit TestEqBytes(success, actual, expected, message);
+    return success;
   }
 }
