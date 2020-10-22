@@ -26,6 +26,10 @@ contract MakerDeployer {
     }
   }
 
+  function length() external view returns (uint) {
+    return makers.length;
+  }
+
   function getMaker(uint i) external returns (TestMaker) {
     return TestMaker(makers[i]);
   }
@@ -38,19 +42,6 @@ contract MakerDeployer {
       }
     }
     deployed = true;
-  }
-
-  function mintForAll(TestToken t, uint amount) external {
-    uint k = makers.length;
-    uint perMaker = amount / k;
-    require(perMaker > 0);
-    console.log("\nMinting %d%s for makers:\n", amount, t.name());
-    for (uint i = 0; i < k; i++) {
-      console.logAddress(makers[i]);
-      TestMaker(makers[i]).provisionDex(amount);
-      t.mint(makers[i], perMaker);
-      TestMaker(makers[i]).approve(t, amount);
-    }
   }
 
   function provisionForAll(uint amount) external {

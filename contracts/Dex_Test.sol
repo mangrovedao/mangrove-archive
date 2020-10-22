@@ -66,31 +66,36 @@ contract Dex_Test is Test, Display {
   TestToken bToken;
   uint constant nMakers = 3;
 
-  function a_beforeAll() public {
+  function deployToken_beforeAll() public {
     //console.log("IN BEFORE ALL");
     (aToken, bToken) = DexPre0.setup();
   }
 
-  function b_beforeAll() public {
+  function deployDex_beforeAll() public {
     dex = DexPre1.setup(aToken, bToken);
   }
 
-  function c_beforeAll() public {
+  function deployMakersTaker_beforeAll() public {
     makers = DexPre2.setup(dex);
     makers.deploy(nMakers);
     taker = DexPre3.setup(dex);
   }
 
-  function d_beforeAll() public {
+  function provisionAll_beforeAll() public {
     // low level tranfer because makers needs gas to transfer to each maker
     (bool success, ) = address(makers).call{gas: gasleft(), value: 50 ether}(
       ""
-    );
+    ); // msg.value is distributed evenly amongst makers
     require(success, "maker transfer");
 
-    makers.provisionForAll(10 ether); // each maker provsions 10 ethers
-    makers.mintForAll(aToken, 5 ether);
+    for (uint i = 0; i < makers.length(); i++) {
+      TestMaker maker = makers.getMaker(i);
+      maker.provisionDex(10 ether);
+      aToken.mint(address(maker), 5 ether);
+      maker.approve(aToken, 5 ether);
+    }
     bToken.mint(address(taker), 5 ether);
+    taker.approve(bToken, 5 ether);
   }
 
   function zeroDust_test() public {
@@ -104,7 +109,6 @@ contract Dex_Test is Test, Display {
   }
 
   function basicMarketOrder_test() public {
-    uint orderId;
     TestMaker maker2 = makers.getMaker(2);
 
     makers.getMaker(0).newOrder({
@@ -113,7 +117,7 @@ contract Dex_Test is Test, Display {
       gasWanted: 2300,
       pivotId: 0
     });
-    orderId = maker2.newOrder({
+    uint orderId = maker2.newOrder({
       wants: 1 ether,
       gives: 0.5 ether,
       gasWanted: 8000,
@@ -140,10 +144,6 @@ contract Dex_Test is Test, Display {
     logOrderBook(dex);
 
     taker.take({orderId: orderId, takerWants: orderAmount});
-    uint expec_mkr_a_bal = init_mkr_a_bal - orderAmount;
-    uint expec_mkr_b_bal = init_mkr_b_bal + orderAmount;
-    uint expec_tkr_a_bal = init_tkr_a_bal + orderAmount;
-    uint expec_tkr_b_bal = init_tkr_b_bal - orderAmount;
 
     testEq(
       init_mkr_a_bal - orderAmount,
