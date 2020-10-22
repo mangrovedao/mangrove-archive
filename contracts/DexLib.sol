@@ -7,49 +7,49 @@ import "./interfaces.sol";
 
 library DexLib {
   function setConfigKey(
-    Config storage config,
-    ConfigKey key,
+    DC.Config storage config,
+    DC.ConfigKey key,
     uint value
   ) external {
-    if (key == ConfigKey.takerFee) {
+    if (key == DC.ConfigKey.takerFee) {
       require(value <= 10000, "takerFee is in bps, must be <= 10000"); // at most 14 bits
       config.takerFee = value;
-    } else if (key == ConfigKey.minFinishGas) {
+    } else if (key == DC.ConfigKey.minFinishGas) {
       require(uint24(value) == value, "minFinishGas is 24 bits wide");
       config.minFinishGas = value;
-    } else if (key == ConfigKey.dustPerGasWanted) {
+    } else if (key == DC.ConfigKey.dustPerGasWanted) {
       require(value > 0, "dustPerGasWanted must be > 0");
       require(uint32(value) == value);
       config.dustPerGasWanted = value;
-    } else if (key == ConfigKey.minGasWanted) {
+    } else if (key == DC.ConfigKey.minGasWanted) {
       require(uint32(value) == value, "minGasWanted is 32 bits wide");
       config.minGasWanted = value;
-    } else if (key == ConfigKey.penaltyPerGas) {
+    } else if (key == DC.ConfigKey.penaltyPerGas) {
       require(uint48(value) == value, "penaltyPerGas is 48 bits wide");
       config.penaltyPerGas = value;
-    } else if (key == ConfigKey.transferGas) {
+    } else if (key == DC.ConfigKey.transferGas) {
       config.transferGas = value;
     } else {
       revert("Unknown config key");
     }
   }
 
-  function getConfigUint(Config storage config, ConfigKey key)
+  function getConfigUint(DC.Config storage config, DC.ConfigKey key)
     external
     view
     returns (uint)
   {
-    if (key == ConfigKey.takerFee) {
+    if (key == DC.ConfigKey.takerFee) {
       return config.takerFee;
-    } else if (key == ConfigKey.minFinishGas) {
+    } else if (key == DC.ConfigKey.minFinishGas) {
       return config.minFinishGas;
-    } else if (key == ConfigKey.dustPerGasWanted) {
+    } else if (key == DC.ConfigKey.dustPerGasWanted) {
       return config.dustPerGasWanted;
-    } else if (key == ConfigKey.minFinishGas) {
+    } else if (key == DC.ConfigKey.minFinishGas) {
       return config.minGasWanted;
-    } else if (key == ConfigKey.penaltyPerGas) {
+    } else if (key == DC.ConfigKey.penaltyPerGas) {
       return config.penaltyPerGas;
-    } else if (key == ConfigKey.transferGas) {
+    } else if (key == DC.ConfigKey.transferGas) {
       return config.transferGas;
     } else {
       revert("Unknown config key");
@@ -57,23 +57,23 @@ library DexLib {
   }
 
   function setConfigKey(
-    Config storage config,
-    ConfigKey key,
+    DC.Config storage config,
+    DC.ConfigKey key,
     address value
   ) external {
-    if (key == ConfigKey.admin) {
+    if (key == DC.ConfigKey.admin) {
       config.admin = value;
     } else {
       revert("Unknown config key");
     }
   }
 
-  function getConfigAddress(Config storage config, ConfigKey key)
+  function getConfigAddress(DC.Config storage config, DC.ConfigKey key)
     external
     view
     returns (address value)
   {
-    if (key == ConfigKey.admin) {
+    if (key == DC.ConfigKey.admin) {
       return config.admin;
     } else {
       revert("Unknown config key");
@@ -90,7 +90,7 @@ library DexLib {
     address taker,
     uint dexFee,
     uint takerFee,
-    OrderDetail memory orderDetail
+    DC.OrderDetail memory orderDetail
   ) external returns (bool) {
     // WARNING Should be unnecessary as long as swapTokens is in a library
     //requireSelfSend();
@@ -157,11 +157,11 @@ library DexLib {
   }
 
   function newOrder(
-    Config storage config,
+    DC.Config storage config,
     mapping(address => uint) storage freeWei,
-    mapping(uint => Order) storage orders,
-    mapping(uint => OrderDetail) storage orderDetails,
-    UintContainer storage best,
+    mapping(uint => DC.Order) storage orders,
+    mapping(uint => DC.OrderDetail) storage orderDetails,
+    DC.UintContainer storage best,
     uint _orderId,
     uint wants,
     uint gives,
@@ -199,14 +199,14 @@ library DexLib {
     uint32 orderId = uint32(_orderId);
 
     //TODO Check if Solidity optimizer prefers this or orders[i].a = a'; ... ; orders[i].b = b'
-    orders[orderId] = Order({
+    orders[orderId] = DC.Order({
       prev: prev,
       next: next,
       wants: uint96(wants),
       gives: uint96(gives)
     });
 
-    orderDetails[orderId] = OrderDetail({
+    orderDetails[orderId] = DC.OrderDetail({
       gasWanted: uint24(gasWanted),
       minFinishGas: uint24(config.minFinishGas),
       penaltyPerGas: uint48(config.penaltyPerGas),
@@ -233,15 +233,15 @@ library DexLib {
   //    give any of those as _refId
   //    no analysis was done if garbage ids are allowed
   function findPosition(
-    mapping(uint => Order) storage orders,
+    mapping(uint => DC.Order) storage orders,
     uint bestValue,
     uint wants,
     uint gives,
     uint pivotId
   ) internal view returns (uint32, uint32) {
-    Order memory pivot = orders[pivotId];
+    DC.Order memory pivot = orders[pivotId];
 
-    if (!isOrder(pivot)) {
+    if (!DC.isOrder(pivot)) {
       // in case pivotId is not or no longer a valid order
       pivot = orders[bestValue];
       pivotId = bestValue;
@@ -250,7 +250,7 @@ library DexLib {
     if (better(pivot.wants, pivot.gives, wants, gives)) {
       // o is better or as good, we follow next
 
-      Order memory pivotNext;
+      DC.Order memory pivotNext;
       while (pivot.next != 0) {
         pivotNext = orders[pivot.next];
         if (better(pivotNext.wants, pivotNext.gives, wants, gives)) {
@@ -264,7 +264,7 @@ library DexLib {
     } else {
       // o is strictly worse, we follow prev
 
-      Order memory pivotPrev;
+      DC.Order memory pivotPrev;
       while (pivot.prev != 0) {
         pivotPrev = orders[pivot.prev];
         if (better(pivotPrev.wants, pivotPrev.gives, wants, gives)) {
