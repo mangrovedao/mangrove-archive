@@ -89,14 +89,13 @@ library DexLib {
     uint orderId,
     uint takerGives,
     uint takerWants,
-    address taker,
     uint dexFee,
     uint takerFee,
     OrderDetail memory orderDetail
   ) external returns (bool) {
     // WARNING Should be unnecessary as long as swapTokens is in a library
     //requireSelfSend();
-    if (transferToken(reqToken, taker, orderDetail.maker, takerGives)) {
+    if (transferToken(reqToken, msg.sender, orderDetail.maker, takerGives)) {
       // Execute order
       IMaker(orderDetail.maker).execute{gas: orderDetail.gasWanted}(
         takerWants,
@@ -118,7 +117,7 @@ library DexLib {
         transferToken(
           ofrToken,
           orderDetail.maker,
-          taker,
+          msg.sender,
           (takerWants * (10000 - takerFee)) / 10000
         ),
         "fail transfer to taker"

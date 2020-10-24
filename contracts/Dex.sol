@@ -249,8 +249,7 @@ contract Dex {
           order,
           orderId,
           localTakerWants,
-          localTakerGives,
-          msg.sender
+          localTakerGives
         );
 
         if (success) {
@@ -300,7 +299,7 @@ contract Dex {
     Order memory order = orders[orderId];
     require(isOrder(order), "bad orderId");
 
-    (bool success, ) = executeOrder(orderId, order, takerWants, msg.sender);
+    (bool success, ) = executeOrder(orderId, order, takerWants);
     require(success, "execute order failed");
   }
 
@@ -326,12 +325,7 @@ contract Dex {
       require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
       Order memory order = orders[orderId];
       if (isOrder(order)) {
-        (bool success, uint gasUsed) = executeOrder(
-          orderId,
-          order,
-          takerWants,
-          msg.sender
-        );
+        (bool success, uint gasUsed) = executeOrder(orderId, order, takerWants);
         if (!success && numFailures < punishLength) {
           failures[2 * numFailures] = orderId;
           failures[2 * numFailures + 1] = gasUsed;
@@ -382,8 +376,7 @@ contract Dex {
   function executeOrder(
     uint orderId,
     Order memory order,
-    uint takerWants,
-    address payable taker
+    uint takerWants
   ) internal returns (bool, uint) {
     uint localTakerWants = order.gives < takerWants ? order.gives : takerWants;
     uint localTakerGives = (localTakerWants * order.wants) / order.gives;
@@ -393,8 +386,7 @@ contract Dex {
       order,
       orderId,
       localTakerGives,
-      localTakerWants,
-      taker
+      localTakerWants
     );
     accessOB = true;
 
@@ -410,18 +402,14 @@ contract Dex {
     return (success, gasUsed);
   }
 
-  function applyPenalty(
-    address payable taker,
-    uint gasUsed,
-    OrderDetail memory orderDetail
-  ) internal {
+  function applyPenalty(uint gasUsed, OrderDetail memory orderDetail) internal {
     uint maxGasUsed = orderDetail.gasWanted + orderDetail.minFinishGas;
     gasUsed = maxGasUsed < gasUsed ? maxGasUsed : gasUsed;
 
     freeWei[orderDetail.maker] +=
       (maxGasUsed - gasUsed) *
       orderDetail.penaltyPerGas;
-    dexTransfer(taker, gasUsed * orderDetail.penaltyPerGas);
+    dexTransfer(msg.sender, gasUsed * orderDetail.penaltyPerGas);
   }
 
   // swap tokens according to parameters.
@@ -431,8 +419,7 @@ contract Dex {
     Order memory order,
     uint orderId,
     uint takerGives,
-    uint takerWants,
-    address payable taker
+    uint takerWants
   ) internal returns (bool, uint) {
     OrderDetail memory orderDetail = orderDetails[orderId];
     // Execute order
@@ -455,7 +442,6 @@ contract Dex {
         orderId,
         takerGives,
         takerWants,
-        taker,
         dexFee,
         config.takerFee,
         orderDetail
@@ -465,10 +451,10 @@ contract Dex {
     if (noRevert) {
       bool flashSuccess = abi.decode(retdata, (bool));
       require(flashSuccess, "taker failed to send tokens to maker");
-      applyPenalty(taker, 0, orderDetail);
+      applyPenalty(0, orderDetail);
       return (true, gasUsed);
     } else {
-      applyPenalty(taker, gasUsed, orderDetail);
+      applyPenalty(gasUsed, orderDetail);
       return (false, gasUsed);
     }
   }
@@ -512,7 +498,7 @@ contract Dex {
       evmRevert(retdata);
     } else {
       // `retdata` encodes a uint[] array of failed orders.
-      punish(retdata, msg.sender);
+      punish(retdata);
     }
   }
 
@@ -533,11 +519,11 @@ contract Dex {
       evmRevert(retdata);
     } else {
       // `retdata` encodes a uint[] array of failed orders.
-      punish(retdata, msg.sender);
+      punish(retdata);
     }
   }
 
-  function punish(bytes memory failureBytes, address payable taker) internal {
+  function punish(bytes memory failureBytes) internal {
     uint failureIndex;
     uint[] memory failures;
     assembly {
@@ -550,7 +536,7 @@ contract Dex {
       Order memory order = orders[punishedOrderId];
       OrderDetail memory orderDetail = orderDetails[punishedOrderId];
       internalDeleteOrder(order, punishedOrderId);
-      applyPenalty(taker, gasUsed, orderDetail);
+      applyPenalty(gasUsed, orderDetail);
       failureIndex++;
     }
   }
