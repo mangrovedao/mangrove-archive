@@ -207,6 +207,8 @@ contract Dex {
     uint punishLength,
     uint orderId
   ) public returns (uint[] memory) {
+    requireOpenOB();
+    requireAccessibleOB();
     require(uint32(orderId) == orderId, "orderId is 32 bits wide");
     require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
     require(uint96(takerGives) == takerGives, "takerGives is 96 bits wide");
