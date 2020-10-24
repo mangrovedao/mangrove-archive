@@ -187,10 +187,6 @@ contract Dex {
       );
   }
 
-  function min(uint a, uint b) internal pure returns (uint) {
-    return a < b ? a : b;
-  }
-
   // ask for a volume by setting takerWants to however much you want and
   // takerGive to max_uint. Any price will be accepted.
 
@@ -233,8 +229,9 @@ contract Dex {
       uint makerWouldWant = (takerWants * order.wants) / order.gives;
       if (makerWouldWant <= takerGives) {
         // price is OK for taker
-        localTakerWants = min(order.gives, takerWants); // the result of this determines the next line
-        localTakerGives = min(order.wants, makerWouldWant);
+        (localTakerWants, localTakerGives) = order.gives < takerWants
+          ? (order.gives, order.wants)
+          : (takerWants, makerWouldWant);
 
         //if success, gasUsedForFailure == 0
         //Warning: orderId is deleted *after* execution
@@ -379,7 +376,7 @@ contract Dex {
     uint takerWants,
     address payable taker
   ) internal returns (bool, uint) {
-    uint localTakerWants = min(order.gives, takerWants);
+    uint localTakerWants = order.gives < takerWants ? order.gives : takerWants;
     uint localTakerGives = (localTakerWants * order.wants) / order.gives;
 
     accessOB = false;
@@ -409,14 +406,13 @@ contract Dex {
     uint gasUsed,
     OrderDetail memory orderDetail
   ) internal {
-    uint maxPenalty = (orderDetail.gasWanted + orderDetail.minFinishGas) *
+    uint maxGasUsed = orderDetail.gasWanted + orderDetail.minFinishGas;
+    gasUsed = maxGasUsed < gasUsed ? maxGasUsed : gasUsed;
+
+    freeWei[orderDetail.maker] +=
+      (maxGasUsed - gasUsed) *
       orderDetail.penaltyPerGas;
-
-    //is gasUsed covering enough operation?
-    uint penalty = min(gasUsed * orderDetail.penaltyPerGas, maxPenalty);
-
-    freeWei[orderDetail.maker] += maxPenalty - penalty;
-    dexTransfer(taker, penalty);
+    dexTransfer(taker, gasUsed * orderDetail.penaltyPerGas);
   }
 
   // swap tokens according to parameters.
