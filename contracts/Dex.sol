@@ -10,6 +10,11 @@ import "./DexLib.sol";
 //import "@nomiclabs/buidler/console.sol";
 
 contract Dex {
+  // FIXME: Temporarily storing function selector because .selector doesn't work on public function.
+  bytes4 private constant marketOrderFromSelector = bytes4(
+    keccak256("marketOrderFrom(uint256,uint256,uint256,uint256)")
+  );
+
   address public immutable OFR_TOKEN; // ofr_token is the token orders give
   address public immutable REQ_TOKEN; // req_token is the token orders wants
 
@@ -196,13 +201,12 @@ contract Dex {
 
   // setting takerWants to max_int and takergives to however much you're ready to spend will
   // not work, you'll just be asking for a ~0 price.
-  function internalMarketOrderFrom(
+  function marketOrderFrom(
     uint takerWants,
     uint takerGives,
     uint punishLength,
-    uint orderId,
-    address payable taker
-  ) internal returns (uint[] memory) {
+    uint orderId
+  ) public returns (uint[] memory) {
     require(uint32(orderId) == orderId, "orderId is 32 bits wide");
     require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
     require(uint96(takerGives) == takerGives, "takerGives is 96 bits wide");
@@ -240,7 +244,7 @@ contract Dex {
           orderId,
           localTakerWants,
           localTakerGives,
-          taker
+          msg.sender
         );
 
         if (success) {
@@ -340,7 +344,7 @@ contract Dex {
 
   // implements a market order with condition on the minimal delivered volume
   function conditionalMarketOrder(uint takerWants, uint takerGives) external {
-    internalMarketOrderFrom(takerWants, takerGives, 0, best.value, msg.sender);
+    marketOrderFrom(takerWants, takerGives, 0, best.value);
   }
 
   function stitchOrders(uint past, uint future) internal {
@@ -487,18 +491,23 @@ contract Dex {
     uint takerGives,
     uint punishLength
   ) external {
-    try
-      this.internalPunishingMarketOrderFrom(
+    (bool noRevert, bytes memory retdata) = address(this).delegatecall(
+      abi.encodeWithSelector(
+        Dex.internalPunishingMarketOrderFrom.selector,
         fromOrderId,
         takerWants,
         takerGives,
-        punishLength,
-        msg.sender
+        punishLength
       )
-    returns (bytes memory error) {
-      evmRevert(error);
-    } catch (bytes memory failureBytes) {
-      punish(failureBytes, msg.sender);
+    );
+
+    if (noRevert) {
+      // `retdata` is a revert data sent as normal return value
+      // by `internalPunishingMarketOrderFrom`.
+      evmRevert(retdata);
+    } else {
+      // `retdata` encodes a uint[] array of failed orders.
+      punish(retdata, msg.sender);
     }
   }
 
@@ -536,44 +545,29 @@ contract Dex {
     uint orderId,
     uint takerWants,
     uint takerGives,
-    uint punishLength,
-    address payable taker
+    uint punishLength
   ) external returns (bytes memory) {
     // must wrap this to avoid bubbling up "fake failures" from other calls.
-    requireSelfSend();
-    try
-      this.secureInternalMarketOrderFrom(
+    (bool noRevert, bytes memory retdata) = address(this).delegatecall(
+      abi.encodeWithSelector(
+        marketOrderFromSelector,
         takerWants,
         takerGives,
         punishLength,
-        orderId,
-        taker
+        orderId
       )
-    returns (uint[] memory failures) {
-      // MarketOrder finished w/o reverting
-      // Failing orders have been collected in [failures]
-      evmRevert(failures);
-    } catch (bytes memory error) {
-      return error; // Market order failed to complete.
-    }
-  }
+    );
 
-  function secureInternalMarketOrderFrom(
-    uint takerWants,
-    uint takerGives,
-    uint punishLength,
-    uint orderId,
-    address payable taker
-  ) external returns (uint[] memory) {
-    requireSelfSend();
-    return
-      internalMarketOrderFrom(
-        takerWants,
-        takerGives,
-        punishLength,
-        orderId,
-        taker
-      );
+    // MarketOrder finished w/o reverting
+    // Failing orders have been collected in [failures]
+    if (noRevert) {
+      // `retdata` encodes a uint[] array of failed orders.
+      evmRevert(retdata);
+      // Market order failed to complete.
+    } else {
+      // `retdata` is revert data
+      return retdata;
+    }
   }
 
   function internalPunishingSnipes(
