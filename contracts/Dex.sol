@@ -11,8 +11,8 @@ import "./DexLib.sol";
 
 contract Dex {
   // FIXME: Temporarily storing function selector because .selector doesn't work on public function.
-  bytes4 private constant marketOrderFromSelector = bytes4(
-    keccak256("marketOrderFrom(uint256,uint256,uint256,uint256)")
+  bytes4 private constant internalMarketOrderSelector = bytes4(
+    keccak256("internalMarketOrder(uint256,uint256,uint256,uint256)")
   );
 
   bytes4 private constant internalSnipesSelector = bytes4(
@@ -205,7 +205,7 @@ contract Dex {
 
   // setting takerWants to max_int and takergives to however much you're ready to spend will
   // not work, you'll just be asking for a ~0 price.
-  function marketOrderFrom(
+  function internalMarketOrder(
     uint takerWants,
     uint takerGives,
     uint punishLength,
@@ -349,7 +349,7 @@ contract Dex {
 
   // implements a market order with condition on the minimal delivered volume
   function conditionalMarketOrder(uint takerWants, uint takerGives) external {
-    marketOrderFrom(takerWants, takerGives, 0, best.value);
+    internalMarketOrder(takerWants, takerGives, 0, best.value);
   }
 
   function stitchOrders(uint past, uint future) internal {
@@ -564,7 +564,7 @@ contract Dex {
     // must wrap this to avoid bubbling up "fake failures" from other calls.
     (bool noRevert, bytes memory retdata) = address(this).delegatecall(
       abi.encodeWithSelector(
-        marketOrderFromSelector,
+        internalMarketOrderSelector,
         takerWants,
         takerGives,
         punishLength,
