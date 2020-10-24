@@ -15,6 +15,10 @@ contract Dex {
     keccak256("marketOrderFrom(uint256,uint256,uint256,uint256)")
   );
 
+  bytes4 private constant internalSnipesSelector = bytes4(
+    keccak256("internalSnipes(uint256[],uint)")
+  );
+
   address public immutable OFR_TOKEN; // ofr_token is the token orders give
   address public immutable REQ_TOKEN; // req_token is the token orders wants
 
@@ -301,17 +305,16 @@ contract Dex {
   }
 
   function snipes(uint[] calldata targets) external {
+    internalSnipes(targets, 0);
+  }
+
+  function internalSnipes(uint[] calldata targets, uint punishLength)
+    public
+    returns (uint[] memory)
+  {
     requireOpenOB();
     requireAccessibleOB();
 
-    internalSnipes(targets, 0, msg.sender);
-  }
-
-  function internalSnipes(
-    uint[] calldata targets,
-    uint punishLength,
-    address payable taker
-  ) internal returns (uint[] memory) {
     uint targetIndex;
     uint numFailures;
     uint[] memory failures = new uint[](punishLength * 2);
@@ -327,7 +330,7 @@ contract Dex {
           orderId,
           order,
           takerWants,
-          taker
+          msg.sender
         );
         if (!success && numFailures < punishLength) {
           failures[2 * numFailures] = orderId;
@@ -516,12 +519,21 @@ contract Dex {
   function punishingSnipes(uint[] calldata targets, uint punishLength)
     external
   {
-    try
-      this.internalPunishingSnipes(targets, punishLength, msg.sender)
-    returns (bytes memory error) {
-      evmRevert(error);
-    } catch (bytes memory failureBytes) {
-      punish(failureBytes, msg.sender);
+    (bool noRevert, bytes memory retdata) = address(this).delegatecall(
+      abi.encodeWithSelector(
+        Dex.internalPunishingSnipes.selector,
+        targets,
+        punishLength
+      )
+    );
+
+    if (noRevert) {
+      // `retdata` is a revert data sent as normal return value
+      // by `internalPunishingMarketOrderFrom`.
+      evmRevert(retdata);
+    } else {
+      // `retdata` encodes a uint[] array of failed orders.
+      punish(retdata, msg.sender);
     }
   }
 
@@ -572,27 +584,23 @@ contract Dex {
     }
   }
 
-  function internalPunishingSnipes(
-    uint[] calldata targets,
-    uint punishLength,
-    address payable taker
-  ) external returns (bytes memory) {
-    requireSelfSend();
-    try this.secureInternalSnipes(targets, punishLength, taker) returns (
-      uint[] memory failures
-    ) {
-      evmRevert(failures);
-    } catch (bytes memory error) {
-      return error;
-    }
-  }
+  function internalPunishingSnipes(uint[] calldata targets, uint punishLength)
+    external
+    returns (bytes memory)
+  {
+    (bool noRevert, bytes memory retdata) = address(this).delegatecall(
+      abi.encodeWithSelector(internalSnipesSelector, targets, punishLength)
+    );
 
-  function secureInternalSnipes(
-    uint[] calldata targets,
-    uint punishLength,
-    address payable taker
-  ) external returns (uint[] memory) {
-    requireSelfSend();
-    return internalSnipes(targets, punishLength, taker);
+    // MarketOrder finished w/o reverting
+    // Failing orders have been collected in [failures]
+    if (noRevert) {
+      // `retdata` encodes a uint[] array of failed orders.
+      evmRevert(retdata);
+      // Market order failed to complete.
+    } else {
+      // `retdata` is revert data
+      return retdata;
+    }
   }
 }
