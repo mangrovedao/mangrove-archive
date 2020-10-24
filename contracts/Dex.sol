@@ -467,13 +467,6 @@ contract Dex {
     }
   }
 
-  function evmRevert(uint[] memory data) internal pure {
-    uint length = data.length;
-    assembly {
-      revert(data, add(mul(length, 32), 32))
-    }
-  }
-
   // run and revert a market order so as to collect orderId's that are failing
   // punishLength is the number of failing orders one is trying to catch
   function punishingMarketOrderFrom(
