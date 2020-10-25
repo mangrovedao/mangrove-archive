@@ -10,15 +10,6 @@ import "./DexLib.sol";
 //import "@nomiclabs/buidler/console.sol";
 
 contract Dex {
-  // FIXME: Temporarily storing function selector because .selector doesn't work on public function.
-  bytes4 private constant internalMarketOrderSelector = bytes4(
-    keccak256("internalMarketOrder(uint256,uint256,uint256,uint256)")
-  );
-
-  bytes4 private constant internalSnipesSelector = bytes4(
-    keccak256("internalSnipes(uint256[],uint)")
-  );
-
   address public immutable OFR_TOKEN; // ofr_token is the token orders give
   address public immutable REQ_TOKEN; // req_token is the token orders wants
 
@@ -477,7 +468,7 @@ contract Dex {
   ) external {
     (bool noRevert, bytes memory retdata) = address(this).delegatecall(
       abi.encodeWithSelector(
-        Dex.internalPunishingMarketOrderFrom.selector,
+        this.internalPunishingMarketOrderFrom.selector,
         fromOrderId,
         takerWants,
         takerGives,
@@ -500,7 +491,7 @@ contract Dex {
   {
     (bool noRevert, bytes memory retdata) = address(this).delegatecall(
       abi.encodeWithSelector(
-        Dex.internalPunishingSnipes.selector,
+        this.internalPunishingSnipes.selector,
         targets,
         punishLength
       )
@@ -543,7 +534,7 @@ contract Dex {
     // must wrap this to avoid bubbling up "fake failures" from other calls.
     (bool noRevert, bytes memory retdata) = address(this).delegatecall(
       abi.encodeWithSelector(
-        internalMarketOrderSelector,
+        this.internalMarketOrder.selector,
         takerWants,
         takerGives,
         punishLength,
@@ -568,7 +559,11 @@ contract Dex {
     returns (bytes memory)
   {
     (bool noRevert, bytes memory retdata) = address(this).delegatecall(
-      abi.encodeWithSelector(internalSnipesSelector, targets, punishLength)
+      abi.encodeWithSelector(
+        this.internalSnipes.selector,
+        targets,
+        punishLength
+      )
     );
 
     // MarketOrder finished w/o reverting
