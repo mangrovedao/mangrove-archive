@@ -264,8 +264,10 @@ contract Dex {
             failures[2 * numFailures + 1] = gasUsedForFailure;
           }
         }
-        orderId = order.next;
-        order = orders[orderId];
+        if (orders[orderId].gives == 0) {
+          orderId = order.next;
+          order = orders[orderId];
+        }
       } else {
         // price is not OK for taker
         break; // or revert depending on market order type (see price fill or kill order type of oasis)
