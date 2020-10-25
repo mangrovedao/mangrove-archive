@@ -393,10 +393,10 @@ contract Dex {
     )
   {
     (success, gasUsedIfFailure) = flashSwapTokens(
-      order,
       orderId,
-      takerGives,
-      takerWants
+      order,
+      takerWants,
+      takerGives
     );
 
     if (
@@ -429,10 +429,10 @@ contract Dex {
   // trusts caller
   // uses flashlend to ensure postcondition
   function flashSwapTokens(
-    Order memory order,
     uint orderId,
-    uint takerGives,
-    uint takerWants
+    Order memory order,
+    uint takerWants,
+    uint takerGives
   ) internal returns (bool, uint) {
     OrderDetail memory orderDetail = orderDetails[orderId];
     // Execute order
