@@ -16,7 +16,7 @@ contract Dex {
   Config private config;
 
   bool public open = true;
-  bool public accessOB = true; // whether a modification of the OB is permitted
+  bool public reentrancyLock; // whether a modification of the OB is permitted
   UintContainer public best; // (32)
   uint private lastId; // (32)
 
@@ -64,7 +64,7 @@ contract Dex {
   }
 
   function requireAccessibleOB() internal view {
-    require(accessOB, "OB not accessible");
+    require(!reentrancyLock, "OB not accessible");
   }
 
   function getLastId() public view returns (uint) {
@@ -217,7 +217,7 @@ contract Dex {
     uint[] memory failures = new uint[](2 * punishLength);
     uint numFailures;
 
-    accessOB = false;
+    reentrancyLock = true;
     // inlining (minTakerWants = dustPerGasWanted*minGasWanted) to avoid stack too deep
     while (
       takerWants >= config.dustPerGasWanted * config.minGasWanted &&
@@ -264,7 +264,7 @@ contract Dex {
         break; // or revert depending on market order type (see price fill or kill order type of oasis)
       }
     }
-    accessOB = true;
+    reentrancyLock = false;
     stitchOrders(pastOrderId, orderId);
     // Function throws list of failures if market order was successful
     // returns the error message otherwise
@@ -286,7 +286,7 @@ contract Dex {
     uint localTakerWants = order.gives < takerWants ? order.gives : takerWants;
     uint localTakerGives = (localTakerWants * order.wants) / order.gives;
 
-    accessOB = false;
+    reentrancyLock = true;
     (bool success, , ) = executeOrder(
       orderId,
       order,
@@ -294,7 +294,7 @@ contract Dex {
       localTakerGives,
       false
     );
-    accessOB = true;
+    reentrancyLock = false;
     require(success, "execute order failed");
   }
 
@@ -312,7 +312,7 @@ contract Dex {
     uint targetIndex;
     uint numFailures;
     uint[] memory failures = new uint[](punishLength * 2);
-    accessOB = false;
+    reentrancyLock = true;
     while (targetIndex < targets.length) {
       uint orderId = targets[2 * targetIndex];
       uint takerWants = targets[2 * targetIndex + 1];
@@ -339,7 +339,7 @@ contract Dex {
       }
       targetIndex++;
     }
-    accessOB = true;
+    reentrancyLock = false;
     assembly {
       mstore(failures, mul(2, numFailures))
     } /* reduce failures array size */
