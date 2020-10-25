@@ -236,35 +236,26 @@ contract Dex {
 
         //if success, gasUsedForFailure == 0
         //Warning: orderId is deleted *after* execution
-        (bool success, uint gasUsedForFailure) = flashSwapTokens(
-          order,
+        (bool success, uint gasUsedForFailure, bool deleted) = executeOrder(
           orderId,
+          order,
           localTakerWants,
-          localTakerGives
+          localTakerGives,
+          true
         );
 
         if (success) {
           //proceeding with market order
           takerWants -= localTakerWants;
           takerGives -= localTakerGives;
-          if (
-            order.gives - localTakerWants >=
-            config.dustPerGasWanted * config.minGasWanted
-          ) {
-            orders[orderId].gives = uint96(order.gives - localTakerWants);
-            orders[orderId].wants = uint96(order.wants - localTakerGives);
-          } else {
-            dirtyDeleteOrder(orderId);
-          }
         } else {
-          dirtyDeleteOrder(orderId);
           if (numFailures++ < punishLength) {
             // storing orderId and gas used for cancellation
             failures[2 * numFailures] = orderId;
             failures[2 * numFailures + 1] = gasUsedForFailure;
           }
         }
-        if (orders[orderId].gives == 0) {
+        if (deleted) {
           orderId = order.next;
           order = orders[orderId];
         }
@@ -292,7 +283,18 @@ contract Dex {
     Order memory order = orders[orderId];
     require(isOrder(order), "bad orderId");
 
-    (bool success, ) = executeOrder(orderId, order, takerWants);
+    uint localTakerWants = order.gives < takerWants ? order.gives : takerWants;
+    uint localTakerGives = (localTakerWants * order.wants) / order.gives;
+
+    accessOB = false;
+    (bool success, , ) = executeOrder(
+      orderId,
+      order,
+      localTakerWants,
+      localTakerGives,
+      false
+    );
+    accessOB = true;
     require(success, "execute order failed");
   }
 
@@ -318,7 +320,17 @@ contract Dex {
       require(uint96(takerWants) == takerWants, "takerWants is 96 bits wide");
       Order memory order = orders[orderId];
       if (isOrder(order)) {
-        (bool success, uint gasUsed) = executeOrder(orderId, order, takerWants);
+        uint localTakerWants = order.gives < takerWants
+          ? order.gives
+          : takerWants;
+        uint localTakerGives = (localTakerWants * order.wants) / order.gives;
+        (bool success, uint gasUsed, ) = executeOrder(
+          orderId,
+          order,
+          localTakerWants,
+          localTakerGives,
+          false
+        );
         if (!success && numFailures < punishLength) {
           failures[2 * numFailures] = orderId;
           failures[2 * numFailures + 1] = gasUsed;
@@ -365,34 +377,42 @@ contract Dex {
   // does not check for reentrancy
   // does not check for parameter validity
   // computes reqToken
-  // cleanup OB after execution
+  // (dirty)cleanup OB after execution
   function executeOrder(
     uint orderId,
     Order memory order,
-    uint takerWants
-  ) internal returns (bool, uint) {
-    uint localTakerWants = order.gives < takerWants ? order.gives : takerWants;
-    uint localTakerGives = (localTakerWants * order.wants) / order.gives;
-
-    accessOB = false;
-    (bool success, uint gasUsed) = flashSwapTokens(
+    uint takerWants,
+    uint takerGives,
+    bool dirtyDelete
+  )
+    internal
+    returns (
+      bool success,
+      uint gasUsedIfFailure,
+      bool deleted
+    )
+  {
+    (success, gasUsedIfFailure) = flashSwapTokens(
       order,
       orderId,
-      localTakerGives,
-      localTakerWants
+      takerGives,
+      takerWants
     );
-    accessOB = true;
 
     if (
-      order.gives - localTakerWants >=
-      config.dustPerGasWanted * config.minGasWanted
+      success &&
+      order.gives - takerWants >= config.dustPerGasWanted * config.minGasWanted
     ) {
-      orders[orderId].gives = uint96(order.gives - localTakerWants);
-      orders[orderId].wants = uint96(order.wants - localTakerGives);
+      orders[orderId].gives = uint96(order.gives - takerWants);
+      orders[orderId].wants = uint96(order.wants - takerGives);
     } else {
-      internalDeleteOrder(order, orderId);
+      deleted = true;
+      if (dirtyDelete) {
+        dirtyDeleteOrder(orderId);
+      } else {
+        internalDeleteOrder(order, orderId);
+      }
     }
-    return (success, gasUsed);
   }
 
   function applyPenalty(uint gasUsed, OrderDetail memory orderDetail) internal {
