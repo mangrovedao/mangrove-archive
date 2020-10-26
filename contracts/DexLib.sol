@@ -89,8 +89,8 @@ library DexLib {
     uint orderId,
     uint takerGives,
     uint takerWants,
-    uint dexFee,
-    uint takerFee,
+    uint orderGives,
+    Config storage config,
     OrderDetail memory orderDetail
   ) external returns (bool) {
     // WARNING Should be unnecessary as long as swapTokens is in a library
@@ -103,6 +103,10 @@ library DexLib {
         orderDetail.penaltyPerGas,
         orderId
       );
+
+      uint dexFee = (config.takerFee +
+        (config.takerFee * config.dustPerGasWanted * orderDetail.gasWanted) /
+        orderGives) / 2;
 
       require(
         transferToken(
@@ -118,7 +122,7 @@ library DexLib {
           ofrToken,
           orderDetail.maker,
           msg.sender,
-          (takerWants * (10000 - takerFee)) / 10000
+          (takerWants * (10000 - config.takerFee)) / 10000
         ),
         "fail transfer to taker"
       );

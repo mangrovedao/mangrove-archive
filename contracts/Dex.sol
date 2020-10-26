@@ -430,7 +430,7 @@ contract Dex {
   // uses flashlend to ensure postcondition
   function flashSwapTokens(
     uint orderId,
-    Order memory order,
+    Order memory order, // almost unnecessary! if dexFee didnt depend on order.gives...
     uint takerWants,
     uint takerGives
   ) internal returns (bool, uint) {
@@ -443,10 +443,6 @@ contract Dex {
       "not enough gas left to safely execute order"
     );
 
-    uint dexFee = (config.takerFee +
-      (config.takerFee * config.dustPerGasWanted * orderDetail.gasWanted) /
-      order.gives) / 2;
-
     (bool noRevert, bytes memory retdata) = address(DexLib).delegatecall(
       abi.encodeWithSelector(
         DexLib.swapTokens.selector,
@@ -455,8 +451,8 @@ contract Dex {
         orderId,
         takerGives,
         takerWants,
-        dexFee,
-        config.takerFee,
+        order.gives,
+        config,
         orderDetail
       )
     );
