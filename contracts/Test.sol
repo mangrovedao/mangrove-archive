@@ -6,6 +6,12 @@ pragma solidity ^0.7.0;
 // Calling test functions sends events which are interpeted by test_solidity.js
 // to display results.
 contract Test {
+  event ExpectFrom(address from);
+
+  function expectFrom(address from) internal {
+    emit ExpectFrom(from);
+  }
+
   receive() external payable {}
 
   event TestTrue(bool success, string message);

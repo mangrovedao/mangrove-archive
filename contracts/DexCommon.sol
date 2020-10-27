@@ -43,3 +43,7 @@ struct UintContainer {
 function isOrder(Order memory order) pure returns (bool) {
   return order.gives > 0;
 }
+
+library DexEvents {
+  event Bla(uint num);
+}
