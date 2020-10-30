@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 import "./interfaces.sol";
 import "./Dex.sol";
 import "./Passthrough.sol";
-import "@nomiclabs/buidler/console.sol";
+import "hardhat/console.sol";
 
 contract TestMaker is IMaker, Passthrough {
   Dex dex;

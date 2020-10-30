@@ -12,7 +12,7 @@ import "./MakerDeployer.sol";
 import "./TestMoriartyMaker.sol";
 import "./TestTaker.sol";
 import "./interfaces.sol";
-import "@nomiclabs/buidler/console.sol";
+import "hardhat/console.sol";
 import "./Display.sol";
 
 // Pretest libraries are for deploying large contracts independently.

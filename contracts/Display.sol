@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.0;
 import "./Dex.sol";
-import "@nomiclabs/buidler/console.sol";
+import "hardhat/console.sol";
 
 contract Display {
   function logOrderBook(Dex dex) internal view {
@@ -18,8 +18,18 @@ contract Display {
         uint penaltyPerGas,
         address makerAddr
       ) = dex.getOrderInfo(orderId);
-      console.log("[order %d] %d/%d", orderId, wants/0.01 ether, gives/0.01 ether);
-      console.log("(%d gas, %d to finish, %d penalty)", gasWanted, minFinishGas, penaltyPerGas);
+      console.log(
+        "[order %d] %d/%d",
+        orderId,
+        wants / 0.01 ether,
+        gives / 0.01 ether
+      );
+      console.log(
+        "(%d gas, %d to finish, %d penalty)",
+        gasWanted,
+        minFinishGas,
+        penaltyPerGas
+      );
       console.logAddress(makerAddr);
       orderId = nextId;
     }

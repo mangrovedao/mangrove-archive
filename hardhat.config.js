@@ -1,6 +1,6 @@
 //usePlugin("@nomiclabs/buidler-truffle5");
-usePlugin("@nomiclabs/buidler-ethers");
-usePlugin("buidler-deploy");
+require("@nomiclabs/hardhat-ethers");
+require("hardhat-deploy");
 const test_solidity = require("./lib/test_solidity.js");
 
 // Special task for running Solidity tests
@@ -13,26 +13,26 @@ task(
     "contracts",
     "Which contracts to test (default:all)"
   )
-  .setAction(async (params, bre) => {
+  .setAction(async (params, hre) => {
     await test_solidity(
       {
         argTestContractNames: params.contracts || [],
         showEvents: params.showEvents,
       },
-      bre
+      hre
     );
   });
 
 module.exports = {
-  defaultNetwork: "buidlerevm",
+  defaultNetwork: "hardhat",
   networks: {
-    buidlerevm: {blockGasLimit: 7000000000},
+    hardhat: {blockGasLimit: 7000000000},
     localhost: {
       url: "http://127.0.0.1:8545",
     },
   },
-  solc: {
-    version: "0.7.2",
+  solidity: {
+    version: "0.7.4",
     optimizer: {
       enabled: false,
       runs: 200,

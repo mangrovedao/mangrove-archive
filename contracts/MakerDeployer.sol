@@ -4,7 +4,7 @@ import "./Dex.sol";
 import "./TestMaker.sol";
 import "./TestToken.sol";
 import "./interfaces.sol";
-import "@nomiclabs/buidler/console.sol";
+import "hardhat/console.sol";
 
 contract MakerDeployer {
   address payable[] makers;
