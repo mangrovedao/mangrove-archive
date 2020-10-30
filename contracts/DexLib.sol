@@ -151,15 +151,6 @@ library DexLib {
   }
 
   // returns false iff (wants1,gives1) is strictly worse than (wants2,gives2)
-  function better(
-    uint wants1,
-    uint gives1,
-    uint wants2,
-    uint gives2
-  ) internal pure returns (bool) {
-    return wants1 * gives2 <= wants2 * gives1;
-  }
-
   function newOrder(
     Config storage config,
     mapping(address => uint) storage freeWei,
@@ -174,12 +165,16 @@ library DexLib {
   ) external returns (uint) {
     require(
       gives >= gasWanted * config.dustPerGasWanted,
-      "offering below dust limit"
+      "size per gas wanted too small"
+    );
+    require(
+      gives >= config.dustPerGasWanted * config.minGasWanted,
+      "absolute size too small"
     );
     require(uint96(wants) == wants, "wants is 96 bits wide");
     require(uint96(gives) == gives, "gives is 96 bits wide");
     require(uint24(gasWanted) == gasWanted, "gasWanted is 24 bits wide");
-    require(gasWanted > 0, "gasWanted > 0"); // division by gasWanted occurs later
+    require(gasWanted > 0, "gasWanted > 0"); // division by gasWanted can occur during offer lifetime
     require(uint32(pivotId) == pivotId, "pivotId is 32 bits wide");
 
     {
@@ -227,6 +222,15 @@ library DexLib {
       orders[next].prev = orderId;
     }
     return orderId;
+  }
+
+  function better(
+    uint wants1,
+    uint gives1,
+    uint wants2,
+    uint gives2
+  ) internal pure returns (bool) {
+    return wants1 * gives2 <= wants2 * gives1;
   }
 
   // 1. add a ghost order orderId with (want,gives) in the right position
