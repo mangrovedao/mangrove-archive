@@ -92,8 +92,6 @@ library DexLib {
     Config storage config,
     OrderDetail memory orderDetail
   ) external returns (bool) {
-    // WARNING Should be unnecessary as long as swapTokens is in a library
-    //requireSelfSend();
     if (transferToken(reqToken, msg.sender, orderDetail.maker, takerGives)) {
       // Execute order
       IMaker(orderDetail.maker).execute{gas: orderDetail.gasWanted}(

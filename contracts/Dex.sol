@@ -51,10 +51,6 @@ contract Dex {
     DexLib.setConfigKey(config, ConfigKey.transferGas, 2300);
   }
 
-  function requireSelfSend() internal view {
-    require(msg.sender == address(this), "caller must be dex");
-  }
-
   function requireAdmin() internal view returns (bool) {
     require(address(this) == msg.sender, "not admin");
   }
