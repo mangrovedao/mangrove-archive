@@ -89,7 +89,6 @@ library DexLib {
     uint orderId,
     uint takerGives,
     uint takerWants,
-    uint orderGives,
     Config storage config,
     OrderDetail memory orderDetail
   ) external returns (bool) {
@@ -104,16 +103,12 @@ library DexLib {
         orderId
       );
 
-      uint dexFee = (config.takerFee +
-        (config.takerFee * config.dustPerGasWanted * orderDetail.gasWanted) /
-        orderGives) / 2;
-
       require(
         transferToken(
           ofrToken,
           orderDetail.maker,
           address(this),
-          (takerWants * dexFee) / 10000
+          (takerWants * config.takerFee) / 10000
         ),
         "fail transfer to dex"
       );

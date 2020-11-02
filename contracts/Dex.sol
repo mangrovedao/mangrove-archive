@@ -394,7 +394,6 @@ contract Dex {
   {
     (success, gasUsedIfFailure) = flashSwapTokens(
       orderId,
-      order,
       takerWants,
       takerGives
     );
@@ -430,7 +429,6 @@ contract Dex {
   // uses flashlend to ensure postcondition
   function flashSwapTokens(
     uint orderId,
-    Order memory order, // almost unnecessary! if dexFee didnt depend on order.gives...
     uint takerWants,
     uint takerGives
   ) internal returns (bool, uint) {
@@ -451,7 +449,6 @@ contract Dex {
         orderId,
         takerGives,
         takerWants,
-        order.gives,
         config,
         orderDetail
       )
