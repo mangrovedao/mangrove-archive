@@ -43,13 +43,4 @@ contract MakerDeployer {
     }
     deployed = true;
   }
-
-  function provisionForAll(uint amount) external {
-    uint k = makers.length;
-    console.log("\nProvisioning %d to Dex for makers:\n", amount);
-    for (uint i = 0; i < k; i++) {
-      console.logAddress(makers[i]);
-      TestMaker(makers[i]).provisionDex(amount);
-    }
-  }
 }
