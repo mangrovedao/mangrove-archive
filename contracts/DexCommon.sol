@@ -74,9 +74,9 @@ library DexEvents {
   // maker is the address of the Maker contract that implements the order
   event NewOrder(
     address maker,
-    uint96 wants,
-    uint96 gives,
-    uint24 gasWanted,
+    uint wants,
+    uint gives,
+    uint gasWanted,
     uint orderId
   );
 
