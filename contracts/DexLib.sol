@@ -36,6 +36,8 @@ library DexLib {
       emit SetPenaltyPerGas(value);
     } else if (key == ConfigKey.transferGas) {
       config.transferGas = value;
+    } else if (key == ConfigKey.maxGasWanted) {
+      config.maxGasWanted = value;
       emit SetTransferGas(value);
     } else {
       revert("Unknown config key");
@@ -59,6 +61,8 @@ library DexLib {
       return config.penaltyPerGas;
     } else if (key == ConfigKey.transferGas) {
       return config.transferGas;
+    } else if (key == ConfigKey.maxGasWanted) {
+      return config.maxGasWanted;
     } else {
       revert("Unknown config key");
     }
@@ -96,7 +100,6 @@ library DexLib {
     uint takerGives,
     uint takerWants,
     uint takerFee,
-    //    Config storage config,
     OrderDetail memory orderDetail
   ) external returns (bool) {
     if (transferToken(reqToken, msg.sender, orderDetail.maker, takerGives)) {
@@ -113,9 +116,7 @@ library DexLib {
           ofrToken,
           orderDetail.maker,
           address(this),
-          (takerWants *
-            /*config.*/
-            takerFee) / 10000
+          (takerWants * takerFee) / 10000
         ),
         "fail transfer to dex"
       );
@@ -124,10 +125,7 @@ library DexLib {
           ofrToken,
           orderDetail.maker,
           msg.sender,
-          (takerWants *
-            (10000 -
-              /*config.*/
-              takerFee)) / 10000
+          (takerWants * (10000 - takerFee)) / 10000
         ),
         "fail transfer to taker"
       );
@@ -176,6 +174,7 @@ library DexLib {
       gives >= config.dustPerGasWanted * config.minGasWanted,
       "absolute size too small"
     );
+    require(gasWanted <= config.maxGasWanted, "gasWanted too large");
     require(uint96(wants) == wants, "wants is 96 bits wide");
     require(uint96(gives) == gives, "gives is 96 bits wide");
     require(uint24(gasWanted) == gasWanted, "gasWanted is 24 bits wide");

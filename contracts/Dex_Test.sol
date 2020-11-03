@@ -39,6 +39,7 @@ library DexPre1 {
       initialMinFinishGas: 30000,
       initialPenaltyPerGas: 300,
       initialMinGasWanted: 30000,
+      initialMaxGasWanted: 1000000,
       ofrToken: address(aToken),
       reqToken: address(bToken)
     });
