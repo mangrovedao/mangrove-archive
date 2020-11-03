@@ -16,21 +16,27 @@ library DexLib {
     if (key == ConfigKey.takerFee) {
       require(value <= 10000, "takerFee is in bps, must be <= 10000"); // at most 14 bits
       config.takerFee = value;
+      emit SetTakerFee(value);
     } else if (key == ConfigKey.minFinishGas) {
       require(uint24(value) == value, "minFinishGas is 24 bits wide");
       config.minFinishGas = value;
+      emit SetMinFinishGas(value);
     } else if (key == ConfigKey.dustPerGasWanted) {
       require(value > 0, "dustPerGasWanted must be > 0");
       require(uint32(value) == value);
       config.dustPerGasWanted = value;
+      emit SetDustPerGasWanted(value);
     } else if (key == ConfigKey.minGasWanted) {
       require(uint32(value) == value, "minGasWanted is 32 bits wide");
       config.minGasWanted = value;
+      emit SetminGasWanted(value);
     } else if (key == ConfigKey.penaltyPerGas) {
       require(uint48(value) == value, "penaltyPerGas is 48 bits wide");
       config.penaltyPerGas = value;
+      emit SetPenaltyPerGas(value);
     } else if (key == ConfigKey.transferGas) {
       config.transferGas = value;
+      emit SetTransferGas(value);
     } else {
       revert("Unknown config key");
     }
@@ -214,6 +220,7 @@ library DexLib {
     if (next != 0) {
       orders[next].prev = orderId;
     }
+    emit NewOrder(msg.sender, wants, gives, gasWanted, orderId);
     return orderId;
   }
 

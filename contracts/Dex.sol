@@ -71,12 +71,14 @@ contract Dex {
   function closeMarket() external {
     requireAdmin();
     open = false;
+    emit CloseMarket();
   }
 
   //Emulates the transfer function, but with adjustable gas transfer
   function dexTransfer(address payable addr, uint amount) internal {
     (bool success, ) = addr.call{gas: config.transferGas, value: amount}("");
     require(success, "dexTransfer failed");
+    emit Transfer(addr, amout);
   }
 
   function getBest() external view returns (uint) {
@@ -135,6 +137,7 @@ contract Dex {
 
   receive() external payable {
     freeWei[msg.sender] += msg.value;
+    emit Receive(msg.sender, msg.value);
   }
 
   function withdraw(uint amount) external {
@@ -155,6 +158,8 @@ contract Dex {
       // Freeing provisioned penalty for maker
       uint provision = orderDetail.penaltyPerGas * orderDetail.gasWanted;
       freeWei[msg.sender] += provision;
+
+      emit CancelOrder(orderId);
       return provision;
     }
     return 0;
@@ -362,6 +367,7 @@ contract Dex {
   function dirtyDeleteOrder(uint orderId) internal {
     delete orders[orderId];
     delete orderDetails[orderId];
+    emit DeleteOrder(orderId);
   }
 
   function internalDeleteOrder(Order memory order, uint orderId) internal {

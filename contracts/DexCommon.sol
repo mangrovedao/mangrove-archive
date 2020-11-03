@@ -45,5 +45,39 @@ function isOrder(Order memory order) pure returns (bool) {
 }
 
 library DexEvents {
-  event Bla(uint num);
+  // Emitted when receiver withdraws amount from Dex
+  event Transfer(address payable receiver, uint amout);
+
+  // Emitted when Dex receives amount from sender
+  event Receive(address sender, uint amount);
+
+  // Events that are emitted upon a Dex reconfiguration
+  event SetTakerFee(uint value);
+  event SetMinFinishGas(uint value);
+  event SetDustPerGasWanted(uint value);
+  event SetminGasWanted(uint value);
+  event SetPenaltyPerGas(uint value);
+  event SetTransferGas(uint value);
+
+  // Dex interactions
+
+  // Emitted upon Dex closure
+  event CloseMarket();
+
+  // Emitted if orderId was successfully cancelled.
+  // No event is emitted if orderId is absent from order book
+  event CancelOrder(uint orderId);
+
+  // Emitted if a new order was inserted into order book
+  // maker is the address of the Maker contract that implements the order
+  event NewOrder(
+    address maker,
+    uint96 wants,
+    uint96 gives,
+    uint24 gasWanted,
+    uint orderId
+  );
+
+  // Emitted when orderId is removed from Order Book.
+  event DeleteOrder(uint orderId);
 }
