@@ -16,6 +16,7 @@ contract DexDeployer {
     uint initialMinFinishGas,
     uint initialPenaltyPerGas,
     uint initialMinGasWanted,
+    uint initialMaxGasWanted,
     address ofrToken,
     address reqToken
   ) external returns (Dex) {
@@ -27,6 +28,7 @@ contract DexDeployer {
       initialMinFinishGas,
       initialPenaltyPerGas,
       initialMinGasWanted,
+      initialMaxGasWanted,
       ofrToken,
       reqToken
     );

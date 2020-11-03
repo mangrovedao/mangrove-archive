@@ -34,6 +34,7 @@ contract Dex {
     uint initialMinFinishGas,
     uint initialPenaltyPerGas,
     uint initialMinGasWanted,
+    uint initialMaxGasWanted,
     address ofrToken,
     address reqToken
   ) {
@@ -48,6 +49,7 @@ contract Dex {
     DexLib.setConfigKey(config, ConfigKey.minFinishGas, initialMinFinishGas);
     DexLib.setConfigKey(config, ConfigKey.penaltyPerGas, initialPenaltyPerGas);
     DexLib.setConfigKey(config, ConfigKey.minGasWanted, initialMinGasWanted);
+    DexLib.setConfigKey(config, ConfigKey.maxGasWanted, initialMaxGasWanted);
     DexLib.setConfigKey(config, ConfigKey.transferGas, 2300);
   }
 

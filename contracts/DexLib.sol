@@ -31,6 +31,8 @@ library DexLib {
       config.penaltyPerGas = value;
     } else if (key == ConfigKey.transferGas) {
       config.transferGas = value;
+    } else if (key == ConfigKey.maxGasWanted) {
+      config.maxGasWanted = value;
     } else {
       revert("Unknown config key");
     }
@@ -53,6 +55,8 @@ library DexLib {
       return config.penaltyPerGas;
     } else if (key == ConfigKey.transferGas) {
       return config.transferGas;
+    } else if (key == ConfigKey.maxGasWanted) {
+      return config.maxGasWanted;
     } else {
       revert("Unknown config key");
     }
@@ -164,6 +168,7 @@ library DexLib {
       gives >= config.dustPerGasWanted * config.minGasWanted,
       "absolute size too small"
     );
+    require(gasWanted <= config.maxGasWanted, "gasWanted too large");
     require(uint96(wants) == wants, "wants is 96 bits wide");
     require(uint96(gives) == gives, "gives is 96 bits wide");
     require(uint24(gasWanted) == gasWanted, "gasWanted is 24 bits wide");

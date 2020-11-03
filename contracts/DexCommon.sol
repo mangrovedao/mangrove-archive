@@ -9,7 +9,8 @@ enum ConfigKey {
   dustPerGasWanted,
   minGasWanted,
   penaltyPerGas,
-  transferGas
+  transferGas,
+  maxGasWanted
 }
 
 struct Config {
@@ -20,6 +21,7 @@ struct Config {
   uint minGasWanted; // (32) minimal amount of gas you can ask for; also used for market order's dust estimation
   uint penaltyPerGas; // (48) in wei;
   uint transferGas; //default amount of gas given for a transfer
+  uint maxGasWanted; //max amount of gas required by an order
 }
 
 struct Order {
