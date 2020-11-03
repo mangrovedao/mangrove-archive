@@ -445,7 +445,7 @@ contract Dex {
         orderId,
         takerGives,
         takerWants,
-        config,
+        config.takerFee, // bug if one tries to pass config here.
         orderDetail
       )
     );
