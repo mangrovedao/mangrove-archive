@@ -89,7 +89,7 @@ library DexLib {
     uint orderId,
     uint takerGives,
     uint takerWants,
-    Config storage config,
+    uint takerFee,
     OrderDetail memory orderDetail
   ) external returns (bool) {
     if (transferToken(reqToken, msg.sender, orderDetail.maker, takerGives)) {
@@ -106,7 +106,7 @@ library DexLib {
           ofrToken,
           orderDetail.maker,
           address(this),
-          (takerWants * config.takerFee) / 10000
+          (takerWants * takerFee) / 10000
         ),
         "fail transfer to dex"
       );
@@ -115,7 +115,7 @@ library DexLib {
           ofrToken,
           orderDetail.maker,
           msg.sender,
-          (takerWants * (10000 - config.takerFee)) / 10000
+          (takerWants * (10000 - takerFee)) / 10000
         ),
         "fail transfer to taker"
       );
