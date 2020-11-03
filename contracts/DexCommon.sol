@@ -47,6 +47,8 @@ function isOrder(Order memory order) pure returns (bool) {
 }
 
 library DexEvents {
+  event TestEvent(uint);
+
   // Emitted when receiver withdraws amount from Dex
   event Transfer(address payable receiver, uint amout);
 

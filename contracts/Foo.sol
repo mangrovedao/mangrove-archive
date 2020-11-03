@@ -3,7 +3,7 @@ import "./DexCommon.sol";
 
 contract Foo {
   function bi(uint i) public {
-    emit DexEvents.Bla(i);
+    emit DexEvents.TestEvent(i);
   }
 }
 
@@ -12,9 +12,9 @@ contract Foo_Test is Test {
     Foo f = new Foo();
     Foo g = new Foo();
     expectFrom(address(f));
-    emit DexEvents.Bla(2);
+    emit DexEvents.TestEvent(2);
     expectFrom(address(g));
-    emit DexEvents.Bla(9);
+    emit DexEvents.TestEvent(9);
     f.bi(2);
     g.bi(9);
   }
