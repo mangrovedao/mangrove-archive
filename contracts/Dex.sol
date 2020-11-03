@@ -412,14 +412,30 @@ contract Dex {
     }
   }
 
-  function applyPenalty(uint gasUsed, OrderDetail memory orderDetail) internal {
-    uint maxGasUsed = orderDetail.gasWanted + orderDetail.minFinishGas;
-    gasUsed = maxGasUsed < gasUsed ? maxGasUsed : gasUsed;
+  function applyPenalty(
+    bool success,
+    uint gasUsed,
+    OrderDetail memory orderDetail
+  ) internal {
+    // opcode gas pricing may have increased since the offer was created
+    // (or `config.minFinishGas` could be erroneously set).
+    // In that case the actual gas used could be larger than `maxGasUsed`. */
+    gasUsed = gasUsed < orderDetail.gasWanted ? gasUsed : orderDetail.gasWanted;
 
     freeWei[orderDetail.maker] +=
-      (maxGasUsed - gasUsed) *
-      orderDetail.penaltyPerGas;
-    dexTransfer(msg.sender, gasUsed * orderDetail.penaltyPerGas);
+      orderDetail.penaltyPerGas *
+      (
+        success
+          ? orderDetail.gasWanted + orderDetail.minFinishGas
+          : orderDetail.gasWanted - gasUsed
+      );
+
+    if (!success) {
+      dexTransfer(
+        msg.sender,
+        orderDetail.penaltyPerGas * (orderDetail.minFinishGas + gasUsed)
+      );
+    }
   }
 
   // swap tokens according to parameters.
@@ -455,10 +471,10 @@ contract Dex {
     if (noRevert) {
       bool flashSuccess = abi.decode(retdata, (bool));
       require(flashSuccess, "taker failed to send tokens to maker");
-      applyPenalty(0, orderDetail);
+      applyPenalty(true, 0, orderDetail);
       return (true, gasUsed);
     } else {
-      applyPenalty(gasUsed, orderDetail);
+      applyPenalty(false, gasUsed, orderDetail);
       return (false, gasUsed);
     }
   }
@@ -533,7 +549,7 @@ contract Dex {
       Order memory order = orders[punishedOrderId];
       OrderDetail memory orderDetail = orderDetails[punishedOrderId];
       internalDeleteOrder(order, punishedOrderId);
-      applyPenalty(gasUsed, orderDetail);
+      applyPenalty(false, gasUsed, orderDetail);
       failureIndex++;
     }
   }
