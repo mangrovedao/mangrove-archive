@@ -8,7 +8,8 @@ task(
   "test-solidity",
   "[Giry] Run tests of Solidity contracts with suffix _Test"
 )
-  .addFlag("showEvents", "Show all solidity events during tests")
+  .addFlag("showEvents", "Show all non-test events during tests")
+  .addFlag("showTestEvents", "Show all test events during tests")
   .addOptionalVariadicPositionalParam(
     "contracts",
     "Which contracts to test (default:all)"
@@ -18,6 +19,7 @@ task(
       {
         argTestContractNames: params.contracts || [],
         showEvents: params.showEvents,
+        showTestEvents: params.showTestEvents,
       },
       hre
     );
