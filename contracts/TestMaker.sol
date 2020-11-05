@@ -13,13 +13,22 @@ contract TestMaker is IMaker, Passthrough {
     dex = _dex;
   }
 
-  function execute(
-    uint,
-    uint,
-    uint,
+  event Execute(
+    uint takerWants,
+    uint takerGives,
+    uint penaltyPerGas,
     uint orderId
-  ) public view override {
-    console.log("\t !! Maker is being called for order %d", orderId);
+  );
+
+  receive() external payable {}
+
+  function execute(
+    uint takerWants,
+    uint takerGives,
+    uint penaltyPerGas,
+    uint orderId
+  ) public override {
+    emit Execute(takerWants, takerGives, penaltyPerGas, orderId);
   }
 
   function newOrder(
@@ -39,6 +48,4 @@ contract TestMaker is IMaker, Passthrough {
   function approve(IERC20 token, uint amount) public {
     token.approve(address(dex), amount);
   }
-
-  receive() external payable {}
 }
