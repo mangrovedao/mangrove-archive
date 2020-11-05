@@ -396,15 +396,19 @@ contract Dex {
       bool deleted
     )
   {
+    OrderDetail memory orderDetail = orderDetails[orderId];
+
     (success, gasUsedIfFailure) = flashSwapTokens(
       orderId,
+      orderDetail,
       takerWants,
       takerGives
     );
 
     if (
       success &&
-      order.gives - takerWants >= config.dustPerGasWanted * config.minGasWanted
+      order.gives - takerWants >=
+      config.dustPerGasWanted * orderDetail.gasWanted
     ) {
       orders[orderId].gives = uint96(order.gives - takerWants);
       orders[orderId].wants = uint96(order.wants - takerGives);
@@ -449,10 +453,10 @@ contract Dex {
   // uses flashlend to ensure postcondition
   function flashSwapTokens(
     uint orderId,
+    OrderDetail memory orderDetail,
     uint takerWants,
     uint takerGives
   ) internal returns (bool, uint) {
-    OrderDetail memory orderDetail = orderDetails[orderId];
     // Execute order
     uint oldGas = gasleft();
 
