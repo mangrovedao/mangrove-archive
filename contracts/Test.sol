@@ -66,6 +66,14 @@ library Test {
     string message
   );
 
+  event TestNot0x(bool success, address addr);
+
+  function testNot0x(address actual) internal returns (bool) {
+    bool success = actual != address(0);
+    emit TestNot0x(success, actual);
+    return success;
+  }
+
   function testEq(
     address actual,
     address expected,
