@@ -13,7 +13,7 @@ interface IMaker {
 interface ITaker {
   function take(uint orderId, uint wants) external returns (uint);
 
-  function mo(uint wants, uint gives) external;
+  function marketOrder(uint wants, uint gives) external;
 }
 
 // IERC20 From OpenZeppelin code
