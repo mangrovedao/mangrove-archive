@@ -22,7 +22,7 @@ library Lib {
   }
 }
 
-contract StorageEncoding_Test is Test {
+contract StorageEncoding_Test {
   S sss; // We add some padding so the storage ref for s is not 0
   S ss;
   S s;

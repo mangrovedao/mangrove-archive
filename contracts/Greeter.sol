@@ -19,7 +19,7 @@ contract Greeter {
 
 import "./Test.sol";
 
-contract Greeter_Test is Test {
+contract Greeter_Test {
   string a;
 
   Greeter g;
@@ -30,16 +30,16 @@ contract Greeter_Test is Test {
 
   function greeting_test() public {
     string memory res = g.greet();
-    testEq("HOY", res, "greeting not as expected");
+    Test.testEq("HOY", res, "greeting not as expected");
   }
 
   function failing_test() public {
-    testEq(1, 1, "uint test fail");
-    testEq("a", "a", "string test fail");
-    testEq0(bytes("bla"), bytes("bli"), "bytes test fail");
-    testEq(address(this), address(0x0), "address test fail");
-    testTrue(true, "bool test true fail");
-    testTrue(false, "bool test false fail");
+    Test.testEq(1, 1, "uint test fail");
+    Test.testEq("a", "a", "string test fail");
+    Test.testEq0(bytes("bla"), bytes("bli"), "bytes test fail");
+    Test.testEq(address(this), address(0x0), "address test fail");
+    Test.testTrue(true, "bool test true fail");
+    Test.testTrue(false, "bool test false fail");
   }
 
   function deep_failing_test() public view {

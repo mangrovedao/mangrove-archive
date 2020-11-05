@@ -7,13 +7,13 @@ contract Foo {
   }
 }
 
-contract Foo_Test is Test {
+contract Foo_Test {
   function my_test() public {
     Foo f = new Foo();
     Foo g = new Foo();
-    expectFrom(address(f));
+    Test.expectFrom(address(f));
     emit DexEvents.TestEvent(2);
-    expectFrom(address(g));
+    Test.expectFrom(address(g));
     emit DexEvents.TestEvent(9);
     f.bi(2);
     g.bi(9);

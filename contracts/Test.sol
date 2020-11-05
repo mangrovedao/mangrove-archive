@@ -5,14 +5,12 @@ pragma solidity ^0.7.0;
 // Should be kept in sync with ../lib/test_solidity.js
 // Calling test functions sends events which are interpeted by test_solidity.js
 // to display results.
-contract Test {
+library Test {
   event ExpectFrom(address from);
 
   function expectFrom(address from) internal {
     emit ExpectFrom(from);
   }
-
-  receive() external payable {}
 
   event TestTrue(bool success, string message);
 
