@@ -55,7 +55,7 @@ library DexLib {
       return config.minFinishGas;
     } else if (key == ConfigKey.dustPerGasWanted) {
       return config.dustPerGasWanted;
-    } else if (key == ConfigKey.minFinishGas) {
+    } else if (key == ConfigKey.minGasWanted) {
       return config.minGasWanted;
     } else if (key == ConfigKey.penaltyPerGas) {
       return config.penaltyPerGas;
