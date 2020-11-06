@@ -204,11 +204,6 @@ library DexLib {
       uint maxPenalty = (gasWanted + config.minFinishGas) *
         config.penaltyPerGas;
       debitWei(freeWei, msg.sender, maxPenalty);
-      // require(
-      //   freeWei[msg.sender] >= maxPenalty,
-      //   "insufficient penalty provision to create order"
-      // );
-      // freeWei[msg.sender] -= maxPenalty;
     }
 
     (uint32 prev, uint32 next) = findPosition(
