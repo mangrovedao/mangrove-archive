@@ -63,6 +63,7 @@ library DexEvents {
   event SetminGasWanted(uint value);
   event SetPenaltyPerGas(uint value);
   event SetTransferGas(uint value);
+  event SetAdmin(address addr);
 
   // Dex interactions
 

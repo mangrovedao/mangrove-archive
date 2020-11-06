@@ -75,6 +75,7 @@ library DexLib {
   ) external {
     if (key == ConfigKey.admin) {
       config.admin = value;
+      emit DexEvents.SetAdmin(value);
     } else {
       revert("Unknown config key");
     }
