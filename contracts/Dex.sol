@@ -54,7 +54,10 @@ contract Dex {
   }
 
   function requireAdmin() internal view returns (bool) {
-    require(address(this) == msg.sender, "not admin");
+    require(
+      DexLib.getConfigAddress(config, ConfigKey.admin) == msg.sender,
+      "not admin"
+    );
   }
 
   function requireOpenOB() internal view {
