@@ -5,6 +5,49 @@ import "./Dex.sol";
 import "hardhat/console.sol";
 
 library Display {
+  /* ****************************************************************
+   * Register/read address->name mappings to make logs easier to read.
+   *****************************************************************/
+
+  // Disgusting hack so a library can manipulate storage refs.
+  bytes32 constant NAMES_POS = keccak256("Display.NAMES_POS");
+
+  // Store mapping in library caller's storage.
+  // That's quite fragile.
+  struct Registers {
+    mapping(address => string) map;
+  }
+
+  // Also send mapping to javascript test interpreter.  The interpreter COULD
+  // just make an EVM call to map every name but that would probably be very
+  // slow.  So we cache locally.
+  event Register(address addr, string name);
+
+  function registers() internal view returns (Registers storage) {
+    Registers storage regs;
+    bytes32 _slot = NAMES_POS;
+    assembly {
+      regs.slot := _slot
+    }
+    return regs;
+  }
+
+  function register(address addr, string memory name) internal {
+    registers().map[addr] = name;
+    emit Register(addr, name);
+  }
+
+  function name(address addr) internal view returns (string memory) {
+    string memory s = registers().map[addr];
+    if (keccak256(bytes(s)) != keccak256(bytes(""))) {
+      return s;
+    } else {
+      return "<not found>";
+    }
+  }
+
+  /* End of register/read section */
+
   function uint2str(uint _i)
     internal
     pure
@@ -61,7 +104,7 @@ library Display {
         minFinishGas,
         penaltyPerGas
       );
-      console.logAddress(makerAddr);
+      console.log(name(makerAddr));
       orderId = nextId;
     }
     console.log("-----------------------");

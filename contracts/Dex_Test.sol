@@ -274,6 +274,11 @@ contract Dex_Test {
   function a_deployToken_beforeAll() public {
     //console.log("IN BEFORE ALL");
     (aToken, bToken) = DexPre0.setup();
+
+    Display.register(msg.sender, "Test Runner");
+    Display.register(address(this), "Dex_Test");
+    Display.register(address(aToken), "aToken");
+    Display.register(address(bToken), "bToken");
   }
 
   function b_deployDex_beforeAll() public {
@@ -282,12 +287,14 @@ contract Dex_Test {
     // console.log("B token address:");
     // console.logAddress(address(bToken));
     dex = DexPre1.setup(aToken, bToken);
+    Display.register(address(dex), "dex");
   }
 
   function c_deployMakersTaker_beforeAll() public {
     makers = DexPre2.setup(dex);
     makers.deploy(nMakers);
     taker = DexPre3.setup(dex);
+    Display.register(address(taker), "taker");
   }
 
   function d_provisionAll_beforeAll() public {
@@ -299,6 +306,10 @@ contract Dex_Test {
 
     for (uint i = 0; i < makers.length(); i++) {
       TestMaker maker = makers.getMaker(i);
+      Display.register(
+        address(maker),
+        Display.append("maker-", Display.uint2str(i))
+      );
       maker.provisionDex(10 ether);
       aToken.mint(address(maker), 5 ether);
       maker.approve(aToken, 5 ether);
