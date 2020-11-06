@@ -153,6 +153,25 @@ library DexLib {
     return (success && (data.length == 0 || abi.decode(data, (bool))));
   }
 
+  function debitWei(
+    mapping(address => uint) storage freeWei,
+    address maker,
+    uint amount
+  ) internal {
+    require(freeWei[maker] >= amount, "insufficient provision");
+    freeWei[maker] -= amount;
+    emit DexEvents.Debit(maker, amount);
+  }
+
+  function creditWei(
+    mapping(address => uint) storage freeWei,
+    address maker,
+    uint amount
+  ) internal {
+    freeWei[maker] += amount;
+    emit DexEvents.Credit(maker, amount);
+  }
+
   // returns false iff (wants1,gives1) is strictly worse than (wants2,gives2)
   function newOrder(
     Config storage config,
@@ -184,11 +203,12 @@ library DexLib {
     {
       uint maxPenalty = (gasWanted + config.minFinishGas) *
         config.penaltyPerGas;
-      require(
-        freeWei[msg.sender] >= maxPenalty,
-        "insufficient penalty provision to create order"
-      );
-      freeWei[msg.sender] -= maxPenalty;
+      debitWei(freeWei, msg.sender, maxPenalty);
+      // require(
+      //   freeWei[msg.sender] >= maxPenalty,
+      //   "insufficient penalty provision to create order"
+      // );
+      // freeWei[msg.sender] -= maxPenalty;
     }
 
     (uint32 prev, uint32 next) = findPosition(
