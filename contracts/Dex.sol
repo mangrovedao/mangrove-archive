@@ -138,16 +138,11 @@ contract Dex {
   }
 
   receive() external payable {
-    freeWei[msg.sender] += msg.value;
-    emit DexEvents.Receive(msg.sender, msg.value);
+    DexLib.creditWei(freeWei, msg.sender, msg.value);
   }
 
   function withdraw(uint amount) external {
-    require(
-      freeWei[msg.sender] >= amount,
-      "cannot withdraw more than available in freeWei"
-    );
-    freeWei[msg.sender] -= amount;
+    DexLib.debitWei(freeWei, msg.sender, amount);
     dexTransfer(msg.sender, amount);
   }
 
@@ -157,10 +152,10 @@ contract Dex {
     if (msg.sender == orderDetail.maker) {
       Order memory order = orders[orderId];
       internalDeleteOrder(order, orderId);
+
       // Freeing provisioned penalty for maker
       uint provision = orderDetail.penaltyPerGas * orderDetail.gasWanted;
-      freeWei[msg.sender] += provision;
-
+      DexLib.creditWei(freeWei, msg.sender, provision);
       emit DexEvents.CancelOrder(orderId);
       return provision;
     }
@@ -431,14 +426,13 @@ contract Dex {
     // (or `config.minFinishGas` could be erroneously set).
     // In that case the actual gas used could be larger than `maxGasUsed`. */
     gasUsed = gasUsed < orderDetail.gasWanted ? gasUsed : orderDetail.gasWanted;
-
-    freeWei[orderDetail.maker] +=
-      orderDetail.penaltyPerGas *
+    uint released = orderDetail.penaltyPerGas *
       (
         success
           ? orderDetail.gasWanted + orderDetail.minFinishGas
           : orderDetail.gasWanted - gasUsed
       );
+    DexLib.creditWei(freeWei, orderDetail.maker, released);
 
     if (!success) {
       dexTransfer(

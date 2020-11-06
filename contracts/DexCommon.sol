@@ -49,11 +49,12 @@ function isOrder(Order memory order) pure returns (bool) {
 library DexEvents {
   event TestEvent(uint);
 
-  // Emitted when receiver withdraws amount from Dex
+  // Emitted when Dex sends amount to receiver
   event Transfer(address payable receiver, uint amout);
 
-  // Emitted when Dex receives amount from sender
-  event Receive(address sender, uint amount);
+  // Emitted when Dex adds or removes wei from maker's account
+  event Credit(address maker, uint amount);
+  event Debit(address maker, uint amount);
 
   // Events that are emitted upon a Dex reconfiguration
   event SetTakerFee(uint value);
