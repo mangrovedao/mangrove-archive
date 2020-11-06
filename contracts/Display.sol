@@ -72,14 +72,31 @@ library Display {
   }
 
   function append(string memory a, string memory b)
-    external
+    internal
     pure
     returns (string memory)
   {
     return string(abi.encodePacked(a, b));
   }
 
-  function logOrderBook(Dex dex) external view {
+  function append(
+    string memory a,
+    string memory b,
+    string memory c
+  ) internal pure returns (string memory) {
+    return string(abi.encodePacked(a, b, c));
+  }
+
+  function wei2str(uint w) internal view returns (string memory eth) {
+    uint i = 0;
+    while (w % 10 == 0) {
+      w = w / 10;
+      i += 1;
+    }
+    return (append(uint2str(w), "e", uint2str(i)));
+  }
+
+  function logOrderBook(Dex dex) internal view {
     uint orderId = dex.best();
     console.log("-----Best order: %d-----", dex.getBest());
     while (orderId != 0) {
@@ -92,12 +109,7 @@ library Display {
         uint penaltyPerGas,
         address makerAddr
       ) = dex.getOrderInfo(orderId);
-      console.log(
-        "[order %d] %d/%d",
-        orderId,
-        wants / 0.01 ether,
-        gives / 0.01 ether
-      );
+      console.log("[order %d] %s/%s", orderId, wei2str(wants), wei2str(gives));
       console.log(
         "(%d gas, %d to finish, %d penalty)",
         gasWanted,
