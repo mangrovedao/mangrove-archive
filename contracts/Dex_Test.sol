@@ -232,7 +232,7 @@ library TestMarketOrder {
     );
     Test.testEq(
       bToken.balanceOf(address(makers.getMaker(1))),
-      init_mkr_b_bal[1] + 0.62 ether,
+      init_mkr_b_bal[1] + 0.625 ether,
       "Incorrect B balance for maker(1)"
     );
     Test.testEq(
@@ -255,7 +255,7 @@ library TestMarketOrder {
 
     Test.testEq(
       bToken.balanceOf(address(taker)), // actual
-      init_tkr_b_bal - (0.5 ether + 0.62 ether + 0.2 ether), // expected
+      init_tkr_b_bal - (0.5 ether + 0.625 ether + 0.2 ether), // expected
       "incorrect taker B balance"
     );
   }
