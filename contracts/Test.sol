@@ -95,4 +95,18 @@ library Test {
     emit TestEqBytes(success, actual, expected, message);
     return success;
   }
+
+  event TestGasCost(string message, uint value);
+
+  function testGasCost(
+    string memory message,
+    address addr,
+    bytes memory data
+  ) internal returns (bytes memory retdata) {
+    uint g0 = gasleft();
+    (bool noRevert, bytes memory retdata) = addr.delegatecall(data);
+    require(noRevert);
+    emit TestGasCost(message, g0 - gasleft());
+    return retdata;
+  }
 }
