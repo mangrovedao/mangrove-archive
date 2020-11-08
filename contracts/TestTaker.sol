@@ -18,15 +18,10 @@ contract TestTaker is ITaker {
     token.approve(address(dex), amount);
   }
 
-  function take(uint orderId, uint takerWants)
-    external
-    override
-    returns (uint)
-  {
-    (, uint makerGives, , , , , ) = dex.getOrderInfo(orderId);
-    uint taken = Test.min(makerGives, takerWants);
+  function take(uint orderId, uint takerWants) external override {
+    //uint taken = Test.min(makerGives, takerWants);
     dex.snipe(orderId, takerWants);
-    return taken;
+    //return taken;
   }
 
   function marketOrder(uint wants, uint gives) external override {
