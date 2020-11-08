@@ -2,6 +2,7 @@
 
 pragma solidity ^0.7.0;
 import "./Dex.sol";
+import "./TestToken.sol";
 import "hardhat/console.sol";
 
 library Display {
@@ -87,17 +88,45 @@ library Display {
     return string(abi.encodePacked(a, b, c));
   }
 
-  function wei2str(uint w) internal view returns (string memory eth) {
+  function append(
+    string memory a,
+    string memory b,
+    string memory c,
+    string memory d
+  ) internal pure returns (string memory) {
+    return string(abi.encodePacked(a, b, c, d));
+  }
+
+  function toEthUnits(uint w, string memory units)
+    internal
+    view
+    returns (string memory eth)
+  {
+    string memory suffix = append(" ", units);
     uint i = 0;
     while (w % 10 == 0) {
       w = w / 10;
       i += 1;
     }
-    return (append(uint2str(w), "e", uint2str(i)));
+    if (i >= 18) {
+      w = w * (10**(i - 18));
+      return append(uint2str(w), suffix);
+    } else {
+      uint zeroBefore = 18 - i;
+      string memory zeros = "";
+      while (zeroBefore > 1) {
+        append(zeros, "0");
+        zeroBefore--;
+      }
+      return (append("0.", zeros, uint2str(w), suffix));
+    }
   }
 
   function logOrderBook(Dex dex) internal view {
     uint orderId = dex.best();
+    TestToken req_tk = TestToken(dex.REQ_TOKEN());
+    TestToken ofr_tk = TestToken(dex.OFR_TOKEN());
+
     console.log("-----Best order: %d-----", dex.getBest());
     while (orderId != 0) {
       (
@@ -109,7 +138,12 @@ library Display {
         uint penaltyPerGas,
         address makerAddr
       ) = dex.getOrderInfo(orderId);
-      console.log("[order %d] %s/%s", orderId, wei2str(wants), wei2str(gives));
+      console.log(
+        "[order %d] %s/%s",
+        orderId,
+        toEthUnits(wants, req_tk.symbol()),
+        toEthUnits(gives, ofr_tk.symbol())
+      );
       console.log(
         "(%d gas, %d to finish, %d penalty)",
         gasWanted,
