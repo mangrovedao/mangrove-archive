@@ -315,10 +315,11 @@ contract Dex {
     requireAccessibleOB();
 
     uint targetIndex;
+    uint numTargets = targets.length / 2;
     uint numFailures;
     uint[] memory failures = new uint[](punishLength * 2);
     reentrancyLock = true;
-    while (targetIndex < targets.length) {
+    while (targetIndex < numTargets) {
       uint orderId = targets[2 * targetIndex];
       uint takerWants = targets[2 * targetIndex + 1];
       require(uint32(orderId) == orderId, "orderId is 32 bits wide");
