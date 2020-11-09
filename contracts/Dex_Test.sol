@@ -9,6 +9,7 @@ import "./DexCommon.sol";
 import "./TestToken.sol";
 import "./TestMaker.sol";
 import "./MakerDeployer.sol";
+import "./TestFailingMaker.sol";
 import "./TestMoriartyMaker.sol";
 import "./TestTaker.sol";
 import "./interfaces.sol";
@@ -77,6 +78,89 @@ library TestUtils {
   function getFee(Dex dex, uint price) internal view returns (uint) {
     return ((price * dex.getConfigUint(ConfigKey.takerFee)) / 10000);
   }
+
+  function _snipe(
+    TestTaker taker,
+    uint snipedId,
+    uint orderAmount
+  ) external returns (bool) {
+    return (taker.take(snipedId, orderAmount));
+  }
+
+  function snipeWithGas(
+    TestTaker taker,
+    uint snipedId,
+    uint orderAmount
+  ) internal returns (bool) {
+    bytes memory retdata = Test.testGasCost(
+      "snipe",
+      address(TestUtils),
+      abi.encodeWithSelector(
+        TestUtils._snipe.selector,
+        taker,
+        snipedId,
+        orderAmount
+      )
+    );
+    return (abi.decode(retdata, (bool)));
+  }
+
+  function _newOrder(
+    TestMaker maker,
+    uint wants,
+    uint gives,
+    uint gasWanted,
+    uint pivotId
+  ) external returns (uint) {
+    return (maker.newOrder(wants, gives, gasWanted, pivotId));
+  }
+
+  function newOrderWithGas(
+    TestMaker maker,
+    uint wants,
+    uint gives,
+    uint gasWanted,
+    uint pivotId
+  ) internal returns (uint) {
+    bytes memory retdata = Test.testGasCost(
+      "newOrder",
+      address(TestUtils),
+      abi.encodeWithSelector(
+        TestUtils._newOrder.selector,
+        maker,
+        wants,
+        gives,
+        gasWanted,
+        pivotId
+      )
+    );
+    return (abi.decode(retdata, (uint)));
+  }
+
+  function _marketOrder(
+    TestTaker taker,
+    uint takerWants,
+    uint takerGives
+  ) external {
+    taker.marketOrder(takerWants, takerGives);
+  }
+
+  function marketOrderWithGas(
+    TestTaker taker,
+    uint takerWants,
+    uint takerGives
+  ) internal {
+    Test.testGasCost(
+      "marketOrder",
+      address(TestUtils),
+      abi.encodeWithSelector(
+        TestUtils._marketOrder.selector,
+        taker,
+        takerWants,
+        takerGives
+      )
+    );
+  }
 }
 
 library TestInsert {
@@ -89,19 +173,22 @@ library TestInsert {
     TestToken bToken
   ) public returns (uint) {
     // each maker publishes an order
-    makers.getMaker(0).newOrder({
+    TestUtils.newOrderWithGas({
+      maker: makers.getMaker(0),
       wants: 1 ether,
       gives: 0.5 ether,
       gasWanted: 3000,
       pivotId: 0
     });
-    makers.getMaker(1).newOrder({
+    TestUtils.newOrderWithGas({
+      maker: makers.getMaker(1),
       wants: 1 ether,
       gives: 0.8 ether,
       gasWanted: 6000,
       pivotId: 1
     });
-    makers.getMaker(2).newOrder({
+    TestUtils.newOrderWithGas({
+      maker: makers.getMaker(2),
       wants: 0.5 ether,
       gives: 1 ether,
       gasWanted: 9000,
@@ -160,7 +247,8 @@ library TestSnipe {
     //(uint init_mkr_wants, uint init_mkr_gives,,,,,)=dex.getOrderInfo(2);
     uint snipedId = 2;
     //---------------SNIPE------------------//
-    taker.take({orderId: snipedId, takerWants: orderAmount});
+    bool success = TestUtils.snipeWithGas(taker, snipedId, orderAmount);
+
     Test.testEq(
       aToken.balanceOf(address(dex)),
       balances.dexBalanceFees + TestUtils.getFee(dex, orderAmount),
@@ -222,7 +310,7 @@ library TestMarketOrder {
     uint takerWants = 1.6 ether; // of B token
     uint takerGives = 2 ether; // of A token
 
-    taker.marketOrder(takerWants, takerGives);
+    TestUtils.marketOrderWithGas(taker, takerWants, takerGives);
 
     // Checking Makers balances
     Test.testEq(
@@ -282,25 +370,25 @@ library TestMarketOrder {
   }
 }
 
-library TestInsertCost {
-  function deploy(TestMaker maker) public {
-    maker.newOrder({
-      wants: 1 ether,
+library TestCollectFailingOffer {
+  function run(
+    TestUtils.Balances storage balances,
+    mapping(uint => mapping(uint8 => uint)) storage offers,
+    Dex dex,
+    MakerDeployer makers,
+    TestTaker taker,
+    TestToken aToken,
+    TestToken bToken
+  ) external {
+    TestFailingMaker failer = makers.failer();
+    uint orderId = failer.newOrder({
+      wants: 0.5 ether,
       gives: 0.5 ether,
       gasWanted: 3000,
       pivotId: 0
     });
-  }
-
-  function run(MakerDeployer makers) internal {
-    TestMaker maker = makers.getMaker(0);
-    for (uint i = 0; i < 5; i++) {
-      Test.testGasCost(
-        "newOrder",
-        address(TestInsertCost),
-        abi.encodeWithSelector(TestInsertCost.deploy.selector, maker)
-      );
-    }
+    taker.take(orderId, 0.5 ether);
+    // test here that taker receives penalty and that failer is correctly debited
   }
 }
 
@@ -370,6 +458,7 @@ contract Dex_Test {
         Display.append("maker-", Display.uint2str(i))
       );
     }
+    Display.register(address(makers.failer()), "failer");
     taker = DexPre3.setup(dex);
     Display.register(address(taker), "taker");
   }
@@ -387,6 +476,11 @@ contract Dex_Test {
       aToken.mint(address(maker), 5 ether);
       maker.approve(aToken, 5 ether);
     }
+    TestFailingMaker failer = makers.failer();
+    aToken.mint(address(failer), 5 ether);
+    failer.provisionDex(10 ether);
+    failer.approve(aToken, 5 ether);
+
     bToken.mint(address(taker), 5 ether);
     taker.approve(bToken, 5 ether);
   }
@@ -424,9 +518,15 @@ contract Dex_Test {
     Display.logOrderBook(dex);
   }
 
-  function d_insertGasCost_test() public {
-    TestInsertCost.run(makers);
-    console.log("End of insertGasCost_test, showing OB:");
-    Display.logOrderBook(dex);
+  function d_failingOrder_test() public {
+    TestCollectFailingOffer.run(
+      balances,
+      offers,
+      dex,
+      makers,
+      taker,
+      aToken,
+      bToken
+    );
   }
 }
