@@ -275,7 +275,10 @@ contract Dex {
     return failures;
   }
 
-  function snipe(uint orderId, uint takerWants) external {
+  function snipe(uint orderId, uint takerWants)
+    external
+    returns (bool success)
+  {
     requireOpenOB();
     requireAccessibleOB();
     require(uint32(orderId) == orderId, "orderId is 32 bits wide");
@@ -296,7 +299,8 @@ contract Dex {
       false
     );
     reentrancyLock = false;
-    require(success, "execute order failed");
+    //require(success, "execute order failed");
+    return success;
   }
 
   function snipes(uint[] calldata targets) external {
