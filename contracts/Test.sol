@@ -96,17 +96,17 @@ library Test {
     return success;
   }
 
-  event TestGasCost(string message, uint value);
+  event GasCost(string message, uint value);
 
   function testGasCost(
     string memory message,
     address addr,
     bytes memory data
-  ) internal returns (bytes memory retdata) {
+  ) internal returns (bytes memory) {
     uint g0 = gasleft();
     (bool noRevert, bytes memory retdata) = addr.delegatecall(data);
     require(noRevert);
-    emit TestGasCost(message, g0 - gasleft());
+    emit GasCost(message, g0 - gasleft());
     return retdata;
   }
 }

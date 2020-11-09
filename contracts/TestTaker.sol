@@ -18,9 +18,14 @@ contract TestTaker is ITaker {
     token.approve(address(dex), amount);
   }
 
-  function take(uint orderId, uint takerWants) external override {
+  function take(uint orderId, uint takerWants)
+    external
+    override
+    returns (bool success)
+  {
     //uint taken = Test.min(makerGives, takerWants);
-    dex.snipe(orderId, takerWants);
+    bool success = dex.snipe(orderId, takerWants);
+    return success;
     //return taken;
   }
 
