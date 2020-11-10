@@ -246,10 +246,12 @@ contract Dex {
         );
 
         if (success) {
+          emit DexEvents.Success(orderId, localTakerWants, localTakerGives);
           //proceeding with market order
           takerWants -= localTakerWants;
           takerGives -= localTakerGives;
         } else {
+          emit DexEvents.Failure(orderId, localTakerWants, localTakerGives);
           if (numFailures++ < punishLength) {
             // storing orderId and gas used for cancellation
             failures[2 * numFailures] = orderId;

@@ -65,7 +65,9 @@ library DexEvents {
   event SetTransferGas(uint value);
   event SetAdmin(address addr);
 
-  // Dex interactions
+  // Offer execution
+  event Success(uint orderId, uint takerWants, uint takerGives);
+  event Failure(uint orderId, uint takerWants, uint takerGives);
 
   // Emitted upon Dex closure
   event CloseMarket();
