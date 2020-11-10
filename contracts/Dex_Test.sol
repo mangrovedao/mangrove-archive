@@ -9,8 +9,6 @@ import "./DexCommon.sol";
 import "./TestToken.sol";
 import "./TestMaker.sol";
 import "./MakerDeployer.sol";
-import "./TestFailingMaker.sol";
-import "./TestMoriartyMaker.sol";
 import "./TestTaker.sol";
 import "./interfaces.sol";
 import "hardhat/console.sol";
@@ -74,9 +72,55 @@ library TestUtils {
     uint[] makersBalanceB;
     uint[] makersBalanceWei;
   }
+  enum Info {
+    makerWants,
+    makerGives,
+    nextId,
+    gasWanted,
+    minFinishGas,
+    penaltyPerGas
+  }
 
   function getFee(Dex dex, uint price) internal view returns (uint) {
     return ((price * dex.getConfigUint(ConfigKey.takerFee)) / 10000);
+  }
+
+  function getOrderInfo(
+    Dex dex,
+    Info infKey,
+    uint orderId
+  ) internal returns (uint) {
+    (
+      uint makerWants,
+      uint makerGives,
+      uint nextId,
+      uint gasWanted,
+      uint minFinishGas,
+      uint penaltyPerGas,
+
+    ) = dex.getOrderInfo(orderId);
+    if (infKey == Info.makerWants) {
+      return makerWants;
+    }
+    if (infKey == Info.makerGives) {
+      return makerGives;
+    }
+    if (infKey == Info.nextId) {
+      return nextId;
+    }
+    if (infKey == Info.gasWanted) {
+      return gasWanted;
+    }
+    if (infKey == Info.minFinishGas) {
+      return minFinishGas;
+    } else {
+      return penaltyPerGas;
+    }
+  }
+
+  function makerOf(Dex dex, uint orderId) internal returns (address) {
+    (, , , , , , address maker) = dex.getOrderInfo(orderId);
+    return maker;
   }
 
   function _snipe(
@@ -92,7 +136,7 @@ library TestUtils {
     uint snipedId,
     uint orderAmount
   ) internal returns (bool) {
-    bytes memory retdata = Test.testGasCost(
+    bytes memory retdata = Test.execWithCost(
       "snipe",
       address(TestUtils),
       abi.encodeWithSelector(
@@ -122,7 +166,7 @@ library TestUtils {
     uint gasWanted,
     uint pivotId
   ) internal returns (uint) {
-    bytes memory retdata = Test.testGasCost(
+    bytes memory retdata = Test.execWithCost(
       "newOrder",
       address(TestUtils),
       abi.encodeWithSelector(
@@ -150,7 +194,7 @@ library TestUtils {
     uint takerWants,
     uint takerGives
   ) internal {
-    Test.testGasCost(
+    Test.execWithCost(
       "marketOrder",
       address(TestUtils),
       abi.encodeWithSelector(
@@ -173,32 +217,44 @@ library TestInsert {
     TestToken bToken
   ) public returns (uint) {
     // each maker publishes an order
-    TestUtils.newOrderWithGas({
-      maker: makers.getMaker(0),
+    uint[] memory offerOf = new uint[](makers.length());
+    offerOf[1] = TestUtils.newOrderWithGas({
+      maker: makers.getMaker(1),
       wants: 1 ether,
       gives: 0.5 ether,
       gasWanted: 3000,
       pivotId: 0
     });
-    TestUtils.newOrderWithGas({
-      maker: makers.getMaker(1),
+    offerOf[2] = TestUtils.newOrderWithGas({
+      maker: makers.getMaker(2),
       wants: 1 ether,
       gives: 0.8 ether,
       gasWanted: 6000,
       pivotId: 1
     });
-    TestUtils.newOrderWithGas({
-      maker: makers.getMaker(2),
+    offerOf[3] = TestUtils.newOrderWithGas({
+      maker: makers.getMaker(3),
       wants: 0.5 ether,
       gives: 1 ether,
       gasWanted: 9000,
       pivotId: 72
     });
 
+    offerOf[0] = TestUtils.newOrderWithGas({
+      maker: makers.getMaker(0), //failer
+      wants: 20 ether,
+      gives: 10 ether,
+      gasWanted: dex.getConfigUint(ConfigKey.maxGasWanted),
+      pivotId: 0
+    });
     //Checking makers have correctly provisoned their offers
     uint minGas = dex.getConfigUint(ConfigKey.minFinishGas);
     for (uint i = 0; i < makers.length(); i++) {
-      uint gasWanted_i = (i + 1) * 3000;
+      uint gasWanted_i = TestUtils.getOrderInfo(
+        dex,
+        TestUtils.Info.gasWanted,
+        offerOf[i]
+      );
       uint provision_i = (gasWanted_i + minGas) *
         dex.getConfigUint(ConfigKey.penaltyPerGas);
       Test.testEq(
@@ -208,9 +264,9 @@ library TestInsert {
       );
     }
 
-    //Checking offers are correctly positioned (2 > 1 > 0)
+    //Checking offers are correctly positioned (3 > 2 > 1 > 0)
     uint orderId = dex.best();
-    uint expected_maker = 2;
+    uint expected_maker = 3;
     while (orderId != 0) {
       (, , uint nextId, , , , address makerAddr) = dex.getOrderInfo(orderId);
       Test.testEq(
@@ -229,12 +285,9 @@ library TestInsert {
 }
 
 library TestSnipe {
-  uint8 constant _wants = 0;
-  uint8 constant _gives = 1;
-
   function run(
     TestUtils.Balances storage balances,
-    mapping(uint => mapping(uint8 => uint)) storage offers,
+    mapping(uint => mapping(TestUtils.Info => uint)) storage offers,
     Dex dex,
     MakerDeployer makers,
     TestTaker taker,
@@ -242,23 +295,23 @@ library TestSnipe {
     TestToken bToken
   ) external {
     uint orderAmount = 0.3 ether;
-    TestMaker maker = makers.getMaker(1); // maker whose offer will be sniped
+    uint snipedId = 2;
+    TestMaker maker = makers.getMaker(snipedId); // maker whose offer will be sniped
 
     //(uint init_mkr_wants, uint init_mkr_gives,,,,,)=dex.getOrderInfo(2);
-    uint snipedId = 2;
     //---------------SNIPE------------------//
     bool success = TestUtils.snipeWithGas(taker, snipedId, orderAmount);
 
     Test.testEq(
-      aToken.balanceOf(address(dex)),
-      balances.dexBalanceFees + TestUtils.getFee(dex, orderAmount),
-      "incorrect Dex B balance"
+      aToken.balanceOf(address(dex)), //actual
+      balances.dexBalanceFees + TestUtils.getFee(dex, orderAmount), //expected
+      "incorrect Dex A balance"
     );
     Test.testEq(
       bToken.balanceOf(address(taker)),
       balances.takerBalanceB -
-        (orderAmount * offers[snipedId][_wants]) /
-        offers[snipedId][_gives],
+        (orderAmount * offers[snipedId][TestUtils.Info.makerWants]) /
+        offers[snipedId][TestUtils.Info.makerGives],
       "incorrect taker B balance"
     );
     Test.testEq(
@@ -266,41 +319,40 @@ library TestSnipe {
       balances.takerBalanceA + orderAmount - TestUtils.getFee(dex, orderAmount), // expected
       "incorrect taker A balance"
     );
+
     Test.testEq(
       aToken.balanceOf(address(maker)),
-      balances.makersBalanceA[1] - orderAmount,
+      balances.makersBalanceA[snipedId] - orderAmount,
       "incorrect maker A balance"
     );
     Test.testEq(
       bToken.balanceOf(address(maker)),
-      balances.makersBalanceB[1] +
-        (orderAmount * offers[snipedId][_wants]) /
-        offers[snipedId][_gives],
+      balances.makersBalanceB[snipedId] +
+        (orderAmount * offers[snipedId][TestUtils.Info.makerWants]) /
+        offers[snipedId][TestUtils.Info.makerGives],
       "incorrect maker B balance"
     );
     // Testing residual offer
     (uint makerWants, uint makerGives, , , , , ) = dex.getOrderInfo(snipedId);
     Test.testEq(
       makerGives,
-      offers[snipedId][_gives] - orderAmount,
+      offers[snipedId][TestUtils.Info.makerGives] - orderAmount,
       "Incorrect residual offer (gives)"
     );
     Test.testEq(
       makerWants,
-      (offers[snipedId][_wants] * (offers[snipedId][_gives] - orderAmount)) /
-        offers[snipedId][_gives],
+      (offers[snipedId][TestUtils.Info.makerWants] *
+        (offers[snipedId][TestUtils.Info.makerGives] - orderAmount)) /
+        offers[snipedId][TestUtils.Info.makerGives],
       "Incorrect residual offer (wants)"
     );
   }
 }
 
 library TestMarketOrder {
-  uint8 constant _wants = 0;
-  uint8 constant _gives = 1;
-
   function run(
     TestUtils.Balances storage balances,
-    mapping(uint => mapping(uint8 => uint)) storage offers,
+    mapping(uint => mapping(TestUtils.Info => uint)) storage offers,
     Dex dex,
     MakerDeployer makers,
     TestTaker taker,
@@ -313,38 +365,34 @@ library TestMarketOrder {
     TestUtils.marketOrderWithGas(taker, takerWants, takerGives);
 
     // Checking Makers balances
-    Test.testEq(
-      aToken.balanceOf(address(makers.getMaker(2))),
-      balances.makersBalanceA[2] - offers[3][_gives],
-      "Incorrect A balance for maker(2)"
-    );
-    Test.testEq(
-      bToken.balanceOf(address(makers.getMaker(2))),
-      balances.makersBalanceB[2] + offers[3][_wants],
-      "Incorrect B balance for maker(2)"
-    );
+    for (uint i = 2; i < 4; i++) {
+      // offers 2 and 3 were consumed entirely
+      Test.testEq(
+        aToken.balanceOf(address(makers.getMaker(i))),
+        balances.makersBalanceA[i] - offers[i][TestUtils.Info.makerGives],
+        Display.append("Incorrect A balance for maker ", Display.uint2str(i))
+      );
+      Test.testEq(
+        bToken.balanceOf(address(makers.getMaker(i))),
+        balances.makersBalanceB[i] + offers[i][TestUtils.Info.makerWants],
+        Display.append("Incorrect B balance for maker ", Display.uint2str(i))
+      );
+    }
+    uint leftTkrWants = takerWants -
+      (offers[2][TestUtils.Info.makerGives] +
+        offers[3][TestUtils.Info.makerGives]);
+    uint leftMkrWants = (offers[1][TestUtils.Info.makerWants] * leftTkrWants) /
+      offers[1][TestUtils.Info.makerGives];
+
     Test.testEq(
       aToken.balanceOf(address(makers.getMaker(1))),
-      balances.makersBalanceA[1] - offers[2][_gives],
-      "Incorrect A balance for maker(1)"
+      balances.makersBalanceA[1] - leftTkrWants,
+      "Incorrect A balance for maker 1"
     );
     Test.testEq(
       bToken.balanceOf(address(makers.getMaker(1))),
-      balances.makersBalanceB[1] + offers[2][_wants],
-      "Incorrect B balance for maker(1)"
-    );
-
-    uint leftTkrWants = takerWants - (offers[3][_gives] + offers[2][_gives]);
-    uint leftMkrWants = (offers[1][_wants] * leftTkrWants) / offers[1][_gives];
-    Test.testEq(
-      aToken.balanceOf(address(makers.getMaker(0))),
-      balances.makersBalanceA[0] - leftTkrWants,
-      "Incorrect A balance for maker(0)"
-    );
-    Test.testEq(
-      bToken.balanceOf(address(makers.getMaker(0))),
-      balances.makersBalanceB[0] + leftMkrWants,
-      "Incorrect B balance for maker(0)"
+      balances.makersBalanceB[1] + leftMkrWants,
+      "Incorrect B balance for maker 1"
     );
 
     // Checking taker balance
@@ -357,7 +405,9 @@ library TestMarketOrder {
     Test.testEq(
       bToken.balanceOf(address(taker)), // actual
       balances.takerBalanceB -
-        (offers[3][_wants] + offers[2][_wants] + leftMkrWants), // expected
+        (offers[3][TestUtils.Info.makerWants] +
+          offers[2][TestUtils.Info.makerWants] +
+          leftMkrWants), // expected
       "incorrect taker B balance"
     );
 
@@ -373,22 +423,20 @@ library TestMarketOrder {
 library TestCollectFailingOffer {
   function run(
     TestUtils.Balances storage balances,
-    mapping(uint => mapping(uint8 => uint)) storage offers,
+    mapping(uint => mapping(TestUtils.Info => uint)) storage offers,
     Dex dex,
     MakerDeployer makers,
     TestTaker taker,
     TestToken aToken,
     TestToken bToken
   ) external {
-    TestFailingMaker failer = makers.failer();
-    uint orderId = failer.newOrder({
-      wants: 0.5 ether,
-      gives: 0.5 ether,
-      gasWanted: 3000,
-      pivotId: 0
-    });
-    taker.take(orderId, 0.5 ether);
-    // test here that taker receives penalty and that failer is correctly debited
+    // executing failing offer
+    try taker.take(1, 0.5 ether) returns (bool success) {
+      Test.testTrue(!success, "Failer should fail");
+    } catch (bytes memory errorMsg) {
+      string memory err = abi.decode(errorMsg, (string));
+      Test.testFail(err);
+    }
   }
 }
 
@@ -399,16 +447,18 @@ contract Dex_Test {
   TestToken aToken;
   TestToken bToken;
   TestUtils.Balances balances;
-  mapping(uint => mapping(uint8 => uint)) offers;
+  mapping(uint => mapping(TestUtils.Info => uint)) offers;
 
   receive() external payable {}
 
   function saveOffers() internal {
     uint orderId = dex.getBest();
     while (orderId != 0) {
-      (uint wants, uint gives, uint nextId, , , , ) = dex.getOrderInfo(orderId);
-      offers[orderId][0] = wants;
-      offers[orderId][1] = gives;
+      (uint wants, uint gives, uint nextId, uint gasWanted, , , ) = dex
+        .getOrderInfo(orderId);
+      offers[orderId][TestUtils.Info.makerWants] = wants;
+      offers[orderId][TestUtils.Info.makerGives] = gives;
+      offers[orderId][TestUtils.Info.gasWanted] = gasWanted;
       orderId = nextId;
     }
   }
@@ -451,21 +501,21 @@ contract Dex_Test {
 
   function c_deployMakersTaker_beforeAll() public {
     makers = DexPre2.setup(dex);
-    makers.deploy(3);
-    for (uint i = 0; i < makers.length(); i++) {
+    makers.deploy(4);
+    for (uint i = 1; i < makers.length(); i++) {
       Display.register(
         address(makers.getMaker(i)),
         Display.append("maker-", Display.uint2str(i))
       );
     }
-    Display.register(address(makers.failer()), "failer");
+    Display.register(address(makers.getMaker(0)), "failer");
     taker = DexPre3.setup(dex);
     Display.register(address(taker), "taker");
   }
 
   function d_provisionAll_beforeAll() public {
     // low level tranfer because makers needs gas to transfer to each maker
-    (bool success, ) = address(makers).call{gas: gasleft(), value: 50 ether}(
+    (bool success, ) = address(makers).call{gas: gasleft(), value: 80 ether}(
       ""
     ); // msg.value is distributed evenly amongst makers
     require(success, "maker transfer");
@@ -476,10 +526,6 @@ contract Dex_Test {
       aToken.mint(address(maker), 5 ether);
       maker.approve(aToken, 5 ether);
     }
-    TestFailingMaker failer = makers.failer();
-    aToken.mint(address(failer), 5 ether);
-    failer.provisionDex(10 ether);
-    failer.approve(aToken, 5 ether);
 
     bToken.mint(address(taker), 5 ether);
     taker.approve(bToken, 5 ether);

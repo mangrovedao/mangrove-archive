@@ -27,6 +27,7 @@ library Test {
   }
 
   event TestEqUint(bool success, uint actual, uint expected, string message);
+  event TestLess(bool success, uint actual, uint expected, string message);
 
   function min(uint a, uint b) internal pure returns (uint) {
     return a < b ? a : b;
@@ -39,6 +40,16 @@ library Test {
   ) internal returns (bool) {
     bool success = actual == expected;
     emit TestEqUint(success, actual, expected, message);
+    return success;
+  }
+
+  function testLess(
+    uint actual,
+    uint expected,
+    string memory message
+  ) internal returns (bool) {
+    bool success = actual <= expected;
+    emit TestLess(success, actual, expected, message);
     return success;
   }
 
@@ -96,17 +107,17 @@ library Test {
     return success;
   }
 
-  event GasCost(string message, uint value);
+  event GasCost(string callname, uint value);
 
-  function testGasCost(
-    string memory message,
+  function execWithCost(
+    string memory callname,
     address addr,
     bytes memory data
   ) internal returns (bytes memory) {
     uint g0 = gasleft();
     (bool noRevert, bytes memory retdata) = addr.delegatecall(data);
     require(noRevert);
-    emit GasCost(message, g0 - gasleft());
+    emit GasCost(callname, g0 - gasleft());
     return retdata;
   }
 }

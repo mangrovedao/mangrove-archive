@@ -7,11 +7,9 @@ import "./TestMaker.sol";
 import "./TestToken.sol";
 import "./interfaces.sol";
 import "hardhat/console.sol";
-import "./TestFailingMaker.sol";
 
 contract MakerDeployer {
   address payable[] makers;
-  TestFailingMaker public failer;
   bool deployed;
   Dex dex;
 
@@ -21,14 +19,13 @@ contract MakerDeployer {
 
   receive() external payable {
     uint k = makers.length;
-    uint perMaker = msg.value / (k + 1);
+    uint perMaker = msg.value / k;
     require(perMaker > 0, "0 ether to transfer");
     for (uint i = 0; i < k; i++) {
       address payable maker = makers[i];
       bool ok = maker.send(perMaker);
       require(ok);
     }
-    bool ok = address(failer).send(perMaker);
   }
 
   function length() external view returns (uint) {
@@ -43,9 +40,8 @@ contract MakerDeployer {
     if (!deployed) {
       makers = new address payable[](k);
       for (uint i = 0; i < k; i++) {
-        makers[i] = address(new TestMaker(dex));
+        makers[i] = address(new TestMaker(dex, i == 0)); //maker-0 is failer
       }
-      failer = new TestFailingMaker(dex);
     }
     deployed = true;
   }
