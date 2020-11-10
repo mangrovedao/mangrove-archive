@@ -95,13 +95,13 @@ contract Dex {
     external
     view
     returns (
-      uint,
-      uint,
-      uint,
-      uint,
-      uint,
-      uint,
-      address
+      uint makerWants,
+      uint makerGives,
+      uint nextId,
+      uint gasWanted,
+      uint minFinishGas,
+      uint penaltyPerGas,
+      address maker
     )
   {
     requireAccessibleOB();
@@ -261,7 +261,7 @@ contract Dex {
           order = orders[orderId];
         }
       } else {
-        // price is not OK for taker
+        // price is no longer OK for taker
         break; // or revert depending on market order type (see price fill or kill order type of oasis)
       }
     }
@@ -388,8 +388,8 @@ contract Dex {
   function executeOrder(
     uint orderId,
     Order memory order,
-    uint takerWants,
-    uint takerGives,
+    uint takerWants, // adapted to the volume proposed by offer
+    uint takerGives, // adapted to the volume proposed by offer
     bool dirtyDelete
   )
     internal
