@@ -122,13 +122,13 @@ library Display {
     }
   }
 
-  function logOrderBook(Dex dex) internal view {
-    uint orderId = dex.best();
+  function logOfferBook(Dex dex) internal view {
+    uint offerId = dex.best();
     TestToken req_tk = TestToken(dex.REQ_TOKEN());
     TestToken ofr_tk = TestToken(dex.OFR_TOKEN());
 
-    console.log("-----Best order: %d-----", dex.getBest());
-    while (orderId != 0) {
+    console.log("-----Best offer: %d-----", dex.getBest());
+    while (offerId != 0) {
       (
         uint wants,
         uint gives,
@@ -137,10 +137,10 @@ library Display {
         uint minFinishGas,
         uint penaltyPerGas,
         address makerAddr
-      ) = dex.getOrderInfo(orderId);
+      ) = dex.getOfferInfo(offerId);
       console.log(
-        "[order %d] %s/%s",
-        orderId,
+        "[offer %d] %s/%s",
+        offerId,
         toEthUnits(wants, req_tk.symbol()),
         toEthUnits(gives, ofr_tk.symbol())
       );
@@ -151,7 +151,7 @@ library Display {
         penaltyPerGas
       );
       console.log(name(makerAddr));
-      orderId = nextId;
+      offerId = nextId;
     }
     console.log("-----------------------");
   }

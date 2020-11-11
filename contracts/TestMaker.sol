@@ -8,18 +8,16 @@ import "hardhat/console.sol";
 
 contract TestMaker is IMaker, Passthrough {
   Dex dex;
-  bool failer;
 
   constructor(Dex _dex, bool _failer) {
     dex = _dex;
-    failer = _failer;
   }
 
   event Execute(
     uint takerWants,
     uint takerGives,
     uint penaltyPerGas,
-    uint orderId
+    uint offerId
   );
 
   receive() external payable {}
@@ -28,19 +26,18 @@ contract TestMaker is IMaker, Passthrough {
     uint takerWants,
     uint takerGives,
     uint penaltyPerGas,
-    uint orderId
+    uint offerId
   ) public override {
-    emit Execute(takerWants, takerGives, penaltyPerGas, orderId);
-    assert(!failer);
+    emit Execute(takerWants, takerGives, penaltyPerGas, offerId);
   }
 
-  function newOrder(
+  function newOffer(
     uint wants,
     uint gives,
     uint gasWanted,
     uint pivotId
   ) public returns (uint) {
-    return (dex.newOrder(wants, gives, gasWanted, pivotId));
+    return (dex.newOffer(wants, gives, gasWanted, pivotId));
   }
 
   function provisionDex(uint amount) public {

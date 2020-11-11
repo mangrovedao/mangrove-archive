@@ -25,20 +25,20 @@ contract TestMoriartyMaker is IMaker, Passthrough {
       // second call to execute always fails
       assert(false);
     } else {
-      shouldFail = true; //consumes dummy order
+      shouldFail = true; //consumes dummy offer
     }
   }
 
-  function newOrder(
+  function newOffer(
     uint wants,
     uint gives,
     uint gasWanted,
     uint pivotId
   ) public returns (uint) {
-    uint orderId = (dex.newOrder(wants, gives, gasWanted, pivotId));
+    uint offerId = (dex.newOffer(wants, gives, gasWanted, pivotId));
     uint minDustPerGas = dex.getConfigUint(ConfigKey.dustPerGasWanted);
-    dex.newOrder(0, minDustPerGas, 1, 0); //dummy order
-    return orderId;
+    dex.newOffer(0, minDustPerGas, 1, 0); //dummy offer
+    return offerId;
   }
 
   function provisionDex(uint amount) public {

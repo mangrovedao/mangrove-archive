@@ -13,9 +13,8 @@ contract DexDeployer {
 
   function deploy(
     uint initialDustPerGasWanted,
-    uint initialMinFinishGas,
+    uint initialGasOverhead,
     uint initialPenaltyPerGas,
-    uint initialMinGasWanted,
     uint initialMaxGasWanted,
     address ofrToken,
     address reqToken
@@ -25,9 +24,8 @@ contract DexDeployer {
     Dex dex = new Dex(
       admin,
       initialDustPerGasWanted,
-      initialMinFinishGas,
+      initialGasOverhead,
       initialPenaltyPerGas,
-      initialMinGasWanted,
       initialMaxGasWanted,
       ofrToken,
       reqToken

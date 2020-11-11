@@ -64,7 +64,7 @@ contract Maker is IMaker {
     require(false);
   }
 
-  function pushOrder(
+  function pushOffer(
     address tk1,
     address tk2,
     uint wants,
@@ -77,19 +77,19 @@ contract Maker is IMaker {
       uint penaltyPerGas = Dex(dex).getConfigUint(ConfigKey.penaltyPerGas); //current price per gas spent in offer fails
       uint available = Dex(dex).balanceOf(address(this)) -
         (penaltyPerGas * execGas); //enabling delegatecall
-      require(available >= 0, "Insufficient funds to push order."); //better fail early
-      Dex(dex).newOrder(wants, gives, execGas, position); // discards orderId
+      require(available >= 0, "Insufficient funds to push offer."); //better fail early
+      Dex(dex).newOffer(wants, gives, execGas, position); // discards offerId
     }
   }
 
-  function pullOrder(
+  function pullOffer(
     address tk1,
     address tk2,
-    uint orderId
+    uint offerId
   ) external {
     if (msg.sender == admin) {
       address payable dex = selectDex(tk1, tk2);
-      uint releasedWei = Dex(dex).cancelOrder(orderId); // Dex will release provision of orderId
+      uint releasedWei = Dex(dex).cancelOffer(offerId); // Dex will release provision of offerId
       Dex(dex).withdraw(releasedWei);
     }
   }

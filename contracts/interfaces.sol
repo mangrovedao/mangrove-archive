@@ -5,13 +5,13 @@ interface IMaker {
   function execute(
     uint takerWants,
     uint takerGives,
-    uint orderPenaltyPerGas,
-    uint orderId
+    uint offerPenaltyPerGas,
+    uint offerId
   ) external;
 }
 
 interface ITaker {
-  function take(uint orderId, uint wants) external returns (bool);
+  function take(uint offerId, uint takerWants) external returns (bool);
 
   function marketOrder(uint wants, uint gives) external;
 }
