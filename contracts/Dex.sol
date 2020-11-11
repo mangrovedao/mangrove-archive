@@ -429,6 +429,7 @@ contract Dex {
     //+clear+
 
     uint takerGot;
+    uint numTargets = targets.length / 2;
     uint targetIndex;
     uint numFailures;
     uint[] memory failures = new uint[](punishLength * 2);
@@ -436,7 +437,7 @@ contract Dex {
     /* ### Main loop */
     //+clear+
 
-    while (targetIndex < targets.length) {
+    while (targetIndex < numTargets) {
       /* ### In-loop initilization */
       /* At each iteration, we extract the current `offerId` and `takerWants` */
       uint offerId = targets[2 * targetIndex];
