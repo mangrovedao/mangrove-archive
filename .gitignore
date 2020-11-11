@@ -2,3 +2,5 @@ node_modules
 build
 cache
 ignore
+modd.conf
+out.html

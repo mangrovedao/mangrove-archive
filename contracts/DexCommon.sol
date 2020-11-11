@@ -150,18 +150,18 @@ enum ConfigKey {
 }
 
 /* # Events
-The events emitted for use by various bots are listed here. */
+The events emitted for use by various bots are listed here: */
 library DexEvents {
   event TestEvent(uint);
 
-  /* Emitted when Dex sends amount to receiver */
+  /* * Dex sends amount to receiver */
   event Transfer(address payable receiver, uint amout);
 
-  /* Emitted when Dex adds or removes wei from maker's account */
+  /* * Dex adds or removes wei from `maker`'s account */
   event Credit(address maker, uint amount);
   event Debit(address maker, uint amount);
 
-  /* Events that are emitted upon a Dex reconfiguration */
+  /* * Dex reconfiguration */
   event SetTakerFee(uint value);
   event SetGasOverhead(uint value);
   event SetMaxGasWanted(uint value);
@@ -169,19 +169,19 @@ library DexEvents {
   event SetPenaltyPerGas(uint value);
   event SetAdmin(address addr);
 
-  /* Offer execution */
+  /* * Offer execution */
   event Success(uint offerId, uint takerWants, uint takerGives);
   event Failure(uint offerId, uint takerWants, uint takerGives);
 
-  /* Emitted upon Dex closure */
+  /* * Dex closure */
   event CloseMarket();
 
-  /* Emitted if offerId was successfully cancelled.
-     No event is emitted if offerId is absent from book */
+  /* * `offerId` was successfully cancelled.
+     No event is emitted if `offerId` is absent from book. */
   event CancelOffer(uint offerId);
 
-  /* Emitted if a new offer was inserted into book
-   maker is the address of the Maker contract that implements the offer */
+  /* * A new offer was inserted into book.
+   `maker` is the address of the contract that implements the offer. */
   event NewOffer(
     address maker,
     uint wants,
@@ -190,7 +190,7 @@ library DexEvents {
     uint offerId
   );
 
-  /* Emitted when offerId is removed from book. */
+  /* * `offerId` is removed from book. */
   event DeleteOffer(uint offerId);
 }
 
