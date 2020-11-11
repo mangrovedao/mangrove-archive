@@ -317,12 +317,12 @@ contract Dex {
           takerWants -= localTakerWants;
           takerGives -= localTakerGives;
           /*
-        If `!success`, the maker failed to deliver `localTakerWants`. In that case, the flash loan has been rolled back, and `gasUsedIfFailure` is nonzero and will be used for later punishment (penalties are applied in proportion with wasted gas).
+          If `!success`, the maker failed to deliver `localTakerWants`. In that case, the flash loan has been rolled back, and `gasUsedIfFailure` is nonzero and will be used for later punishment (penalties are applied in proportion with wasted gas).
 
-        Note that :
-         * Partial fulfillment of the amount requested in `localTakerWants` is not taken into account. Any delivery strictly less than `localTakerWants` will be rolled back to before the flashloan.
-         * If the _taker_ failed to deliver the initial loan, `executeOffer` reverts; and thus the entire market order reverted. 
-         */
+          Note that :
+           * Partial fulfillment of the amount requested in `localTakerWants` is not taken into account. Any delivery strictly less than `localTakerWants` will be rolled back to before the flashloan.
+           * If the _taker_ failed to deliver the initial loan, `executeOffer` reverts; and thus the entire market order reverted. 
+          */
         } else {
           emit DexEvents.Failure(offerId, localTakerWants, localTakerGives);
           /* For punishment purposes (never triggered if `punishLength = 0`), store the offer id and the gas wasted by the maker */
@@ -338,7 +338,7 @@ contract Dex {
           * If _o~1~_ was `deleted`, we may or may not be at the last loop iteration, but we will stitch _r_ to some _o~i~_, _i > 1_, so we update `offer` to _o~2~_ regardless.
           * Otherwise, we are at the last loop iteration (see below), and we will stitch _r_ to _o~1~_. In that case, we must not update `offer` to _o~2~_.
 
-        Note that if the invariant (`!deleted` → end of `while` loop) does not hold, the market order is completely broken. 
+          Note that if the invariant (`!deleted` → end of `while` loop) does not hold, the market order is completely broken. 
 
 
             Proof that we are at the last iteration of the while loop: if what's left in the offer after a successful execution is above the minimum size offer, we update the offer and keep it in the book: in `executeOffer`, the offer is not deleted iff the test below passes (variables renamed for clarity):
@@ -347,12 +347,12 @@ contract Dex {
            gives - localTakerwants >= 
              dustPerGasWanted * (gasWanted + gasOverhead)
            ```
-        By `DexLib.setConfigKey`, `dustPerGasWanted * gasOverhead > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have 
-        ```
-        takerWants == 0 < dustPerGasWanted * gasOverhead
-        ```
-        And so the loop ends.
-          */
+          By `DexLib.setConfigKey`, `dustPerGasWanted * gasOverhead > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have 
+          ```
+           takerWants == 0 < dustPerGasWanted * gasOverhead
+          ```
+          And so the loop ends.
+        */
         if (deleted) {
           offerId = offer.next;
           offer = offers[offerId];
