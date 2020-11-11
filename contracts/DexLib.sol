@@ -97,8 +97,7 @@ library DexLib {
    `swapTokens` flashloans `takerGives` `REQ_TOKEN` from the taker to the maker and returns false if the loan fails. It then:
   1. Runs `offerDetail.maker`'s `execute` function.
   2. Attempts to send `takerWants` `OFR_TOKEN` from the maker to the taker and reverts if it cannot.
-  3. Attempts to send the fee from the maker to the Dex and reverts if it cannot.
-  4. Returns true.
+  3. Returns true.
     */
 
   function swapTokens(
@@ -107,7 +106,6 @@ library DexLib {
     uint offerId,
     uint takerGives,
     uint takerWants,
-    uint takerFee,
     OfferDetail memory offerDetail
   ) external returns (bool) {
     if (transferToken(reqToken, msg.sender, offerDetail.maker, takerGives)) {
@@ -120,21 +118,7 @@ library DexLib {
       );
 
       require(
-        transferToken(
-          ofrToken,
-          offerDetail.maker,
-          address(this),
-          (takerWants * takerFee) / 10000
-        ),
-        "fail transfer to dex"
-      );
-      require(
-        transferToken(
-          ofrToken,
-          offerDetail.maker,
-          msg.sender,
-          (takerWants * (10000 - takerFee)) / 10000
-        ),
+        transferToken(ofrToken, offerDetail.maker, msg.sender, takerWants),
         "fail transfer to taker"
       );
       return true;

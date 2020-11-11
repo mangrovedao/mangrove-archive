@@ -231,6 +231,14 @@ contract Dex {
 
   //+ignore+ setting takerWants to max_int and takergives to however much you're ready to spend will
   //+ignore+ not work, you'll just be asking for a ~0 price.
+
+  /* During execution, we store some values in a memory struct to avoid solc's [stack too deep errors](https://medium.com/coinmonks/stack-too-deep-error-in-solidity-608d1bd6a1ea) that can occur when too many local variables are used. */
+  struct OrderData {
+    uint minOrderSize;
+    uint initialTakerWants;
+    uint pastOfferId;
+  }
+
   function marketOrder(
     /*   ### Arguments */
     /* A taker calling this function wants to receive `takerWants` `OFR_TOKEN` in return 
@@ -266,7 +274,12 @@ contract Dex {
      * will maintains a pointer to the worse of the offers better than `offerId` (`0` if `offerId = 0`) and will connect that `pastOfferId` to the best of the non-consumed offers worse than `offerId` (`0` if there is no such offer).
      * will maintain an array of pairs `(offerId, gasUsed)` to identify failed offers. Look at "Punishment for failing offers" for more information. Since there are no extensible in-memory arrays, `punishLength` should be an upper bound on the number of failed offers. */
     Offer memory offer = offers[offerId];
-    uint pastOfferId = offer.prev;
+    /* We pack some data in a memory struct to prevent stack too deep errors. */
+    OrderData memory orderData = OrderData({
+      minOrderSize: config.dustPerGasWanted * config.gasOverhead,
+      initialTakerWants: takerWants,
+      pastOfferId: offer.prev
+    });
 
     uint[] memory failures = new uint[](2 * punishLength);
     uint numFailures;
@@ -282,9 +295,7 @@ contract Dex {
        * the remaining amount wanted by the taker is smaller than the minimum offer size.
        (wasteful recomputation of `dustPerGasWanted * config.gasOverhead`, avoids "stack too deep" error) 
        * or `offerId == 0`, which means we've gone past the end of the book. */
-    while (
-      takerWants >= config.dustPerGasWanted * config.gasOverhead && offerId != 0
-    ) {
+    while (takerWants >= orderData.minOrderSize && offerId != 0) {
       /* #### `makerWouldWant` */
       //+clear+
       /* The current offer has a price <code>_p_ = offer.wants/offer.gives</code>. `makerWouldWant` is the amount of `REQ_TOKEN` the offer would require at price _p_ to provide `takerWants` `OFR_TOKEN`. Computing `makeWouldWant` gives us both a test that _p_ is an acceptable price for the taker, and the amount of `REQ_TOKEN` to send to the maker.
@@ -366,9 +377,10 @@ contract Dex {
     }
     /* ### Post-while loop */
     //+clear+
+    applyFee(orderData.initialTakerWants - takerWants);
     reentrancyLock = false;
     /* After exiting the loop, we connect the beginning & end of the segment just consumed by the market order. */
-    stitchOffers(pastOfferId, offerId);
+    stitchOffers(orderData.pastOfferId, offerId);
 
     /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `2 * numFailures` in the length field of `failures` (there are 2 elements (`offerId`, `gasUsed`) for every failure in `failures`).
 
@@ -416,6 +428,7 @@ contract Dex {
     /* ### Pre-loop initialization */
     //+clear+
 
+    uint takerGot;
     uint targetIndex;
     uint numFailures;
     uint[] memory failures = new uint[](punishLength * 2);
@@ -449,7 +462,9 @@ contract Dex {
           false
         );
         /* For punishment purposes (never triggered if `punishLength = 0`), we store the offer id and the gas wasted by the maker */
-        if (!success && numFailures < punishLength) {
+        if (success) {
+          takerGot += localTakerWants;
+        } else if (numFailures < punishLength) {
           failures[2 * numFailures] = offerId;
           failures[2 * numFailures + 1] = gasUsedIfFailure;
           numFailures++;
@@ -457,6 +472,7 @@ contract Dex {
       }
       targetIndex++;
     }
+    applyFee(takerGot);
     reentrancyLock = false;
     /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `2 * numFailures` in the length field of `failures` (there are 2 elements (`offerId`, `gasUsed`) for every failure in `failures`).
 
@@ -583,7 +599,6 @@ contract Dex {
         offerId,
         takerGives,
         takerWants,
-        config.takerFee,
         offerDetail
       )
     );
@@ -598,6 +613,19 @@ contract Dex {
       applyPenalty(false, gasUsed, offerDetail);
       return (false, gasUsed);
     }
+  }
+
+  /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
+  function applyFee(uint amount) internal {
+    // amount is at most 160 bits wide and takerFee it at most 14 bits wide.
+    uint fee = (amount * config.takerFee) / 10000;
+    bool appliedFee = DexLib.transferToken(
+      OFR_TOKEN,
+      msg.sender,
+      address(this),
+      fee
+    );
+    require(appliedFee, "failed to apply fee");
   }
 
   /* ## Penalties */
