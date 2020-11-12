@@ -532,30 +532,21 @@ contract Dex_Test {
   //   }
   // }
 
-  function a_insert_test() public {
+  function a_full_test() public {
     saveBalances();
     TestInsert.run(balances, dex, makers, taker, aToken, bToken);
     console.log("End of insert_test, showing OB:");
     Display.logOfferBook(dex);
-  }
-
-  function b_snipe_test() public {
     saveBalances();
     saveOffers();
     TestSnipe.run(balances, offers, dex, makers, taker, aToken, bToken);
     console.log("End of snipe_test, showing OB:");
     Display.logOfferBook(dex);
-  }
-
-  function c_marketOrder_test() public {
     saveBalances();
     saveOffers();
     TestMarketOrder.run(balances, offers, dex, makers, taker, aToken, bToken);
     console.log("End of marketOrder_test, showing OB:");
     Display.logOfferBook(dex);
-  }
-
-  function d_failingOrder_test() public {
     TestCollectFailingOffer.run(
       balances,
       offers,
