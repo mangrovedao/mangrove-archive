@@ -443,7 +443,7 @@ contract Dex {
       uint offerId = targets[2 * targetIndex];
       uint takerWants = targets[2 * targetIndex + 1];
       Offer memory offer = offers[offerId];
-      /* Each offer is only considered if valid. If we removed the conditional, one in `targets` bad offer would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. */
+      /* Each offer is only considered if valid. If we removed the conditional, one failing or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. */
       if (isOffer(offer)) {
         /* Calculate the expense for the taker, and execute the offer */
         /* `localTakerWants` bounds the amount requested by the taker by the maximum amount on offer. It also obviates the need to check the size of `takerWants`: while in a market order we must compare the price a taker accepts with the offer price, here we just accept the offer's price. So if `takerWants` does not fit in 96 bits (the size of `offer.gives`), it won't be used in the line below. */
