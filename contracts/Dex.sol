@@ -127,17 +127,17 @@ contract Dex {
 
   /* `requireAdmin` protects all functions which modify the configuration of the Dex as well as `closeMarket`, which irreversibly freezes offer creation/consumption. */
   function requireAdmin() internal view returns (bool) {
-    require(msg.sender == config.admin, "not admin");
+    require(msg.sender == config.admin, "dex/unauthorized");
   }
 
   /* `requireNoReentrancyLock` protects modifying the book while an order is in progress. */
   function requireNoReentrancyLock() internal view {
-    require(!reentrancyLock, "OB not accessible");
+    require(!reentrancyLock, "dex/reentrancy");
   }
 
   /* `requireOpenMarket` protects against operations listed [next to the definition of `open`]. */
   function requireOpenMarket() internal view {
-    require(open, "market is closed");
+    require(open, "dex/closed");
   }
 
   /* `closeMarket` irreversibly closes the market. */
@@ -264,7 +264,10 @@ contract Dex {
     requireNoReentrancyLock();
 
     /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
-    require(uint160(takerWants) == takerWants, "takerWants is > 160 bits wide");
+    require(
+      uint160(takerWants) == takerWants,
+      "dex/marketOrder/takerWants/160bits"
+    );
 
     /* ### Initialization */
     //+clear+
@@ -588,7 +591,7 @@ contract Dex {
     /* We will slightly overapproximate the gas consumed by the maker since some local operations will take place in addition to the call; the total cost must not exceed `config.gasOverhead`. */
     require(
       oldGas >= offerDetail.gasWanted + config.gasOverhead,
-      "not enough gas left to safely execute offer"
+      "dex/unsafeGasAmount"
     );
 
     /* The flashswap is executed by delegatecall to `DexLib.swapTokens`. If the call reverts, it means the maker failed to send back `takerWants` `OFR_TOKEN` to the taker. If the call succeeds, `retdata` encodes a boolean indicating whether the taker did send enough to the maker or not. */
@@ -606,7 +609,7 @@ contract Dex {
     /* In both cases, we call `applyPenalty`, which splits the provisioned penalty (set aside during the `newOffer` call which created the offer between the taker and maker. */
     if (noRevert) {
       bool flashSuccess = abi.decode(retdata, (bool));
-      require(flashSuccess, "taker failed to send tokens to maker");
+      require(flashSuccess, "dex/takerFailToPayMaker");
       applyPenalty(true, 0, offerDetail);
       return (true, 0);
     } else {
@@ -626,7 +629,7 @@ contract Dex {
       address(this),
       fee
     );
-    require(appliedFee, "failed to apply fee");
+    require(appliedFee, "dex/takerFailToPayDex");
   }
 
   /* ## Penalties */

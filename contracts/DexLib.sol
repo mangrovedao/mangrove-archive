@@ -19,30 +19,30 @@ library DexLib {
   ) external {
     /* Also, for more details on each parameter, see `DexCommon.sol` as well. For the limits on `uint*` sizes, note that while we do store all the following parameters are `uint`s, they will later be stored or used in calculations that must not over/underflow. */
     if (key == ConfigKey.takerFee) {
-      require(value <= 10000, "takerFee is in bps, must be <= 10000"); // at most 14 bits
+      require(value <= 10000, "dex/config/takerFee/IsBps"); // at most 14 bits
       config.takerFee = value;
       emit DexEvents.SetTakerFee(value);
     } else if (key == ConfigKey.gasOverhead) {
-      require(value > 0, "gasOverhead must be > 0");
-      require(uint24(value) == value, "gasOverhead is 24 bits wide");
+      require(value > 0, "dex/config/gasOverhead/>0");
+      require(uint24(value) == value, "dex/config/gasOverhead/24bits");
       config.gasOverhead = value;
       emit DexEvents.SetGasOverhead(value);
     } else if (key == ConfigKey.dustPerGasWanted) {
-      require(value > 0, "dustPerGasWanted must be > 0");
+      require(value > 0, "dex/config/dustPerGasWanted/>0");
       require(uint32(value) == value);
       config.dustPerGasWanted = value;
       emit DexEvents.SetDustPerGasWanted(value);
     } else if (key == ConfigKey.penaltyPerGas) {
-      require(uint48(value) == value, "penaltyPerGas is 48 bits wide");
+      require(uint48(value) == value, "dex/config/penaltyPerGas/48bits");
       config.penaltyPerGas = value;
       emit DexEvents.SetPenaltyPerGas(value);
     } else if (key == ConfigKey.maxGasWanted) {
       /* Since any new `gasWanted` is bounded above by `config.maxGasWanted`, this check implies that all offers' `gasWanted` is 24 bits wide at most. */
-      require(uint24(value) == value, "maxGasWanted is 24 bits wide");
+      require(uint24(value) == value, "dex/config/maxGasWanted/24bits");
       config.maxGasWanted = value;
       emit DexEvents.SetMaxGasWanted(value);
     } else {
-      revert("Unknown config key");
+      revert("dex/config/write/noMatch/uint");
     }
   }
 
@@ -55,7 +55,7 @@ library DexLib {
       config.admin = value;
       emit DexEvents.SetAdmin(value);
     } else {
-      revert("Unknown config key");
+      revert("dex/config/write/noMatch/address");
     }
   }
 
@@ -75,7 +75,7 @@ library DexLib {
     } else if (key == ConfigKey.maxGasWanted) {
       return config.maxGasWanted;
     } else {
-      revert("Unknown config key");
+      revert("dex/config/read/noMatch/uint");
     }
   }
 
@@ -87,7 +87,7 @@ library DexLib {
     if (key == ConfigKey.admin) {
       return config.admin;
     } else {
-      revert("Unknown config key");
+      revert("dex/config/read/noMatch/address");
     }
   }
 
@@ -119,7 +119,7 @@ library DexLib {
 
       require(
         transferToken(ofrToken, offerDetail.maker, msg.sender, takerWants),
-        "fail transfer to taker"
+        "dex/makerFailToPayTaker"
       );
       return true;
     } else {
