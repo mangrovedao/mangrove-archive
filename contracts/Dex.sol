@@ -404,7 +404,7 @@ contract Dex {
     targets[0] = offerId;
     targets[1] = takerWants;
     uint[] memory failures = internalSnipes(targets, 1);
-    return (failures.length > 0);
+    return (failures.length == 0);
   }
 
   /* ## Multiple snipes */
