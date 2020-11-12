@@ -40,3 +40,7 @@ See [`Greeter.sol`](contracts/Greeter.sol). To test a contract `C`, create a con
 - displaying Solidity stack traces
 
 It has an extendable task system; this repo adds a `test-solidity` task. Run `npx hardhat help test-solidity` for available options. The task itself is defined in [hardhat.config.js](./hardhat.config.js).
+
+## Generate documentation
+
+After running `npm install`, run `npm run doc` to generate a `DexDoc.html` file.
