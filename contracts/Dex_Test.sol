@@ -290,6 +290,7 @@ library TestSnipe {
     //(uint init_mkr_wants, uint init_mkr_gives,,,,,)=dex.getOfferInfo(2);
     //---------------SNIPE------------------//
     bool success = TestUtils.snipeWithGas(taker, snipedId, orderAmount);
+    Test.testTrue(success, "snipe should be a success");
 
     Test.testEq(
       aToken.balanceOf(address(dex)), //actual
@@ -518,6 +519,7 @@ contract Dex_Test {
 
     bToken.mint(address(taker), 5 ether);
     taker.approve(bToken, 5 ether);
+    taker.approve(aToken, 50 ether);
   }
 
   // function zeroDust_test() public {

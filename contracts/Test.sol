@@ -116,7 +116,7 @@ library Test {
   ) internal returns (bytes memory) {
     uint g0 = gasleft();
     (bool noRevert, bytes memory retdata) = addr.delegatecall(data);
-    require(noRevert);
+    require(noRevert, "execWithCost should not revert");
     emit GasCost(callname, g0 - gasleft());
     return retdata;
   }
