@@ -1,5 +1,5 @@
 {
-  "name": "sol1",
+  "name": "Dex",
   "version": "1.0.0",
   "main": "index.js",
   "author": "Adrien Husson <pangel.neu@gmail.com>",
@@ -8,7 +8,11 @@
     "@nomiclabs/hardhat-ethers": "^2.0.0",
     "ethers": "^5.0.19",
     "hardhat": "^2.0.2",
-    "hardhat-deploy": "^0.7.0-beta.25"
+    "hardhat-deploy": "^0.7.0-beta.25",
+    "solcco": ">=1.0.1"
+  },
+  "scripts": {
+    "doc": "solcco -f DexDoc.html contracts/DexCommon.sol contracts/Dex.sol contracts/DexLib.sol"
   },
   "devDependencies": {
     "chai": "^4.2.0",
