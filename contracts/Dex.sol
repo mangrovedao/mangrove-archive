@@ -173,7 +173,7 @@ contract Dex {
     requireNoReentrancyLock();
     uint newLastId = ++lastId;
     require(
-      uint32(newLastId) != newLastId,
+      uint32(newLastId) == newLastId,
       "all available offerIds have been used"
     );
     return
