@@ -127,7 +127,7 @@ contract Dex {
 
   /* `requireAdmin` protects all functions which modify the configuration of the Dex as well as `closeMarket`, which irreversibly freezes offer creation/consumption. */
   function requireAdmin() internal view returns (bool) {
-    require(msg.sender == config.admin, "dex/unauthorized");
+    require(msg.sender == config.admin, "dex/adminOnly");
   }
 
   /* `requireNoReentrancyLock` protects modifying the book while an order is in progress. */
@@ -172,10 +172,7 @@ contract Dex {
     requireOpenMarket();
     requireNoReentrancyLock();
     uint newLastId = ++lastId;
-    require(
-      uint32(newLastId) == newLastId,
-      "all available offerIds have been used"
-    );
+    require(uint32(newLastId) == newLastId, "dex/offerIdOverflow");
     return
       DexLib.newOffer(
         config,
@@ -195,10 +192,7 @@ contract Dex {
   function cancelOffer(uint offerId) external returns (uint provision) {
     requireNoReentrancyLock();
     OfferDetail memory offerDetail = offerDetails[offerId];
-    require(
-      msg.sender == offerDetail.maker,
-      "cannot cancel offer you do not own"
-    );
+    require(msg.sender == offerDetail.maker, "dex/unauthorizedCancel");
     Offer memory offer = offers[offerId];
     dirtyDeleteOffer(offerId);
     stitchOffers(offer.prev, offer.next);
