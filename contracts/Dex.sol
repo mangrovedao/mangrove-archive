@@ -615,15 +615,17 @@ contract Dex {
 
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
   function applyFee(uint amount) internal {
-    // amount is at most 160 bits wide and takerFee it at most 14 bits wide.
-    uint fee = (amount * config.takerFee) / 10000;
-    bool appliedFee = DexLib.transferToken(
-      OFR_TOKEN,
-      msg.sender,
-      address(this),
-      fee
-    );
-    require(appliedFee, "dex/takerFailToPayDex");
+    if (amount > 0) {
+      // amount is at most 160 bits wide and takerFee it at most 14 bits wide.
+      uint fee = (amount * config.takerFee) / 10000;
+      bool appliedFee = DexLib.transferToken(
+        OFR_TOKEN,
+        msg.sender,
+        address(this),
+        fee
+      );
+      require(appliedFee, "dex/takerFailToPayDex");
+    }
   }
 
   /* ## Penalties */
