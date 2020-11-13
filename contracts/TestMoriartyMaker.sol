@@ -32,11 +32,11 @@ contract TestMoriartyMaker is IMaker, Passthrough {
   function newOffer(
     uint wants,
     uint gives,
-    uint gasWanted,
+    uint gasreq,
     uint pivotId
   ) public returns (uint) {
-    uint offerId = (dex.newOffer(wants, gives, gasWanted, pivotId));
-    uint minDustPerGas = dex.getConfigUint(ConfigKey.dustPerGasWanted);
+    uint offerId = (dex.newOffer(wants, gives, gasreq, pivotId));
+    uint minDustPerGas = dex.getConfigUint(ConfigKey.density);
     dex.newOffer(0, minDustPerGas, 1, 0); //dummy offer
     return offerId;
   }

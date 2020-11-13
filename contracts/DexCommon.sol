@@ -52,23 +52,23 @@ struct OfferDetail {
          function execute(
            uint takerWants,
            uint takerGives,
-           uint offerPenaltyPerGas,
+           uint offerGasprice,
            uint offerId
          ) external;
        }
        ```
 
        Where `takerWants ≤ gives`, `takerGives/takerWants = wants/gives`,
-       `offerPenaltyPerGas` is how many `wei` a failed offer will pay per gas
+       `offerGasprice` is how many `wei` a failed offer will pay per gas
        consumed, and `offerId` is the id of the offer being executed.
 
    */
   address maker;
-  /* * `gasWanted` gas will be provided to `execute`. _24 bits wide_, 33% more than the block limit as of late 2020. 
+  /* * `gasreq` gas will be provided to `execute`. _24 bits wide_, 33% more than the block limit as of late 2020. 
 
        Around execution, the Dex will:
        1. Send `wants` `REQ_TOKEN` from `msg.sender` to `maker`, 
-       2. Call `IMaker(maker).execute{gas:gasWanted}()`,
+       2. Call `IMaker(maker).execute{gas:gasreq}()`,
        3. Send `gives` `OFR_TOKEN` from `maker` to `msg.sender`.
 
        The function `execute` can be arbitrary code. The only requirement is that
@@ -78,41 +78,41 @@ struct OfferDetail {
        In that case, the offer _fails_.
 
   */
-  uint24 gasWanted;
+  uint24 gasreq;
   /* 
-     * If an offer fails, `penaltyPerGas` is the amount (in wei) taken from the
+     * If an offer fails, `gasprice` is the amount (in wei) taken from the
        provision per unit of gas used. It should approximate the average gas
        price at offer creation time. 
 
-       `gasOverhead` represents the gas overhead used by processing the offer
+       `gasbase` represents the gas overhead used by processing the offer
        inside the Dex. The gas considered used by an offer is at least
-       `gasOverhead`, and at most `gasWanted + gasOverhead`. 
+       `gasbase`, and at most `gasreq + gasbase`. 
 
 
        So, when an offer is created, the maker is asked to provision the
        following amount of wei:
        ```
-       (gasWanted + gasOverhead) * penaltyPerGas
+       (gasreq + gasbase) * gasprice
        ```
         When an offer fails, the following amount is given to the taker as compensation:
        ```
-       (gasUsed + gasOverhead) * penaltyPerGas
+       (gasUsed + gasbase) * gasprice
        ```
 
        and the rest is added back to the maker's 'available provision' balance
        (a global map called `freeWei`).
 
-       `penaltyPerGas` is **48 bits wide**, which accomodates ~280k gwei / gas.
-       `gasOverhead` is **24 bits wide**, it could be 16 bits wide but we are 
+       `gasprice` is **48 bits wide**, which accomodates ~280k gwei / gas.
+       `gasbase` is **24 bits wide**, it could be 16 bits wide but we are 
        leaving a margin of safety for future gas repricings.
 
-       Both `penaltyPerGas` and `gasOverhead` are also the names of global Dex
+       Both `gasprice` and `gasbase` are also the names of global Dex
        parameters. When an offer is created, their current value is added to
        the offer's `OfferDetail`. The maker does not choose them.
 
     */
-  uint48 penaltyPerGas;
-  uint24 gasOverhead;
+  uint48 gasprice;
+  uint24 gasbase;
 }
 
 /* # Configuration
@@ -122,32 +122,25 @@ struct Config {
   /* * The `admin`, allowed to change anything in the configuration and irreversibly 
      close the market. It has no other powers. */
   address admin;
-  /* * `takerFee`, in basis points, of `OFR_TOKEN` given to the taker. This fee is sent to the Dex. */
-  uint takerFee;
-  /* * The `penaltyPerGas` is the amount of penalty paid by failed offers, in wei per gas used. `penaltyPerGas` should approximate the average gas price and will be subject to regular updates. */
-  uint penaltyPerGas;
-  /* * `gasOverhead` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at leat `gasOverhead` gas. Should only be updated when opcode prices change. */
-  uint gasOverhead;
-  /* * `dustPerGasWanted` is a 'dust' parameter in `OFR_TOKEN` per gas. A weakness of offerbook-based exchanges is that a market offer is not gas-constant. We prevent spamming of low-volume offers by asking for a minimum 'density'. For instance, if `dustPerGasWanted == 10`, `gasOverhead == 5` an offer with `gasWanted == 30000` must offer promise at least [_10 × (30000 + 5) = 300050_](provision-formula) `OFR_TOKEN`. */
-  uint dustPerGasWanted;
+  /* * `fee`, in basis points, of `OFR_TOKEN` given to the taker. This fee is sent to the Dex. */
+  uint fee;
+  /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
+  uint gasprice;
+  /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at leat `gasbase` gas. Should only be updated when opcode prices change. */
+  uint gasbase;
+  /* * `density` is a 'dust' parameter in `OFR_TOKEN` per gas. A weakness of offerbook-based exchanges is that a market offer is not gas-constant. We prevent spamming of low-volume offers by asking for a minimum 'density'. For instance, if `density == 10`, `gasbase == 5` an offer with `gasreq == 30000` must offer promise at least [_10 × (30000 + 5) = 300050_](provision-formula) `OFR_TOKEN`. */
+  uint density;
   /* 
     * An offer which asks for more gas than the block limit would live forever on
     the book. Nobody could take it or remove it, except its creator (who could cancel it). In practice, we will set this parameter to a reasonable limit taking into account both practical transaction sizes and the complexity of maker contracts. 
   */
-  uint maxGasWanted;
+  uint gasmax;
 }
 
 /* Every configuration parameter in the `Config` struct has a counterpart in the `ConfigKey` enum. To get and set the configuration, generic functions (one per type) in `DexLib` 
    accept a `ConfigKey` as first argument, and the setter functions takes a value 
    as second argument. */
-enum ConfigKey {
-  admin,
-  takerFee,
-  penaltyPerGas,
-  gasOverhead,
-  dustPerGasWanted,
-  maxGasWanted
-}
+enum ConfigKey {admin, fee, gasprice, gasbase, density, gasmax}
 
 /* # Events
 The events emitted for use by various bots are listed here: */
@@ -162,11 +155,11 @@ library DexEvents {
   event Debit(address maker, uint amount);
 
   /* * Dex reconfiguration */
-  event SetTakerFee(uint value);
-  event SetGasOverhead(uint value);
-  event SetMaxGasWanted(uint value);
+  event SetFee(uint value);
+  event SetGasprice(uint value);
+  event SetGasmax(uint value);
   event SetDustPerGasWanted(uint value);
-  event SetPenaltyPerGas(uint value);
+  event SetGasprice(uint value);
   event SetAdmin(address addr);
 
   /* * Offer execution */
@@ -186,7 +179,7 @@ library DexEvents {
     address maker,
     uint wants,
     uint gives,
-    uint gasWanted,
+    uint gasreq,
     uint offerId
   );
 

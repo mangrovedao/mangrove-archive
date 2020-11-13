@@ -13,31 +13,26 @@ contract TestMaker is IMaker, Passthrough {
     dex = _dex;
   }
 
-  event Execute(
-    uint takerWants,
-    uint takerGives,
-    uint penaltyPerGas,
-    uint offerId
-  );
+  event Execute(uint takerWants, uint takerGives, uint gasprice, uint offerId);
 
   receive() external payable {}
 
   function execute(
     uint takerWants,
     uint takerGives,
-    uint penaltyPerGas,
+    uint gasprice,
     uint offerId
   ) public override {
-    emit Execute(takerWants, takerGives, penaltyPerGas, offerId);
+    emit Execute(takerWants, takerGives, gasprice, offerId);
   }
 
   function newOffer(
     uint wants,
     uint gives,
-    uint gasWanted,
+    uint gasreq,
     uint pivotId
   ) public returns (uint) {
-    return (dex.newOffer(wants, gives, gasWanted, pivotId));
+    return (dex.newOffer(wants, gives, gasreq, pivotId));
   }
 
   function provisionDex(uint amount) public {

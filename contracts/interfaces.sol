@@ -5,7 +5,7 @@ interface IMaker {
   function execute(
     uint takerWants,
     uint takerGives,
-    uint offerPenaltyPerGas,
+    uint offerGasprice,
     uint offerId
   ) external;
 }

@@ -133,9 +133,9 @@ library Display {
         uint wants,
         uint gives,
         uint nextId,
-        uint gasWanted,
+        uint gasreq,
         uint minFinishGas,
-        uint penaltyPerGas,
+        uint gasprice,
         address makerAddr
       ) = dex.getOfferInfo(offerId);
       console.log(
@@ -146,9 +146,9 @@ library Display {
       );
       console.log(
         "(%d gas, %d to finish, %d penalty)",
-        gasWanted,
+        gasreq,
         minFinishGas,
-        penaltyPerGas
+        gasprice
       );
       console.log(name(makerAddr));
       offerId = nextId;

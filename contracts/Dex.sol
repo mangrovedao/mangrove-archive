@@ -27,14 +27,14 @@ contract Dex {
 
   /* * An offer `id` is defined by two structs, `Offer` and `OfferDetail`, defined in `DexCommon.sol`.
    * `offers[id]` contains pointers to the `prev`ious (better) and `next` (worse) offer in the book, as well as the price and volume of the offer (in the form of two absolute quantities, `wants` and `gives`).
-   * `offerDetails[id]` contains the market maker's address (`maker`), the amount of `gasWanted` as well cached values for the global `gasOverhead` and `penaltyPerGas` when the offer got created (see `DexCommon` for more on `gasOverhead` and `penaltyPerGas`).
+   * `offerDetails[id]` contains the market maker's address (`maker`), the amount of `gasreq` as well cached values for the global `gasbase` and `gasprice` when the offer got created (see `DexCommon` for more on `gasbase` and `gasprice`).
    */
   mapping(uint => Offer) private offers;
   mapping(uint => OfferDetail) private offerDetails;
 
   /* * Makers provision their possible penalties in the `freeWei` mapping.
 
-       Offers specify the amount of `gasWanted` they require for successful execution. To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasWanted`. If, after execution an offer, the exchange fails to provide the taker with enough tokens, part of provision is given to the taker in compensation, which depends on the gas actually used by the maker.
+       Offers specify the amount of `gasreq` they require for successful execution. To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq`. If, after execution an offer, the exchange fails to provide the taker with enough tokens, part of provision is given to the taker in compensation, which depends on the gas actually used by the maker.
 
        The Dex keeps track of their available balance in the `freeWei` map, which is decremented every time a maker creates a new offer (new offer creation is in `DexLib`). 
    */
@@ -98,13 +98,13 @@ contract Dex {
     /* * address of the administrator */
     address _admin,
     /* * minimum amount of `OFR_TOKEN` an offer can provide per unit of gas it demands */
-    uint _dustPerGasWanted,
+    uint _density,
     /* * amount of gas the Dex needs to clean up its data structure after an offer has been taken/deleted */
-    uint _gasOverhead,
+    uint _gasbase,
     /* * penalty per additional unit of gas a failing offer will pay */
-    uint _penaltyPerGas,
+    uint _gasprice,
     /* * the maximum amount of gas an offer can demand */
-    uint _maxGasWanted,
+    uint _gasmax,
     /* * `OFR_TOKEN` ERC20 contract */
     address _OFR_TOKEN,
     /* * `REQ_TOKEN` ERC20 contract */
@@ -113,10 +113,10 @@ contract Dex {
     OFR_TOKEN = _OFR_TOKEN;
     REQ_TOKEN = _REQ_TOKEN;
     DexLib.setConfigKey(config, ConfigKey.admin, _admin);
-    DexLib.setConfigKey(config, ConfigKey.dustPerGasWanted, _dustPerGasWanted);
-    DexLib.setConfigKey(config, ConfigKey.gasOverhead, _gasOverhead);
-    DexLib.setConfigKey(config, ConfigKey.penaltyPerGas, _penaltyPerGas);
-    DexLib.setConfigKey(config, ConfigKey.maxGasWanted, _maxGasWanted);
+    DexLib.setConfigKey(config, ConfigKey.density, _density);
+    DexLib.setConfigKey(config, ConfigKey.gasbase, _gasbase);
+    DexLib.setConfigKey(config, ConfigKey.gasprice, _gasprice);
+    DexLib.setConfigKey(config, ConfigKey.gasmax, _gasmax);
   }
 
   /*
@@ -153,7 +153,7 @@ contract Dex {
 
   /* The function `newOffer` is for market makers only; no match with the existing book is done. Makers specify how much `REQ_TOKEN` they `want` and how much `OFR_TOKEN` they are willing to `give`. They also specify how much gas should be given when executing their offer.
 
- _`gasWanted` will determine the penalty provision set aside by the Dex from the market maker's `freeWei` balance._ 
+ _`gasreq` will determine the penalty provision set aside by the Dex from the market maker's `freeWei` balance._ 
 
   Offers are always inserted at the correct place in the book (for more on the book data structure, see `DexCommon.sol`). This requires walking through offers to find the correct insertion point. As in [Oasis](https://github.com/daifoundation/maker-otc/blob/master/src/matching_market.sol#L129), Makers should find the id of an offer close to theirs and provide it as `pivotId`.
 
@@ -166,7 +166,7 @@ contract Dex {
   function newOffer(
     uint wants,
     uint gives,
-    uint gasWanted,
+    uint gasreq,
     uint pivotId
   ) external returns (uint) {
     requireOpenMarket();
@@ -183,7 +183,7 @@ contract Dex {
         newLastId,
         wants,
         gives,
-        gasWanted,
+        gasreq,
         pivotId
       );
   }
@@ -197,7 +197,7 @@ contract Dex {
     dirtyDeleteOffer(offerId);
     stitchOffers(offer.prev, offer.next);
 
-    provision = offerDetail.penaltyPerGas * offerDetail.gasWanted;
+    provision = offerDetail.gasprice * offerDetail.gasreq;
     DexLib.creditWei(freeWei, msg.sender, provision);
     emit DexEvents.CancelOffer(offerId);
   }
@@ -273,7 +273,7 @@ contract Dex {
     Offer memory offer = offers[offerId];
     /* We pack some data in a memory struct to prevent stack too deep errors. */
     OrderData memory orderData = OrderData({
-      minOrderSize: config.dustPerGasWanted * config.gasOverhead,
+      minOrderSize: config.density * config.gasbase,
       initialTakerWants: takerWants,
       pastOfferId: offer.prev
     });
@@ -290,7 +290,7 @@ contract Dex {
     //+clear+
     /* Offers are looped through until:
        * the remaining amount wanted by the taker is smaller than the minimum offer size.
-       (wasteful recomputation of `dustPerGasWanted * config.gasOverhead`, avoids "stack too deep" error) 
+       (wasteful recomputation of `density * config.gasbase`, avoids "stack too deep" error) 
        * or `offerId == 0`, which means we've gone past the end of the book. */
     while (takerWants >= orderData.minOrderSize && offerId != 0) {
       /* #### `makerWouldWant` */
@@ -353,11 +353,11 @@ contract Dex {
            ```
            success &&
            gives - localTakerwants >= 
-             dustPerGasWanted * (gasWanted + gasOverhead)
+             density * (gasreq + gasbase)
            ```
-          By `DexLib.setConfigKey`, `dustPerGasWanted * gasOverhead > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have 
+          By `DexLib.setConfigKey`, `density * gasbase > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have 
           ```
-           takerWants == 0 < dustPerGasWanted * gasOverhead
+           takerWants == 0 < density * gasbase
           ```
           And so the loop ends.
         */
@@ -551,8 +551,7 @@ contract Dex {
     if (
       success &&
       offer.gives - takerWants >=
-      config.dustPerGasWanted *
-        (offerDetail.gasWanted + offerDetail.gasOverhead)
+      config.density * (offerDetail.gasreq + offerDetail.gasbase)
     ) {
       offers[offerId].gives = uint96(offer.gives - takerWants);
       offers[offerId].wants = uint96(offer.wants - takerGives);
@@ -582,9 +581,9 @@ contract Dex {
     /* We start by saving the amount of gas currently available so we can measure how much we spent later. */
     uint oldGas = gasleft();
 
-    /* We will slightly overapproximate the gas consumed by the maker since some local operations will take place in addition to the call; the total cost must not exceed `config.gasOverhead`. */
+    /* We will slightly overapproximate the gas consumed by the maker since some local operations will take place in addition to the call; the total cost must not exceed `config.gasbase`. */
     require(
-      oldGas >= offerDetail.gasWanted + config.gasOverhead,
+      oldGas >= offerDetail.gasreq + config.gasbase,
       "dex/unsafeGasAmount"
     );
 
@@ -616,8 +615,8 @@ contract Dex {
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
   function applyFee(uint amount) internal {
     if (amount > 0) {
-      // amount is at most 160 bits wide and takerFee it at most 14 bits wide.
-      uint fee = (amount * config.takerFee) / 10000;
+      // amount is at most 160 bits wide and fee it at most 14 bits wide.
+      uint fee = (amount * config.fee) / 10000;
       bool appliedFee = DexLib.transferToken(
         OFR_TOKEN,
         msg.sender,
@@ -636,35 +635,34 @@ contract Dex {
     uint gasUsed,
     OfferDetail memory offerDetail
   ) internal {
-    /* We set `gasDeducted = min(gasUsed,gasWanted)` since `gasWanted < gasUsed` is possible (e.g. with `gasWanted = 0`). */
-    uint gasDeducted = gasUsed < offerDetail.gasWanted
+    /* We set `gasDeducted = min(gasUsed,gasreq)` since `gasreq < gasUsed` is possible (e.g. with `gasreq = 0`). */
+    uint gasDeducted = gasUsed < offerDetail.gasreq
       ? gasUsed
-      : offerDetail.gasWanted;
+      : offerDetail.gasreq;
 
     /*
        Then we apply penalties:
 
        * If the transaction was a success, we entirely refund the maker and send nothing to the taker.
 
-       * Otherwise, the maker loses the cost of `gasDeducted + gasOverhead` gas. The gas price is estimated by `penaltyPerGas`.
+       * Otherwise, the maker loses the cost of `gasDeducted + gasbase` gas. The gas price is estimated by `gasprice`.
 
-         Note that to create the offer, the maker had to provision `gasWanted + gasOverhead`.
+         Note that to create the offer, the maker had to provision `gasreq + gasbase`.
 
-         Note that `offerDetail.gasOverhead` and `offerDetail.penaltyPerGas` are the values of the Dex parameters `config.gasOverhead` and `config.penaltyPerGas` when the offer was createdd. Without caching, the provision set aside could be insufficient to reimburse the maker (or to compensate the taker).
+         Note that `offerDetail.gasbase` and `offerDetail.gasprice` are the values of the Dex parameters `config.gasbase` and `config.gasprice` when the offer was createdd. Without caching, the provision set aside could be insufficient to reimburse the maker (or to compensate the taker).
 
      */
-    uint released = offerDetail.penaltyPerGas *
+    uint released = offerDetail.gasprice *
       (
         success
-          ? offerDetail.gasWanted + offerDetail.gasOverhead
-          : offerDetail.gasWanted - gasDeducted
+          ? offerDetail.gasreq + offerDetail.gasbase
+          : offerDetail.gasreq - gasDeducted
       );
 
     DexLib.creditWei(freeWei, offerDetail.maker, released);
 
     if (!success) {
-      uint amount = offerDetail.penaltyPerGas *
-        (offerDetail.gasOverhead + gasDeducted);
+      uint amount = offerDetail.gasprice * (offerDetail.gasbase + gasDeducted);
       msg.sender.call{gas: 0, value: amount}("");
     }
   }
@@ -886,9 +884,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       offer.wants,
       offer.gives,
       offer.next,
-      offerDetail.gasWanted,
-      offerDetail.gasOverhead, // global gasOverhead at offer creation time
-      offerDetail.penaltyPerGas, // global penaltyPerGas at offer creation time
+      offerDetail.gasreq,
+      offerDetail.gasbase, // global gasbase at offer creation time
+      offerDetail.gasprice, // global gasprice at offer creation time
       offerDetail.maker
     );
   }

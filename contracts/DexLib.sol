@@ -18,29 +18,29 @@ library DexLib {
     uint value
   ) external {
     /* Also, for more details on each parameter, see `DexCommon.sol` as well. For the limits on `uint*` sizes, note that while we do store all the following parameters are `uint`s, they will later be stored or used in calculations that must not over/underflow. */
-    if (key == ConfigKey.takerFee) {
-      require(value <= 10000, "dex/config/takerFee/IsBps"); // at most 14 bits
-      config.takerFee = value;
-      emit DexEvents.SetTakerFee(value);
-    } else if (key == ConfigKey.gasOverhead) {
-      require(value > 0, "dex/config/gasOverhead/>0");
-      require(uint24(value) == value, "dex/config/gasOverhead/24bits");
-      config.gasOverhead = value;
-      emit DexEvents.SetGasOverhead(value);
-    } else if (key == ConfigKey.dustPerGasWanted) {
-      require(value > 0, "dex/config/dustPerGasWanted/>0");
+    if (key == ConfigKey.fee) {
+      require(value <= 10000, "dex/config/fee/IsBps"); // at most 14 bits
+      config.fee = value;
+      emit DexEvents.SetFee(value);
+    } else if (key == ConfigKey.gasbase) {
+      require(value > 0, "dex/config/gasbase/>0");
+      require(uint24(value) == value, "dex/config/gasbase/24bits");
+      config.gasbase = value;
+      emit DexEvents.SetGasprice(value);
+    } else if (key == ConfigKey.density) {
+      require(value > 0, "dex/config/density/>0");
       require(uint32(value) == value);
-      config.dustPerGasWanted = value;
+      config.density = value;
       emit DexEvents.SetDustPerGasWanted(value);
-    } else if (key == ConfigKey.penaltyPerGas) {
-      require(uint48(value) == value, "dex/config/penaltyPerGas/48bits");
-      config.penaltyPerGas = value;
-      emit DexEvents.SetPenaltyPerGas(value);
-    } else if (key == ConfigKey.maxGasWanted) {
-      /* Since any new `gasWanted` is bounded above by `config.maxGasWanted`, this check implies that all offers' `gasWanted` is 24 bits wide at most. */
-      require(uint24(value) == value, "dex/config/maxGasWanted/24bits");
-      config.maxGasWanted = value;
-      emit DexEvents.SetMaxGasWanted(value);
+    } else if (key == ConfigKey.gasprice) {
+      require(uint48(value) == value, "dex/config/gasprice/48bits");
+      config.gasprice = value;
+      emit DexEvents.SetGasprice(value);
+    } else if (key == ConfigKey.gasmax) {
+      /* Since any new `gasreq` is bounded above by `config.gasmax`, this check implies that all offers' `gasreq` is 24 bits wide at most. */
+      require(uint24(value) == value, "dex/config/gasmax/24bits");
+      config.gasmax = value;
+      emit DexEvents.SetGasmax(value);
     } else {
       revert("dex/config/write/noMatch/uint");
     }
@@ -64,16 +64,16 @@ library DexLib {
     view
     returns (uint)
   {
-    if (key == ConfigKey.takerFee) {
-      return config.takerFee;
-    } else if (key == ConfigKey.gasOverhead) {
-      return config.gasOverhead;
-    } else if (key == ConfigKey.dustPerGasWanted) {
-      return config.dustPerGasWanted;
-    } else if (key == ConfigKey.penaltyPerGas) {
-      return config.penaltyPerGas;
-    } else if (key == ConfigKey.maxGasWanted) {
-      return config.maxGasWanted;
+    if (key == ConfigKey.fee) {
+      return config.fee;
+    } else if (key == ConfigKey.gasbase) {
+      return config.gasbase;
+    } else if (key == ConfigKey.density) {
+      return config.density;
+    } else if (key == ConfigKey.gasprice) {
+      return config.gasprice;
+    } else if (key == ConfigKey.gasmax) {
+      return config.gasmax;
     } else {
       revert("dex/config/read/noMatch/uint");
     }
@@ -110,10 +110,10 @@ library DexLib {
   ) external returns (bool) {
     if (transferToken(reqToken, msg.sender, offerDetail.maker, takerGives)) {
       // Execute offer
-      IMaker(offerDetail.maker).execute{gas: offerDetail.gasWanted}(
+      IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
         takerWants,
         takerGives,
-        offerDetail.penaltyPerGas,
+        offerDetail.gasprice,
         offerId
       );
 
@@ -158,21 +158,21 @@ library DexLib {
     mapping(uint => OfferDetail) storage offerDetails,
     UintContainer storage best,
     uint offerId,
-    /* `wants`, `gives`, `gasWanted`, and `pivotId` are given by `msg.sender`. */
+    /* `wants`, `gives`, `gasreq`, and `pivotId` are given by `msg.sender`. */
     uint wants,
     uint gives,
-    uint gasWanted,
+    uint gasreq,
     uint pivotId
   ) external returns (uint) {
     /* The following checks are first performed: */
     //+clear+
-    /* * Check `gasWanted` below limit. Implies `gasWanted` at most 24 bits wide, which ensures no overflow in computation of `maxPenalty` (see below). */
-    require(gasWanted <= config.maxGasWanted, "gasWanted too large");
-    /* Check `gasWanted` above absolute limit. There is an overhead associated with executing an offer, and that overhead is paid for by the maker only when the offer fails. Without an absolute gasWanted limit */
-    require(gasWanted > 0, "gasWanted > 0");
-    /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasOverhead` to `gasWanted`. Since `gasOverhead > 0` and `dustPerGasWanted > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isOffer` method sound. */
+    /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `maxPenalty` (see below). */
+    require(gasreq <= config.gasmax, "gasreq too large");
+    /* Check `gasreq` above absolute limit. There is an overhead associated with executing an offer, and that overhead is paid for by the maker only when the offer fails. Without an absolute gasreq limit */
+    require(gasreq > 0, "gasreq > 0");
+    /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isOffer` method sound. */
     require(
-      gives >= (gasWanted + config.gasOverhead) * config.dustPerGasWanted,
+      gives >= (gasreq + config.gasbase) * config.density,
       "offering below dust limit"
     );
     /* * Unnecessary for safety: check width of `wants`, `gives` and `pivotId`. They will be truncated anyway, but if they are too wide, we assume the maker has made a mistake and revert. */
@@ -180,9 +180,9 @@ library DexLib {
     require(uint96(gives) == gives, "wants is 96 bits wide");
     require(uint32(pivotId) == pivotId, "pivotId is 32 bits wide");
 
-    /* With every new offer, a maker must deduct provisions from its `freeWei` balance. The maximum penalty is incurred when an offer fails after consuming all its `gasWanted`. */
+    /* With every new offer, a maker must deduct provisions from its `freeWei` balance. The maximum penalty is incurred when an offer fails after consuming all its `gasreq`. */
     {
-      uint maxPenalty = (gasWanted + config.gasOverhead) * config.penaltyPerGas;
+      uint maxPenalty = (gasreq + config.gasbase) * config.gasprice;
       debitWei(freeWei, msg.sender, maxPenalty);
     }
 
@@ -218,14 +218,14 @@ library DexLib {
     });
 
     offerDetails[offerId] = OfferDetail({
-      gasWanted: uint24(gasWanted),
-      gasOverhead: uint24(config.gasOverhead),
-      penaltyPerGas: uint48(config.penaltyPerGas),
+      gasreq: uint24(gasreq),
+      gasbase: uint24(config.gasbase),
+      gasprice: uint48(config.gasprice),
       maker: msg.sender
     });
 
     /* And finally return the newly created offer id to the caller. */
-    emit DexEvents.NewOffer(msg.sender, wants, gives, gasWanted, offerId);
+    emit DexEvents.NewOffer(msg.sender, wants, gives, gasreq, offerId);
     return offerId;
   }
 

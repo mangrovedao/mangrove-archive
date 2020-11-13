@@ -13,9 +13,9 @@ contract DexDeployer {
 
   function deploy(
     uint initialDustPerGasWanted,
-    uint initialGasOverhead,
-    uint initialPenaltyPerGas,
-    uint initialMaxGasWanted,
+    uint initialGasprice,
+    uint initialGasprice,
+    uint initialGasmax,
     address ofrToken,
     address reqToken
   ) external returns (Dex) {
@@ -24,9 +24,9 @@ contract DexDeployer {
     Dex dex = new Dex(
       admin,
       initialDustPerGasWanted,
-      initialGasOverhead,
-      initialPenaltyPerGas,
-      initialMaxGasWanted,
+      initialGasprice,
+      initialGasprice,
+      initialGasmax,
       ofrToken,
       reqToken
     );

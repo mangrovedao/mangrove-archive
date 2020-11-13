@@ -37,9 +37,9 @@ library DexPre1 {
     DexDeployer deployer = new DexDeployer(address(this));
     deployer.deploy({
       initialDustPerGasWanted: 100,
-      initialGasOverhead: 30000,
-      initialPenaltyPerGas: 300,
-      initialMaxGasWanted: 1000000,
+      initialGasprice: 30000,
+      initialGasprice: 300,
+      initialGasmax: 1000000,
       ofrToken: address(aToken),
       reqToken: address(bToken)
     });
@@ -71,10 +71,10 @@ library TestUtils {
     uint[] makersBalanceB;
     uint[] makersBalanceWei;
   }
-  enum Info {makerWants, makerGives, nextId, gasWanted, penaltyPerGas}
+  enum Info {makerWants, makerGives, nextId, gasreq, gasprice}
 
   function getFee(Dex dex, uint price) internal view returns (uint) {
-    return ((price * dex.getConfigUint(ConfigKey.takerFee)) / 10000);
+    return ((price * dex.getConfigUint(ConfigKey.fee)) / 10000);
   }
 
   function getOfferInfo(
@@ -86,9 +86,9 @@ library TestUtils {
       uint makerWants,
       uint makerGives,
       uint nextId,
-      uint gasWanted,
-      uint gasOverhead,
-      uint penaltyPerGas,
+      uint gasreq,
+      uint gasbase,
+      uint gasprice,
 
     ) = dex.getOfferInfo(offerId);
     if (infKey == Info.makerWants) {
@@ -100,10 +100,10 @@ library TestUtils {
     if (infKey == Info.nextId) {
       return nextId;
     }
-    if (infKey == Info.gasWanted) {
-      return gasWanted;
+    if (infKey == Info.gasreq) {
+      return gasreq;
     } else {
-      return penaltyPerGas;
+      return gasprice;
     }
   }
 
@@ -142,17 +142,17 @@ library TestUtils {
     TestMaker maker,
     uint wants,
     uint gives,
-    uint gasWanted,
+    uint gasreq,
     uint pivotId
   ) external returns (uint) {
-    return (maker.newOffer(wants, gives, gasWanted, pivotId));
+    return (maker.newOffer(wants, gives, gasreq, pivotId));
   }
 
   function newOfferWithGas(
     TestMaker maker,
     uint wants,
     uint gives,
-    uint gasWanted,
+    uint gasreq,
     uint pivotId
   ) internal returns (uint) {
     bytes memory retdata = Test.execWithCost(
@@ -163,7 +163,7 @@ library TestUtils {
         maker,
         wants,
         gives,
-        gasWanted,
+        gasreq,
         pivotId
       )
     );
@@ -211,21 +211,21 @@ library TestInsert {
       maker: makers.getMaker(1),
       wants: 1 ether,
       gives: 0.5 ether,
-      gasWanted: 3000,
+      gasreq: 3000,
       pivotId: 0
     });
     offerOf[2] = TestUtils.newOfferWithGas({
       maker: makers.getMaker(2),
       wants: 1 ether,
       gives: 0.8 ether,
-      gasWanted: 6000,
+      gasreq: 6000,
       pivotId: 1
     });
     offerOf[3] = TestUtils.newOfferWithGas({
       maker: makers.getMaker(3),
       wants: 0.5 ether,
       gives: 1 ether,
-      gasWanted: 9000,
+      gasreq: 9000,
       pivotId: 72
     });
 
@@ -233,19 +233,19 @@ library TestInsert {
       maker: makers.getMaker(0), //failer
       wants: 20 ether,
       gives: 10 ether,
-      gasWanted: dex.getConfigUint(ConfigKey.maxGasWanted),
+      gasreq: dex.getConfigUint(ConfigKey.gasmax),
       pivotId: 0
     });
     //Checking makers have correctly provisoned their offers
-    uint minGas = dex.getConfigUint(ConfigKey.gasOverhead);
+    uint minGas = dex.getConfigUint(ConfigKey.gasbase);
     for (uint i = 0; i < makers.length(); i++) {
-      uint gasWanted_i = TestUtils.getOfferInfo(
+      uint gasreq_i = TestUtils.getOfferInfo(
         dex,
-        TestUtils.Info.gasWanted,
+        TestUtils.Info.gasreq,
         offerOf[i]
       );
-      uint provision_i = (gasWanted_i + minGas) *
-        dex.getConfigUint(ConfigKey.penaltyPerGas);
+      uint provision_i = (gasreq_i + minGas) *
+        dex.getConfigUint(ConfigKey.gasprice);
       Test.testEq(
         dex.balanceOf(address(makers.getMaker(i))),
         balances.makersBalanceWei[i] - provision_i,
@@ -444,11 +444,11 @@ contract Dex_Test {
   function saveOffers() internal {
     uint offerId = dex.getBest();
     while (offerId != 0) {
-      (uint wants, uint gives, uint nextId, uint gasWanted, , , ) = dex
+      (uint wants, uint gives, uint nextId, uint gasreq, , , ) = dex
         .getOfferInfo(offerId);
       offers[offerId][TestUtils.Info.makerWants] = wants;
       offers[offerId][TestUtils.Info.makerGives] = gives;
-      offers[offerId][TestUtils.Info.gasWanted] = gasWanted;
+      offers[offerId][TestUtils.Info.gasreq] = gasreq;
       offerId = nextId;
     }
   }
@@ -486,7 +486,7 @@ contract Dex_Test {
   function b_deployDex_beforeAll() public {
     dex = DexPre1.setup(aToken, bToken);
     Display.register(address(dex), "dex");
-    dex.setConfigKey(ConfigKey.takerFee, 300);
+    dex.setConfigKey(ConfigKey.fee, 300);
   }
 
   function c_deployMakersTaker_beforeAll() public {
@@ -523,8 +523,8 @@ contract Dex_Test {
   }
 
   // function zeroDust_test() public {
-  //   try dex.setConfigKey(ConfigKey.dustPerGasWanted, 0)  {
-  //     testFail("zero dustPerGastWanted should revert");
+  //   try dex.setConfigKey(ConfigKey.density, 0)  {
+  //     testFail("zero density should revert");
   //   } catch Error(
   //     string memory /*reason*/
   //   ) {

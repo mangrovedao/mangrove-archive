@@ -74,9 +74,8 @@ contract Maker is IMaker {
     if (msg.sender == admin) {
       address payable dex = selectDex(tk1, tk2);
       dex.transfer(msg.value);
-      uint penaltyPerGas = Dex(dex).getConfigUint(ConfigKey.penaltyPerGas); //current price per gas spent in offer fails
-      uint available = Dex(dex).balanceOf(address(this)) -
-        (penaltyPerGas * execGas); //enabling delegatecall
+      uint gasprice = Dex(dex).getConfigUint(ConfigKey.gasprice); //current price per gas spent in offer fails
+      uint available = Dex(dex).balanceOf(address(this)) - (gasprice * execGas); //enabling delegatecall
       require(available >= 0, "Insufficient funds to push offer."); //better fail early
       Dex(dex).newOffer(wants, gives, execGas, position); // discards offerId
     }
