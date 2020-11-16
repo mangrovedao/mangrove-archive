@@ -8,9 +8,11 @@ import "hardhat/console.sol";
 
 contract TestMaker is IMaker, Passthrough {
   Dex dex;
+  bool shouldFail;
 
   constructor(Dex _dex, bool _failer) {
     dex = _dex;
+    shouldFail = _failer;
   }
 
   event Execute(uint takerWants, uint takerGives, uint gasprice, uint offerId);
@@ -24,6 +26,7 @@ contract TestMaker is IMaker, Passthrough {
     uint offerId
   ) public override {
     emit Execute(takerWants, takerGives, gasprice, offerId);
+    require(!shouldFail);
   }
 
   function newOffer(

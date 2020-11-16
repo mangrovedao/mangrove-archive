@@ -6,6 +6,8 @@ pragma solidity ^0.7.0;
 // Calling test functions sends events which are interpeted by test_solidity.js
 // to display results.
 library Test {
+  event LOG(string message);
+
   event ExpectFrom(address from);
 
   function expectFrom(address from) internal {

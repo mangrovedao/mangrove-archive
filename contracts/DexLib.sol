@@ -93,7 +93,7 @@ library DexLib {
 
   /* # Token transfer */
   //+clear+
-  /* 
+  /*
    `swapTokens` flashloans `takerGives` `REQ_TOKEN` from the taker to the maker and returns false if the loan fails. It then:
   1. Runs `offerDetail.maker`'s `execute` function.
   2. Attempts to send `takerWants` `OFR_TOKEN` from the maker to the taker and reverts if it cannot.
@@ -116,7 +116,6 @@ library DexLib {
         offerDetail.gasprice,
         offerId
       );
-
       require(
         transferToken(ofrToken, offerDetail.maker, msg.sender, takerWants),
         "dex/makerFailToPayTaker"
@@ -279,7 +278,7 @@ library DexLib {
     }
   }
 
-  /* The utility method better 
+  /* The utility method better
     returns false iff the price induced by _(`wants1`,`gives1`)_ is strictly worse than the price induced by _(`wants2`,`gives2`)_. It makes `findPosition` easier to read. */
   function better(
     uint wants1,

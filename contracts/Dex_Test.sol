@@ -204,21 +204,21 @@ library TestInsert {
     TestTaker taker,
     TestToken aToken,
     TestToken bToken
-  ) public returns (uint) {
+  ) public returns (uint[] memory) {
     // each maker publishes an offer
     uint[] memory offerOf = new uint[](makers.length());
     offerOf[1] = TestUtils.newOfferWithGas({
       maker: makers.getMaker(1),
       wants: 1 ether,
       gives: 0.5 ether,
-      gasreq: 3000,
+      gasreq: 7000,
       pivotId: 0
     });
     offerOf[2] = TestUtils.newOfferWithGas({
       maker: makers.getMaker(2),
       wants: 1 ether,
       gives: 0.8 ether,
-      gasreq: 6000,
+      gasreq: 8000,
       pivotId: 1
     });
     offerOf[3] = TestUtils.newOfferWithGas({
@@ -251,6 +251,7 @@ library TestInsert {
         balances.makersBalanceWei[i] - provision_i,
         Display.append("Incorrect wei balance for maker ", Display.uint2str(i))
       );
+      return offerOf;
     }
 
     //Checking offers are correctly positioned (3 > 2 > 1 > 0)
@@ -415,13 +416,14 @@ library TestCollectFailingOffer {
     TestUtils.Balances storage balances,
     mapping(uint => mapping(TestUtils.Info => uint)) storage offers,
     Dex dex,
+    uint failingOfferId,
     MakerDeployer makers,
     TestTaker taker,
     TestToken aToken,
     TestToken bToken
   ) external {
     // executing failing offer
-    try taker.take(1, 0.5 ether) returns (bool success) {
+    try taker.take(failingOfferId, 0.5 ether) returns (bool success) {
       Test.testTrue(!success, "Failer should fail");
     } catch (bytes memory errorMsg) {
       string memory err = abi.decode(errorMsg, (string));
@@ -437,6 +439,8 @@ contract Dex_Test {
   TestToken aToken;
   TestToken bToken;
   TestUtils.Balances balances;
+  uint[] offerOf;
+
   mapping(uint => mapping(TestUtils.Info => uint)) offers;
 
   receive() external payable {}
@@ -477,6 +481,10 @@ contract Dex_Test {
     //console.log("IN BEFORE ALL");
     (aToken, bToken) = DexPre0.setup();
 
+    Test.testNot0x(address(aToken));
+    Test.testNot0x(address(bToken));
+
+    Display.register(address(0), "NULL_ADDRESS");
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "Dex_Test");
     Display.register(address(aToken), "aToken");
@@ -486,6 +494,7 @@ contract Dex_Test {
   function b_deployDex_beforeAll() public {
     dex = DexPre1.setup(aToken, bToken);
     Display.register(address(dex), "dex");
+    Test.testNot0x(address(dex));
     dex.setConfigKey(ConfigKey.fee, 300);
   }
 
@@ -534,27 +543,37 @@ contract Dex_Test {
 
   function a_full_test() public {
     saveBalances();
-    TestInsert.run(balances, dex, makers, taker, aToken, bToken);
+    offerOf = TestInsert.run(balances, dex, makers, taker, aToken, bToken);
+    emit Test.LOG("End of Insert test");
     console.log("End of insert_test, showing OB:");
     Display.logOfferBook(dex);
+
     saveBalances();
     saveOffers();
     TestSnipe.run(balances, offers, dex, makers, taker, aToken, bToken);
+    emit Test.LOG("End of Snipe test");
     console.log("End of snipe_test, showing OB:");
     Display.logOfferBook(dex);
+
     saveBalances();
     saveOffers();
     TestMarketOrder.run(balances, offers, dex, makers, taker, aToken, bToken);
+    emit Test.LOG("End of MarketOrder test");
     console.log("End of marketOrder_test, showing OB:");
     Display.logOfferBook(dex);
+
     TestCollectFailingOffer.run(
       balances,
       offers,
       dex,
+      offerOf[0],
       makers,
       taker,
       aToken,
       bToken
     );
+    emit Test.LOG("end of FailingOffer test");
+    console.log("End of collectFailingOffer_test, showing OB:");
+    Display.logOfferBook(dex);
   }
 }
