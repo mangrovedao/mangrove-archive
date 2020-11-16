@@ -463,11 +463,15 @@ contract Dex {
         );
         /* For punishment purposes (never triggered if `punishLength = 0`), we store the offer id and the gas wasted by the maker */
         if (success) {
+          emit DexEvents.Success(offerId, localTakerWants, localTakerGives);
           takerGot += localTakerWants;
-        } else if (numFailures < punishLength) {
-          failures[2 * numFailures] = offerId;
-          failures[2 * numFailures + 1] = gasUsedIfFailure;
-          numFailures++;
+        } else {
+          emit DexEvents.Failure(offerId, localTakerWants, localTakerGives);
+          if (numFailures < punishLength) {
+            failures[2 * numFailures] = offerId;
+            failures[2 * numFailures + 1] = gasUsedIfFailure;
+            numFailures++;
+          }
         }
       }
       targetIndex++;
