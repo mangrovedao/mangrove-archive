@@ -29,12 +29,12 @@ struct Offer {
   /* * `prev` points to the next best offer, and `next` points to the next worse. The best offer's `prev` is 0, and the last offer's last is 0 as well. _32 bits_. */
   uint32 prev;
   uint32 next;
-  /* * `gives` is the amount of `OFR_TOKEN` the offer will give if successfully executed. 
-     _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to 
+  /* * `gives` is the amount of `OFR_TOKEN` the offer will give if successfully executed.
+     _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
   10 billions. */
   uint96 gives;
   /* * `wants` is the amount of `REQ_TOKEN` the offer wants in exchange for `gives`.
-     _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to 
+     _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
   10 billions. */
   uint96 wants;
 }
@@ -44,7 +44,7 @@ struct Offer {
 /* `OfferDetail`s hold the maker's address and provision/penalty-related information.
 They have the following fields: */
 struct OfferDetail {
-  /* * When an offer is executed, the function `execute` is called at 
+  /* * When an offer is executed, the function `execute` is called at
      the `maker` address, following this interface:
 
        ```
@@ -64,29 +64,29 @@ struct OfferDetail {
 
    */
   address maker;
-  /* * `gasreq` gas will be provided to `execute`. _24 bits wide_, 33% more than the block limit as of late 2020. 
+  /* * `gasreq` gas will be provided to `execute`. _24 bits wide_, 33% more than the block limit as of late 2020.
 
        Around execution, the Dex will:
-       1. Send `wants` `REQ_TOKEN` from `msg.sender` to `maker`, 
+       1. Send `wants` `REQ_TOKEN` from `msg.sender` to `maker`,
        2. Call `IMaker(maker).execute{gas:gasreq}()`,
        3. Send `gives` `OFR_TOKEN` from `maker` to `msg.sender`.
 
        The function `execute` can be arbitrary code. The only requirement is that
-       the transfer at step 3. succeeds. In that case, the offer _succeeds_. 
-       
-       Otherwise the execution reverted and the maker is penalized. 
+       the transfer at step 3. succeeds. In that case, the offer _succeeds_.
+
+       Otherwise the execution reverted and the maker is penalized.
        In that case, the offer _fails_.
 
   */
   uint24 gasreq;
-  /* 
+  /*
      * If an offer fails, `gasprice` is the amount (in wei) taken from the
        provision per unit of gas used. It should approximate the average gas
-       price at offer creation time. 
+       price at offer creation time.
 
        `gasbase` represents the gas overhead used by processing the offer
        inside the Dex. The gas considered used by an offer is at least
-       `gasbase`, and at most `gasreq + gasbase`. 
+       `gasbase`, and at most `gasreq + gasbase`.
 
 
        So, when an offer is created, the maker is asked to provision the
@@ -103,7 +103,7 @@ struct OfferDetail {
        (a global map called `freeWei`).
 
        `gasprice` is **48 bits wide**, which accomodates ~280k gwei / gas.
-       `gasbase` is **24 bits wide**, it could be 16 bits wide but we are 
+       `gasbase` is **24 bits wide**, it could be 16 bits wide but we are
        leaving a margin of safety for future gas repricings.
 
        Both `gasprice` and `gasbase` are also the names of global Dex
@@ -119,7 +119,7 @@ struct OfferDetail {
    All configuration information of the Dex is in a `Config` struct. An enum `ConfigKey` matches the struct fields. Updates and reads go through the Dex'es `getConfig*` (one version per type) and `setConfigKey` (overloaded per type) function. They take a `ConfigKey` as first argument. Configuration fields are:
 */
 struct Config {
-  /* * The `admin`, allowed to change anything in the configuration and irreversibly 
+  /* * The `admin`, allowed to change anything in the configuration and irreversibly
      close the market. It has no other powers. */
   address admin;
   /* * `fee`, in basis points, of `OFR_TOKEN` given to the taker. This fee is sent to the Dex. */
@@ -130,15 +130,15 @@ struct Config {
   uint gasbase;
   /* * `density` is a 'dust' parameter in `OFR_TOKEN` per gas. A weakness of offerbook-based exchanges is that a market offer is not gas-constant. We prevent spamming of low-volume offers by asking for a minimum 'density'. For instance, if `density == 10`, `gasbase == 5` an offer with `gasreq == 30000` must offer promise at least [_10 × (30000 + 5) = 300050_](provision-formula) `OFR_TOKEN`. */
   uint density;
-  /* 
+  /*
     * An offer which asks for more gas than the block limit would live forever on
-    the book. Nobody could take it or remove it, except its creator (who could cancel it). In practice, we will set this parameter to a reasonable limit taking into account both practical transaction sizes and the complexity of maker contracts. 
+    the book. Nobody could take it or remove it, except its creator (who could cancel it). In practice, we will set this parameter to a reasonable limit taking into account both practical transaction sizes and the complexity of maker contracts.
   */
   uint gasmax;
 }
 
-/* Every configuration parameter in the `Config` struct has a counterpart in the `ConfigKey` enum. To get and set the configuration, generic functions (one per type) in `DexLib` 
-   accept a `ConfigKey` as first argument, and the setter functions takes a value 
+/* Every configuration parameter in the `Config` struct has a counterpart in the `ConfigKey` enum. To get and set the configuration, generic functions (one per type) in `DexLib`
+   accept a `ConfigKey` as first argument, and the setter functions takes a value
    as second argument. */
 enum ConfigKey {admin, fee, gasprice, gasbase, density, gasmax}
 
@@ -156,7 +156,6 @@ library DexEvents {
 
   /* * Dex reconfiguration */
   event SetFee(uint value);
-  event SetGasprice(uint value);
   event SetGasmax(uint value);
   event SetDustPerGasWanted(uint value);
   event SetGasprice(uint value);

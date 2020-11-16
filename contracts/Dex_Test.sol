@@ -35,10 +35,10 @@ library DexPre1 {
     Test.testNot0x(address(aToken));
     Test.testNot0x(address(bToken));
     DexDeployer deployer = new DexDeployer(address(this));
+
     deployer.deploy({
       initialDustPerGasWanted: 100,
       initialGasprice: 30000,
-      initialGasprice: 300,
       initialGasmax: 1000000,
       ofrToken: address(aToken),
       reqToken: address(bToken)
