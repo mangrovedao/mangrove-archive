@@ -36,14 +36,14 @@ contract Dex {
 
        Offers specify the amount of `gasreq` they require for successful execution. To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq`. If, after execution an offer, the exchange fails to provide the taker with enough tokens, part of provision is given to the taker in compensation, which depends on the gas actually used by the maker.
 
-       The Dex keeps track of their available balance in the `freeWei` map, which is decremented every time a maker creates a new offer (new offer creation is in `DexLib`). 
+       The Dex keeps track of their available balance in the `freeWei` map, which is decremented every time a maker creates a new offer (new offer creation is in `DexLib`).
    */
   mapping(address => uint) private freeWei;
 
   /* * `lastId` is a counter for offer ids, incremented every time a new offer is created. It can't go above 2^32-1. */
   uint private lastId;
 
-  /* * The configuration, held in a struct defined in `DexCommon.sol` because 
+  /* * The configuration, held in a struct defined in `DexCommon.sol` because
      it is sometimes passed to the library `DexLib` as a storage reference. */
   Config private config;
 
@@ -55,9 +55,9 @@ contract Dex {
   bool public open = true;
   /* * If `reentrancyLock` is true, orders may not be added nor executed.
 
-       Reentrancy during offer execution is not considered safe: 
-       * during execution, an offer could consume other offers further up in the book, effectively frontrunning the taker currently executing the offer. 
-       * it could also cancel other offers, creating a discrepancy between the advertised and actual market price at no cost to the maker. 
+       Reentrancy during offer execution is not considered safe:
+       * during execution, an offer could consume other offers further up in the book, effectively frontrunning the taker currently executing the offer.
+       * it could also cancel other offers, creating a discrepancy between the advertised and actual market price at no cost to the maker.
        * an offer insertion consumes an unbounded amount of gas (because it has to be correctly placed in the book).
 
        Note: An optimization in the `marketOrder` function relies on reentrancy being forbidden (todo: link to optimization).
@@ -112,6 +112,8 @@ contract Dex {
   ) {
     OFR_TOKEN = _OFR_TOKEN;
     REQ_TOKEN = _REQ_TOKEN;
+    emit DexEvents.NewDex(address(this), _OFR_TOKEN, _REQ_TOKEN);
+
     DexLib.setConfigKey(config, ConfigKey.admin, _admin);
     DexLib.setConfigKey(config, ConfigKey.density, _density);
     DexLib.setConfigKey(config, ConfigKey.gasbase, _gasbase);
@@ -153,7 +155,7 @@ contract Dex {
 
   /* The function `newOffer` is for market makers only; no match with the existing book is done. Makers specify how much `REQ_TOKEN` they `want` and how much `OFR_TOKEN` they are willing to `give`. They also specify how much gas should be given when executing their offer.
 
- _`gasreq` will determine the penalty provision set aside by the Dex from the market maker's `freeWei` balance._ 
+ _`gasreq` will determine the penalty provision set aside by the Dex from the market maker's `freeWei` balance._
 
   Offers are always inserted at the correct place in the book (for more on the book data structure, see `DexCommon.sol`). This requires walking through offers to find the correct insertion point. As in [Oasis](https://github.com/daifoundation/maker-otc/blob/master/src/matching_market.sol#L129), Makers should find the id of an offer close to theirs and provide it as `pivotId`.
 
@@ -235,7 +237,7 @@ contract Dex {
 
   function marketOrder(
     /*   ### Arguments */
-    /* A taker calling this function wants to receive `takerWants` `OFR_TOKEN` in return 
+    /* A taker calling this function wants to receive `takerWants` `OFR_TOKEN` in return
        for at most `takerGives` `REQ_TOKEN`.
 
        A regular market order will have `punishLength = 0`, and `offerId = 0`. Any other `punishLength` and `offerId` are for book cleaning (see `punishingMarketOrder`).
@@ -290,7 +292,7 @@ contract Dex {
     //+clear+
     /* Offers are looped through until:
        * the remaining amount wanted by the taker is smaller than the minimum offer size.
-       (wasteful recomputation of `density * config.gasbase`, avoids "stack too deep" error) 
+       (wasteful recomputation of `density * config.gasbase`, avoids "stack too deep" error)
        * or `offerId == 0`, which means we've gone past the end of the book. */
     while (takerWants >= orderData.minOrderSize && offerId != 0) {
       /* #### `makerWouldWant` */
@@ -329,7 +331,7 @@ contract Dex {
 
           Note that :
            * Partial fulfillment of the amount requested in `localTakerWants` is not taken into account. Any delivery strictly less than `localTakerWants` will be rolled back to before the flashloan.
-           * If the _taker_ failed to deliver the initial loan, `executeOffer` reverts; and thus the entire market order reverted. 
+           * If the _taker_ failed to deliver the initial loan, `executeOffer` reverts; and thus the entire market order reverted.
           */
         } else {
           emit DexEvents.Failure(offerId, localTakerWants, localTakerGives);
@@ -340,22 +342,22 @@ contract Dex {
           }
         }
         /* Finally we prepare for the next loop iteration, if there is one. */
-        /* `deleted` means that the current offer was deleted. 
+        /* `deleted` means that the current offer was deleted.
 
-           After the loop, the last non-deleted offer seen will be stitched to <code>_r_ = offers[pastOfferId]</code> through `prev`/`next` pointers. Let _o~1~_ be the current `offer`, _o~2~_ be the one immediately worse than _o~1~_ (it may be an uninitialized offer), and so on. To summarize what follows: 
+           After the loop, the last non-deleted offer seen will be stitched to <code>_r_ = offers[pastOfferId]</code> through `prev`/`next` pointers. Let _o~1~_ be the current `offer`, _o~2~_ be the one immediately worse than _o~1~_ (it may be an uninitialized offer), and so on. To summarize what follows:
           * If _o~1~_ was `deleted`, we may or may not be at the last loop iteration, but we will stitch _r_ to some _o~i~_, _i > 1_, so we update `offer` to _o~2~_ regardless.
           * Otherwise, we are at the last loop iteration (see below), and we will stitch _r_ to _o~1~_. In that case, we must not update `offer` to _o~2~_.
 
-          Note that if the invariant (`!deleted` → end of `while` loop) does not hold, the market order is completely broken. 
+          Note that if the invariant (`!deleted` → end of `while` loop) does not hold, the market order is completely broken.
 
 
             Proof that we are at the last iteration of the while loop: if what's left in the offer after a successful execution is above the minimum size offer, we update the offer and keep it in the book: in `executeOffer`, the offer is not deleted iff the test below passes (variables renamed for clarity):
            ```
            success &&
-           gives - localTakerwants >= 
+           gives - localTakerwants >=
              density * (gasreq + gasbase)
            ```
-          By `DexLib.setConfigKey`, `density * gasbase > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have 
+          By `DexLib.setConfigKey`, `density * gasbase > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have
           ```
            takerWants == 0 < density * gasbase
           ```
@@ -545,7 +547,7 @@ contract Dex {
       takerGives
     );
 
-    /* After execution, there are four possible outcomes, along 2 axes: the transaction was successful (or not), the offer was consumed to below the absolute dust limit (or not). 
+    /* After execution, there are four possible outcomes, along 2 axes: the transaction was successful (or not), the offer was consumed to below the absolute dust limit (or not).
 
     If the transaction was successful and the offer was not consumed too much, it stays on the book with updated values. */
     if (
@@ -699,7 +701,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
     /* To avoid spurious capture of reverts (for instance a failed `require` in the pre-execution checks),
        `internalPunishingSnipes` returns normally with revert data if it detects a revert.
-       So: 
+       So:
          * If `internalPunishingSnipes` returns normally, then _the sniping **did** revert_ and `retdata` is the revert data. In that case we "re-throw".
          * If it reverts, then _the sniping **did not** revert_ and `retdata` is an array of failed offers. We punish those offers. */
     if (noRevert) {
@@ -756,7 +758,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
     /* To avoid spurious capture of reverts (for instance a failed `require` in the pre-execution checks),
        `internalPunishingMarketOrder` returns normally with revert data if it detects a revert.
-       So: 
+       So:
          * If `internalPunishingMarketOrder` returns normally, then _the market order **did** revert_ and `retdata` is the revert data. In that case we "re-throw".
          * If it reverts, then _the market order **did not** revert_ and `retdata` is an array of failed offers. We punish those offers. */
     if (noRevert) {
