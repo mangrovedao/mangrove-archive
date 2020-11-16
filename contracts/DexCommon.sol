@@ -145,6 +145,9 @@ enum ConfigKey {admin, fee, gasprice, gasbase, density, gasmax}
 /* # Events
 The events emitted for use by various bots are listed here: */
 library DexEvents {
+  /* * Emitted at the creation of the new Dex contract on the pair (req_tk, ofr_tk)*/
+  event NewDex(address dex, address req_tk, address ofr_tk);
+
   event TestEvent(uint);
 
   /* * Dex sends amount to receiver */
