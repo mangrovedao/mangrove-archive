@@ -869,10 +869,19 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   }
 
   // Read a particular offer's information.
+  function getOfferInfo(uint offerId, bool structured)
+    external
+    view
+    returns (Offer memory, OfferDetail memory)
+  {
+    return (offers[offerId], offerDetails[offerId]);
+  }
+
   function getOfferInfo(uint offerId)
     external
     view
     returns (
+      bool,
       uint,
       uint,
       uint,
@@ -887,6 +896,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     Offer memory offer = offers[offerId];
     OfferDetail memory offerDetail = offerDetails[offerId];
     return (
+      isOffer(offer),
       offer.wants,
       offer.gives,
       offer.next,
