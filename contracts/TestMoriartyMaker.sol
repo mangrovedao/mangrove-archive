@@ -8,11 +8,11 @@ import "./Passthrough.sol";
 
 contract TestMoriartyMaker is IMaker, Passthrough {
   Dex dex;
-  bool shouldFail;
+  bool succeed;
 
   constructor(Dex _dex) {
     dex = _dex;
-    shouldFail = false;
+    succeed = true;
   }
 
   function execute(
@@ -21,12 +21,8 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     uint,
     uint
   ) public override {
-    if (shouldFail) {
-      // second call to execute always fails
-      assert(false);
-    } else {
-      shouldFail = true; //consumes dummy offer
-    }
+    require(succeed);
+    succeed = false;
   }
 
   function newOffer(
@@ -36,8 +32,9 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     uint pivotId
   ) public returns (uint) {
     uint offerId = (dex.newOffer(wants, gives, gasreq, pivotId));
-    uint minDustPerGas = dex.getConfigUint(ConfigKey.density);
-    dex.newOffer(0, minDustPerGas, 1, 0); //dummy offer
+    uint density = dex.getConfigUint(ConfigKey.density);
+    uint gasbase = dex.getConfigUint(ConfigKey.gasbase);
+    dex.newOffer(0, density * (gasbase + 1), 1, 0); //dummy offer
     return offerId;
   }
 

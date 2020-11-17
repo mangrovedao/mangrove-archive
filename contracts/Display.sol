@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 
 pragma solidity ^0.7.0;
+pragma experimental ABIEncoderV2;
+
 import "./Dex.sol";
 import "./TestToken.sol";
 import "hardhat/console.sol";
@@ -141,21 +143,16 @@ library Display {
 
     uint c = 0;
     while ((offerId != 0) && (c < size)) {
-      (
-        uint offerWants,
-        uint offerGives,
-        uint offerNextId,
-        ,
-        ,
-        ,
-        address offerMakerAddr
-      ) = dex.getOfferInfo(offerId);
-      wants[c] = offerWants;
-      gives[c] = offerGives;
-      makerAddr[c] = offerMakerAddr;
+      (Offer memory offer, OfferDetail memory od) = dex.getOfferInfo(
+        offerId,
+        true
+      );
+      wants[c] = offer.wants;
+      gives[c] = offer.gives;
+      makerAddr[c] = od.maker;
       offerIds[c] = offerId;
 
-      offerId = offerNextId;
+      offerId = offer.next;
       c++;
     }
     emit OBState(offerIds, wants, gives, makerAddr);
@@ -169,6 +166,7 @@ library Display {
     console.log("-----Best offer: %d-----", dex.getBest());
     while (offerId != 0) {
       (
+        bool exists,
         uint wants,
         uint gives,
         uint nextId,

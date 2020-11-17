@@ -26,7 +26,7 @@ contract TestMaker is IMaker, Passthrough {
     uint offerId
   ) public override {
     emit Execute(takerWants, takerGives, gasprice, offerId);
-    require(!shouldFail);
+    assert(!shouldFail);
   }
 
   function newOffer(

@@ -50,7 +50,17 @@ library Test {
     uint expected,
     string memory message
   ) internal returns (bool) {
-    bool success = actual <= expected;
+    bool success = actual < expected;
+    emit TestLess(success, actual, expected, message);
+    return success;
+  }
+
+  function testMore(
+    uint actual,
+    uint expected,
+    string memory message
+  ) internal returns (bool) {
+    bool success = actual > expected;
     emit TestLess(success, actual, expected, message);
     return success;
   }

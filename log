@@ -1,0 +1,634 @@
+Nothing to compile
+
+
+  Dex_Test
+Event TestNot0x(bool,address)
+ issued by Test/0x610178dA211FEF7D417bC0e6FeD39F05609AD788
+  success: true (bool)
+  addr   : 0x6F1216D1BFe15c98520CA1434FC1d9D57AC95321 (address)
+
+Event TestNot0x(bool,address)
+ issued by Test/0x610178dA211FEF7D417bC0e6FeD39F05609AD788
+  success: true (bool)
+  addr   : 0xdAD42D43ecE0f6e8da8c2BCbC6A25FF6b3922C58 (address)
+
+Event Register(address,string)
+ issued by Display/0x610178dA211FEF7D417bC0e6FeD39F05609AD788
+  addr: 0x0000000000000000000000000000000000000000 (address)
+  name: NULL_ADDRESS (string)
+
+Event Register(address,string)
+ issued by Display/0x610178dA211FEF7D417bC0e6FeD39F05609AD788
+  addr: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 (address)
+  name: Test Runner (string)
+
+Event Register(address,string)
+ issued by Display/0x610178dA211FEF7D417bC0e6FeD39F05609AD788
+  addr: 0x610178dA211FEF7D417bC0e6FeD39F05609AD788 (address)
+  name: Dex_Test (string)
+
+Event Register(address,string)
+ issued by Display/Dex_Test
+  addr: 0x6F1216D1BFe15c98520CA1434FC1d9D57AC95321 (address)
+  name: aToken (string)
+
+Event Register(address,string)
+ issued by Display/Dex_Test
+  addr: 0xdAD42D43ecE0f6e8da8c2BCbC6A25FF6b3922C58 (address)
+  name: bToken (string)
+
+Event TestNot0x(bool,address)
+ issued by Test/Dex_Test
+  success: true (bool)
+  addr   : aToken (address)
+
+Event TestNot0x(bool,address)
+ issued by Test/Dex_Test
+  success: true (bool)
+  addr   : bToken (address)
+
+Event NewDex(address,address,address)
+ issued by DexEvents/0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b
+  dex   : 0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b (address)
+  req_tk: aToken (address)
+  ofr_tk: bToken (address)
+
+Event SetAdmin(address)
+ issued by DexEvents/0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b
+  addr: Dex_Test (address)
+
+Event SetDustPerGasWanted(uint256)
+ issued by DexEvents/0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b
+  value: 100 (uint256)
+
+Event SetGasprice(uint256)
+ issued by DexEvents/0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b
+  value: 30000 (uint256)
+
+Event SetGasprice(uint256)
+ issued by DexEvents/0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b
+  value: 30000 (uint256)
+
+Event SetGasmax(uint256)
+ issued by DexEvents/0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b
+  value: 1000000 (uint256)
+
+Event Register(address,string)
+ issued by Display/Dex_Test
+  addr: 0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b (address)
+  name: dex (string)
+
+Event TestNot0x(bool,address)
+ issued by Test/Dex_Test
+  success: true (bool)
+  addr   : dex (address)
+
+Event SetFee(uint256)
+ issued by DexEvents/dex
+  value: 300 (uint256)
+
+Event TestNot0x(bool,address)
+ issued by Test/Dex_Test
+  success: true (bool)
+  addr   : dex (address)
+
+Event Register(address,string)
+ issued by Display/Dex_Test
+  addr: 0x741D94845F82106DB5E2E6F01C2fC487Bc9EA067 (address)
+  name: maker-1 (string)
+
+Event Register(address,string)
+ issued by Display/Dex_Test
+  addr: 0xFE4b6651936999D7d3dEC3726489655e8E77fa6A (address)
+  name: maker-2 (string)
+
+Event Register(address,string)
+ issued by Display/Dex_Test
+  addr: 0x8398019B9134333876fA1233C20b002aE5B0974e (address)
+  name: maker-3 (string)
+
+Event Register(address,string)
+ issued by Display/Dex_Test
+  addr: 0xe73414042Df1d368f0A06fEbf596Db6A75fD09FE (address)
+  name: failer (string)
+
+Event TestNot0x(bool,address)
+ issued by Test/Dex_Test
+  success: true (bool)
+  addr   : dex (address)
+
+Event Register(address,string)
+ issued by Display/Dex_Test
+  addr: 0x193198556d1DbF455Aa063050eC1Cb039E8acECf (address)
+  name: taker (string)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : failer (address)
+  amount: 10.0 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : NULL_ADDRESS (address)
+  to   : failer (address)
+  value: 5.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : failer (address)
+  spender: dex (address)
+  value  : 5.0 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-1 (address)
+  amount: 10.0 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : NULL_ADDRESS (address)
+  to   : maker-1 (address)
+  value: 5.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : maker-1 (address)
+  spender: dex (address)
+  value  : 5.0 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-2 (address)
+  amount: 10.0 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : NULL_ADDRESS (address)
+  to   : maker-2 (address)
+  value: 5.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : maker-2 (address)
+  spender: dex (address)
+  value  : 5.0 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-3 (address)
+  amount: 10.0 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : NULL_ADDRESS (address)
+  to   : maker-3 (address)
+  value: 5.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : maker-3 (address)
+  spender: dex (address)
+  value  : 5.0 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/bToken
+  from : NULL_ADDRESS (address)
+  to   : taker (address)
+  value: 5.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/bToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 5.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 50.0 ether (uint256)
+
+End of insert_test, showing OB:
+-----Best offer: 3-----
+[offer 3] 0.5 $B/1 $A
+(9000 gas, 30000 to finish, 30000 penalty)
+maker-3
+[offer 2] 1 $B/0.8 $A
+(6000 gas, 30000 to finish, 30000 penalty)
+maker-2
+[offer 1] 1 $B/0.5 $A
+(3000 gas, 30000 to finish, 30000 penalty)
+maker-1
+[offer 4] 20 $B/10 $A
+(1000000 gas, 30000 to finish, 30000 penalty)
+failer
+-----------------------
+End of snipe_test, showing OB:
+-----Best offer: 3-----
+[offer 3] 0.5 $B/1 $A
+(9000 gas, 30000 to finish, 30000 penalty)
+maker-3
+[offer 2] 0.625 $B/0.5 $A
+(6000 gas, 30000 to finish, 30000 penalty)
+maker-2
+[offer 1] 1 $B/0.5 $A
+(3000 gas, 30000 to finish, 30000 penalty)
+maker-1
+[offer 4] 20 $B/10 $A
+(1000000 gas, 30000 to finish, 30000 penalty)
+failer
+-----------------------
+End of marketOrder_test, showing OB:
+-----Best offer: 0-----
+-----------------------
+End of collectFailingOffer_test, showing OB:
+-----Best offer: 0-----
+-----------------------
+Event Debit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-1 (address)
+  amount: 990000000 (uint256)
+
+Event NewOffer(address,uint256,uint256,uint256,uint256)
+ issued by DexEvents/dex
+  maker  : maker-1 (address)
+  wants  : 1.0 ether (uint256)
+  gives  : 0.5 ether (uint256)
+  gasreq : 3000 (uint256)
+  offerId: 1 (uint256)
+
+Event GasCost(string,uint256)
+ issued by Test/Dex_Test
+  callname: newOffer (string)
+  value   : 134112 (uint256)
+
+Event Debit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-2 (address)
+  amount: 1.08 gwei (uint256)
+
+Event NewOffer(address,uint256,uint256,uint256,uint256)
+ issued by DexEvents/dex
+  maker  : maker-2 (address)
+  wants  : 1.0 ether (uint256)
+  gives  : 0.8 ether (uint256)
+  gasreq : 6000 (uint256)
+  offerId: 2 (uint256)
+
+Event GasCost(string,uint256)
+ issued by Test/Dex_Test
+  callname: newOffer (string)
+  value   : 93695 (uint256)
+
+Event Debit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-3 (address)
+  amount: 1.17 gwei (uint256)
+
+Event NewOffer(address,uint256,uint256,uint256,uint256)
+ issued by DexEvents/dex
+  maker  : maker-3 (address)
+  wants  : 0.5 ether (uint256)
+  gives  : 1.0 ether (uint256)
+  gasreq : 9000 (uint256)
+  offerId: 3 (uint256)
+
+Event GasCost(string,uint256)
+ issued by Test/Dex_Test
+  callname: newOffer (string)
+  value   : 97453 (uint256)
+
+Event Debit(address,uint256)
+ issued by DexEvents/dex
+  maker : failer (address)
+  amount: 30.9 gwei (uint256)
+
+Event NewOffer(address,uint256,uint256,uint256,uint256)
+ issued by DexEvents/dex
+  maker  : failer (address)
+  wants  : 20.0 ether (uint256)
+  gives  : 10.0 ether (uint256)
+  gasreq : 1000000 (uint256)
+  offerId: 4 (uint256)
+
+Event GasCost(string,uint256)
+ issued by Test/Dex_Test
+  callname: newOffer (string)
+  value   : 104674 (uint256)
+
+Event TestEqUint(bool,uint256,uint256,string)
+ issued by Test/Dex_Test
+  success : true (bool)
+  actual  : 9.9999999691 ether (uint256)
+  expected: 9.9999999691 ether (uint256)
+  message : Incorrect wei balance for maker 0 (string)
+
+Event LOG(string)
+ issued by Test/Dex_Test
+  message: Insert (string)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/bToken
+  from : taker (address)
+  to   : maker-2 (address)
+  value: 0.375 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/bToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 4.625 ether (uint256)
+
+Event Execute(uint256,uint256,uint256,uint256)
+ issued by TestMaker/maker-2
+  takerWants: 0.3 ether (uint256)
+  takerGives: 0.375 ether (uint256)
+  gasprice  : 30000 (uint256)
+  offerId   : 2 (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : maker-2 (address)
+  to   : taker (address)
+  value: 0.3 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : maker-2 (address)
+  spender: dex (address)
+  value  : 4.7 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-2 (address)
+  amount: 1.08 gwei (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : taker (address)
+  to   : dex (address)
+  value: 0.009 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 49.991 ether (uint256)
+
+Event GasCost(string,uint256)
+ issued by Test/Dex_Test
+  callname: snipe (string)
+  value   : 164593 (uint256)
+
+Event TestTrue(bool,string)
+ issued by Test/Dex_Test
+  success: true (bool)
+  message: snipe should be a success (string)
+
+Event TestEqUint(bool,uint256,uint256,string)
+ issued by Test/Dex_Test
+  success : true (bool)
+  actual  : 0.009 ether (uint256)
+  expected: 0.009 ether (uint256)
+  message : incorrect Dex A balance (string)
+
+Event TestEqUint(bool,uint256,uint256,string)
+ issued by Test/Dex_Test
+  success : true (bool)
+  actual  : 4.625 ether (uint256)
+  expected: 4.625 ether (uint256)
+  message : incorrect taker B balance (string)
+
+Event TestEqUint(bool,uint256,uint256,string)
+ issued by Test/Dex_Test
+  success : true (bool)
+  actual  : 0.291 ether (uint256)
+  expected: 0.291 ether (uint256)
+  message : incorrect taker A balance (string)
+
+Event TestEqUint(bool,uint256,uint256,string)
+ issued by Test/Dex_Test
+  success : true (bool)
+  actual  : 4.7 ether (uint256)
+  expected: 4.7 ether (uint256)
+  message : incorrect maker A balance (string)
+
+Event TestEqUint(bool,uint256,uint256,string)
+ issued by Test/Dex_Test
+  success : true (bool)
+  actual  : 0.375 ether (uint256)
+  expected: 0.375 ether (uint256)
+  message : incorrect maker B balance (string)
+
+Event TestEqUint(bool,uint256,uint256,string)
+ issued by Test/Dex_Test
+  success : true (bool)
+  actual  : 0.5 ether (uint256)
+  expected: 0.5 ether (uint256)
+  message : Incorrect residual offer (gives) (string)
+
+Event TestEqUint(bool,uint256,uint256,string)
+ issued by Test/Dex_Test
+  success : true (bool)
+  actual  : 0.625 ether (uint256)
+  expected: 0.625 ether (uint256)
+  message : Incorrect residual offer (wants) (string)
+
+Event LOG(string)
+ issued by Test/Dex_Test
+  message: Snipe (string)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/bToken
+  from : taker (address)
+  to   : maker-3 (address)
+  value: 0.5 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/bToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 4.125 ether (uint256)
+
+Event Execute(uint256,uint256,uint256,uint256)
+ issued by TestMaker/maker-3
+  takerWants: 1.0 ether (uint256)
+  takerGives: 0.5 ether (uint256)
+  gasprice  : 30000 (uint256)
+  offerId   : 3 (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : maker-3 (address)
+  to   : taker (address)
+  value: 1.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : maker-3 (address)
+  spender: dex (address)
+  value  : 4.0 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-3 (address)
+  amount: 1.17 gwei (uint256)
+
+Event DeleteOffer(uint256)
+ issued by DexEvents/dex
+  offerId: 3 (uint256)
+
+Event Success(uint256,uint256,uint256)
+ issued by DexEvents/dex
+  offerId   : 3 (uint256)
+  takerWants: 1.0 ether (uint256)
+  takerGives: 0.5 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/bToken
+  from : taker (address)
+  to   : maker-2 (address)
+  value: 0.625 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/bToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 3.5 ether (uint256)
+
+Event Execute(uint256,uint256,uint256,uint256)
+ issued by TestMaker/maker-2
+  takerWants: 0.5 ether (uint256)
+  takerGives: 0.625 ether (uint256)
+  gasprice  : 30000 (uint256)
+  offerId   : 2 (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : maker-2 (address)
+  to   : taker (address)
+  value: 0.5 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : maker-2 (address)
+  spender: dex (address)
+  value  : 4.2 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-2 (address)
+  amount: 1.08 gwei (uint256)
+
+Event DeleteOffer(uint256)
+ issued by DexEvents/dex
+  offerId: 2 (uint256)
+
+Event Success(uint256,uint256,uint256)
+ issued by DexEvents/dex
+  offerId   : 2 (uint256)
+  takerWants: 0.5 ether (uint256)
+  takerGives: 0.625 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-1 (address)
+  amount: 0 (uint256)
+
+Event DeleteOffer(uint256)
+ issued by DexEvents/dex
+  offerId: 1 (uint256)
+
+Event Failure(uint256,uint256,uint256)
+ issued by DexEvents/dex
+  offerId   : 1 (uint256)
+  takerWants: 0.1 ether (uint256)
+  takerGives: 0.2 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : failer (address)
+  amount: 0 (uint256)
+
+Event DeleteOffer(uint256)
+ issued by DexEvents/dex
+  offerId: 4 (uint256)
+
+Event Failure(uint256,uint256,uint256)
+ issued by DexEvents/dex
+  offerId   : 4 (uint256)
+  takerWants: 0.1 ether (uint256)
+  takerGives: 0.2 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : taker (address)
+  to   : dex (address)
+  value: 0.045 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 49.946 ether (uint256)
+
+Event GasCost(string,uint256)
+ issued by Test/Dex_Test
+  callname: marketOrder (string)
+  value   : 1362155 (uint256)
+
+Event TestEqUint(bool,uint256,uint256,string)
+ issued by Test/Dex_Test
+  success : true (bool)
+  actual  : 4.2 ether (uint256)
+  expected: 4.2 ether (uint256)
+  message : Incorrect A balance for maker 2 (string)
+
+Event TestEqUint(bool,uint256,uint256,string)
+ issued by Test/Dex_Test
+  success : true (bool)
+  actual  : 1.0 ether (uint256)
+  expected: 1.0 ether (uint256)
+  message : Incorrect B balance for maker 2 (string)
+
+Event TestEqUint(bool,uint256,uint256,string)
+ issued by Test/Dex_Test
+  success : true (bool)
+  actual  : 4.0 ether (uint256)
+  expected: 4.0 ether (uint256)
+  message : Incorrect A balance for maker 3 (string)
+
+Event TestEqUint(bool,uint256,uint256,string)
+ issued by Test/Dex_Test
+  success : true (bool)
+  actual  : 0.5 ether (uint256)
+  expected: 0.5 ether (uint256)
+  message : Incorrect B balance for maker 3 (string)
+
+Event TestEqUint(bool,uint256,uint256,string)
+ issued by Test/Dex_Test
+  success : false (bool)
+  actual  : 5.0 ether (uint256)
+  expected: 4.9 ether (uint256)
+  message : Incorrect A balance for maker 1 (string)
+
+    1) Dex_Test.a_full_test()
+
+
+  0 passing (9s)
+  1 failing
+
+  1) Dex_Test
+       Dex_Test.a_full_test():
+     AssertionError: Incorrect A balance for maker 1
+Expected: 4.9 ether
+Actual:   5.0 ether
+      at Object.genericFail [as trigger] (lib/test_solidity.js:83:14)
+      at processLogs (lib/test_solidity.js:240:39)
+      at Context.<anonymous> (lib/test_solidity.js:355:15)
+      at runMicrotasks (<anonymous>)
+      at processTicksAndRejections (internal/process/task_queues.js:93:5)
+
+
+
+

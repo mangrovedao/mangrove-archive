@@ -1,0 +1,433 @@
+Compiling 11 files with 0.7.4
+Compilation finished successfully
+
+
+  Dex_Test
+Event NewDex(address,address,address)
+ issued by DexEvents/0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b
+  dex   : 0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b (address)
+  req_tk: aToken (address)
+  ofr_tk: bToken (address)
+
+Event SetAdmin(address)
+ issued by DexEvents/0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b
+  addr: Dex_Test (address)
+
+Event SetDustPerGasWanted(uint256)
+ issued by DexEvents/0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b
+  value: 100 (uint256)
+
+Event SetGasprice(uint256)
+ issued by DexEvents/0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b
+  value: 30000 (uint256)
+
+Event SetGasprice(uint256)
+ issued by DexEvents/0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b
+  value: 30000 (uint256)
+
+Event SetGasmax(uint256)
+ issued by DexEvents/0x81D1bcD9E6ee66D92d0b5C87C0bffBAe617f9C9b
+  value: 1000000 (uint256)
+
+Event SetFee(uint256)
+ issued by DexEvents/dex
+  value: 300 (uint256)
+
+Event Receive(address,uint256)
+ issued by DexEvents/dex
+  sender: failer (address)
+  amount: 10.0 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : failer (address)
+  amount: 10.0 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : NULL_ADDRESS (address)
+  to   : failer (address)
+  value: 5.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : failer (address)
+  spender: dex (address)
+  value  : 5.0 ether (uint256)
+
+Event Receive(address,uint256)
+ issued by DexEvents/dex
+  sender: maker-1 (address)
+  amount: 10.0 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-1 (address)
+  amount: 10.0 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : NULL_ADDRESS (address)
+  to   : maker-1 (address)
+  value: 5.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : maker-1 (address)
+  spender: dex (address)
+  value  : 5.0 ether (uint256)
+
+Event Receive(address,uint256)
+ issued by DexEvents/dex
+  sender: maker-2 (address)
+  amount: 10.0 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-2 (address)
+  amount: 10.0 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : NULL_ADDRESS (address)
+  to   : maker-2 (address)
+  value: 5.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : maker-2 (address)
+  spender: dex (address)
+  value  : 5.0 ether (uint256)
+
+Event Receive(address,uint256)
+ issued by DexEvents/dex
+  sender: maker-3 (address)
+  amount: 10.0 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-3 (address)
+  amount: 10.0 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : NULL_ADDRESS (address)
+  to   : maker-3 (address)
+  value: 5.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : maker-3 (address)
+  spender: dex (address)
+  value  : 5.0 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/bToken
+  from : NULL_ADDRESS (address)
+  to   : taker (address)
+  value: 5.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/bToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 5.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 50.0 ether (uint256)
+
+Event Debit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-1 (address)
+  amount: 1.11 gwei (uint256)
+
+Event NewOffer(address,uint256,uint256,uint256,uint256)
+ issued by DexEvents/dex
+  maker  : maker-1 (address)
+  wants  : 1.0 ether (uint256)
+  gives  : 0.5 ether (uint256)
+  gasreq : 7000 (uint256)
+  offerId: 1 (uint256)
+
+Event Debit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-2 (address)
+  amount: 1.14 gwei (uint256)
+
+Event NewOffer(address,uint256,uint256,uint256,uint256)
+ issued by DexEvents/dex
+  maker  : maker-2 (address)
+  wants  : 1.0 ether (uint256)
+  gives  : 0.8 ether (uint256)
+  gasreq : 8000 (uint256)
+  offerId: 2 (uint256)
+
+Event Debit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-3 (address)
+  amount: 1.17 gwei (uint256)
+
+Event NewOffer(address,uint256,uint256,uint256,uint256)
+ issued by DexEvents/dex
+  maker  : maker-3 (address)
+  wants  : 0.5 ether (uint256)
+  gives  : 1.0 ether (uint256)
+  gasreq : 9000 (uint256)
+  offerId: 3 (uint256)
+
+Event Debit(address,uint256)
+ issued by DexEvents/dex
+  maker : failer (address)
+  amount: 30.9 gwei (uint256)
+
+Event NewOffer(address,uint256,uint256,uint256,uint256)
+ issued by DexEvents/dex
+  maker  : failer (address)
+  wants  : 20.0 ether (uint256)
+  gives  : 10.0 ether (uint256)
+  gasreq : 1000000 (uint256)
+  offerId: 4 (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/bToken
+  from : taker (address)
+  to   : maker-2 (address)
+  value: 0.375 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/bToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 4.625 ether (uint256)
+
+Event Execute(uint256,uint256,uint256,uint256)
+ issued by TestMaker/maker-2
+  takerWants: 0.3 ether (uint256)
+  takerGives: 0.375 ether (uint256)
+  gasprice  : 30000 (uint256)
+  offerId   : 2 (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : maker-2 (address)
+  to   : taker (address)
+  value: 0.3 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : maker-2 (address)
+  spender: dex (address)
+  value  : 4.7 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-2 (address)
+  amount: 1.14 gwei (uint256)
+
+Event Success(uint256,uint256,uint256)
+ issued by DexEvents/dex
+  offerId   : 2 (uint256)
+  takerWants: 0.3 ether (uint256)
+  takerGives: 0.375 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : taker (address)
+  to   : dex (address)
+  value: 0.009 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 49.991 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/bToken
+  from : taker (address)
+  to   : maker-3 (address)
+  value: 0.5 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/bToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 4.125 ether (uint256)
+
+Event Execute(uint256,uint256,uint256,uint256)
+ issued by TestMaker/maker-3
+  takerWants: 1.0 ether (uint256)
+  takerGives: 0.5 ether (uint256)
+  gasprice  : 30000 (uint256)
+  offerId   : 3 (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : maker-3 (address)
+  to   : taker (address)
+  value: 1.0 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : maker-3 (address)
+  spender: dex (address)
+  value  : 4.0 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-3 (address)
+  amount: 1.17 gwei (uint256)
+
+Event DeleteOffer(uint256)
+ issued by DexEvents/dex
+  offerId: 3 (uint256)
+
+Event Success(uint256,uint256,uint256)
+ issued by DexEvents/dex
+  offerId   : 3 (uint256)
+  takerWants: 1.0 ether (uint256)
+  takerGives: 0.5 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/bToken
+  from : taker (address)
+  to   : maker-2 (address)
+  value: 0.625 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/bToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 3.5 ether (uint256)
+
+Event Execute(uint256,uint256,uint256,uint256)
+ issued by TestMaker/maker-2
+  takerWants: 0.5 ether (uint256)
+  takerGives: 0.625 ether (uint256)
+  gasprice  : 30000 (uint256)
+  offerId   : 2 (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : maker-2 (address)
+  to   : taker (address)
+  value: 0.5 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : maker-2 (address)
+  spender: dex (address)
+  value  : 4.2 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-2 (address)
+  amount: 1.14 gwei (uint256)
+
+Event DeleteOffer(uint256)
+ issued by DexEvents/dex
+  offerId: 2 (uint256)
+
+Event Success(uint256,uint256,uint256)
+ issued by DexEvents/dex
+  offerId   : 2 (uint256)
+  takerWants: 0.5 ether (uint256)
+  takerGives: 0.625 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/bToken
+  from : taker (address)
+  to   : maker-1 (address)
+  value: 0.2 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/bToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 3.3 ether (uint256)
+
+Event Execute(uint256,uint256,uint256,uint256)
+ issued by TestMaker/maker-1
+  takerWants: 0.1 ether (uint256)
+  takerGives: 0.2 ether (uint256)
+  gasprice  : 30000 (uint256)
+  offerId   : 1 (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : maker-1 (address)
+  to   : taker (address)
+  value: 0.1 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : maker-1 (address)
+  spender: dex (address)
+  value  : 4.9 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : maker-1 (address)
+  amount: 1.11 gwei (uint256)
+
+Event Success(uint256,uint256,uint256)
+ issued by DexEvents/dex
+  offerId   : 1 (uint256)
+  takerWants: 0.1 ether (uint256)
+  takerGives: 0.2 ether (uint256)
+
+Event Transfer(address,address,uint256)
+ issued by ERC20/aToken
+  from : taker (address)
+  to   : dex (address)
+  value: 0.048 ether (uint256)
+
+Event Approval(address,address,uint256)
+ issued by ERC20/aToken
+  owner  : taker (address)
+  spender: dex (address)
+  value  : 49.943 ether (uint256)
+
+Event Credit(address,uint256)
+ issued by DexEvents/dex
+  maker : failer (address)
+  amount: 28.68462 gwei (uint256)
+
+Event Transfer(address,uint256)
+ issued by DexEvents/dex
+  receiver: taker (address)
+  amout   : 2.21538 gwei (uint256)
+
+Event DeleteOffer(uint256)
+ issued by DexEvents/dex
+  offerId: 4 (uint256)
+
+Event Failure(uint256,uint256,uint256)
+ issued by DexEvents/dex
+  offerId   : 4 (uint256)
+  takerWants: 0.5 ether (uint256)
+  takerGives: 1.0 ether (uint256)
+
+    1) Dex_Test.a_full_test()
+
+
+  0 passing (9s)
+  1 failing
+
+  1) Dex_Test
+       Dex_Test.a_full_test():
+     AssertionError: Dex has not transfered the expected penalty to taker
+Expected: 40.00000002868462 ether
+Actual:   39.99999999778462 ether
+      at Object.genericFail [as trigger] (lib/test_solidity.js:83:14)
+      at processLogs (lib/test_solidity.js:247:39)
+      at Context.<anonymous> (lib/test_solidity.js:362:15)
+      at runMicrotasks (<anonymous>)
+      at processTicksAndRejections (internal/process/task_queues.js:93:5)
+
+
+
+

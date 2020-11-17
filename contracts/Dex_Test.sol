@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 
 pragma solidity ^0.7.0;
+pragma experimental ABIEncoderV2;
 
 import "./Test.sol";
 import "./DexDeployer.sol";
@@ -8,6 +9,7 @@ import "./Dex.sol";
 import "./DexCommon.sol";
 import "./TestToken.sol";
 import "./TestMaker.sol";
+import "./TestMoriartyMaker.sol";
 import "./MakerDeployer.sol";
 import "./TestTaker.sol";
 import "./interfaces.sol";
@@ -64,6 +66,7 @@ library DexPre3 {
 
 library TestUtils {
   struct Balances {
+    uint dexBalanceWei;
     uint dexBalanceFees;
     uint takerBalanceA;
     uint takerBalanceB;
@@ -78,39 +81,39 @@ library TestUtils {
     return ((price * dex.getConfigUint(ConfigKey.fee)) / 10000);
   }
 
+  function getProvision(Dex dex, uint gasreq) internal view returns (uint) {
+    return ((gasreq + dex.getConfigUint(ConfigKey.gasbase)) *
+      dex.getConfigUint(ConfigKey.gasprice));
+  }
+
   function getOfferInfo(
     Dex dex,
     Info infKey,
     uint offerId
   ) internal returns (uint) {
-    (
-      uint makerWants,
-      uint makerGives,
-      uint nextId,
-      uint gasreq,
-      uint gasbase,
-      uint gasprice,
-
-    ) = dex.getOfferInfo(offerId);
+    (Offer memory offer, OfferDetail memory offerDetail) = dex.getOfferInfo(
+      offerId,
+      true
+    );
     if (infKey == Info.makerWants) {
-      return makerWants;
+      return offer.wants;
     }
     if (infKey == Info.makerGives) {
-      return makerGives;
+      return offer.gives;
     }
     if (infKey == Info.nextId) {
-      return nextId;
+      return offer.next;
     }
     if (infKey == Info.gasreq) {
-      return gasreq;
+      return offerDetail.gasreq;
     } else {
-      return gasprice;
+      return offerDetail.gasprice;
     }
   }
 
   function makerOf(Dex dex, uint offerId) internal returns (address) {
-    (, , , , , , address maker) = dex.getOfferInfo(offerId);
-    return maker;
+    (, OfferDetail memory od) = dex.getOfferInfo(offerId, true);
+    return od.maker;
   }
 
   function _snipe(
@@ -229,7 +232,6 @@ library TestInsert {
       gasreq: 9000,
       pivotId: 72
     });
-
     offerOf[0] = TestUtils.newOfferWithGas({
       maker: makers.getMaker(0), //failer
       wants: 20 ether,
@@ -237,31 +239,32 @@ library TestInsert {
       gasreq: dex.getConfigUint(ConfigKey.gasmax),
       pivotId: 0
     });
+
     //Checking makers have correctly provisoned their offers
-    uint minGas = dex.getConfigUint(ConfigKey.gasbase);
     for (uint i = 0; i < makers.length(); i++) {
       uint gasreq_i = TestUtils.getOfferInfo(
         dex,
         TestUtils.Info.gasreq,
         offerOf[i]
       );
-      uint provision_i = (gasreq_i + minGas) *
-        dex.getConfigUint(ConfigKey.gasprice);
+      uint provision_i = TestUtils.getProvision(dex, gasreq_i);
       Test.testEq(
         dex.balanceOf(address(makers.getMaker(i))),
         balances.makersBalanceWei[i] - provision_i,
         Display.append("Incorrect wei balance for maker ", Display.uint2str(i))
       );
-      return offerOf;
     }
 
     //Checking offers are correctly positioned (3 > 2 > 1 > 0)
     uint offerId = dex.best();
     uint expected_maker = 3;
     while (offerId != 0) {
-      (, , uint nextId, , , , address makerAddr) = dex.getOfferInfo(offerId);
+      (Offer memory offer, OfferDetail memory od) = dex.getOfferInfo(
+        offerId,
+        true
+      );
       Test.testEq(
-        makerAddr,
+        od.maker,
         address(makers.getMaker(expected_maker)),
         Display.append(
           "Incorrect maker address at offer ",
@@ -270,8 +273,9 @@ library TestInsert {
       );
 
       expected_maker -= 1;
-      offerId = nextId;
+      offerId = offer.next;
     }
+    return offerOf;
   }
 }
 
@@ -291,9 +295,10 @@ library TestSnipe {
 
     //(uint init_mkr_wants, uint init_mkr_gives,,,,,)=dex.getOfferInfo(2);
     //---------------SNIPE------------------//
-    bool success = TestUtils.snipeWithGas(taker, snipedId, orderAmount);
-    Test.testTrue(success, "snipe should be a success");
-
+    Test.testTrue(
+      TestUtils.snipeWithGas(taker, snipedId, orderAmount),
+      "snipe should be a success"
+    );
     Test.testEq(
       aToken.balanceOf(address(dex)), //actual
       balances.dexBalanceFees + TestUtils.getFee(dex, orderAmount), //expected
@@ -311,7 +316,6 @@ library TestSnipe {
       balances.takerBalanceA + orderAmount - TestUtils.getFee(dex, orderAmount), // expected
       "incorrect taker A balance"
     );
-
     Test.testEq(
       aToken.balanceOf(address(maker)),
       balances.makersBalanceA[snipedId] - orderAmount,
@@ -325,7 +329,9 @@ library TestSnipe {
       "incorrect maker B balance"
     );
     // Testing residual offer
-    (uint makerWants, uint makerGives, , , , , ) = dex.getOfferInfo(snipedId);
+    (bool exists, uint makerWants, uint makerGives, , , , , ) = dex
+      .getOfferInfo(snipedId);
+    Test.TestTrue(exists, "Offer should have a residual");
     Test.testEq(
       makerGives,
       offers[snipedId][TestUtils.Info.makerGives] - orderAmount,
@@ -425,11 +431,53 @@ library TestCollectFailingOffer {
   ) external {
     // executing failing offer
     try taker.take(failingOfferId, 0.5 ether) returns (bool success) {
+      // take should return false not throw
       Test.testTrue(!success, "Failer should fail");
+      // failingOffer should have been removed from Dex
+      (bool exists, , , , , , , ) = dex.getOfferInfo(failingOfferId);
+      Test.testTrue(!exists, "Failing offer should have been removed from Dex");
+      uint returned = dex.balanceOf(address(makers.getMaker(0))) -
+        balances.makersBalanceWei[0];
+      uint provision = TestUtils.getProvision(
+        dex,
+        offers[failingOfferId][TestUtils.Info.gasreq]
+      );
+      Test.testEq(
+        address(dex).balance,
+        balances.dexBalanceWei - (provision - returned),
+        "Dex has not send enough money to taker"
+      );
     } catch (bytes memory errorMsg) {
       string memory err = abi.decode(errorMsg, (string));
       Test.testFail(err);
     }
+  }
+}
+
+library TestMoriarty {
+  function run(
+    Dex dex,
+    TestTaker taker,
+    TestToken aToken,
+    TestToken bToken
+  ) external {
+    TestMoriartyMaker evil = new TestMoriartyMaker(dex);
+    Display.register(address(evil), "Moriarty");
+
+    (bool success, ) = address(evil).call{gas: gasleft(), value: 20 ether}(""); // msg.value is distributed evenly amongst makers
+    require(success, "maker transfer");
+    evil.provisionDex(10 ether);
+    aToken.mint(address(evil), 5 ether);
+    evil.approve(aToken, 5 ether);
+
+    uint offerId = evil.newOffer({
+      wants: 1 ether,
+      gives: 0.5 ether,
+      gasreq: 7000,
+      pivotId: 0
+    });
+    taker.marketOrder({wants: 1 ether, gives: 1 ether});
+    // TODO test deepSnipe procedure
   }
 }
 
@@ -449,12 +497,14 @@ contract Dex_Test {
   function saveOffers() internal {
     uint offerId = dex.getBest();
     while (offerId != 0) {
-      (uint wants, uint gives, uint nextId, uint gasreq, , , ) = dex
-        .getOfferInfo(offerId);
-      offers[offerId][TestUtils.Info.makerWants] = wants;
-      offers[offerId][TestUtils.Info.makerGives] = gives;
-      offers[offerId][TestUtils.Info.gasreq] = gasreq;
-      offerId = nextId;
+      (Offer memory offer, OfferDetail memory offerDetail) = dex.getOfferInfo(
+        offerId,
+        true
+      );
+      offers[offerId][TestUtils.Info.makerWants] = offer.wants;
+      offers[offerId][TestUtils.Info.makerGives] = offer.gives;
+      offers[offerId][TestUtils.Info.gasreq] = offerDetail.gasreq;
+      offerId = offer.next;
     }
   }
 
@@ -468,6 +518,7 @@ contract Dex_Test {
       balWei[i] = dex.balanceOf(address(makers.getMaker(i)));
     }
     balances = TestUtils.Balances({
+      dexBalanceWei: address(dex).balance,
       dexBalanceFees: aToken.balanceOf(address(dex)),
       takerBalanceA: aToken.balanceOf(address(taker)),
       takerBalanceB: bToken.balanceOf(address(taker)),
@@ -532,39 +583,36 @@ contract Dex_Test {
     taker.approve(aToken, 50 ether);
   }
 
-  // function zeroDust_test() public {
-  //   try dex.setConfigKey(ConfigKey.density, 0)  {
-  //     testFail("zero density should revert");
-  //   } catch Error(
-  //     string memory /*reason*/
-  //   ) {
-  //     testSuccess();
-  //   }
-  // }
+  function zeroDust_test() public {
+    try dex.setConfigKey(ConfigKey.density, 0)  {
+      Test.testFail("zero density should revert");
+    } catch Error(
+      string memory /*reason*/
+    ) {
+      Test.testSuccess();
+    }
+  }
 
   function a_full_test() public {
     saveBalances();
     offerOf = TestInsert.run(balances, dex, makers, taker, aToken, bToken);
     emit Test.LOG("End of Insert test");
-    console.log("End of insert_test, showing OB:");
-    Display.printOfferBook(dex);
+    Display.logOfferBook(dex, 4);
 
     saveBalances();
     saveOffers();
     TestSnipe.run(balances, offers, dex, makers, taker, aToken, bToken);
     emit Test.LOG("End of Snipe test");
-    console.log("End of snipe_test, showing OB:");
-    Display.printOfferBook(dex);
     Display.logOfferBook(dex, 4);
 
     saveBalances();
     saveOffers();
     TestMarketOrder.run(balances, offers, dex, makers, taker, aToken, bToken);
     emit Test.LOG("End of MarketOrder test");
-    console.log("End of marketOrder_test, showing OB:");
-    Display.printOfferBook(dex);
     Display.logOfferBook(dex, 4);
 
+    saveBalances();
+    saveOffers();
     TestCollectFailingOffer.run(
       balances,
       offers,
@@ -576,8 +624,14 @@ contract Dex_Test {
       bToken
     );
     emit Test.LOG("end of FailingOffer test");
-    console.log("End of collectFailingOffer_test, showing OB:");
-    Display.printOfferBook(dex);
     Display.logOfferBook(dex, 4);
+    // test cancel orders
+    // test closeMarket
+    // test withdraw
+    // test reintrant offer
+  }
+
+  function b_test() public {
+    TestMoriarty.run(dex, taker, aToken, bToken);
   }
 }
