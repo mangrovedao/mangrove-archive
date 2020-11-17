@@ -199,7 +199,9 @@ contract Dex {
     dirtyDeleteOffer(offerId);
     stitchOffers(offer.prev, offer.next);
 
-    provision = offerDetail.gasprice * offerDetail.gasreq;
+    provision =
+      offerDetail.gasprice *
+      (offerDetail.gasreq + offerDetail.gasbase);
     DexLib.creditWei(freeWei, msg.sender, provision);
     emit DexEvents.CancelOffer(offerId);
   }
