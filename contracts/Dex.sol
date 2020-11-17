@@ -93,11 +93,11 @@ contract Dex {
     REQ_TOKEN = _REQ_TOKEN;
     emit DexEvents.NewDex(address(this), _OFR_TOKEN, _REQ_TOKEN);
 
-    DexLib.setConfigKey(config, ConfigKey.admin, _admin);
-    DexLib.setConfigKey(config, ConfigKey.density, _density);
-    DexLib.setConfigKey(config, ConfigKey.gasbase, _gasbase);
-    DexLib.setConfigKey(config, ConfigKey.gasprice, _gasprice);
-    DexLib.setConfigKey(config, ConfigKey.gasmax, _gasmax);
+    DexLib.setConfig(config, ConfigKey.admin, _admin);
+    DexLib.setConfig(config, ConfigKey.density, _density);
+    DexLib.setConfig(config, ConfigKey.gasbase, _gasbase);
+    DexLib.setConfig(config, ConfigKey.gasprice, _gasprice);
+    DexLib.setConfig(config, ConfigKey.gasmax, _gasmax);
   }
 
   /*
@@ -366,7 +366,7 @@ contract Dex {
            gives - localTakerwants >=
              density * (gasreq + gasbase)
            ```
-          By `DexLib.setConfigKey`, `density * gasbase > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have
+          By `DexLib.setConfig`, `density * gasbase > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have
           ```
            takerWants == 0 < density * gasbase
           ```
@@ -852,14 +852,14 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     return DexLib.getConfigAddress(config, key);
   }
 
-  function setConfigKey(ConfigKey key, uint value) external {
+  function setConfig(ConfigKey key, uint value) external {
     requireAdmin();
-    DexLib.setConfigKey(config, key, value);
+    DexLib.setConfig(config, key, value);
   }
 
-  function setConfigKey(ConfigKey key, address value) external {
+  function setConfig(ConfigKey key, address value) external {
     requireAdmin();
-    DexLib.setConfigKey(config, key, value);
+    DexLib.setConfig(config, key, value);
   }
 
   /* ## State

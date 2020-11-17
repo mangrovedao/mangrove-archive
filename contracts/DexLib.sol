@@ -11,8 +11,8 @@ import "./interfaces.sol";
 library DexLib {
   /* # Configuration access */
   //+clear+
-  /* Setter functions for configuration, called by `setConfigKey` which also exists in Dex. Overloaded by the type of the `value` parameter. See `DexCommon.sol` for more on the `config` and `key` parameters. */
-  function setConfigKey(
+  /* Setter functions for configuration, called by `setConfig` which also exists in Dex. Overloaded by the type of the `value` parameter. See `DexCommon.sol` for more on the `config` and `key` parameters. */
+  function setConfig(
     Config storage config,
     ConfigKey key,
     uint value
@@ -61,7 +61,7 @@ library DexLib {
     }
   }
 
-  function setConfigKey(
+  function setConfig(
     Config storage config,
     ConfigKey key,
     address value

@@ -547,7 +547,7 @@ contract Dex_Test {
     dex = DexPre1.setup(aToken, bToken);
     Display.register(address(dex), "dex");
     Test.testNot0x(address(dex));
-    dex.setConfigKey(ConfigKey.fee, 300);
+    dex.setConfig(ConfigKey.fee, 300);
   }
 
   function c_deployMakersTaker_beforeAll() public {
@@ -584,7 +584,7 @@ contract Dex_Test {
   }
 
   function zeroDust_test() public {
-    try dex.setConfigKey(ConfigKey.density, 0)  {
+    try dex.setConfig(ConfigKey.density, 0)  {
       Test.testFail("zero density should revert");
     } catch Error(
       string memory /*reason*/
