@@ -122,7 +122,46 @@ library Display {
     }
   }
 
-  function logOfferBook(Dex dex) internal view {
+  event OBState(
+    uint[] offerIds,
+    uint[] wants,
+    uint[] gives,
+    address[] makerAddr
+  );
+
+  function logOfferBook(Dex dex, uint size) internal {
+    uint offerId = dex.best();
+    TestToken req_tk = TestToken(dex.REQ_TOKEN());
+    TestToken ofr_tk = TestToken(dex.OFR_TOKEN());
+
+    uint[] memory wants = new uint[](size);
+    uint[] memory gives = new uint[](size);
+    address[] memory makerAddr = new address[](size);
+    uint[] memory offerIds = new uint[](size);
+
+    uint c = 0;
+    while ((offerId != 0) && (c < size)) {
+      (
+        uint offerWants,
+        uint offerGives,
+        uint offerNextId,
+        ,
+        ,
+        ,
+        address offerMakerAddr
+      ) = dex.getOfferInfo(offerId);
+      wants[c] = offerWants;
+      gives[c] = offerGives;
+      makerAddr[c] = offerMakerAddr;
+      offerIds[c] = offerId;
+
+      offerId = offerNextId;
+      c++;
+    }
+    emit OBState(offerIds, wants, gives, makerAddr);
+  }
+
+  function printOfferBook(Dex dex) internal view {
     uint offerId = dex.best();
     TestToken req_tk = TestToken(dex.REQ_TOKEN());
     TestToken ofr_tk = TestToken(dex.OFR_TOKEN());

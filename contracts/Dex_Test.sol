@@ -546,21 +546,23 @@ contract Dex_Test {
     offerOf = TestInsert.run(balances, dex, makers, taker, aToken, bToken);
     emit Test.LOG("End of Insert test");
     console.log("End of insert_test, showing OB:");
-    Display.logOfferBook(dex);
+    Display.printOfferBook(dex);
 
     saveBalances();
     saveOffers();
     TestSnipe.run(balances, offers, dex, makers, taker, aToken, bToken);
     emit Test.LOG("End of Snipe test");
     console.log("End of snipe_test, showing OB:");
-    Display.logOfferBook(dex);
+    Display.printOfferBook(dex);
+    Display.logOfferBook(dex, 4);
 
     saveBalances();
     saveOffers();
     TestMarketOrder.run(balances, offers, dex, makers, taker, aToken, bToken);
     emit Test.LOG("End of MarketOrder test");
     console.log("End of marketOrder_test, showing OB:");
-    Display.logOfferBook(dex);
+    Display.printOfferBook(dex);
+    Display.logOfferBook(dex, 4);
 
     TestCollectFailingOffer.run(
       balances,
@@ -574,6 +576,7 @@ contract Dex_Test {
     );
     emit Test.LOG("end of FailingOffer test");
     console.log("End of collectFailingOffer_test, showing OB:");
-    Display.logOfferBook(dex);
+    Display.printOfferBook(dex);
+    Display.logOfferBook(dex, 4);
   }
 }
