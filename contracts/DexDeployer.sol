@@ -14,6 +14,7 @@ contract DexDeployer {
   function deploy(
     uint initialDustPerGasWanted,
     uint initialGasprice,
+    uint initialGasbase,
     uint initialGasmax,
     address ofrToken,
     address reqToken

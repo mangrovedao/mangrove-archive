@@ -159,6 +159,7 @@ library DexEvents {
 
   /* * Dex reconfiguration */
   event SetFee(uint value);
+  event SetGasbase(uint value);
   event SetGasmax(uint value);
   event SetDustPerGasWanted(uint value);
   event SetGasprice(uint value);

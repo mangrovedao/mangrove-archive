@@ -38,7 +38,8 @@ library DexPre1 {
 
     deployer.deploy({
       initialDustPerGasWanted: 100,
-      initialGasprice: 30000,
+      initialGasprice: 40 * 10**9,
+      initialGasbase: 30000,
       initialGasmax: 1000000,
       ofrToken: address(aToken),
       reqToken: address(bToken)
