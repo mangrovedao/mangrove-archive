@@ -819,12 +819,13 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     }
     uint numFailures = failures.length / 2;
     while (failureIndex < numFailures) {
-      uint punishedOfferId = failures[failureIndex * 2];
-      uint gasUsed = failures[failureIndex * 2 + 1];
-      Offer memory offer = offers[punishedOfferId];
-      OfferDetail memory offerDetail = offerDetails[punishedOfferId];
-      dirtyDeleteOffer(punishedOfferId);
+      uint id = failures[failureIndex * 2];
+      /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
+      Offer memory offer = offers[id];
+      OfferDetail memory offerDetail = offerDetails[id];
+      dirtyDeleteOffer(id);
       stitchOffers(offer.prev, offer.next);
+      uint gasUsed = failures[failureIndex * 2 + 1];
       applyPenalty(false, gasUsed, offerDetail);
       failureIndex++;
     }
