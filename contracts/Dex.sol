@@ -27,14 +27,14 @@ contract Dex {
 
   /* * An offer `id` is defined by two structs, `Offer` and `OfferDetail`, defined in `DexCommon.sol`.
    * `offers[id]` contains pointers to the `prev`ious (better) and `next` (worse) offer in the book, as well as the price and volume of the offer (in the form of two absolute quantities, `wants` and `gives`).
-   * `offerDetails[id]` contains the market maker's address (`maker`), the amount of `gasreq` as well cached values for the global `gasbase` and `gasprice` when the offer got created (see `DexCommon` for more on `gasbase` and `gasprice`).
+   * `offerDetails[id]` contains the market maker's address (`maker`), the amount of gas required by the offer (`gasreq`) as well cached values for the global `gasbase` and `gasprice` when the offer got created (see `DexCommon` for more on `gasbase` and `gasprice`).
    */
   mapping(uint => Offer) private offers;
   mapping(uint => OfferDetail) private offerDetails;
 
   /* * Makers provision their possible penalties in the `freeWei` mapping.
 
-       Offers specify the amount of `gasreq` they require for successful execution. To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq`. If, after execution an offer, the exchange fails to provide the taker with enough tokens, part of provision is given to the taker in compensation, which depends on the gas actually used by the maker.
+       Offers specify the amount of gas they require for successful execution (`gasreq`). To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq`. This provision is deducted from their `freeWei`. If an offer fails, part of that provision is given to the taker, as compensation. The exact amount depends on the gas used by the offer before failing.
 
        The Dex keeps track of their available balance in the `freeWei` map, which is decremented every time a maker creates a new offer (new offer creation is in `DexLib`).
    */
@@ -47,10 +47,11 @@ contract Dex {
      it is sometimes passed to the library `DexLib` as a storage reference. */
   Config private config;
 
-  /* * In case of emergency, the Dex can be shutdown by setting `open = false`. It cannot be reopened. When a Dex is closed, the following operations are disabled :
-   * Executing an offer
-   * Sending ETH to the Dex (the normal way, usual shenanigans are possibl)
-   * Creating a new offer
+  /* * <a id="Dex/definition/open"></a>
+     In case of emergency, the Dex can be shutdown by setting `open = false`. It cannot be reopened. When a Dex is closed, the following operations are disabled :
+       * Executing an offer
+       * Sending ETH to the Dex (the normal way, usual shenanigans are possible)
+       * Creating a new offerX
    */
   bool public open = true;
   /* * If `reentrancyLock` is true, orders may not be added nor executed.
@@ -60,36 +61,12 @@ contract Dex {
        * it could also cancel other offers, creating a discrepancy between the advertised and actual market price at no cost to the maker.
        * an offer insertion consumes an unbounded amount of gas (because it has to be correctly placed in the book).
 
-       Note: An optimization in the `marketOrder` function relies on reentrancy being forbidden (todo: link to optimization).
+       Note: An optimization in the `marketOrder` function relies on reentrancy being forbidden.
    */
   bool public reentrancyLock;
 
-  /* `best` is a struct with a single field holding the current best offer id. It is wrapped in a struct so it can be passed to `DexLib`. */
-  UintContainer public best; // (32)
-
-  /* # Maker provisioning functions
-  Market makers must have enough provisions for possible penalties. These provisions are in ETH. Every time a new offer is create, the `freeWei` balance is decreased by the amount necessary to provision the offer's maximum possible penalty. */
-  //+clear+
-
-  /* A transfer with enough gas to the Dex will increase the caller's available `freeWei` balance. _You should send enough gas to execute this function when sending money to the Dex._  */
-  receive() external payable {
-    // `requireOpenOB()` defined below
-    requireOpenMarket();
-    emit DexEvents.Receive(msg.sender, msg.value);
-    DexLib.creditWei(freeWei, msg.sender, msg.value);
-  }
-
-  /* The remaining balance of a Maker (excluding the penalties currently locked in pending offers) can read with `balanceOf(address)` and withdrawn with `withdraw(uint)`.*/
-  function balanceOf(address maker) external view returns (uint) {
-    return freeWei[maker];
-  }
-
-  /* Any provision not currently held to secure an offer's possible penalty is available for withdrawal. */
-  function withdraw(uint amount) external {
-    DexLib.debitWei(freeWei, msg.sender, amount);
-    msg.sender.call{gas: 0, value: amount}("");
-    emit DexEvents.Transfer(msg.sender, amount);
-  }
+  /* `best` is a struct with a single field holding the current best offer id. The id is wrapped in a struct so it can be passed to `DexLib`. */
+  UintContainer public best;
 
   /*
   # Dex Constructor
@@ -99,7 +76,7 @@ contract Dex {
   constructor(
     /* * address of the administrator */
     address _admin,
-    /* * minimum amount of `OFR_TOKEN` an offer can provide per unit of gas it demands */
+    /* * minimum amount of `OFR_TOKEN` an offer must provide per unit of gas it demands */
     uint _density,
     /* * amount of gas the Dex needs to clean up its data structure after an offer has been taken/deleted */
     uint _gasbase,
@@ -139,7 +116,7 @@ contract Dex {
     require(!reentrancyLock, "dex/reentrancy");
   }
 
-  /* `requireOpenMarket` protects against operations listed [next to the definition of `open`]. */
+  /* `requireOpenMarket` protects against operations listed [next to the definition of `open`](#Dex/definition/open). */
   function requireOpenMarket() internal view {
     require(open, "dex/closed");
   }
@@ -152,7 +129,9 @@ contract Dex {
   }
 
   /* # Maker operations
-  In the Dex, makers and takers call separate functions. Market makers call `newOrder` to fill the book, and takers call functions such as `simpleMarketOrder` to consume it.  */
+     ## New Offer */
+  //+clear+
+  /* In the Dex, makers and takers call separate functions. Market makers call `newOffer` to fill the book, and takers call functions such as `simpleMarketOrder` to consume it.  */
   //+clear+
 
   /* The function `newOffer` is for market makers only; no match with the existing book is done. Makers specify how much `REQ_TOKEN` they `want` and how much `OFR_TOKEN` they are willing to `give`. They also specify how much gas should be given when executing their offer.
@@ -165,7 +144,7 @@ contract Dex {
 
   No more than 2^32^-1 offers can ever be created.
 
-  The actual content of the function is in `DexLib`, due to size limitations.
+  The [actual content of the function](#DexLib/definition/newOffer) is in `DexLib`, due to size limitations.
   */
   function newOffer(
     uint wants,
@@ -192,6 +171,8 @@ contract Dex {
       );
   }
 
+  /* ## Cancel Offer */
+  //+clear+
   /* `cancelOffer` is available in closed markets, but only outside of reentrancy. Upon successful deletion of an offer, the ETH that were provisioned are returned to the maker as `freeWei` balance. */
   function cancelOffer(uint offerId) external returns (uint provision) {
     requireNoReentrancyLock();
@@ -208,6 +189,27 @@ contract Dex {
     emit DexEvents.CancelOffer(offerId);
   }
 
+  /* ## Provisioning
+  Market makers must have enough provisions for possible penalties. These provisions are in ETH. Every time a new offer is created, the `freeWei` balance is decreased by the amount necessary to provision the offer's maximum possible penalty. */
+  //+clear+
+
+  /* A transfer with enough gas to the Dex will increase the caller's available `freeWei` balance. _You should send enough gas to execute this function when sending money to the Dex._  */
+  receive() external payable {
+    requireOpenMarket();
+    DexLib.creditWei(freeWei, msg.sender, msg.value);
+  }
+
+  /* The remaining balance of a Maker (excluding the penalties currently locked in pending offers) can read with `balanceOf(address)` and withdrawn with `withdraw(uint)`.*/
+  function balanceOf(address maker) external view returns (uint) {
+    return freeWei[maker];
+  }
+
+  /* Any provision not currently held to secure an offer's possible penalty is available for withdrawal. */
+  function withdraw(uint amount) external {
+    DexLib.debitWei(freeWei, msg.sender, amount);
+    msg.sender.call{gas: 0, value: amount}("");
+  }
+
   /* # Taker operations */
   //+clear+
 
@@ -219,7 +221,7 @@ contract Dex {
   }
 
   /* The lower-level `marketOrder` can:
-   * collect a list of failed offers for further processing (see [punishing bad makers]).
+   * collect a list of failed offers for further processing (see [punishment for failing offers](#dex.sol-punishment-for-failing-offers)).
    * start walking the OB from any offerId (`0` to start from the best offer).
    */
   //+ignore+ ask for a volume by setting takerWants to however much you want and
@@ -244,7 +246,7 @@ contract Dex {
     /* A taker calling this function wants to receive `takerWants` `OFR_TOKEN` in return
        for at most `takerGives` `REQ_TOKEN`.
 
-       A regular market order will have `punishLength = 0`, and `offerId = 0`. Any other `punishLength` and `offerId` are for book cleaning (see `punishingMarketOrder`).
+       A regular market order will have `punishLength = 0`, and `offerId = 0`. Any other `punishLength` and `offerId` are for book cleaning (see [`punishingMarketOrder`](#Dex/definition/punishingMarketOrder)).
      */
     uint takerWants,
     uint takerGives,
@@ -274,8 +276,8 @@ contract Dex {
     /* The market order will operate as follows : it will go through offers from best to worse, starting from `offerId`, and: */
     /* * will maintain remaining `takerWants` and `takerGives` values. Their initial ratio is the average price the taker will accept. Better prices may be found early in the book, and worse ones later.
      * will not set `prev`/`next` pointers to their correct locations at each offer taken (this is an optimization enabled by forbidding reentrancy).
-     * will maintains a pointer to the worse of the offers better than `offerId` (`0` if `offerId = 0`) and will connect that `pastOfferId` to the best of the non-consumed offers worse than `offerId` (`0` if there is no such offer).
-     * will maintain an array of pairs `(offerId, gasUsed)` to identify failed offers. Look at "Punishment for failing offers" for more information. Since there are no extensible in-memory arrays, `punishLength` should be an upper bound on the number of failed offers. */
+     * after consuming a segment of offers, will connect the `prev` and `next` neighbors of the segment's ends.
+     * Will maintain an array of pairs `(offerId, gasUsed)` to identify failed offers. Look at [punishment for failing offers](#dex.sol-punishment-for-failing-offers) for more information. Since there are no extensible in-memory arrays, `punishLength` should be an upper bound on the number of failed offers. */
     Offer memory offer = offers[offerId];
     /* We pack some data in a memory struct to prevent stack too deep errors. */
     OrderData memory orderData = OrderData({
@@ -295,15 +297,14 @@ contract Dex {
     /* ### Main loop */
     //+clear+
     /* Offers are looped through until:
-       * the remaining amount wanted by the taker is smaller than the minimum offer size.
-       (wasteful recomputation of `density * config.gasbase`, avoids "stack too deep" error)
-       * or `offerId == 0`, which means we've gone past the end of the book. */
+     * the remaining amount wanted by the taker is smaller than the current minimum offer size,
+     * or `offerId == 0`, which means we've gone past the end of the book. */
     while (takerWants >= orderData.minOrderSize && offerId != 0) {
       /* #### `makerWouldWant` */
       //+clear+
       /* The current offer has a price <code>_p_ = offer.wants/offer.gives</code>. `makerWouldWant` is the amount of `REQ_TOKEN` the offer would require at price _p_ to provide `takerWants` `OFR_TOKEN`. Computing `makeWouldWant` gives us both a test that _p_ is an acceptable price for the taker, and the amount of `REQ_TOKEN` to send to the maker.
 
-    **Note**: We never check that `offerId` is actually a `uint32`, or that `offerId` actually points to an offer: it is not possible to insert an offer with an id larger than that, and a wrong `offerId` will point to a zero-initialized offer, which will revert the call when dividing by `offer.wants`.
+    **Note**: We never check that `offerId` is actually a `uint32`, or that `offerId` actually points to an offer: it is not possible to insert an offer with an id larger than that, and a wrong `offerId` will point to a zero-initialized offer, which will revert the call when dividing by `offer.gives`.
 
    **Note**: Since `takerWants` fits in 160 bits and `offer.wants` fits in 96 bits, the multiplication does not overflow. Since division rounds towards 0, the maker may have to accept a price slightly worse than expected.
        */
@@ -316,7 +317,7 @@ contract Dex {
           ? (offer.gives, offer.wants)
           : (takerWants, makerWouldWant);
 
-        /* Once the price has been determined to be low enough, we can flashloan `localTakerGives` to the maker then try to transfer `localTakerWants` to the taker. Since reentrancy is disallowed, we don't bother preemptively deleting the current offer before making an external call. The last argument to `executeOffer` is `true` to flag that pointers shouldn't be updated (thus saving writes). We will only update pointers of non-deleted offers after the market order has ended. */
+        /* Execute the offer after loaning money to the maker. The last argument to `executeOffer` is `true` to flag that pointers shouldn't be updated (thus saving writes). The returned values are explained below: */
         (bool success, uint gasUsedIfFailure, bool deleted) = executeOffer(
           offerId,
           offer,
@@ -325,34 +326,38 @@ contract Dex {
           true
         );
 
-        /* `success` means that the maker delivered `localTakerWants` `OFR_TOKEN` to the taker. We update the total amount wanted and spendable by the taker (possibly changing the remaining average price). Then there are 2 possibilities : */
+        /* `success` means that the maker delivered `localTakerWants` `OFR_TOKEN` to the taker. We update the total amount wanted and spendable by the taker (possibly changing the remaining average price). */
         if (success) {
           emit DexEvents.Success(offerId, localTakerWants, localTakerGives);
           takerWants -= localTakerWants;
           takerGives -= localTakerGives;
           /*
-          If `!success`, the maker failed to deliver `localTakerWants`. In that case, the flash loan has been rolled back, and `gasUsedIfFailure` is nonzero and will be used for later punishment (penalties are applied in proportion with wasted gas).
+          If `!success`, the maker failed to deliver `localTakerWants`. In that case `gasUsedIfFailure` is nonzero and will be used to apply a penalty (penalties are applied in proportion with wasted gas).
 
-          Note that :
-           * Partial fulfillment of the amount requested in `localTakerWants` is not taken into account. Any delivery strictly less than `localTakerWants` will be rolled back to before the flashloan.
-           * If the _taker_ failed to deliver the initial loan, `executeOffer` reverts; and thus the entire market order reverted.
+          Note that partial fulfillment of the amount requested in `localTakerWants` is not taken into account. Any delivery strictly less than `localTakerWants` will trigger a rollback and be considered a failure.
           */
         } else {
           emit DexEvents.Failure(offerId, localTakerWants, localTakerGives);
-          /* For punishment purposes (never triggered if `punishLength = 0`), store the offer id and the gas wasted by the maker */
+          /* For penalty application purposes (never triggered if `punishLength = 0`), store the offer id and the gas wasted by the maker */
           if (numFailures++ < punishLength) {
             failures[2 * numFailures] = offerId;
             failures[2 * numFailures + 1] = gasUsedIfFailure;
           }
         }
-        /* Finally we prepare for the next loop iteration, if there is one. */
-        /* `deleted` means that the current offer was deleted.
+        /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
 
-           After the loop, the last non-deleted offer seen will be stitched to <code>_r_ = offers[pastOfferId]</code> through `prev`/`next` pointers. Let _o~1~_ be the current `offer`, _o~2~_ be the one immediately worse than _o~1~_ (it may be an uninitialized offer), and so on. To summarize what follows:
-          * If _o~1~_ was `deleted`, we may or may not be at the last loop iteration, but we will stitch _r_ to some _o~i~_, _i > 1_, so we update `offer` to _o~2~_ regardless.
-          * Otherwise, we are at the last loop iteration (see below), and we will stitch _r_ to _o~1~_. In that case, we must not update `offer` to _o~2~_.
+           Let _r~1~_, ..., _r~n~_ the successive values taken by `offer` each time the current while loop's test is executed.
+           Also, let _r~0~_ = `offers[pastOfferId]` be the offer immediately better
+           than _r~1~_. 
+           After the market order loop ends, we will restore the doubly linked
+           list by connecting _r~0~_ to _r~n~_ through their `prev`/`next`
+           pointers. Assume that currently, `offer` is _r~i~_. Should
+        we update `offer` to some _r~i+1~_ or is _i_ = _n_?
 
-          Note that if the invariant (`!deleted` → end of `while` loop) does not hold, the market order is completely broken.
+         * If _r~i~_ was `deleted`, we may or may not be at the last loop iteration, but we will stitch _r~0~_ to some _r~j~_, _j > i_, so we update `offer` to _r~i+1~_ regardless.
+          * if _r~i~_ was not `deleted`, we are at the last loop iteration (see why below). So we will stitch _r~0~_ to _r~i~_ = _r~n~_. In that case, we must not update `offer`.
+
+          Note that if the invariant _"not `deleted` → end of `while` loop"_ does not hold, the market order is completely broken.
 
 
             Proof that we are at the last iteration of the while loop: if what's left in the offer after a successful execution is above the minimum size offer, we update the offer and keep it in the book: in `executeOffer`, the offer is not deleted iff the test below passes (variables renamed for clarity):
@@ -380,6 +385,7 @@ contract Dex {
     }
     /* ### Post-while loop */
     //+clear+
+    /* `applyFee` extracts the fee from the taker, proportional to the amount purchased (which is `initialTakerWants - takerWants`). */
     applyFee(orderData.initialTakerWants - takerWants);
     reentrancyLock = false;
     /* After exiting the loop, we connect the beginning & end of the segment just consumed by the market order. */
@@ -396,7 +402,7 @@ contract Dex {
     return failures;
   }
 
-  /* ## Snipe */
+  /* ## Sniping */
   //+clear+
   /* `snipe` takes a single offer from the book, at whatever price is induced by the offer. */
   function snipe(uint offerId, uint takerWants) external returns (bool) {
@@ -407,17 +413,14 @@ contract Dex {
     return (failures.length == 0);
   }
 
-  /* ## Multiple snipes */
   //+clear+
   /*
      From an array of _n_ `(offerId, takerWants)` pairs (encoded as a `uint[]` of size _2n_)
      execute each snipe in sequence.
 
-     This is more efficient than executing a sequence of `snipe` calls.
-
      Also accepts an optional `punishLength` (as in
     `marketOrder`). Returns an array of size at most
-    twice `punishLength` containing info on failed offers. **You should probably set `punishLength` to 0.**
+    twice `punishLength` containing info on failed offers. **You should probably set `punishLength` to 1.**
       */
   function internalSnipes(uint[] memory targets, uint punishLength)
     public
@@ -446,9 +449,8 @@ contract Dex {
       uint offerId = targets[2 * targetIndex];
       uint takerWants = targets[2 * targetIndex + 1];
       Offer memory offer = offers[offerId];
-      /* Each offer is only considered if valid. If we removed the conditional, one failing or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. */
+      /* If we removed the `isOffer` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. */
       if (isOffer(offer)) {
-        /* Calculate the expense for the taker, and execute the offer */
         /* `localTakerWants` bounds the amount requested by the taker by the maximum amount on offer. It also obviates the need to check the size of `takerWants`: while in a market order we must compare the price a taker accepts with the offer price, here we just accept the offer's price. So if `takerWants` does not fit in 96 bits (the size of `offer.gives`), it won't be used in the line below. */
         uint localTakerWants = offer.gives < takerWants
           ? offer.gives
@@ -480,6 +482,7 @@ contract Dex {
       }
       targetIndex++;
     }
+    /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
     applyFee(takerGot);
     reentrancyLock = false;
     /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `2 * numFailures` in the length field of `failures` (there are 2 elements (`offerId`, `gasUsed`) for every failure in `failures`).
@@ -526,7 +529,7 @@ contract Dex {
   //+clear+
   /* The parameters `takerWants` and `takerGives` induce a price. This is an unsafe, internal function. Most importantly, it does not check that `takerWants/takerGives == offer.gives/offer.wants`, nor that `takerWants <= offer.gives`. Callers must do both of those checks, or various terrible things might happen: market makers may be asked for a price they did not commit to, and `uint` underflow may keep the offer after execution with a _much_ bigger `gives`.
 
-  It would be nicer to internalize those checks. But market orders must make price computations necessary to those checks _before_ calling `executeOffer` anyway, so they can decide whether the offer should be executed at all or not. */
+  It would be nice to do those checks right here, in `executeOffer`. But market orders must make price computations necessary to those checks _before_ calling `executeOffer` anyway, so they can decide whether the offer should be executed at all or not. To save gas, we don't redo the checks here. */
   function executeOffer(
     uint offerId,
     Offer memory offer,
@@ -657,7 +660,7 @@ contract Dex {
 
        * Otherwise, the maker loses the cost of `gasDeducted + gasbase` gas. The gas price is estimated by `gasprice`.
 
-         Note that to create the offer, the maker had to provision `gasreq + gasbase`.
+         Note that to create the offer, the maker had to provision for `gasreq + gasbase` gas.
 
          Note that `offerDetail.gasbase` and `offerDetail.gasprice` are the values of the Dex parameters `config.gasbase` and `config.gasprice` when the offer was createdd. Without caching, the provision set aside could be insufficient to reimburse the maker (or to compensate the taker).
 
@@ -746,7 +749,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* ## Market order */
   //+clear+
 
-  /* Run and revert a market order so as to collect `offerId`s that are failing.
+  /* <a id="Dex/definition/punishingMarketOrder"></a> Run and revert a market order so as to collect `offerId`s that are failing.
    `punishLength` is the number of failing offers one is trying to catch. */
   function punishingMarketOrder(
     uint fromOfferId,

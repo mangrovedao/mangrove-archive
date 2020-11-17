@@ -26,7 +26,7 @@ pragma solidity ^0.7.1;
 //+clear+
 /* `Offer`s hold the doubly-linked list pointers as well as price and volume information. 256 bits wide, so one storage read is enough. They have the following fields: */
 struct Offer {
-  /* * `prev` points to the next best offer, and `next` points to the next worse. The best offer's `prev` is 0, and the last offer's last is 0 as well. _32 bits_. */
+  /* * `prev` points to the next best offer, and `next` points to the next worse. The best offer's `prev` is 0, and the last offer's `next` is 0 as well. _32 bits wide_. */
   uint32 prev;
   uint32 next;
   /* * `gives` is the amount of `OFR_TOKEN` the offer will give if successfully executed.
@@ -66,10 +66,10 @@ struct OfferDetail {
   address maker;
   /* * `gasreq` gas will be provided to `execute`. _24 bits wide_, 33% more than the block limit as of late 2020.
 
-       Around execution, the Dex will:
-       1. Send `wants` `REQ_TOKEN` from `msg.sender` to `maker`,
+       Offer execution proceeds as follows:
+       1. Send `wants` `REQ_TOKEN` from the taker to the maker,
        2. Call `IMaker(maker).execute{gas:gasreq}()`,
-       3. Send `gives` `OFR_TOKEN` from `maker` to `msg.sender`.
+       3. Send `gives` `OFR_TOKEN` from the maker to the taker
 
        The function `execute` can be arbitrary code. The only requirement is that
        the transfer at step 3. succeeds. In that case, the offer _succeeds_.
@@ -80,14 +80,13 @@ struct OfferDetail {
   */
   uint24 gasreq;
   /*
-     * If an offer fails, `gasprice` is the amount (in wei) taken from the
-       provision per unit of gas used. It should approximate the average gas
-       price at offer creation time.
-
-       `gasbase` represents the gas overhead used by processing the offer
-       inside the Dex. The gas considered used by an offer is at least
+     * `gasbase` represents the gas overhead used by processing the offer
+       inside the Dex. The gas considered 'used' by an offer is at least
        `gasbase`, and at most `gasreq + gasbase`.
 
+       If an offer fails, `gasprice` wei is taken from the
+       provision per unit of gas used. `gasprice` should approximate the average gas
+       price at offer creation time.
 
        So, when an offer is created, the maker is asked to provision the
        following amount of wei:
@@ -99,11 +98,10 @@ struct OfferDetail {
        (gasUsed + gasbase) * gasprice
        ```
 
-       and the rest is added back to the maker's 'available provision' balance
-       (a global map called `freeWei`).
+       and the rest is given back to the maker.
 
-       `gasprice` is **48 bits wide**, which accomodates ~280k gwei / gas.
-       `gasbase` is **24 bits wide**, it could be 16 bits wide but we are
+       `gasprice` is _48 bits wide_, which accomodates ~280k gwei / gas.
+       `gasbase` is _24 bits wide_, it could be 16 bits wide but we are
        leaving a margin of safety for future gas repricings.
 
        Both `gasprice` and `gasbase` are also the names of global Dex
@@ -111,12 +109,12 @@ struct OfferDetail {
        the offer's `OfferDetail`. The maker does not choose them.
 
     */
-  uint48 gasprice;
   uint24 gasbase;
+  uint48 gasprice;
 }
 
 /* # Configuration
-   All configuration information of the Dex is in a `Config` struct. An enum `ConfigKey` matches the struct fields. Updates and reads go through the Dex'es `getConfig*` (one version per type) and `setConfigKey` (overloaded per type) function. They take a `ConfigKey` as first argument. Configuration fields are:
+   All configuration information of the Dex is in a `Config` struct. Configuration fields are:
 */
 struct Config {
   /* * The `admin`, allowed to change anything in the configuration and irreversibly
@@ -128,7 +126,7 @@ struct Config {
   uint gasprice;
   /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at leat `gasbase` gas. Should only be updated when opcode prices change. */
   uint gasbase;
-  /* * `density` is a 'dust' parameter in `OFR_TOKEN` per gas. A weakness of offerbook-based exchanges is that a market offer is not gas-constant. We prevent spamming of low-volume offers by asking for a minimum 'density'. For instance, if `density == 10`, `gasbase == 5` an offer with `gasreq == 30000` must offer promise at least [_10 × (30000 + 5) = 300050_](provision-formula) `OFR_TOKEN`. */
+  /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `OFR_TOKEN` per gas requested. For instance, if `density == 10`, `gasbase == 5` an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 300050_ `OFR_TOKEN`. */
   uint density;
   /*
     * An offer which asks for more gas than the block limit would live forever on
@@ -145,8 +143,8 @@ enum ConfigKey {admin, fee, gasprice, gasbase, density, gasmax}
 /* # Events
 The events emitted for use by various bots are listed here: */
 library DexEvents {
-  /* * Emitted at the creation of the new Dex contract on the pair (req_tk, ofr_tk)*/
-  event NewDex(address dex, address req_tk, address ofr_tk);
+  /* * Emitted at the creation of the new Dex contract on the pair (`reqToken`, `ofrToken`)*/
+  event NewDex(address dex, address reqToken, address ofrToken);
 
   event TestEvent(uint);
 
@@ -192,14 +190,14 @@ library DexEvents {
 }
 
 /* # Misc.
-   Finally, some miscallaneous things useful to both `Dex` and `DexLib`:*/
+   Finally, some miscellaneous things useful to both `Dex` and `DexLib`:*/
 //+clear+
-/* Part of the Dex state is the current best offer on the book (a `uint`). That state must be writable by functions of `DexLib` (`DexLib` exists to reduce the contract size of `Dex`). Since storage pointers to value types cannot be passed around, we wrap the  */
+/* A container for `uint` that can be passed to an external library function as a storage reference so that the library can write the `uint` (in Solidity, references to storage value types cannot be passed around). This is used to send a writeable reference to the current best offer to the library functions of `DexLib` (`DexLib` exists to reduce the contract size of `Dex`). */
 struct UintContainer {
   uint value;
 }
 
-/* At several points, the Dex must retrieve an offer based on an `offerId`. Ids that are not yet assigned or that point to since-deleted offer will point to a uninitialized struct. The simplest way to check that is to check that a dedicated field is 0. Since an invariant of the Dex is that an active offer will never `gives` less than 1 `OFR_TOKEN`, we check the `gives` field. */
+/* The Dex holds a `uint => Offer` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an uninitialized struct. A common way to check for initialization is to add an `exists` field to the struct. In our case, an invariant of the Dex is: on an existing offer, `offer.gives > 0`. So we just check the `gives` field. */
 function isOffer(Offer memory offer) pure returns (bool) {
   return offer.gives > 0;
 }
