@@ -150,7 +150,8 @@ library DexEvents {
 
   event TestEvent(uint);
 
-  /* * Dex sends amount to receiver */
+  /* * Dex receives/sends amount to receiver/sender */
+  event Receive(address sender, uint amount);
   event Transfer(address payable receiver, uint amout);
 
   /* * Dex adds or removes wei from `maker`'s account */

@@ -75,6 +75,7 @@ contract Dex {
   receive() external payable {
     // `requireOpenOB()` defined below
     requireOpenMarket();
+    emit DexEvents.Receive(msg.sender, msg.value);
     DexLib.creditWei(freeWei, msg.sender, msg.value);
   }
 
@@ -87,6 +88,7 @@ contract Dex {
   function withdraw(uint amount) external {
     DexLib.debitWei(freeWei, msg.sender, amount);
     msg.sender.call{gas: 0, value: amount}("");
+    emit DexEvents.Transfer(msg.sender, amount);
   }
 
   /*
@@ -670,6 +672,7 @@ contract Dex {
     DexLib.creditWei(freeWei, offerDetail.maker, released);
 
     if (!success) {
+      emit DexEvents.Transfer(msg.sender, amount);
       uint amount = offerDetail.gasprice * (offerDetail.gasbase + gasDeducted);
       msg.sender.call{gas: 0, value: amount}("");
     }
