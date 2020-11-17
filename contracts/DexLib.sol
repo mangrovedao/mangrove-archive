@@ -176,7 +176,7 @@ library DexLib {
     );
     /* * Unnecessary for safety: check width of `wants`, `gives` and `pivotId`. They will be truncated anyway, but if they are too wide, we assume the maker has made a mistake and revert. */
     require(uint96(wants) == wants, "wants is 96 bits wide");
-    require(uint96(gives) == gives, "wants is 96 bits wide");
+    require(uint96(gives) == gives, "gives is 96 bits wide");
     require(uint32(pivotId) == pivotId, "pivotId is 32 bits wide");
 
     /* With every new offer, a maker must deduct provisions from its `freeWei` balance. The maximum penalty is incurred when an offer fails after consuming all its `gasreq`. */
