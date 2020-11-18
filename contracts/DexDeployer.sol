@@ -12,24 +12,24 @@ contract DexDeployer {
   }
 
   function deploy(
-    uint initialDustPerGasWanted,
-    uint initialGasbase,
-    uint initialGasprice,
-    uint initialGasmax,
+    uint density,
+    uint gasprice,
+    uint gasbase,
+    uint gasmax,
     address ofrToken,
     address reqToken
   ) external returns (Dex) {
     require(isAdmin(msg.sender));
 
-    Dex dex = new Dex(
-      admin,
-      initialDustPerGasWanted,
-      initialGasprice,
-      initialGasprice,
-      initialGasmax,
-      ofrToken,
-      reqToken
-    );
+    Dex dex = new Dex({
+      _admin: admin,
+      _density: density,
+      _gasprice: gasprice,
+      _gasbase: gasbase,
+      _gasmax: gasmax,
+      _OFR_TOKEN: ofrToken,
+      _REQ_TOKEN: reqToken
+    });
 
     dexes[ofrToken][reqToken] = dex;
 

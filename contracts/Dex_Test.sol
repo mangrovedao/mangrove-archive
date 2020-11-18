@@ -39,10 +39,10 @@ library DexPre1 {
     DexDeployer deployer = new DexDeployer(address(this));
 
     deployer.deploy({
-      initialDustPerGasWanted: 100,
-      initialGasprice: 40 * 10**9,
-      initialGasbase: 30000,
-      initialGasmax: 1000000,
+      density: 100,
+      gasprice: 40 * 10**9,
+      gasbase: 30000,
+      gasmax: 1000000,
       ofrToken: address(aToken),
       reqToken: address(bToken)
     });
