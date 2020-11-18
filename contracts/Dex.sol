@@ -675,8 +675,8 @@ contract Dex {
     DexLib.creditWei(freeWei, offerDetail.maker, released);
 
     if (!success) {
-      emit DexEvents.Transfer(msg.sender, amount);
       uint amount = offerDetail.gasprice * (offerDetail.gasbase + gasDeducted);
+      emit DexEvents.Transfer(msg.sender, amount);
       msg.sender.call{gas: 0, value: amount}("");
     }
   }
