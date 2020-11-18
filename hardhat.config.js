@@ -53,4 +53,42 @@ module.exports = {
     cache: "./cache",
     artifacts: "./build",
   },
+  logFormatters: {
+    OBState: (log, rawLog, originator, formatArg) => {
+      /* Reminder:
+
+      event OBState(
+      uint[] offerIds,
+      uint[] wants,
+      uint[] gives,
+      address[] makerAddr
+    );
+
+      */
+
+      const ob = log.args["offerIds"].map((id, i) => {
+        return {
+          id: formatArg(id),
+          wants: formatArg(log.args.wants[i]),
+          gives: formatArg(log.args.gives[i]),
+          maker: formatArg(log.args.makerAddr[i], "address"),
+        };
+      });
+
+      const lineA = ({id, wants, gives, maker}) => {
+        const suffix = maker.length > 15 ? "..." : "";
+        return `${id.padEnd(3)}: ${wants.padEnd(15)}${gives.padEnd(
+          15
+        )}${maker.slice(0, 20)}${suffix}`;
+      };
+      //const lineB = ({gas,gasprice});
+
+      console.log(
+        " " + lineA({id: "id", wants: "wants", gives: "gives", maker: "maker"})
+      );
+      console.log("├" + "─".repeat(3 + 2 + 15 + 15 + 15 + 3 - 2) + "┤");
+      ob.forEach((o) => console.log(" " + lineA(o)));
+      console.log("└" + "─".repeat(3 + 2 + 15 + 15 + 15 + 3 - 2) + "┘");
+    },
+  },
 };
