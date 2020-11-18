@@ -66,7 +66,7 @@ module.exports = {
 
       */
 
-      const ob = log.args["offerIds"].map((id, i) => {
+      const ob = log.args.offerIds.map((id, i) => {
         return {
           id: formatArg(id),
           wants: formatArg(log.args.wants[i]),
@@ -76,19 +76,18 @@ module.exports = {
       });
 
       const lineA = ({id, wants, gives, maker}) => {
-        const suffix = maker.length > 15 ? "..." : "";
-        return `${id.padEnd(3)}: ${wants.padEnd(15)}${gives.padEnd(
-          15
-        )}${maker.slice(0, 20)}${suffix}`;
+        const p = (s, n) =>
+          (s.length > n ? s.slice(0, n - 1) + "…" : s).padEnd(n);
+        return `${p(id, 3)}: ${p(wants, 15)}${p(gives, 15)}${p(maker, 15)}`;
       };
       //const lineB = ({gas,gasprice});
 
       console.log(
         " " + lineA({id: "id", wants: "wants", gives: "gives", maker: "maker"})
       );
-      console.log("├" + "─".repeat(3 + 2 + 15 + 15 + 15 + 3 - 2) + "┤");
+      console.log("├" + "─".repeat(3 + 2 + 15 + 15 + 15 - 2) + "┤");
       ob.forEach((o) => console.log(" " + lineA(o)));
-      console.log("└" + "─".repeat(3 + 2 + 15 + 15 + 15 + 3 - 2) + "┘");
+      console.log("└" + "─".repeat(3 + 2 + 15 + 15 + 15 - 2) + "┘");
     },
   },
 };
