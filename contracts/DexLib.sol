@@ -181,8 +181,6 @@ library DexLib {
     //+clear+
     /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `maxPenalty` (see below). */
     require(gasreq <= config.gasmax, "gasreq too large");
-    /* Check `gasreq` above absolute limit. There is an overhead associated with executing an offer, and that overhead is paid for by the maker only when the offer fails. Without an absolute gasreq limit */
-    require(gasreq > 0, "gasreq > 0");
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isOffer` method sound. */
     require(
       gives >= (gasreq + config.gasbase) * config.density,
