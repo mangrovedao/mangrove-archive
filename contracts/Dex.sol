@@ -178,7 +178,7 @@ contract Dex {
   function cancelOffer(uint offerId) external returns (uint provision) {
     requireNoReentrancyLock();
     OfferDetail memory offerDetail = offerDetails[offerId];
-    require(msg.sender == offerDetail.maker, "dex/unauthorizedCancel");
+    require(msg.sender == offerDetail.maker, "dex/cancelOffer/unauthorized");
     Offer memory offer = offers[offerId];
     dirtyDeleteOffer(offerId);
     stitchOffers(offer.prev, offer.next);
