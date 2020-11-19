@@ -329,11 +329,7 @@ contract MakerOperations_Test {
     try mkr.withdrawDex(amt1 + 1)  {
       Test.fail("mkr cannot withdraw more than it has");
     } catch Error(string memory r) {
-      Test.eq(
-        r,
-        "dex/insufficientProvision",
-        "mkr withdraw failed for the wrong reason"
-      );
+      Test.eq(r, "dex/insufficientProvision", "wrong revert reason");
     }
   }
 
@@ -363,11 +359,70 @@ contract MakerOperations_Test {
     try mkr2.cancelOffer(ofr)  {
       Test.fail("mkr2 should not be able to cancel mkr's offer");
     } catch Error(string memory r) {
-      Test.eq(
-        r,
-        "dex/cancelOffer/unauthorized",
-        "cancel failed for wrong reason"
-      );
+      Test.eq(r, "dex/cancelOffer/unauthorized", "wrong revert reason");
+    }
+  }
+
+  function can_require_gasmax_test() public {
+    mkr.provisionDex(1 ether);
+    uint gasmax = 750000;
+    dex.setConfig(ConfigKey.gasmax, gasmax);
+    mkr.newOffer(1 ether, 1 ether, gasmax, 0);
+  }
+
+  function cant_require_too_much_gas_test() public {
+    uint gasmax = 12;
+    dex.setConfig(ConfigKey.gasmax, gasmax);
+    try mkr.newOffer(1 ether, 1 ether, gasmax + 1, 0)  {
+      Test.fail("mkr should fail newOffer wih gasreq too high");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/newOffer/gasreq/tooHigh", "wrong revert reason");
+    }
+  }
+
+  function can_offer_min_density_test() public {
+    mkr.provisionDex(1 ether);
+    uint density = 10**7;
+    dex.setConfig(ConfigKey.gasbase, 1);
+    dex.setConfig(ConfigKey.density, density);
+    mkr.newOffer(1 ether, density, 0, 0);
+  }
+
+  function cant_offer_low_density_test() public {
+    uint density = 10**7;
+    dex.setConfig(ConfigKey.gasbase, 1);
+    dex.setConfig(ConfigKey.density, density);
+    try mkr.newOffer(1 ether, density - 1, 0, 0)  {
+      Test.fail("mkr should fail newOffer with density too low");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/newOffer/gives/tooLow", "wrong revert reason");
+    }
+  }
+
+  function cant_have_too_wide_parameters_test() public {
+    dex.setConfig(ConfigKey.gasbase, 1);
+    dex.setConfig(ConfigKey.density, 1);
+    mkr.provisionDex(1 ether);
+
+    uint wants = type(uint96).max + uint(1);
+    try mkr.newOffer(wants, 1, 0, 0)  {
+      Test.fail("mkr should fail newOffer with wants wider than 96bits");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/newOffer/wants/96bits", "wrong revert reason");
+    }
+
+    uint gives = type(uint96).max + uint(1);
+    try mkr.newOffer(0, gives, 0, 0)  {
+      Test.fail("mkr should fail newOffer with gives wider than 96bits");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/newOffer/gives/96bits", "wrong revert reason");
+    }
+
+    uint pivotId = type(uint32).max + uint(1);
+    try mkr.newOffer(0, 1, 0, pivotId)  {
+      Test.fail("mkr should fail newOffer with pivotId wider than 32bits");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/newOffer/pivotId/32bits", "wrong revert reason");
     }
   }
 }
