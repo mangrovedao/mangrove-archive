@@ -14,18 +14,18 @@ library Test {
     emit ExpectFrom(from);
   }
 
-  event TestBool(bool success, string message);
+  event TestTrue(bool success, string message);
 
   function check(bool success, string memory message) internal {
-    emit TestBool(success, message);
+    emit TestTrue(success, message);
   }
 
   function fail(string memory message) internal {
-    emit TestBool(false, message);
+    emit TestTrue(false, message);
   }
 
   function success() internal {
-    emit TestBool(true, "Success");
+    emit TestTrue(true, "Success");
   }
 
   event TestEqUint(bool success, uint actual, uint expected, string message);
