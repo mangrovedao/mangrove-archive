@@ -225,6 +225,7 @@ contract Dex_Test {
       balances,
       offers,
       dex,
+      makers.getMaker(0),
       makers.getMaker(1),
       offerOf[1],
       taker,

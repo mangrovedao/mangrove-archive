@@ -21,19 +21,6 @@ library TestUtils {
   }
   enum Info {makerWants, makerGives, nextId, gasreq, gasprice}
 
-  function testThrow(bytes memory error, string memory msg)
-    internal
-    returns (bool)
-  {
-    return (
-      TestEvents.testEq(
-        abi.decode(error, (string)),
-        Display.append("revert ", msg),
-        msg
-      )
-    );
-  }
-
   function getFee(Dex dex, uint price) internal view returns (uint) {
     return ((price * dex.getConfigUint(ConfigKey.fee)) / 10000);
   }

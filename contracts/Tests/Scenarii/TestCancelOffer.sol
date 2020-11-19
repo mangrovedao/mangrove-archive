@@ -6,15 +6,14 @@ library TestCancelOffer {
     TestUtils.Balances storage balances,
     mapping(uint => mapping(TestUtils.Info => uint)) storage offers,
     Dex dex,
+    TestMaker wrongOwner,
     TestMaker maker,
     uint offerId,
     TestTaker taker,
     TestToken aToken,
     TestToken bToken
   ) external {
-    try TestMaker(payable(address(this))).cancelOffer(dex, offerId) returns (
-      uint
-    ) {
+    try wrongOwner.cancelOffer(dex, offerId) returns (uint) {
       TestEvents.testFail("Invalid authorization to cancel order");
     } catch Error(string memory reason) {
       TestEvents.testEq(reason, "dex/unauthorizedCancel", "Unexpected throw");
