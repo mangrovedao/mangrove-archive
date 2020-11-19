@@ -207,6 +207,9 @@ contract Dex {
 
   /* Any provision not currently held to secure an offer's possible penalty is available for withdrawal. */
   function withdraw(uint amount) external {
+    /* Since we only ever send money to the caller, we do not need to provide any particular amount of gas, the caller can manage that themselves. Still, as nonzero value calls provide a 2300 gas stipend, a `withdraw(0)` would trigger a call with actual 0 gas. */
+    if (amount == 0) return;
+    //+clear+
     DexLib.debitWei(freeWei, msg.sender, amount);
     msg.sender.call{gas: 0, value: amount}("");
   }
