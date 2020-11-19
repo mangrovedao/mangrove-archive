@@ -32,7 +32,7 @@ library DexLib {
       require(uint24(value) == value, "dex/config/gasbase/24bits");
       //+clear+
       config.gasbase = value;
-      emit DexEvents.SetGasprice(value);
+      emit DexEvents.SetGasbase(value);
       /* ### `density` */
     } else if (key == ConfigKey.density) {
       /* density > 0 ensures various invariants -- this documentation explains how each time it is relevant */
