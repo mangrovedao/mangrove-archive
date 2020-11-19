@@ -5,7 +5,7 @@ pragma solidity ^0.7.0;
 // Should be kept in sync with ../lib/test_solidity.js
 // Calling test functions sends events which are interpeted by test_solidity.js
 // to display results.
-library TestEvents {
+library Test {
   event LOG(string message);
 
   event ExpectFrom(address from);
@@ -14,18 +14,18 @@ library TestEvents {
     emit ExpectFrom(from);
   }
 
-  event TestTrue(bool success, string message);
+  event TestBool(bool success, string message);
 
-  function testTrue(bool success, string memory message) internal {
-    emit TestTrue(success, message);
+  function check(bool success, string memory message) internal {
+    emit TestBool(success, message);
   }
 
-  function testFail(string memory message) internal {
-    emit TestTrue(false, message);
+  function fail(string memory message) internal {
+    emit TestBool(false, message);
   }
 
-  function testSuccess() internal {
-    emit TestTrue(true, "Success");
+  function success() internal {
+    emit TestBool(true, "Success");
   }
 
   event TestEqUint(bool success, uint actual, uint expected, string message);
@@ -35,7 +35,7 @@ library TestEvents {
     return a < b ? a : b;
   }
 
-  function testEq(
+  function eq(
     uint actual,
     uint expected,
     string memory message
@@ -45,7 +45,7 @@ library TestEvents {
     return success;
   }
 
-  function testLess(
+  function less(
     uint actual,
     uint expected,
     string memory message
@@ -55,7 +55,7 @@ library TestEvents {
     return success;
   }
 
-  function testMore(
+  function more(
     uint actual,
     uint expected,
     string memory message
@@ -72,7 +72,7 @@ library TestEvents {
     string message
   );
 
-  function testEq(
+  function eq(
     string memory actual,
     string memory expected,
     string memory message
@@ -91,13 +91,13 @@ library TestEvents {
 
   event TestNot0x(bool success, address addr);
 
-  function testNot0x(address actual) internal returns (bool) {
+  function not0x(address actual) internal returns (bool) {
     bool success = actual != address(0);
     emit TestNot0x(success, actual);
     return success;
   }
 
-  function testEq(
+  function eq(
     address actual,
     address expected,
     string memory message
@@ -109,7 +109,7 @@ library TestEvents {
 
   event TestEqBytes(bool success, bytes actual, bytes expected, string message);
 
-  function testEq0(
+  function eq0(
     bytes memory actual,
     bytes memory expected,
     string memory message

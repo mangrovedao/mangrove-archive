@@ -51,7 +51,7 @@ library TestInsert {
         offerOf[i]
       );
       uint provision_i = TestUtils.getProvision(dex, gasreq_i);
-      TestEvents.testEq(
+      Test.eq(
         dex.balanceOf(address(makers.getMaker(i))),
         balances.makersBalanceWei[i] - provision_i,
         Display.append("Incorrect wei balance for maker ", Display.uint2str(i))
@@ -66,7 +66,7 @@ library TestInsert {
         offerId,
         true
       );
-      TestEvents.testEq(
+      Test.eq(
         od.maker,
         address(makers.getMaker(expected_maker)),
         Display.append(

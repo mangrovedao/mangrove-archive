@@ -44,8 +44,8 @@ library DexSetup {
     external
     returns (Dex dex)
   {
-    TestEvents.testNot0x(address(aToken));
-    TestEvents.testNot0x(address(bToken));
+    Test.not0x(address(aToken));
+    Test.not0x(address(bToken));
     DexDeployer deployer = new DexDeployer(address(this));
 
     deployer.deploy({
@@ -68,14 +68,14 @@ library MakerSetup {
 
 library MakerDeployerSetup {
   function setup(Dex dex) external returns (MakerDeployer) {
-    TestEvents.testNot0x(address(dex));
+    Test.not0x(address(dex));
     return (new MakerDeployer(dex));
   }
 }
 
 library TakerSetup {
   function setup(Dex dex) external returns (TestTaker) {
-    TestEvents.testNot0x(address(dex));
+    Test.not0x(address(dex));
     return new TestTaker(dex);
   }
 }
@@ -133,8 +133,8 @@ contract Dex_Test {
     aToken = TokenSetup.setup("A", "$A");
     bToken = TokenSetup.setup("B", "$B");
 
-    TestEvents.testNot0x(address(aToken));
-    TestEvents.testNot0x(address(bToken));
+    Test.not0x(address(aToken));
+    Test.not0x(address(bToken));
 
     Display.register(address(0), "NULL_ADDRESS");
     Display.register(msg.sender, "Test Runner");
@@ -146,7 +146,7 @@ contract Dex_Test {
   function b_deployDex_beforeAll() public {
     dex = DexSetup.setup(aToken, bToken);
     Display.register(address(dex), "dex");
-    TestEvents.testNot0x(address(dex));
+    Test.not0x(address(dex));
     dex.setConfig(ConfigKey.fee, 300);
   }
 
@@ -185,30 +185,30 @@ contract Dex_Test {
 
   function zeroDust_test() public {
     try dex.setConfig(ConfigKey.density, 0)  {
-      TestEvents.testFail("zero density should revert");
+      Test.fail("zero density should revert");
     } catch Error(
       string memory /*reason*/
     ) {
-      TestEvents.testSuccess();
+      Test.success();
     }
   }
 
   function a_full_test() public {
     saveBalances();
     offerOf = TestInsert.run(balances, dex, makers, taker, aToken, bToken);
-    emit TestEvents.LOG("End of Insert test");
+    emit Test.LOG("End of Insert test");
     Display.logOfferBook(dex, 4);
 
     saveBalances();
     saveOffers();
     TestSnipe.run(balances, offers, dex, makers, taker, aToken, bToken);
-    emit TestEvents.LOG("End of Snipe test");
+    emit Test.LOG("End of Snipe test");
     Display.logOfferBook(dex, 4);
 
     saveBalances();
     saveOffers();
     TestMarketOrder.run(balances, offers, dex, makers, taker, aToken, bToken);
-    emit TestEvents.LOG("End of MarketOrder test");
+    emit Test.LOG("End of MarketOrder test");
     Display.logOfferBook(dex, 4);
 
     saveBalances();
@@ -223,7 +223,7 @@ contract Dex_Test {
       aToken,
       bToken
     );
-    emit TestEvents.LOG("end of FailingOffer test");
+    emit Test.LOG("end of FailingOffer test");
     Display.logOfferBook(dex, 4);
     saveBalances();
     saveOffers();
@@ -290,8 +290,8 @@ contract MakerOperations_Test {
 
     mkr.provisionDex(amt1);
 
-    TestEvents.testEq(mkr.freeWei(), amt1, "incorrect mkr freeWei amount (1)");
-    TestEvents.testEq(
+    Test.eq(mkr.freeWei(), amt1, "incorrect mkr freeWei amount (1)");
+    Test.eq(
       address(dex).balance,
       dex_bal + amt1,
       "incorrect dex ETH balance (1)"
@@ -299,12 +299,8 @@ contract MakerOperations_Test {
 
     mkr.provisionDex(amt2);
 
-    TestEvents.testEq(
-      mkr.freeWei(),
-      amt1 + amt2,
-      "incorrect mkr freeWei amount (2)"
-    );
-    TestEvents.testEq(
+    Test.eq(mkr.freeWei(), amt1 + amt2, "incorrect mkr freeWei amount (2)");
+    Test.eq(
       address(dex).balance,
       dex_bal + amt1 + amt2,
       "incorrect dex ETH balance (2)"
@@ -319,12 +315,8 @@ contract MakerOperations_Test {
     mkr.provisionDex(amt1);
     mkr.withdrawDex(amt2);
 
-    TestEvents.testEq(
-      mkr.freeWei(),
-      amt1 - amt2,
-      "incorrect mkr freeWei amount"
-    );
-    TestEvents.testEq(
+    Test.eq(mkr.freeWei(), amt1 - amt2, "incorrect mkr freeWei amount");
+    Test.eq(
       address(dex).balance,
       dex_bal + amt1 - amt2,
       "incorrect dex ETH balance"
@@ -335,9 +327,9 @@ contract MakerOperations_Test {
     uint amt1 = 6.003 ether;
     mkr.provisionDex(amt1);
     try mkr.withdrawDex(amt1 + 1)  {
-      TestEvents.testFail("mkr cannot withdraw more than it has");
+      Test.fail("mkr cannot withdraw more than it has");
     } catch Error(string memory r) {
-      TestEvents.testEq(
+      Test.eq(
         r,
         "dex/insufficientProvision",
         "mkr withdraw failed for the wrong reason"
@@ -347,9 +339,9 @@ contract MakerOperations_Test {
 
   function cant_create_offer_without_freeWei_test() public {
     try mkr.newOffer(1 ether, 1 ether, 0, 0)  {
-      TestEvents.testFail("mkr cannot create offer without provision");
+      Test.fail("mkr cannot create offer without provision");
     } catch Error(string memory r) {
-      TestEvents.testEq(
+      Test.eq(
         r,
         "dex/insufficientProvision",
         "new offer failed for wrong reason"
@@ -362,16 +354,16 @@ contract MakerOperations_Test {
     uint bal = mkr.freeWei();
     mkr.cancelOffer(mkr.newOffer(1 ether, 1 ether, 2300, 0));
 
-    TestEvents.testEq(mkr.freeWei(), bal, "cancel has not restored balance");
+    Test.eq(mkr.freeWei(), bal, "cancel has not restored balance");
   }
 
   function cant_cancel_wrong_offer_test() public {
     mkr.provisionDex(1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 2300, 0);
     try mkr2.cancelOffer(ofr)  {
-      TestEvents.testFail("mkr2 should not be able to cancel mkr's offer");
+      Test.fail("mkr2 should not be able to cancel mkr's offer");
     } catch Error(string memory r) {
-      TestEvents.testEq(
+      Test.eq(
         r,
         "dex/cancelOffer/unauthorized",
         "cancel failed for wrong reason"

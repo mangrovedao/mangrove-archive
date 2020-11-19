@@ -14,22 +14,22 @@ library TestCancelOffer {
     TestToken bToken
   ) external {
     try wrongOwner.cancelOffer(dex, offerId) returns (uint) {
-      TestEvents.testFail("Invalid authorization to cancel order");
+      Test.fail("Invalid authorization to cancel order");
     } catch Error(string memory reason) {
-      TestEvents.testEq(reason, "dex/unauthorizedCancel", "Unexpected throw");
+      Test.eq(reason, "dex/unauthorizedCancel", "Unexpected throw");
       try maker.cancelOffer(dex, offerId) returns (uint released) {
-        TestEvents.testEq(
+        Test.eq(
           released,
           TestUtils.getProvision(dex, offers[offerId][TestUtils.Info.gasreq]),
           "Incorrect released amount"
         );
-        TestEvents.testEq(
+        Test.eq(
           dex.balanceOf(address(maker)),
           balances.makersBalanceWei[offerId] + released,
           "Incorrect returned provision to maker"
         );
       } catch (bytes memory errorMsg) {
-        TestEvents.testFail("Cancel order failed unexpectedly");
+        Test.fail("Cancel order failed unexpectedly");
       }
     }
   }

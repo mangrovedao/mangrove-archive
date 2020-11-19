@@ -73,7 +73,7 @@ library TestUtils {
     uint snipedId,
     uint orderAmount
   ) internal returns (bool) {
-    bytes memory retdata = TestEvents.execWithCost(
+    bytes memory retdata = Test.execWithCost(
       "snipe",
       address(TestUtils),
       abi.encodeWithSelector(
@@ -103,7 +103,7 @@ library TestUtils {
     uint gasreq,
     uint pivotId
   ) internal returns (uint) {
-    bytes memory retdata = TestEvents.execWithCost(
+    bytes memory retdata = Test.execWithCost(
       "newOffer",
       address(TestUtils),
       abi.encodeWithSelector(
@@ -131,7 +131,7 @@ library TestUtils {
     uint takerWants,
     uint takerGives
   ) internal {
-    TestEvents.execWithCost(
+    Test.execWithCost(
       "marketOrder",
       address(TestUtils),
       abi.encodeWithSelector(

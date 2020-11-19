@@ -19,12 +19,12 @@ library TestMarketOrder {
     // Checking Makers balances
     for (uint i = 2; i < 4; i++) {
       // offers 2 and 3 were consumed entirely
-      TestEvents.testEq(
+      Test.eq(
         aToken.balanceOf(address(makers.getMaker(i))),
         balances.makersBalanceA[i] - offers[i][TestUtils.Info.makerGives],
         Display.append("Incorrect A balance for maker ", Display.uint2str(i))
       );
-      TestEvents.testEq(
+      Test.eq(
         bToken.balanceOf(address(makers.getMaker(i))),
         balances.makersBalanceB[i] + offers[i][TestUtils.Info.makerWants],
         Display.append("Incorrect B balance for maker ", Display.uint2str(i))
@@ -36,25 +36,25 @@ library TestMarketOrder {
     uint leftMkrWants = (offers[1][TestUtils.Info.makerWants] * leftTkrWants) /
       offers[1][TestUtils.Info.makerGives];
 
-    TestEvents.testEq(
+    Test.eq(
       aToken.balanceOf(address(makers.getMaker(1))),
       balances.makersBalanceA[1] - leftTkrWants,
       "Incorrect A balance for maker 1"
     );
-    TestEvents.testEq(
+    Test.eq(
       bToken.balanceOf(address(makers.getMaker(1))),
       balances.makersBalanceB[1] + leftMkrWants,
       "Incorrect B balance for maker 1"
     );
 
     // Checking taker balance
-    TestEvents.testEq(
+    Test.eq(
       aToken.balanceOf(address(taker)), // actual
       balances.takerBalanceA + takerWants - TestUtils.getFee(dex, takerWants), // expected
       "incorrect taker A balance"
     );
 
-    TestEvents.testEq(
+    Test.eq(
       bToken.balanceOf(address(taker)), // actual
       balances.takerBalanceB -
         (offers[3][TestUtils.Info.makerWants] +
@@ -64,7 +64,7 @@ library TestMarketOrder {
     );
 
     // Checking DEX Fee Balance
-    TestEvents.testEq(
+    Test.eq(
       aToken.balanceOf(address(dex)), //actual
       balances.dexBalanceFees + TestUtils.getFee(dex, takerWants), //expected
       "incorrect Dex balances"
