@@ -192,10 +192,9 @@ library DexLib {
     require(uint32(pivotId) == pivotId, "dex/newOffer/pivotId/32bits");
 
     /* With every new offer, a maker must deduct provisions from its `freeWei` balance. The maximum penalty is incurred when an offer fails after consuming all its `gasreq`. */
-    {
-      uint maxPenalty = (gasreq + config.gasbase) * config.gasprice;
-      debitWei(freeWei, msg.sender, maxPenalty);
-    }
+
+    uint maxPenalty = (gasreq + config.gasbase) * config.gasprice;
+    debitWei(freeWei, msg.sender, maxPenalty);
 
     /* Once provisioned, the position of the new offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
 
