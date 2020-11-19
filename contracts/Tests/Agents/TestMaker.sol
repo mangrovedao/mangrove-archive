@@ -43,12 +43,24 @@ contract TestMaker is IMaker, Passthrough {
     return (dex.newOffer(wants, gives, gasreq, pivotId));
   }
 
+  function cancelOffer(uint offerId) public {
+    dex.cancelOffer(offerId);
+  }
+
   function provisionDex(uint amount) public {
     (bool success, ) = address(dex).call{value: amount}("");
-    require(success);
+    require(success, "provision dex failed");
+  }
+
+  function withdrawDex(uint amount) public {
+    dex.withdraw(amount);
   }
 
   function approve(IERC20 token, uint amount) public {
     token.approve(address(dex), amount);
+  }
+
+  function freeWei() public returns (uint) {
+    return dex.balanceOf(address(this));
   }
 }

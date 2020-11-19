@@ -30,16 +30,16 @@ import "./Scenarii/TestMarketOrder.sol";
 // Otherwise bytecode can be too large. See EIP 170 for more on size limit:
 // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
 
-library DexPre0 {
-  function setup() external returns (TestToken, TestToken) {
-    return (
-      new TestToken(address(this), "A", "$A"),
-      new TestToken(address(this), "B", "$B")
-    );
+library TokenSetup {
+  function setup(string memory name, string memory ticker)
+    external
+    returns (TestToken)
+  {
+    return new TestToken(address(this), name, ticker);
   }
 }
 
-library DexPre1 {
+library DexSetup {
   function setup(TestToken aToken, TestToken bToken)
     external
     returns (Dex dex)
@@ -60,14 +60,20 @@ library DexPre1 {
   }
 }
 
-library DexPre2 {
+library MakerSetup {
+  function setup(Dex dex, bool shouldFail) external returns (TestMaker) {
+    return new TestMaker(dex, shouldFail);
+  }
+}
+
+library MakerDeployerSetup {
   function setup(Dex dex) external returns (MakerDeployer) {
     TestEvents.testNot0x(address(dex));
     return (new MakerDeployer(dex));
   }
 }
 
-library DexPre3 {
+library TakerSetup {
   function setup(Dex dex) external returns (TestTaker) {
     TestEvents.testNot0x(address(dex));
     return new TestTaker(dex);
@@ -124,7 +130,8 @@ contract Dex_Test {
 
   function a_deployToken_beforeAll() public {
     //console.log("IN BEFORE ALL");
-    (aToken, bToken) = DexPre0.setup();
+    aToken = TokenSetup.setup("A", "$A");
+    bToken = TokenSetup.setup("B", "$B");
 
     TestEvents.testNot0x(address(aToken));
     TestEvents.testNot0x(address(bToken));
@@ -137,14 +144,14 @@ contract Dex_Test {
   }
 
   function b_deployDex_beforeAll() public {
-    dex = DexPre1.setup(aToken, bToken);
+    dex = DexSetup.setup(aToken, bToken);
     Display.register(address(dex), "dex");
     TestEvents.testNot0x(address(dex));
     dex.setConfig(ConfigKey.fee, 300);
   }
 
   function c_deployMakersTaker_beforeAll() public {
-    makers = DexPre2.setup(dex);
+    makers = MakerDeployerSetup.setup(dex);
     makers.deploy(4);
     for (uint i = 1; i < makers.length(); i++) {
       Display.register(
@@ -153,7 +160,7 @@ contract Dex_Test {
       );
     }
     Display.register(address(makers.getMaker(0)), "failer");
-    taker = DexPre3.setup(dex);
+    taker = TakerSetup.setup(dex);
     Display.register(address(taker), "taker");
   }
 
@@ -242,5 +249,109 @@ contract Dex_Test {
   function b_test() public {
     TestMoriarty.run(dex, taker, aToken, bToken);
     Display.logOfferBook(dex, 3);
+  }
+}
+
+contract MakerOperations_Test {
+  TestToken atk;
+  TestToken btk;
+  Dex dex;
+  TestTaker tkr;
+  TestMaker mkr;
+
+  //TestMaker mkr2;
+
+  receive() external payable {}
+
+  function a_beforeAll() public {
+    atk = TokenSetup.setup("A", "$A");
+    btk = TokenSetup.setup("B", "$B");
+    dex = DexSetup.setup(atk, btk);
+    mkr = MakerSetup.setup(dex, false);
+    tkr = TakerSetup.setup(dex);
+
+    address(mkr).transfer(10 ether);
+
+    Display.register(msg.sender, "Test Runner");
+    Display.register(address(this), "MakerOperations_Test");
+    Display.register(address(atk), "$A");
+    Display.register(address(btk), "$B");
+    Display.register(address(dex), "dex");
+    Display.register(address(mkr), "maker");
+    Display.register(address(tkr), "taker");
+  }
+
+  function provision_adds_freeWei_and_ethers_test() public {
+    uint dex_bal = address(dex).balance;
+    uint amt1 = 235;
+    uint amt2 = 1.3 ether;
+
+    mkr.provisionDex(amt1);
+
+    Test.testEq(mkr.freeWei(), amt1, "incorrect mkr freeWei amount (1)");
+    Test.testEq(
+      address(dex).balance,
+      dex_bal + amt1,
+      "incorrect dex ETH balance (1)"
+    );
+
+    mkr.provisionDex(amt2);
+
+    Test.testEq(mkr.freeWei(), amt1 + amt2, "incorrect mkr freeWei amount (2)");
+    Test.testEq(
+      address(dex).balance,
+      dex_bal + amt1 + amt2,
+      "incorrect dex ETH balance (2)"
+    );
+  }
+
+  function withdraw_removes_freeWei_and_ethers_test() public {
+    uint dex_bal = address(dex).balance;
+    uint amt1 = 0.86 ether;
+    uint amt2 = 0.12 ether;
+
+    mkr.provisionDex(amt1);
+    mkr.withdrawDex(amt2);
+
+    Test.testEq(mkr.freeWei(), amt1 - amt2, "incorrect mkr freeWei amount");
+    Test.testEq(
+      address(dex).balance,
+      dex_bal + amt1 - amt2,
+      "incorrect dex ETH balance"
+    );
+  }
+
+  function cannot_withdraw_too_much_test() public {
+    uint amt1 = 6.003 ether;
+    mkr.provisionDex(amt1);
+    try mkr.withdrawDex(amt1 + 1)  {
+      Test.testFail("mkr cannot withdraw more than it has");
+    } catch Error(string memory r) {
+      Test.testEq(
+        r,
+        "dex/insufficientProvision",
+        "mkr withdraw failed for the wrong reason"
+      );
+    }
+  }
+
+  function cannot_create_offer_without_freeWei() public {
+    try mkr.newOffer(1 ether, 1 ether, 0, 0)  {
+      Test.testFail("mkr cannot create offer without provision");
+    } catch Error(string memory r) {
+      Test.testEq(
+        r,
+        "dex/insufficientProvision",
+        "mkr new offer failed for the wrong reason"
+      );
+    }
+  }
+
+  function cancel_restores_balance_test() public {
+    mkr.provisionDex(1 ether);
+    uint bal = mkr.freeWei();
+    mkr.cancelOffer(mkr.newOffer(1 ether, 1 ether, 2300, 0));
+
+    Test.testEq(mkr.freeWei(), bal, "cancel has not restored balance");
   }
 }
