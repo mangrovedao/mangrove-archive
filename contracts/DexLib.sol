@@ -180,16 +180,16 @@ library DexLib {
     /* The following checks are first performed: */
     //+clear+
     /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `maxPenalty` (see below). */
-    require(gasreq <= config.gasmax, "gasreq too large");
+    require(gasreq <= config.gasmax, "dex/newOffer/gasreq/tooHigh");
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isOffer` method sound. */
     require(
       gives >= (gasreq + config.gasbase) * config.density,
-      "offering below dust limit"
+      "dex/newOffer/gives/tooLow"
     );
     /* * Unnecessary for safety: check width of `wants`, `gives` and `pivotId`. They will be truncated anyway, but if they are too wide, we assume the maker has made a mistake and revert. */
-    require(uint96(wants) == wants, "wants is 96 bits wide");
-    require(uint96(gives) == gives, "gives is 96 bits wide");
-    require(uint32(pivotId) == pivotId, "pivotId is 32 bits wide");
+    require(uint96(wants) == wants, "dex/newOffer/wants/96bits");
+    require(uint96(gives) == gives, "dex/newOffer/gives/96bits");
+    require(uint32(pivotId) == pivotId, "dex/newOffer/pivotId/32bits");
 
     /* With every new offer, a maker must deduct provisions from its `freeWei` balance. The maximum penalty is incurred when an offer fails after consuming all its `gasreq`. */
     {
@@ -308,7 +308,7 @@ library DexLib {
     address maker,
     uint amount
   ) internal {
-    require(freeWei[maker] >= amount, "insufficient provision");
+    require(freeWei[maker] >= amount, "dex/insufficientProvision");
     freeWei[maker] -= amount;
     emit DexEvents.Debit(maker, amount);
   }
