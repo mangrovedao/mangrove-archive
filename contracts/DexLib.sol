@@ -7,6 +7,7 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 import "./DexCommon.sol";
 import "./interfaces.sol";
+import "hardhat/console.sol";
 
 library DexLib {
   /* # Configuration access */

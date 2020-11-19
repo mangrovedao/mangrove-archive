@@ -258,8 +258,7 @@ contract MakerOperations_Test {
   Dex dex;
   TestTaker tkr;
   TestMaker mkr;
-
-  //TestMaker mkr2;
+  TestMaker mkr2;
 
   receive() external payable {}
 
@@ -268,9 +267,11 @@ contract MakerOperations_Test {
     btk = TokenSetup.setup("B", "$B");
     dex = DexSetup.setup(atk, btk);
     mkr = MakerSetup.setup(dex, false);
+    mkr2 = MakerSetup.setup(dex, false);
     tkr = TakerSetup.setup(dex);
 
     address(mkr).transfer(10 ether);
+    address(mkr2).transfer(10 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "MakerOperations_Test");
@@ -278,6 +279,7 @@ contract MakerOperations_Test {
     Display.register(address(btk), "$B");
     Display.register(address(dex), "dex");
     Display.register(address(mkr), "maker");
+    Display.register(address(mkr2), "maker2");
     Display.register(address(tkr), "taker");
   }
 
@@ -288,8 +290,8 @@ contract MakerOperations_Test {
 
     mkr.provisionDex(amt1);
 
-    Test.testEq(mkr.freeWei(), amt1, "incorrect mkr freeWei amount (1)");
-    Test.testEq(
+    TestEvents.testEq(mkr.freeWei(), amt1, "incorrect mkr freeWei amount (1)");
+    TestEvents.testEq(
       address(dex).balance,
       dex_bal + amt1,
       "incorrect dex ETH balance (1)"
@@ -297,8 +299,12 @@ contract MakerOperations_Test {
 
     mkr.provisionDex(amt2);
 
-    Test.testEq(mkr.freeWei(), amt1 + amt2, "incorrect mkr freeWei amount (2)");
-    Test.testEq(
+    TestEvents.testEq(
+      mkr.freeWei(),
+      amt1 + amt2,
+      "incorrect mkr freeWei amount (2)"
+    );
+    TestEvents.testEq(
       address(dex).balance,
       dex_bal + amt1 + amt2,
       "incorrect dex ETH balance (2)"
@@ -313,21 +319,25 @@ contract MakerOperations_Test {
     mkr.provisionDex(amt1);
     mkr.withdrawDex(amt2);
 
-    Test.testEq(mkr.freeWei(), amt1 - amt2, "incorrect mkr freeWei amount");
-    Test.testEq(
+    TestEvents.testEq(
+      mkr.freeWei(),
+      amt1 - amt2,
+      "incorrect mkr freeWei amount"
+    );
+    TestEvents.testEq(
       address(dex).balance,
       dex_bal + amt1 - amt2,
       "incorrect dex ETH balance"
     );
   }
 
-  function cannot_withdraw_too_much_test() public {
+  function cant_withdraw_too_much_test() public {
     uint amt1 = 6.003 ether;
     mkr.provisionDex(amt1);
     try mkr.withdrawDex(amt1 + 1)  {
-      Test.testFail("mkr cannot withdraw more than it has");
+      TestEvents.testFail("mkr cannot withdraw more than it has");
     } catch Error(string memory r) {
-      Test.testEq(
+      TestEvents.testEq(
         r,
         "dex/insufficientProvision",
         "mkr withdraw failed for the wrong reason"
@@ -335,14 +345,14 @@ contract MakerOperations_Test {
     }
   }
 
-  function cannot_create_offer_without_freeWei() public {
+  function cant_create_offer_without_freeWei_test() public {
     try mkr.newOffer(1 ether, 1 ether, 0, 0)  {
-      Test.testFail("mkr cannot create offer without provision");
+      TestEvents.testFail("mkr cannot create offer without provision");
     } catch Error(string memory r) {
-      Test.testEq(
+      TestEvents.testEq(
         r,
         "dex/insufficientProvision",
-        "mkr new offer failed for the wrong reason"
+        "new offer failed for wrong reason"
       );
     }
   }
@@ -352,6 +362,20 @@ contract MakerOperations_Test {
     uint bal = mkr.freeWei();
     mkr.cancelOffer(mkr.newOffer(1 ether, 1 ether, 2300, 0));
 
-    Test.testEq(mkr.freeWei(), bal, "cancel has not restored balance");
+    TestEvents.testEq(mkr.freeWei(), bal, "cancel has not restored balance");
+  }
+
+  function cant_cancel_wrong_offer_test() public {
+    mkr.provisionDex(1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 2300, 0);
+    try mkr2.cancelOffer(ofr)  {
+      TestEvents.testFail("mkr2 should not be able to cancel mkr's offer");
+    } catch Error(string memory r) {
+      TestEvents.testEq(
+        r,
+        "dex/cancelOffer/unauthorized",
+        "cancel failed for wrong reason"
+      );
+    }
   }
 }
