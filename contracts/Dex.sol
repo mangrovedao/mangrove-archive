@@ -182,9 +182,10 @@ contract Dex {
     dirtyDeleteOffer(offerId);
     stitchOffers(offer.prev, offer.next);
 
+    /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
     provision =
       offerDetail.gasprice *
-      (offerDetail.gasreq + offerDetail.gasbase);
+      (uint(offerDetail.gasreq) + offerDetail.gasbase);
     DexLib.creditWei(freeWei, msg.sender, provision);
     emit DexEvents.CancelOffer(offerId);
   }
