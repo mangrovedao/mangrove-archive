@@ -214,4 +214,40 @@ contract TakerFailures_Test {
       Test.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
     }
   }
+
+  function taking_same_offer_twice_fails_test() public {
+    tkr.approve(btk, 1 ether);
+    mkr.approve(atk, 1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
+    tkr.take(ofr, 1 ether);
+    try tkr.advancedMarketOrder(0, 0, 0, ofr)  {
+      Test.fail("Offer should have been deleted");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
+    }
+  }
+
+  function small_partial_fill_can_be_retaken_test() public {
+    tkr.approve(btk, 1 ether);
+    mkr.approve(atk, 1 ether);
+    dex.setConfig(ConfigKey.density, 1);
+    dex.setConfig(ConfigKey.gasbase, 1);
+    uint ofr = mkr.newOffer(10_002, 10_002, 10_000, 0);
+    tkr.take(ofr, 1);
+    tkr.advancedMarketOrder(10_001, 10_001, 0, ofr);
+  }
+
+  function big_partial_fill_cant_be_retaken_test() public {
+    tkr.approve(btk, 1 ether);
+    mkr.approve(atk, 1 ether);
+    dex.setConfig(ConfigKey.density, 1);
+    dex.setConfig(ConfigKey.gasbase, 1);
+    uint ofr = mkr.newOffer(10_001, 10_001, 10_000, 0);
+    tkr.take(ofr, 2);
+    try tkr.advancedMarketOrder(10_001, 10_001, 0, ofr)  {
+      Test.fail("Offer should have been deleted");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
+    }
+  }
 }

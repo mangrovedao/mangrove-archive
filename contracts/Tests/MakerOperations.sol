@@ -161,7 +161,7 @@ contract MakerOperations_Test {
     }
   }
 
-  function wide_parameters_fails_newOffer_test() public {
+  function wants_too_wide_fails_newOffer_test() public {
     dex.setConfig(ConfigKey.gasbase, 1);
     dex.setConfig(ConfigKey.density, 1);
     mkr.provisionDex(1 ether);
@@ -172,6 +172,10 @@ contract MakerOperations_Test {
     } catch Error(string memory r) {
       Test.eq(r, "dex/newOffer/wants/96bits", "wrong revert reason");
     }
+  }
+
+  function gives_too_wide_fails_newOffer_test() public {
+    mkr.provisionDex(1 ether);
 
     uint gives = type(uint96).max + uint(1);
     try mkr.newOffer(0, gives, 0, 0)  {
@@ -179,6 +183,12 @@ contract MakerOperations_Test {
     } catch Error(string memory r) {
       Test.eq(r, "dex/newOffer/gives/96bits", "wrong revert reason");
     }
+  }
+
+  function pivotId_too_wide_fails_newOffer_test() public {
+    dex.setConfig(ConfigKey.gasbase, 1);
+    dex.setConfig(ConfigKey.density, 1);
+    mkr.provisionDex(1 ether);
 
     uint pivotId = type(uint32).max + uint(1);
     try mkr.newOffer(0, 1, 0, pivotId)  {
