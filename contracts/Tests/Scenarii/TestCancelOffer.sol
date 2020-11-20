@@ -16,8 +16,9 @@ library TestCancelOffer {
     try wrongOwner.cancelOffer(dex, offerId) returns (uint) {
       Test.fail("Invalid authorization to cancel order");
     } catch Error(string memory reason) {
-      Test.eq(reason, "dex/unauthorizedCancel", "Unexpected throw");
+      Test.eq(reason, "dex/cancelOffer/unauthorized", "Unexpected throw");
       try maker.cancelOffer(dex, offerId) returns (uint released) {
+        require(maker.cancelOffer(dex, 0) == 0); // should be no-op
         Test.eq(
           released,
           TestUtils.getProvision(dex, offers[offerId][TestUtils.Info.gasreq]),

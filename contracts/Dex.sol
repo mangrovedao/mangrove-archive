@@ -177,9 +177,13 @@ contract Dex {
   /* `cancelOffer` is available in closed markets, but only outside of reentrancy. Upon successful deletion of an offer, the ETH that were provisioned are returned to the maker as `freeWei` balance. */
   function cancelOffer(uint offerId) external returns (uint provision) {
     requireNoReentrancyLock();
+    Offer memory offer = offers[offerId];
+    if (!isOffer(offer)) {
+      return 0; //no effect on offers absent from the offer book
+    }
     OfferDetail memory offerDetail = offerDetails[offerId];
     require(msg.sender == offerDetail.maker, "dex/cancelOffer/unauthorized");
-    Offer memory offer = offers[offerId];
+
     dirtyDeleteOffer(offerId);
     stitchOffers(offer.prev, offer.next);
 
@@ -358,7 +362,7 @@ contract Dex {
 
            Let _r~1~_, ..., _r~n~_ the successive values taken by `offer` each time the current while loop's test is executed.
            Also, let _r~0~_ = `offers[pastOfferId]` be the offer immediately better
-           than _r~1~_. 
+           than _r~1~_.
            After the market order loop ends, we will restore the doubly linked
            list by connecting _r~0~_ to _r~n~_ through their `prev`/`next`
            pointers. Assume that currently, `offer` is _r~i~_. Should
