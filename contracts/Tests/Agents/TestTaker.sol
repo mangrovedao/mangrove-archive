@@ -31,4 +31,13 @@ contract TestTaker is ITaker {
   function marketOrder(uint wants, uint gives) external override {
     dex.simpleMarketOrder(wants, gives);
   }
+
+  function advancedMarketOrder(
+    uint wants,
+    uint gives,
+    uint punishLength,
+    uint offerId
+  ) external {
+    dex.marketOrder(wants, gives, punishLength, offerId);
+  }
 }

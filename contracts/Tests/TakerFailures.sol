@@ -198,4 +198,20 @@ contract TakerFailures_Test {
       Test.eq(r, "dex/takerFailToPayDex", "wrong revert reason");
     }
   }
+
+  function marketOrder_on_empty_book_fails_test() public {
+    try tkr.marketOrder(1 ether, 1 ether)  {
+      Test.fail("market order on empty book should fail");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
+    }
+  }
+
+  function marketOrder_with_bad_offer_id_fails_test() public {
+    try tkr.advancedMarketOrder(1 ether, 1 ether, 0, 43)  {
+      Test.fail("market order wit bad offer id should fail");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
+    }
+  }
 }
