@@ -1,6 +1,8 @@
 pragma experimental ABIEncoderV2;
 
 import "../../Dex.sol";
+import "../../DexDeployer.sol";
+import "../Agents/MakerDeployer.sol";
 
 import "./Display.sol";
 import "../Agents/TestTaker.sol";
@@ -141,5 +143,59 @@ library TestUtils {
         takerGives
       )
     );
+  }
+}
+
+// Pretest libraries are for deploying large contracts independently.
+// Otherwise bytecode can be too large. See EIP 170 for more on size limit:
+// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
+
+library TokenSetup {
+  function setup(string memory name, string memory ticker)
+    external
+    returns (TestToken)
+  {
+    return new TestToken(address(this), name, ticker);
+  }
+}
+
+library DexSetup {
+  function setup(TestToken aToken, TestToken bToken)
+    external
+    returns (Dex dex)
+  {
+    Test.not0x(address(aToken));
+    Test.not0x(address(bToken));
+    DexDeployer deployer = new DexDeployer(address(this));
+
+    deployer.deploy({
+      density: 100,
+      gasprice: 40 * 10**9,
+      gasbase: 30000,
+      gasmax: 1000000,
+      ofrToken: address(aToken),
+      reqToken: address(bToken)
+    });
+    return deployer.dexes(address(aToken), address(bToken));
+  }
+}
+
+library MakerSetup {
+  function setup(Dex dex, bool shouldFail) external returns (TestMaker) {
+    return new TestMaker(dex, shouldFail);
+  }
+}
+
+library MakerDeployerSetup {
+  function setup(Dex dex) external returns (MakerDeployer) {
+    Test.not0x(address(dex));
+    return (new MakerDeployer(dex));
+  }
+}
+
+library TakerSetup {
+  function setup(Dex dex) external returns (TestTaker) {
+    Test.not0x(address(dex));
+    return new TestTaker(dex);
   }
 }

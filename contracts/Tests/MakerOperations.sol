@@ -1,0 +1,190 @@
+// SPDX-License-Identifier: UNLICENSED
+
+pragma solidity ^0.7.0;
+pragma experimental ABIEncoderV2;
+
+import "../DexDeployer.sol";
+import "../Dex.sol";
+import "../DexCommon.sol";
+import "../interfaces.sol";
+import "hardhat/console.sol";
+
+import "./Toolbox/TestEvents.sol";
+import "./Toolbox/TestUtils.sol";
+import "./Toolbox/Display.sol";
+
+import "./Agents/TestToken.sol";
+import "./Agents/TestMaker.sol";
+import "./Agents/TestMoriartyMaker.sol";
+import "./Agents/MakerDeployer.sol";
+import "./Agents/TestTaker.sol";
+
+contract MakerOperations_Test {
+  Dex dex;
+  TestMaker mkr;
+  TestMaker mkr2;
+
+  receive() external payable {}
+
+  function a_beforeAll() public {
+    TestToken atk = TokenSetup.setup("A", "$A");
+    TestToken btk = TokenSetup.setup("B", "$B");
+    dex = DexSetup.setup(atk, btk);
+    mkr = MakerSetup.setup(dex, false);
+    mkr2 = MakerSetup.setup(dex, false);
+
+    address(mkr).transfer(10 ether);
+    address(mkr2).transfer(10 ether);
+
+    Display.register(msg.sender, "Test Runner");
+    Display.register(address(this), "MakerOperations_Test");
+    Display.register(address(atk), "$A");
+    Display.register(address(btk), "$B");
+    Display.register(address(dex), "dex");
+    Display.register(address(mkr), "maker");
+    Display.register(address(mkr2), "maker2");
+  }
+
+  function provision_adds_freeWei_and_ethers_test() public {
+    uint dex_bal = address(dex).balance;
+    uint amt1 = 235;
+    uint amt2 = 1.3 ether;
+
+    mkr.provisionDex(amt1);
+
+    Test.eq(mkr.freeWei(), amt1, "incorrect mkr freeWei amount (1)");
+    Test.eq(
+      address(dex).balance,
+      dex_bal + amt1,
+      "incorrect dex ETH balance (1)"
+    );
+
+    mkr.provisionDex(amt2);
+
+    Test.eq(mkr.freeWei(), amt1 + amt2, "incorrect mkr freeWei amount (2)");
+    Test.eq(
+      address(dex).balance,
+      dex_bal + amt1 + amt2,
+      "incorrect dex ETH balance (2)"
+    );
+  }
+
+  function withdraw_removes_freeWei_and_ethers_test() public {
+    uint dex_bal = address(dex).balance;
+    uint amt1 = 0.86 ether;
+    uint amt2 = 0.12 ether;
+
+    mkr.provisionDex(amt1);
+    mkr.withdrawDex(amt2);
+
+    Test.eq(mkr.freeWei(), amt1 - amt2, "incorrect mkr freeWei amount");
+    Test.eq(
+      address(dex).balance,
+      dex_bal + amt1 - amt2,
+      "incorrect dex ETH balance"
+    );
+  }
+
+  function withdraw_too_much_fails_test() public {
+    uint amt1 = 6.003 ether;
+    mkr.provisionDex(amt1);
+    try mkr.withdrawDex(amt1 + 1)  {
+      Test.fail("mkr cannot withdraw more than it has");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/insufficientProvision", "wrong revert reason");
+    }
+  }
+
+  function newOffer_without_freeWei_fails_test() public {
+    try mkr.newOffer(1 ether, 1 ether, 0, 0)  {
+      Test.fail("mkr cannot create offer without provision");
+    } catch Error(string memory r) {
+      Test.eq(
+        r,
+        "dex/insufficientProvision",
+        "new offer failed for wrong reason"
+      );
+    }
+  }
+
+  function cancel_restores_balance_test() public {
+    mkr.provisionDex(1 ether);
+    uint bal = mkr.freeWei();
+    mkr.cancelOffer(mkr.newOffer(1 ether, 1 ether, 2300, 0));
+
+    Test.eq(mkr.freeWei(), bal, "cancel has not restored balance");
+  }
+
+  function cancel_wrong_offer_fails_test() public {
+    mkr.provisionDex(1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 2300, 0);
+    try mkr2.cancelOffer(ofr)  {
+      Test.fail("mkr2 should not be able to cancel mkr's offer");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/cancelOffer/unauthorized", "wrong revert reason");
+    }
+  }
+
+  function gasreq_max_with_newOffer_ok_test() public {
+    mkr.provisionDex(1 ether);
+    uint gasmax = 750000;
+    dex.setConfig(ConfigKey.gasmax, gasmax);
+    mkr.newOffer(1 ether, 1 ether, gasmax, 0);
+  }
+
+  function gasreq_too_high_fails_newOffer_test() public {
+    uint gasmax = 12;
+    dex.setConfig(ConfigKey.gasmax, gasmax);
+    try mkr.newOffer(1 ether, 1 ether, gasmax + 1, 0)  {
+      Test.fail("gasreq above gasmax, newOffer should fail");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/newOffer/gasreq/tooHigh", "wrong revert reason");
+    }
+  }
+
+  function min_density_with_newOffer_ok_test() public {
+    mkr.provisionDex(1 ether);
+    uint density = 10**7;
+    dex.setConfig(ConfigKey.gasbase, 1);
+    dex.setConfig(ConfigKey.density, density);
+    mkr.newOffer(1 ether, density, 0, 0);
+  }
+
+  function low_density_fails_newOffer_test() public {
+    uint density = 10**7;
+    dex.setConfig(ConfigKey.gasbase, 1);
+    dex.setConfig(ConfigKey.density, density);
+    try mkr.newOffer(1 ether, density - 1, 0, 0)  {
+      Test.fail("density too low, newOffer should fail");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/newOffer/gives/tooLow", "wrong revert reason");
+    }
+  }
+
+  function wide_parameters_fails_newOffer_test() public {
+    dex.setConfig(ConfigKey.gasbase, 1);
+    dex.setConfig(ConfigKey.density, 1);
+    mkr.provisionDex(1 ether);
+
+    uint wants = type(uint96).max + uint(1);
+    try mkr.newOffer(wants, 1, 0, 0)  {
+      Test.fail("wants wider than 96bits, newOffer should fail");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/newOffer/wants/96bits", "wrong revert reason");
+    }
+
+    uint gives = type(uint96).max + uint(1);
+    try mkr.newOffer(0, gives, 0, 0)  {
+      Test.fail("gives wider than 96bits, newOffer should fail");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/newOffer/gives/96bits", "wrong revert reason");
+    }
+
+    uint pivotId = type(uint32).max + uint(1);
+    try mkr.newOffer(0, 1, 0, pivotId)  {
+      Test.fail("pivotId wider than 32bits, newOffer should fail");
+    } catch Error(string memory r) {
+      Test.eq(r, "dex/newOffer/pivotId/32bits", "wrong revert reason");
+    }
+  }
+}
