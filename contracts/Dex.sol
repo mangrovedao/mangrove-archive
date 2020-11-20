@@ -315,6 +315,9 @@ contract Dex {
        */
       uint makerWouldWant = (takerWants * offer.wants) / offer.gives;
 
+      /* We set `makerWouldWant > 0` to prevent takers from leaking money out of makers for free. */
+      if (makerWouldWant == 0) makerWouldWant = 1;
+
       /* #### Offer taken */
       if (makerWouldWant <= takerGives) {
         /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get. */
@@ -463,6 +466,9 @@ contract Dex {
 
         /* `localTakerGives` is the amount to be paid using the price induced by the offer. */
         uint localTakerGives = (localTakerWants * offer.wants) / offer.gives;
+
+        /* We set `localTakerGives > 0` to prevent takers from leaking money out of makers for free. */
+        if (localTakerGives == 0) localTakerGives = 1;
 
         /* We execute the offer with the flag `dirtyDeleteOffer` set to `false`, so the offers before and after the selected one get stitched back together. */
         (bool success, uint gasUsedIfFailure, ) = executeOffer(
