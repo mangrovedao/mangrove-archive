@@ -430,7 +430,7 @@ contract Dex {
 
      Also accepts an optional `punishLength` (as in
     `marketOrder`). Returns an array of size at most
-    twice `punishLength` containing info on failed offers. **You should probably set `punishLength` to 1.**
+    twice `punishLength` containing info on failed offers. Only existing offers can fail: if an offerId is invalid, it will just be skipped. **You should probably set `punishLength` to 1.**
       */
   function internalSnipes(uint[] memory targets, uint punishLength)
     public
