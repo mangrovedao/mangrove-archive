@@ -605,7 +605,10 @@ contract Dex {
     /* We start by saving the amount of gas currently available so we can measure how much we spent later. */
     uint oldGas = gasleft();
 
-    /* We will slightly overapproximate the gas consumed by the maker since some local operations will take place in addition to the call; the total cost must not exceed `config.gasbase`. */
+    /* We will slightly overapproximate the gas consumed by the maker since some local operations will take place in addition to the call; the total cost must not exceed `config.gasbase`. 
+
+    Note that we use `config.gasbase`, not `offerDetail.gasbase`. `gasbase` is cached in `offerDetail` for the purpose of applying penalties; when checking if it's worth going through with taking an offer, we look at the most up-to-date `gasbase` value.
+    */
     require(
       oldGas >= offerDetail.gasreq + config.gasbase,
       "dex/unsafeGasAmount"
