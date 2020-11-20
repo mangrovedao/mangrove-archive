@@ -573,11 +573,15 @@ contract Dex {
 
     /* After execution, there are four possible outcomes, along 2 axes: the transaction was successful (or not), the offer was consumed to below the absolute dust limit (or not).
 
-    If the transaction was successful and the offer was not consumed too much, it stays on the book with updated values. */
+    If the transaction was successful and the offer was not consumed too much, it stays on the book with updated values. 
+
+    Note how we use `config.gasbase` instead of `offerDetail.gasbase` to check dust limit. `offerDetail.gasbase` is used to correctly apply penalties; here we are making sure the offer  is still good enough according to the current configuration.
+
+    */
     if (
       success &&
       offer.gives - takerWants >=
-      config.density * (offerDetail.gasreq + offerDetail.gasbase)
+      config.density * (offerDetail.gasreq + config.gasbase)
     ) {
       offers[offerId].gives = uint96(offer.gives - takerWants);
       offers[offerId].wants = uint96(offer.wants - takerGives);
