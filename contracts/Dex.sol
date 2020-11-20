@@ -114,7 +114,7 @@ contract Dex {
 
   /* `requireNoReentrancyLock` protects modifying the book while an order is in progress. */
   function requireNoReentrancyLock() internal view {
-    require(!reentrancyLock, "dex/reentrancy");
+    require(!reentrancyLock, "dex/reentrancyLocked");
   }
 
   /* `requireOpenMarket` protects against operations listed [next to the definition of `open`](#Dex/definition/open). */
