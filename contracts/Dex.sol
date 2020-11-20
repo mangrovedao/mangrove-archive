@@ -260,7 +260,7 @@ contract Dex {
   )
     public
     returns (
-      /* If the offer fails, the function will throw. The return value is also reserved for book cleaning: it contains a list (of length `punishLength`) of the offers that failed during the market order. */
+      /* The return value is used for book cleaning: it contains a list (of length `2 * punishLength`) of the offers that failed during the market order, along with the gas they used before failing. */
       uint[] memory
     )
   {
