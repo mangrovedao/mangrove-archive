@@ -9,7 +9,7 @@ npm install
 ## How to run all tests
 
 ```
-npx hardhat test-solidity
+npm run test
 ```
 
 #### What you can do
