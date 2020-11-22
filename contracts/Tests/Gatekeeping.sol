@@ -65,11 +65,11 @@ contract Gatekeeping_Test {
   function only_admin_can_set_config_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
     try notAdmin.setConfig(ConfigKey.fee, 0)  {
-      Test.fail(
+      TestEvents.fail(
         "someone other than admin should not be able to set the configuration"
       );
     } catch Error(string memory r) {
-      Test.eq(r, "dex/adminOnly", "wrong revert reason");
+      TestEvents.eq(r, "dex/adminOnly", "wrong revert reason");
     }
   }
 
@@ -84,10 +84,10 @@ contract Gatekeeping_Test {
   ) external {
     (bool success, bytes memory retdata) = address(dex).call(reentrancer);
     if (success) {
-      Test.fail("should fail on reentrancy lock");
+      TestEvents.fail("should fail on reentrancy lock");
     } else {
       string memory r = string(retdata);
-      Test.eq(r, "dex/reentrancyLocked", "wrong revert reason");
+      TestEvents.eq(r, "dex/reentrancyLocked", "wrong revert reason");
     }
   }
 
@@ -134,9 +134,9 @@ contract Gatekeeping_Test {
   function newOffer_on_closed_fails_test() public {
     dex.closeMarket();
     try dex.newOffer(1 ether, 1 ether, 0, 0)  {
-      Test.fail("newOffer should fail on closed market");
+      TestEvents.fail("newOffer should fail on closed market");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/closed", "wrong revert reason");
+      TestEvents.eq(r, "dex/closed", "wrong revert reason");
     }
   }
 
@@ -147,28 +147,28 @@ contract Gatekeeping_Test {
       ""
     );
     if (success) {
-      Test.fail("receive() should fail on closed market");
+      TestEvents.fail("receive() should fail on closed market");
     } else {
       string memory r = string(retdata);
-      Test.eq(r, "dex/closed", "wrong revert reason");
+      TestEvents.eq(r, "dex/closed", "wrong revert reason");
     }
   }
 
   function marketOrder_on_closed_fails_test() public {
     dex.closeMarket();
     try tkr.marketOrder(1 ether, 1 ether)  {
-      Test.fail("marketOrder should fail on closed market");
+      TestEvents.fail("marketOrder should fail on closed market");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/closed", "wrong revert reason");
+      TestEvents.eq(r, "dex/closed", "wrong revert reason");
     }
   }
 
   function snipe_on_closed_fails_test() public {
     dex.closeMarket();
     try tkr.take(0, 1 ether)  {
-      Test.fail("snipe should fail on closed market");
+      TestEvents.fail("snipe should fail on closed market");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/closed", "wrong revert reason");
+      TestEvents.eq(r, "dex/closed", "wrong revert reason");
     }
   }
 

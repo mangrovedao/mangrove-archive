@@ -1,8 +1,4 @@
-import "../../Dex.sol";
-import "../Agents/TestToken.sol";
-import "../Agents/TestTaker.sol";
-import "../Agents/TestMoriartyMaker.sol";
-import "../Toolbox/Display.sol";
+import "../Toolbox/TestUtils.sol";
 
 library TestMoriarty {
   function run(
@@ -20,13 +16,20 @@ library TestMoriarty {
     aToken.mint(address(evil), 5 ether);
     evil.approve(aToken, 5 ether);
 
-    uint offerId = evil.newOffer({
-      wants: 1 ether,
-      gives: 0.5 ether,
-      gasreq: 7000,
-      pivotId: 0
+    evil.newOffer({wants: 1 ether, gives: 0.5 ether, gasreq: 7000, pivotId: 0});
+    TestEvents.logString("+ Pushing 4 real offers and a dummy one", 1);
+    Display.logOfferBook(dex, 5);
+    uint[] memory failingOffers = dex.marketOrder({
+      takerWants: 1 ether,
+      takerGives: 10 ether,
+      punishLength: 5,
+      offerId: 0
     });
-    taker.marketOrder({wants: 1 ether, gives: 1 ether});
+    //    for(uint i=0; i < failingOffers.length; i++){
+    //      console.log("Offer failing: %d",failingOffers[i]);
+    //    }
+    Display.logOfferBook(dex, 5);
+
     // Display.printOfferBook(dex);
     // TODO test deepSnipe procedure
   }

@@ -1,14 +1,13 @@
 pragma experimental ABIEncoderV2;
-
-import "../../Dex.sol";
 import "../../DexDeployer.sol";
-import "../Agents/MakerDeployer.sol";
 
-import "./Display.sol";
 import "../Agents/TestTaker.sol";
-import "../Agents/TestMaker.sol";
+import "../Agents/MakerDeployer.sol";
+import "../Agents/TestMoriartyMaker.sol";
+import "../Agents/TestToken.sol";
 
 import "./TestEvents.sol";
+import "./Display.sol";
 
 library TestUtils {
   struct Balances {
@@ -75,7 +74,7 @@ library TestUtils {
     uint snipedId,
     uint orderAmount
   ) internal returns (bool) {
-    bytes memory retdata = Test.execWithCost(
+    bytes memory retdata = TestEvents.execWithCost(
       "snipe",
       address(TestUtils),
       abi.encodeWithSelector(
@@ -105,7 +104,7 @@ library TestUtils {
     uint gasreq,
     uint pivotId
   ) internal returns (uint) {
-    bytes memory retdata = Test.execWithCost(
+    bytes memory retdata = TestEvents.execWithCost(
       "newOffer",
       address(TestUtils),
       abi.encodeWithSelector(
@@ -133,7 +132,7 @@ library TestUtils {
     uint takerWants,
     uint takerGives
   ) internal {
-    Test.execWithCost(
+    TestEvents.execWithCost(
       "marketOrder",
       address(TestUtils),
       abi.encodeWithSelector(
@@ -164,8 +163,8 @@ library DexSetup {
     external
     returns (Dex dex)
   {
-    Test.not0x(address(aToken));
-    Test.not0x(address(bToken));
+    TestEvents.not0x(address(aToken));
+    TestEvents.not0x(address(bToken));
     DexDeployer deployer = new DexDeployer(address(this));
 
     deployer.deploy({
@@ -188,14 +187,14 @@ library MakerSetup {
 
 library MakerDeployerSetup {
   function setup(Dex dex) external returns (MakerDeployer) {
-    Test.not0x(address(dex));
+    TestEvents.not0x(address(dex));
     return (new MakerDeployer(dex));
   }
 }
 
 library TakerSetup {
   function setup(Dex dex) external returns (TestTaker) {
-    Test.not0x(address(dex));
+    TestEvents.not0x(address(dex));
     return new TestTaker(dex);
   }
 }

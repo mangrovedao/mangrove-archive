@@ -1,7 +1,5 @@
 pragma experimental ABIEncoderV2;
-
 import "../Toolbox/TestUtils.sol";
-import "../Agents/MakerDeployer.sol";
 
 library TestInsert {
   function run(
@@ -51,7 +49,7 @@ library TestInsert {
         offerOf[i]
       );
       uint provision_i = TestUtils.getProvision(dex, gasreq_i);
-      Test.eq(
+      TestEvents.eq(
         dex.balanceOf(address(makers.getMaker(i))),
         balances.makersBalanceWei[i] - provision_i,
         Display.append("Incorrect wei balance for maker ", Display.uint2str(i))
@@ -66,7 +64,7 @@ library TestInsert {
         offerId,
         true
       );
-      Test.eq(
+      TestEvents.eq(
         od.maker,
         address(makers.getMaker(expected_maker)),
         Display.append(

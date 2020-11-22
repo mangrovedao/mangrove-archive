@@ -124,9 +124,9 @@ contract TakerFailures_Test {
   function taker_hasnt_approved_B_fails_order_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 0, 0);
     try tkr.take(ofr, 1 ether)  {
-      Test.fail("Taker hasn't approved B, order should fail");
+      TestEvents.fail("Taker hasn't approved B, order should fail");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/takerFailToPayMaker", "wrong revert reason");
+      TestEvents.eq(r, "dex/takerFailToPayMaker", "wrong revert reason");
     }
   }
 
@@ -134,9 +134,9 @@ contract TakerFailures_Test {
     uint ofr = mkr.newOffer(1.1 ether, 1 ether, 10_000, 0);
     tkr.approve(btk, 1.1 ether);
     try tkr.take(ofr, 1.1 ether)  {
-      Test.fail("Taker doesn't have enough B, order should fail");
+      TestEvents.fail("Taker doesn't have enough B, order should fail");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/takerFailToPayMaker", "wrong revert reason");
+      TestEvents.eq(r, "dex/takerFailToPayMaker", "wrong revert reason");
     }
   }
 
@@ -144,7 +144,7 @@ contract TakerFailures_Test {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 0, 0);
     tkr.approve(btk, 1 ether);
     bool success = tkr.take(ofr, 1 ether);
-    Test.check(!success, "order should fail");
+    TestEvents.check(!success, "order should fail");
   }
 
   function if_maker_has_no_A_fails_order_test() public {
@@ -152,14 +152,18 @@ contract TakerFailures_Test {
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 10 ether);
     bool success = tkr.take(ofr, 1 ether);
-    Test.check(!success, "order should fail");
+    TestEvents.check(!success, "order should fail");
   }
 
   function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
     try tkr.marketOrder(2**160, 0)  {
-      Test.fail("TakerWants > 160bits, order should fail");
+      TestEvents.fail("TakerWants > 160bits, order should fail");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/marketOrder/takerWants/160bits", "wrong revert reason");
+      TestEvents.eq(
+        r,
+        "dex/marketOrder/takerWants/160bits",
+        "wrong revert reason"
+      );
     }
   }
 
@@ -167,9 +171,9 @@ contract TakerFailures_Test {
     dex.setConfig(ConfigKey.gasbase, 1);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
     try tkr.take{gas: 40_000}(ofr, 1 ether)  {
-      Test.fail("unsafe gas amount, order should fail");
+      TestEvents.fail("unsafe gas amount, order should fail");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/unsafeGasAmount", "wrong revert reason");
+      TestEvents.eq(r, "dex/unsafeGasAmount", "wrong revert reason");
     }
   }
 
@@ -179,9 +183,9 @@ contract TakerFailures_Test {
     mkr.approve(atk, 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
     try tkr.take(ofr, 1 ether)  {
-      Test.fail("Taker hasn't approved for A, order should fail");
+      TestEvents.fail("Taker hasn't approved for A, order should fail");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/takerFailToPayDex", "wrong revert reason");
+      TestEvents.eq(r, "dex/takerFailToPayDex", "wrong revert reason");
     }
   }
 
@@ -193,25 +197,25 @@ contract TakerFailures_Test {
     tkr.approve(atk, 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
     try tkr.take(ofr, 1 ether)  {
-      Test.fail("Taker doesn't have enough A, order should fail");
+      TestEvents.fail("Taker doesn't have enough A, order should fail");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/takerFailToPayDex", "wrong revert reason");
+      TestEvents.eq(r, "dex/takerFailToPayDex", "wrong revert reason");
     }
   }
 
   function marketOrder_on_empty_book_fails_test() public {
     try tkr.marketOrder(1 ether, 1 ether)  {
-      Test.fail("market order on empty book should fail");
+      TestEvents.fail("market order on empty book should fail");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
+      TestEvents.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
     }
   }
 
   function marketOrder_with_bad_offer_id_fails_test() public {
     try tkr.advancedMarketOrder(1 ether, 1 ether, 0, 43)  {
-      Test.fail("market order wit bad offer id should fail");
+      TestEvents.fail("market order wit bad offer id should fail");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
+      TestEvents.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
     }
   }
 

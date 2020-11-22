@@ -1,5 +1,4 @@
 import "../Toolbox/TestUtils.sol";
-import "../Agents/MakerDeployer.sol";
 
 library TestSnipe {
   function run(
@@ -17,33 +16,33 @@ library TestSnipe {
 
     //(uint init_mkr_wants, uint init_mkr_gives,,,,,)=dex.getOfferInfo(2);
     //---------------SNIPE------------------//
-    Test.check(
+    TestEvents.check(
       TestUtils.snipeWithGas(taker, snipedId, orderAmount),
       "snipe should be a success"
     );
-    Test.eq(
+    TestEvents.eq(
       aToken.balanceOf(address(dex)), //actual
       balances.dexBalanceFees + TestUtils.getFee(dex, orderAmount), //expected
       "incorrect Dex A balance"
     );
-    Test.eq(
+    TestEvents.eq(
       bToken.balanceOf(address(taker)),
       balances.takerBalanceB -
         (orderAmount * offers[snipedId][TestUtils.Info.makerWants]) /
         offers[snipedId][TestUtils.Info.makerGives],
       "incorrect taker B balance"
     );
-    Test.eq(
+    TestEvents.eq(
       aToken.balanceOf(address(taker)), // actual
       balances.takerBalanceA + orderAmount - TestUtils.getFee(dex, orderAmount), // expected
       "incorrect taker A balance"
     );
-    Test.eq(
+    TestEvents.eq(
       aToken.balanceOf(address(maker)),
       balances.makersBalanceA[snipedId] - orderAmount,
       "incorrect maker A balance"
     );
-    Test.eq(
+    TestEvents.eq(
       bToken.balanceOf(address(maker)),
       balances.makersBalanceB[snipedId] +
         (orderAmount * offers[snipedId][TestUtils.Info.makerWants]) /
@@ -53,13 +52,13 @@ library TestSnipe {
     // Testing residual offer
     (bool exists, uint makerWants, uint makerGives, , , , , ) = dex
       .getOfferInfo(snipedId);
-    Test.check(exists, "Offer should have a residual");
-    Test.eq(
+    TestEvents.check(exists, "Offer should have a residual");
+    TestEvents.eq(
       makerGives,
       offers[snipedId][TestUtils.Info.makerGives] - orderAmount,
       "Incorrect residual offer (gives)"
     );
-    Test.eq(
+    TestEvents.eq(
       makerWants,
       (offers[snipedId][TestUtils.Info.makerWants] *
         (offers[snipedId][TestUtils.Info.makerGives] - orderAmount)) /

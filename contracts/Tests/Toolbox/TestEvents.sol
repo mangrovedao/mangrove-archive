@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
 
-// Base Test contract. Test contracts should extend it.
 // Should be kept in sync with ../lib/test_solidity.js
 // Calling test functions sends events which are interpeted by test_solidity.js
 // to display results.
-library Test {
-  event LOG(string message);
+
+library TestEvents {
+  event LogString(string message, uint indentLevel);
+
+  function logString(string memory message, uint indent) internal {
+    emit LogString(message, indent);
+  }
 
   event ExpectFrom(address from);
 

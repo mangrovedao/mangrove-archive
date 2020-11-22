@@ -3,9 +3,8 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "../../Dex.sol";
 import "hardhat/console.sol";
-
+import "../../Dex.sol";
 import "../Agents/TestToken.sol";
 
 library Display {

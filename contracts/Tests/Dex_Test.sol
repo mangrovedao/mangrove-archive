@@ -26,6 +26,10 @@ import "./Scenarii/TestSnipe.sol";
 import "./Scenarii/TestMoriarty.sol";
 import "./Scenarii/TestMarketOrder.sol";
 
+// Pretest libraries are for deploying large contracts independently.
+// Otherwise bytecode can be too large. See EIP 170 for more on size limit:
+// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
+
 contract Dex_Test {
   Dex dex;
   TestTaker taker;
@@ -79,8 +83,8 @@ contract Dex_Test {
     aToken = TokenSetup.setup("A", "$A");
     bToken = TokenSetup.setup("B", "$B");
 
-    Test.not0x(address(aToken));
-    Test.not0x(address(bToken));
+    TestEvents.not0x(address(aToken));
+    TestEvents.not0x(address(bToken));
 
     Display.register(address(0), "NULL_ADDRESS");
     Display.register(msg.sender, "Test Runner");
@@ -92,7 +96,7 @@ contract Dex_Test {
   function b_deployDex_beforeAll() public {
     dex = DexSetup.setup(aToken, bToken);
     Display.register(address(dex), "dex");
-    Test.not0x(address(dex));
+    TestEvents.not0x(address(dex));
     dex.setConfig(ConfigKey.fee, 300);
   }
 
@@ -129,32 +133,32 @@ contract Dex_Test {
     taker.approve(aToken, 50 ether);
   }
 
-  function zeroDust_test() public {
+  function a_zeroDust_test() public {
     try dex.setConfig(ConfigKey.density, 0)  {
-      Test.fail("zero density should revert");
+      TestEvents.fail("zero density should revert");
     } catch Error(
       string memory /*reason*/
     ) {
-      Test.success();
+      TestEvents.success();
     }
   }
 
-  function a_full_test() public {
+  function b_basic_test() public {
     saveBalances();
     offerOf = TestInsert.run(balances, dex, makers, taker, aToken, bToken);
-    emit Test.LOG("End of Insert test");
+    TestEvents.logString("End of Insert test", 0);
     Display.logOfferBook(dex, 4);
 
     saveBalances();
     saveOffers();
     TestSnipe.run(balances, offers, dex, makers, taker, aToken, bToken);
-    emit Test.LOG("End of Snipe test");
+    TestEvents.logString("End of Snipe test", 0);
     Display.logOfferBook(dex, 4);
 
     saveBalances();
     saveOffers();
     TestMarketOrder.run(balances, offers, dex, makers, taker, aToken, bToken);
-    emit Test.LOG("End of MarketOrder test");
+    TestEvents.logString("End of MarketOrder test", 0);
     Display.logOfferBook(dex, 4);
 
     saveBalances();
@@ -169,31 +173,53 @@ contract Dex_Test {
       aToken,
       bToken
     );
-    emit Test.LOG("end of FailingOffer test");
+    TestEvents.logString("end of FailingOffer test", 0);
     Display.logOfferBook(dex, 4);
-    saveBalances();
-    saveOffers();
+    // saveBalances();
+    // saveOffers();
+    //
+    // TestCancelOffer.run(
+    //   balances,
+    //   offers,
+    //   dex,
+    //   makers.getMaker(0),
+    //   makers.getMaker(1),
+    //   offerOf[1],
+    //   taker,
+    //   aToken,
+    //   bToken
+    // );
 
-    TestCancelOffer.run(
-      balances,
-      offers,
-      dex,
-      makers.getMaker(0),
-      makers.getMaker(1),
-      offerOf[1],
-      taker,
-      aToken,
-      bToken
-    );
-
-    // test cancel orders
     // test closeMarket
     // test withdraw
     // test reintrant offer
   }
+}
 
-  function b_test() public {
-    TestMoriarty.run(dex, taker, aToken, bToken);
-    Display.logOfferBook(dex, 3);
+contract DeepCollect_Test {
+  TestToken atk;
+  TestToken btk;
+  Dex dex;
+  TestTaker tkr;
+
+  receive() external payable {}
+
+  function a_beforeAll() public {
+    atk = TokenSetup.setup("A", "$A");
+    btk = TokenSetup.setup("B", "$B");
+    dex = DexSetup.setup(atk, btk);
+    tkr = TakerSetup.setup(dex);
+
+    Display.register(msg.sender, "Test Runner");
+    Display.register(address(this), "DeepCollect_Tester");
+    Display.register(address(atk), "$A");
+    Display.register(address(btk), "$B");
+    Display.register(address(dex), "dex");
+    Display.register(address(tkr), "taker");
+  }
+
+  function deepCollect_test() public {
+    TestEvents.logString("=== DeepCollect test ===", 0);
+    TestMoriarty.run(dex, tkr, atk, btk);
   }
 }

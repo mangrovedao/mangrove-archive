@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
 
+import "./Passthrough.sol";
 import "../../interfaces.sol";
 import "../../Dex.sol";
-
-import "./Passthrough.sol";
-import "hardhat/console.sol";
 
 contract TestMaker is IMaker, Passthrough {
   Dex dex;

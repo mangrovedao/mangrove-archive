@@ -1,5 +1,4 @@
 import "../Toolbox/TestUtils.sol";
-import "../Agents/MakerDeployer.sol";
 
 library TestMarketOrder {
   function run(
@@ -19,12 +18,12 @@ library TestMarketOrder {
     // Checking Makers balances
     for (uint i = 2; i < 4; i++) {
       // offers 2 and 3 were consumed entirely
-      Test.eq(
+      TestEvents.eq(
         aToken.balanceOf(address(makers.getMaker(i))),
         balances.makersBalanceA[i] - offers[i][TestUtils.Info.makerGives],
         Display.append("Incorrect A balance for maker ", Display.uint2str(i))
       );
-      Test.eq(
+      TestEvents.eq(
         bToken.balanceOf(address(makers.getMaker(i))),
         balances.makersBalanceB[i] + offers[i][TestUtils.Info.makerWants],
         Display.append("Incorrect B balance for maker ", Display.uint2str(i))
@@ -36,25 +35,25 @@ library TestMarketOrder {
     uint leftMkrWants = (offers[1][TestUtils.Info.makerWants] * leftTkrWants) /
       offers[1][TestUtils.Info.makerGives];
 
-    Test.eq(
+    TestEvents.eq(
       aToken.balanceOf(address(makers.getMaker(1))),
       balances.makersBalanceA[1] - leftTkrWants,
       "Incorrect A balance for maker 1"
     );
-    Test.eq(
+    TestEvents.eq(
       bToken.balanceOf(address(makers.getMaker(1))),
       balances.makersBalanceB[1] + leftMkrWants,
       "Incorrect B balance for maker 1"
     );
 
     // Checking taker balance
-    Test.eq(
+    TestEvents.eq(
       aToken.balanceOf(address(taker)), // actual
       balances.takerBalanceA + takerWants - TestUtils.getFee(dex, takerWants), // expected
       "incorrect taker A balance"
     );
 
-    Test.eq(
+    TestEvents.eq(
       bToken.balanceOf(address(taker)), // actual
       balances.takerBalanceB -
         (offers[3][TestUtils.Info.makerWants] +
@@ -64,7 +63,7 @@ library TestMarketOrder {
     );
 
     // Checking DEX Fee Balance
-    Test.eq(
+    TestEvents.eq(
       aToken.balanceOf(address(dex)), //actual
       balances.dexBalanceFees + TestUtils.getFee(dex, takerWants), //expected
       "incorrect Dex balances"

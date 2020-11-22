@@ -1,4 +1,3 @@
-import "../Toolbox/TestEvents.sol";
 import "../Toolbox/TestUtils.sol";
 
 library TestCancelOffer {
@@ -14,23 +13,23 @@ library TestCancelOffer {
     TestToken bToken
   ) external {
     try wrongOwner.cancelOffer(dex, offerId) returns (uint) {
-      Test.fail("Invalid authorization to cancel order");
+      TestEvents.fail("Invalid authorization to cancel order");
     } catch Error(string memory reason) {
-      Test.eq(reason, "dex/cancelOffer/unauthorized", "Unexpected throw");
+      TestEvents.eq(reason, "dex/cancelOffer/unauthorized", "Unexpected throw");
       try maker.cancelOffer(dex, offerId) returns (uint released) {
         require(maker.cancelOffer(dex, 0) == 0); // should be no-op
-        Test.eq(
+        TestEvents.eq(
           released,
           TestUtils.getProvision(dex, offers[offerId][TestUtils.Info.gasreq]),
           "Incorrect released amount"
         );
-        Test.eq(
+        TestEvents.eq(
           dex.balanceOf(address(maker)),
           balances.makersBalanceWei[offerId] + released,
           "Incorrect returned provision to maker"
         );
       } catch (bytes memory errorMsg) {
-        Test.fail("Cancel order failed unexpectedly");
+        TestEvents.fail("Cancel order failed unexpectedly");
       }
     }
   }

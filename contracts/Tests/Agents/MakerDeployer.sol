@@ -4,10 +4,11 @@ pragma solidity ^0.7.0;
 
 import "../../Dex.sol";
 import "../../interfaces.sol";
+import "./TestMaker.sol";
 import "hardhat/console.sol";
 
-import "./TestMaker.sol";
-import "./TestToken.sol";
+//import "./TestMaker.sol";
+//import "./TestToken.sol";
 
 contract MakerDeployer {
   address payable[] makers;

@@ -89,5 +89,8 @@ module.exports = {
       ob.forEach((o) => console.log(" " + lineA(o)));
       console.log("└" + "─".repeat(3 + 2 + 15 + 15 + 15 - 2) + "┘");
     },
+    LogString: (log) => {
+      console.log(" ".repeat(log.args.indentLevel) + log.args.message);
+    },
   },
 };

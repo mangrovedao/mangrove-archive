@@ -52,8 +52,8 @@ contract MakerOperations_Test {
 
     mkr.provisionDex(amt1);
 
-    Test.eq(mkr.freeWei(), amt1, "incorrect mkr freeWei amount (1)");
-    Test.eq(
+    TestEvents.eq(mkr.freeWei(), amt1, "incorrect mkr freeWei amount (1)");
+    TestEvents.eq(
       address(dex).balance,
       dex_bal + amt1,
       "incorrect dex ETH balance (1)"
@@ -61,8 +61,12 @@ contract MakerOperations_Test {
 
     mkr.provisionDex(amt2);
 
-    Test.eq(mkr.freeWei(), amt1 + amt2, "incorrect mkr freeWei amount (2)");
-    Test.eq(
+    TestEvents.eq(
+      mkr.freeWei(),
+      amt1 + amt2,
+      "incorrect mkr freeWei amount (2)"
+    );
+    TestEvents.eq(
       address(dex).balance,
       dex_bal + amt1 + amt2,
       "incorrect dex ETH balance (2)"
@@ -77,8 +81,8 @@ contract MakerOperations_Test {
     mkr.provisionDex(amt1);
     mkr.withdrawDex(amt2);
 
-    Test.eq(mkr.freeWei(), amt1 - amt2, "incorrect mkr freeWei amount");
-    Test.eq(
+    TestEvents.eq(mkr.freeWei(), amt1 - amt2, "incorrect mkr freeWei amount");
+    TestEvents.eq(
       address(dex).balance,
       dex_bal + amt1 - amt2,
       "incorrect dex ETH balance"
@@ -89,17 +93,17 @@ contract MakerOperations_Test {
     uint amt1 = 6.003 ether;
     mkr.provisionDex(amt1);
     try mkr.withdrawDex(amt1 + 1)  {
-      Test.fail("mkr cannot withdraw more than it has");
+      TestEvents.fail("mkr cannot withdraw more than it has");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/insufficientProvision", "wrong revert reason");
+      TestEvents.eq(r, "dex/insufficientProvision", "wrong revert reason");
     }
   }
 
   function newOffer_without_freeWei_fails_test() public {
     try mkr.newOffer(1 ether, 1 ether, 0, 0)  {
-      Test.fail("mkr cannot create offer without provision");
+      TestEvents.fail("mkr cannot create offer without provision");
     } catch Error(string memory r) {
-      Test.eq(
+      TestEvents.eq(
         r,
         "dex/insufficientProvision",
         "new offer failed for wrong reason"
@@ -112,16 +116,16 @@ contract MakerOperations_Test {
     uint bal = mkr.freeWei();
     mkr.cancelOffer(mkr.newOffer(1 ether, 1 ether, 2300, 0));
 
-    Test.eq(mkr.freeWei(), bal, "cancel has not restored balance");
+    TestEvents.eq(mkr.freeWei(), bal, "cancel has not restored balance");
   }
 
   function cancel_wrong_offer_fails_test() public {
     mkr.provisionDex(1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 2300, 0);
     try mkr2.cancelOffer(ofr)  {
-      Test.fail("mkr2 should not be able to cancel mkr's offer");
+      TestEvents.fail("mkr2 should not be able to cancel mkr's offer");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/cancelOffer/unauthorized", "wrong revert reason");
+      TestEvents.eq(r, "dex/cancelOffer/unauthorized", "wrong revert reason");
     }
   }
 
@@ -136,9 +140,9 @@ contract MakerOperations_Test {
     uint gasmax = 12;
     dex.setConfig(ConfigKey.gasmax, gasmax);
     try mkr.newOffer(1 ether, 1 ether, gasmax + 1, 0)  {
-      Test.fail("gasreq above gasmax, newOffer should fail");
+      TestEvents.fail("gasreq above gasmax, newOffer should fail");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/newOffer/gasreq/tooHigh", "wrong revert reason");
+      TestEvents.eq(r, "dex/newOffer/gasreq/tooHigh", "wrong revert reason");
     }
   }
 
@@ -155,9 +159,9 @@ contract MakerOperations_Test {
     dex.setConfig(ConfigKey.gasbase, 1);
     dex.setConfig(ConfigKey.density, density);
     try mkr.newOffer(1 ether, density - 1, 0, 0)  {
-      Test.fail("density too low, newOffer should fail");
+      TestEvents.fail("density too low, newOffer should fail");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/newOffer/gives/tooLow", "wrong revert reason");
+      TestEvents.eq(r, "dex/newOffer/gives/tooLow", "wrong revert reason");
     }
   }
 
@@ -168,9 +172,9 @@ contract MakerOperations_Test {
 
     uint wants = type(uint96).max + uint(1);
     try mkr.newOffer(wants, 1, 0, 0)  {
-      Test.fail("wants wider than 96bits, newOffer should fail");
+      TestEvents.fail("wants wider than 96bits, newOffer should fail");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/newOffer/wants/96bits", "wrong revert reason");
+      TestEvents.eq(r, "dex/newOffer/wants/96bits", "wrong revert reason");
     }
   }
 
@@ -179,9 +183,9 @@ contract MakerOperations_Test {
 
     uint gives = type(uint96).max + uint(1);
     try mkr.newOffer(0, gives, 0, 0)  {
-      Test.fail("gives wider than 96bits, newOffer should fail");
+      TestEvents.fail("gives wider than 96bits, newOffer should fail");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/newOffer/gives/96bits", "wrong revert reason");
+      TestEvents.eq(r, "dex/newOffer/gives/96bits", "wrong revert reason");
     }
   }
 
@@ -192,9 +196,9 @@ contract MakerOperations_Test {
 
     uint pivotId = type(uint32).max + uint(1);
     try mkr.newOffer(0, 1, 0, pivotId)  {
-      Test.fail("pivotId wider than 32bits, newOffer should fail");
+      TestEvents.fail("pivotId wider than 32bits, newOffer should fail");
     } catch Error(string memory r) {
-      Test.eq(r, "dex/newOffer/pivotId/32bits", "wrong revert reason");
+      TestEvents.eq(r, "dex/newOffer/pivotId/32bits", "wrong revert reason");
     }
   }
 }

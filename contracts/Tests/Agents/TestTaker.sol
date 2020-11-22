@@ -22,7 +22,7 @@ contract TestTaker is ITaker {
     override
     returns (bool success)
   {
-    //uint taken = Test.min(makerGives, takerWants);
+    //uint taken = TestEvents.min(makerGives, takerWants);
     bool success = dex.snipe(offerId, takerWants);
     return success;
     //return taken;
