@@ -13,7 +13,7 @@ contract MoneyMarket {
   // money market must be admin of all tokens to work
   // use token.addAdmin(address(moneyMarket)) to give it admin power
 
-  uint constant RATIO = 13_000;
+  uint constant RATIO = 13_000; // basis points
   TestToken[] tokens;
   mapping(TestToken => mapping(address => uint)) borrows;
   mapping(TestToken => mapping(address => uint)) lends;
@@ -31,7 +31,7 @@ contract MoneyMarket {
     uint borrowed = getBorrows();
     if (S.div(S.mul(S.add(borrowed, amount), RATIO), 10_000) <= lent) {
       borrows[token][msg.sender] += amount;
-      token.mint(address(this), amount);
+      token.mint(address(this), amount); // magic minting
       token.transfer(msg.sender, amount);
       return true;
     } else {
