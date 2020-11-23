@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 import "../../DexDeployer.sol";
 
@@ -35,7 +37,7 @@ library TestUtils {
     Dex dex,
     Info infKey,
     uint offerId
-  ) internal returns (uint) {
+  ) internal view returns (uint) {
     (Offer memory offer, OfferDetail memory offerDetail) = dex.getOfferInfo(
       offerId,
       true
@@ -56,7 +58,7 @@ library TestUtils {
     }
   }
 
-  function makerOf(Dex dex, uint offerId) internal returns (address) {
+  function makerOf(Dex dex, uint offerId) internal view returns (address) {
     (, OfferDetail memory od) = dex.getOfferInfo(offerId, true);
     return od.maker;
   }

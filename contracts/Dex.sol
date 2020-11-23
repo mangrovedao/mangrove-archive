@@ -108,7 +108,7 @@ contract Dex {
   */
 
   /* `requireAdmin` protects all functions which modify the configuration of the Dex as well as `closeMarket`, which irreversibly freezes offer creation/consumption. */
-  function requireAdmin() internal view returns (bool) {
+  function requireAdmin() internal view {
     require(msg.sender == config.admin, "dex/adminOnly");
   }
 
@@ -216,7 +216,8 @@ contract Dex {
     if (amount == 0) return;
     //+clear+
     DexLib.debitWei(freeWei, msg.sender, amount);
-    msg.sender.call{gas: 0, value: amount}("");
+    bool success;
+    (success, ) = msg.sender.call{gas: 0, value: amount}("");
   }
 
   /* # Taker operations */
@@ -702,7 +703,8 @@ contract Dex {
     if (!success) {
       uint amount = offerDetail.gasprice * (offerDetail.gasbase + gasDeducted);
       emit DexEvents.Transfer(msg.sender, amount);
-      msg.sender.call{gas: 0, value: amount}("");
+      bool noRevert;
+      (noRevert, ) = msg.sender.call{gas: 0, value: amount}("");
     }
   }
 
@@ -751,9 +753,10 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* Sandwiched between `punishingSnipes` and `internalSnipes`, the function `internalPunishingSnipes` runs a sequence of snipes, reverts it, and sends up the list of failed offers. If it catches a revert inside `snipes`, it returns normally a `bytes` array with the raw revert data in it. */
   function internalPunishingSnipes(uint[] calldata targets, uint punishLength)
     external
-    returns (bytes memory)
+    returns (bytes memory retdata)
   {
-    (bool noRevert, bytes memory retdata) = address(this).delegatecall(
+    bool noRevert;
+    (noRevert, retdata) = address(this).delegatecall(
       abi.encodeWithSelector(
         this.internalSnipes.selector,
         targets,
@@ -811,8 +814,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint takerWants,
     uint takerGives,
     uint punishLength
-  ) external returns (bytes memory) {
-    (bool noRevert, bytes memory retdata) = address(this).delegatecall(
+  ) external returns (bytes memory retdata) {
+    bool noRevert;
+    (noRevert, retdata) = address(this).delegatecall(
       abi.encodeWithSelector(
         this.marketOrder.selector,
         takerWants,
@@ -908,6 +912,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     view
     returns (Offer memory, OfferDetail memory)
   {
+    structured; // silence warning about unused variable
     return (offers[offerId], offerDetails[offerId]);
   }
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.7.0;
 import "../Toolbox/TestUtils.sol";
 
 library TestMoriarty {
@@ -5,7 +7,7 @@ library TestMoriarty {
     Dex dex,
     TestTaker taker,
     TestToken aToken,
-    TestToken bToken
+    TestToken /* bToken */ // silence warning about unused argument
   ) external {
     TestMoriartyMaker evil = new TestMoriartyMaker(dex);
     Display.register(address(evil), "Moriarty");

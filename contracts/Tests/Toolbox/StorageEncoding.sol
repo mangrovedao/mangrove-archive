@@ -16,7 +16,8 @@ struct S {
 }
 
 library Lib {
-  function a(S storage s) public {
+  function a(S storage s) public view {
+    s; // silence warning about unused parameter
     console.log("in Lib.a: calldata received");
     console.logBytes(msg.data);
   }
@@ -37,7 +38,8 @@ contract StorageEncoding_Test {
     bytes memory data = abi.encodeWithSelector(Lib.a.selector, s);
     console.logBytes(data);
     console.log("Calling address(Lib).delegatecall(u)...");
-    address(Lib).delegatecall(data);
+    bool success;
+    (success, ) = address(Lib).delegatecall(data);
     console.log("___________________");
 
     console.log("[Encoding s with compiler]");

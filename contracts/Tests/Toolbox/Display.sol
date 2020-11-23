@@ -27,6 +27,7 @@ library Display {
   event Register(address addr, string name);
 
   function registers() internal view returns (Registers storage) {
+    this; // silence warning about pure mutability
     Registers storage regs;
     bytes32 _slot = NAMES_POS;
     assembly {
@@ -35,9 +36,9 @@ library Display {
     return regs;
   }
 
-  function register(address addr, string memory name) internal {
-    registers().map[addr] = name;
-    emit Register(addr, name);
+  function register(address addr, string memory _name) internal {
+    registers().map[addr] = _name;
+    emit Register(addr, _name);
   }
 
   function name(address addr) internal view returns (string memory) {
@@ -101,7 +102,7 @@ library Display {
 
   function toEthUnits(uint w, string memory units)
     internal
-    view
+    pure
     returns (string memory eth)
   {
     string memory suffix = append(" ", units);
@@ -137,8 +138,6 @@ library Display {
 
   function logOfferBook(Dex dex, uint size) internal {
     uint offerId = dex.best();
-    TestToken req_tk = TestToken(dex.REQ_TOKEN());
-    TestToken ofr_tk = TestToken(dex.OFR_TOKEN());
 
     uint[] memory wants = new uint[](size);
     uint[] memory gives = new uint[](size);
@@ -171,15 +170,21 @@ library Display {
     console.log("-----Best offer: %d-----", dex.getBest());
     while (offerId != 0) {
       (
-        bool exists,
+        ,
+        /* bool exists */
+        // silence warning about unused argument
         uint wants,
         uint gives,
-        uint nextId,
-        uint gasreq,
-        uint minFinishGas,
-        uint gasprice,
-        address makerAddr
-      ) = dex.getOfferInfo(offerId);
+        uint nextId, // silence warning about unused argument // silence warning about unused argument // silence warning about unused argument // silence warning about unused argument
+        ,
+        ,
+        ,
+
+      ) = /* uint gasreq */
+      /* uint minFinishGas */
+      /* uint gasprice */
+      /* address makerAddr */
+      dex.getOfferInfo(offerId);
       console.log(
         "[offer %d] %s/%s",
         offerId,

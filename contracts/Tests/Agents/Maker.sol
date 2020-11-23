@@ -62,6 +62,7 @@ contract Maker is IMaker {
       return DEXBA;
     }
     require(false);
+    return address(0x0); // silence unnamed return variable warning
   }
 
   function pushOffer(

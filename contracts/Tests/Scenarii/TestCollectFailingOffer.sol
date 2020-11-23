@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.7.0;
 import "../Toolbox/TestUtils.sol";
 
 library TestCollectFailingOffer {
@@ -8,8 +10,8 @@ library TestCollectFailingOffer {
     uint failingOfferId,
     MakerDeployer makers,
     TestTaker taker,
-    TestToken aToken,
-    TestToken bToken
+    TestToken, /* aToken */ // silence warning about unused argument
+    TestToken /* bToken */ // silence warning about unused argument
   ) external {
     // executing failing offer
     try taker.take(failingOfferId, 0.5 ether) returns (bool success) {

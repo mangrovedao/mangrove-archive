@@ -28,7 +28,7 @@ library TestEvents {
     emit TestTrue(false, message);
   }
 
-  function success() internal {
+  function succeed() internal {
     emit TestTrue(true, "Success");
   }
 

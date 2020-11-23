@@ -142,7 +142,7 @@ contract Dex_Test {
     } catch Error(
       string memory /*reason*/
     ) {
-      TestEvents.success();
+      TestEvents.succeed();
     }
   }
 

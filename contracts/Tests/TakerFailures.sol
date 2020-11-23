@@ -42,7 +42,7 @@ contract BlackholeTaker is TestTaker, CallableRecipient {
   // sends all received funds into a black hole
   function received(
     ERC20 token,
-    address sender,
+    address, /* sender*/ // silence warning about unused argument
     uint amount
   ) external override {
     if (enabled) {

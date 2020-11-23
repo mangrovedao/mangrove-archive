@@ -28,8 +28,8 @@ contract TestMaker is IMaker, Passthrough {
     assert(!shouldFail);
   }
 
-  function cancelOffer(Dex dex, uint offerId) public returns (uint) {
-    return (dex.cancelOffer(offerId));
+  function cancelOffer(Dex _dex, uint offerId) public returns (uint) {
+    return (_dex.cancelOffer(offerId));
   }
 
   function newOffer(
@@ -58,7 +58,7 @@ contract TestMaker is IMaker, Passthrough {
     token.approve(address(dex), amount);
   }
 
-  function freeWei() public returns (uint) {
+  function freeWei() public view returns (uint) {
     return dex.balanceOf(address(this));
   }
 }

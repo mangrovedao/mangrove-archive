@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.7.0;
 import "../Toolbox/TestUtils.sol";
 
 library TestCancelOffer {
@@ -8,9 +10,9 @@ library TestCancelOffer {
     TestMaker wrongOwner,
     TestMaker maker,
     uint offerId,
-    TestTaker taker,
-    TestToken aToken,
-    TestToken bToken
+    TestTaker, /* taker */
+    TestToken, /* aToken */
+    TestToken /* bToken */ // silence warnings about unused arguments
   ) external {
     try wrongOwner.cancelOffer(dex, offerId) returns (uint) {
       TestEvents.fail("Invalid authorization to cancel order");
@@ -28,7 +30,7 @@ library TestCancelOffer {
           balances.makersBalanceWei[offerId] + released,
           "Incorrect returned provision to maker"
         );
-      } catch (bytes memory errorMsg) {
+      } catch {
         TestEvents.fail("Cancel order failed unexpectedly");
       }
     }

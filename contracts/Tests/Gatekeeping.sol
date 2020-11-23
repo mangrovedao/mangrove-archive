@@ -46,7 +46,8 @@ contract Gatekeeping_Test {
 
     address(tkr).transfer(10 ether);
 
-    address(dex).call{value: 10 ether}("");
+    bool noRevert;
+    (noRevert, ) = address(dex).call{value: 10 ether}("");
 
     atk.mint(address(this), 1 ether);
     btk.mint(address(tkr), 1 ether);
@@ -77,10 +78,10 @@ contract Gatekeeping_Test {
 
   // maker's execute callback for the dex
   function execute(
-    uint takerWants,
-    uint takerGives,
-    uint offerGasprice,
-    uint offerId
+    uint, /* takerWants*/ // silence warning about unused argument
+    uint, /*takerGives*/ // silence warning about unused argument
+    uint, /* offerGasprice*/ // silence warning about unused argument
+    uint /*offerId */ // silence warning about unused argument
   ) external {
     (bool success, bytes memory retdata) = address(dex).call(reentrancer);
     if (success) {

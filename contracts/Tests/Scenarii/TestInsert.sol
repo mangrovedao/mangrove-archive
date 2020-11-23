@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 import "../Toolbox/TestUtils.sol";
 
@@ -6,9 +8,9 @@ library TestInsert {
     TestUtils.Balances storage balances,
     Dex dex,
     MakerDeployer makers,
-    TestTaker taker,
-    TestToken aToken,
-    TestToken bToken
+    TestTaker, /* taker */ // silence warning about unused argument
+    TestToken, /* aToken */ // silence warning about unused argument
+    TestToken /* bToken */ // silence warning about unused argument
   ) public returns (uint[] memory) {
     // each maker publishes an offer
     uint[] memory offerOf = new uint[](makers.length());
