@@ -353,9 +353,10 @@ contract Dex {
         } else {
           emit DexEvents.Failure(offerId, localTakerWants, localTakerGives);
           /* For penalty application purposes (never triggered if `punishLength = 0`), store the offer id and the gas wasted by the maker */
-          if (numFailures++ < punishLength) {
+          if (numFailures < punishLength) {
             failures[2 * numFailures] = offerId;
             failures[2 * numFailures + 1] = gasUsedIfFailure;
+            numFailures++;
           }
         }
         /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
