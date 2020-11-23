@@ -42,10 +42,12 @@ module.exports = {
   },
   solidity: {
     version: "0.7.4",
-    optimizer: {
-      enabled: false,
-      runs: 200,
-    },
+    settings: {
+      optimizer: {
+        enabled: false,
+        runs: 200,
+      },
+    }
   },
   paths: {
     sources: "./contracts",
