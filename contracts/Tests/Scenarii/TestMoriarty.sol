@@ -16,21 +16,27 @@ library TestMoriarty {
     aToken.mint(address(evil), 5 ether);
     evil.approve(aToken, 5 ether);
 
-    evil.newOffer({wants: 1 ether, gives: 0.5 ether, gasreq: 7000, pivotId: 0});
-    TestEvents.logString("+ Pushing 4 real offers and a dummy one", 1);
-    Display.logOfferBook(dex, 5);
-    uint[] memory failingOffers = dex.marketOrder({
-      takerWants: 1 ether,
-      takerGives: 10 ether,
-      punishLength: 5,
-      offerId: 0
+    evil.newOffer({
+      wants: 1 ether,
+      gives: 0.5 ether,
+      gasreq: 100000,
+      pivotId: 0
     });
-    //    for(uint i=0; i < failingOffers.length; i++){
-    //      console.log("Offer failing: %d",failingOffers[i]);
-    //    }
-    Display.logOfferBook(dex, 5);
 
-    // Display.printOfferBook(dex);
-    // TODO test deepSnipe procedure
+    TestEvents.logString("+ Pushing 4 real offers and a dummy one", 1);
+    Display.printOfferBook(dex);
+    uint[] memory failures = taker.probeForFail({
+      wants: 10 ether,
+      gives: 30 ether,
+      punishLength: 10,
+      offerId: dex.getBest()
+    });
+    uint failedOffer = 1;
+    for (uint i = 0; i < failures.length - 1; i += 2) {
+      console.log(failures[i], failures[i + 1]);
+      TestEvents.eq(failures[i], failedOffer, "Incorrect failed offer Id");
+      TestEvents.more(failures[i + 1], 7000, "Incorrect Gas consummed");
+      failedOffer++;
+    }
   }
 }

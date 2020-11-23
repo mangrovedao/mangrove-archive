@@ -131,9 +131,12 @@ contract Dex_Test {
     bToken.mint(address(taker), 5 ether);
     taker.approve(bToken, 5 ether);
     taker.approve(aToken, 50 ether);
+    saveBalances();
   }
 
   function a_zeroDust_test() public {
+    console.log("Starting a test (%d)", gasleft());
+
     try dex.setConfig(ConfigKey.density, 0)  {
       TestEvents.fail("zero density should revert");
     } catch Error(
@@ -144,23 +147,27 @@ contract Dex_Test {
   }
 
   function b_basic_test() public {
-    saveBalances();
+    TestEvents.logString("=== Insert test ===", 0);
     offerOf = TestInsert.run(balances, dex, makers, taker, aToken, bToken);
     TestEvents.logString("End of Insert test", 0);
-    Display.logOfferBook(dex, 4);
+    //Display.printOfferBook(dex);
+    //Display.logOfferBook(dex,4);
 
+    TestEvents.logString("=== Snipe test ===", 0);
     saveBalances();
     saveOffers();
     TestSnipe.run(balances, offers, dex, makers, taker, aToken, bToken);
     TestEvents.logString("End of Snipe test", 0);
-    Display.logOfferBook(dex, 4);
+    //Display.logOfferBook(dex, 4);
 
+    TestEvents.logString("=== Market order test ===", 0);
     saveBalances();
     saveOffers();
     TestMarketOrder.run(balances, offers, dex, makers, taker, aToken, bToken);
     TestEvents.logString("End of MarketOrder test", 0);
-    Display.logOfferBook(dex, 4);
+    //Display.logOfferBook(dex, 4);
 
+    TestEvents.logString("=== Failling offer test ===", 0);
     saveBalances();
     saveOffers();
     TestCollectFailingOffer.run(
@@ -174,10 +181,10 @@ contract Dex_Test {
       bToken
     );
     TestEvents.logString("end of FailingOffer test", 0);
-    Display.logOfferBook(dex, 4);
-    // saveBalances();
-    // saveOffers();
-    //
+    //Display.logOfferBook(dex, 4);
+    saveBalances();
+    saveOffers();
+
     // TestCancelOffer.run(
     //   balances,
     //   offers,
@@ -189,7 +196,7 @@ contract Dex_Test {
     //   aToken,
     //   bToken
     // );
-
+    //
     // test closeMarket
     // test withdraw
     // test reintrant offer
@@ -216,6 +223,10 @@ contract DeepCollect_Test {
     Display.register(address(btk), "$B");
     Display.register(address(dex), "dex");
     Display.register(address(tkr), "taker");
+
+    btk.mint(address(tkr), 5 ether);
+    tkr.approve(btk, 20 ether);
+    tkr.approve(atk, 20 ether);
   }
 
   function deepCollect_test() public {

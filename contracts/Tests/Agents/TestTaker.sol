@@ -32,12 +32,12 @@ contract TestTaker is ITaker {
     dex.simpleMarketOrder(wants, gives);
   }
 
-  function advancedMarketOrder(
+  function probeForFail(
     uint wants,
     uint gives,
     uint punishLength,
     uint offerId
-  ) external {
-    dex.marketOrder(wants, gives, punishLength, offerId);
+  ) external returns (uint[] memory failures) {
+    return (dex.marketOrder(wants, gives, punishLength, offerId));
   }
 }

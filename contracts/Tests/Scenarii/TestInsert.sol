@@ -12,6 +12,7 @@ library TestInsert {
   ) public returns (uint[] memory) {
     // each maker publishes an offer
     uint[] memory offerOf = new uint[](makers.length());
+    console.log("Test insert with %d makers", makers.length());
     offerOf[1] = TestUtils.newOfferWithGas({
       maker: makers.getMaker(1),
       wants: 1 ether,
@@ -40,7 +41,7 @@ library TestInsert {
       gasreq: dex.getConfigUint(ConfigKey.gasmax),
       pivotId: 0
     });
-
+    //Display.printOfferBook(dex);
     //Checking makers have correctly provisoned their offers
     for (uint i = 0; i < makers.length(); i++) {
       uint gasreq_i = TestUtils.getOfferInfo(
@@ -55,7 +56,7 @@ library TestInsert {
         Display.append("Incorrect wei balance for maker ", Display.uint2str(i))
       );
     }
-
+    console.log("Provision OK");
     //Checking offers are correctly positioned (3 > 2 > 1 > 0)
     uint offerId = dex.best();
     uint expected_maker = 3;

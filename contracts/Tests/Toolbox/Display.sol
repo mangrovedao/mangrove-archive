@@ -105,6 +105,10 @@ library Display {
     returns (string memory eth)
   {
     string memory suffix = append(" ", units);
+
+    if (w == 0) {
+      return (append("0", suffix));
+    }
     uint i = 0;
     while (w % 10 == 0) {
       w = w / 10;
@@ -117,7 +121,7 @@ library Display {
       uint zeroBefore = 18 - i;
       string memory zeros = "";
       while (zeroBefore > 1) {
-        append(zeros, "0");
+        zeros = append(zeros, "0");
         zeroBefore--;
       }
       return (append("0.", zeros, uint2str(w), suffix));
@@ -141,6 +145,7 @@ library Display {
     address[] memory makerAddr = new address[](size);
     uint[] memory offerIds = new uint[](size);
 
+    console.log("Displaying OB");
     uint c = 0;
     while ((offerId != 0) && (c < size)) {
       (Offer memory offer, OfferDetail memory od) = dex.getOfferInfo(
@@ -181,13 +186,13 @@ library Display {
         toEthUnits(wants, req_tk.symbol()),
         toEthUnits(gives, ofr_tk.symbol())
       );
-      console.log(
-        "(%d gas, %d to finish, %d penalty)",
-        gasreq,
-        minFinishGas,
-        gasprice
-      );
-      console.log(name(makerAddr));
+      // console.log(
+      //   "(%d gas, %d to finish, %d penalty)",
+      //   gasreq,
+      //   minFinishGas,
+      //   gasprice
+      // );
+      // console.log(name(makerAddr));
       offerId = nextId;
     }
     console.log("-----------------------");

@@ -20,6 +20,9 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     uint,
     uint offerId
   ) public override {
+    console.log("Executing offer %d", offerId);
+
+    assert(succeed);
     if (offerId == dummy) {
       succeed = false;
     }
@@ -37,7 +40,12 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     dex.newOffer(wants, gives, gasreq, pivotId);
     uint density = dex.getConfigUint(ConfigKey.density);
     uint gasbase = dex.getConfigUint(ConfigKey.gasbase);
-    dummy = dex.newOffer(0, density * (gasbase + 1), 1, 0); //dummy offer
+    dummy = dex.newOffer({
+      wants: 1,
+      gives: density * (gasbase + 10000),
+      gasreq: 10000,
+      pivotId: 0
+    }); //dummy offer
   }
 
   function provisionDex(uint amount) public {

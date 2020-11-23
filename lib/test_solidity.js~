@@ -393,7 +393,7 @@ module.exports = (
             // Once a _test function has been call, inspect logs to check
             // for failed tests. Failed tests/logs after the first one are not
             // shown.
-            let tx = await testContract[fnName]({gasLimit: 12000000});
+            let tx = await testContract[fnName]({gasLimit: 1000000});
             let receipt = await tx.wait();
             // This doesn't get processed if the tx reverts.
             processLogs(receipt);
