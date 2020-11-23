@@ -6,10 +6,9 @@ pragma experimental ABIEncoderV2;
 // ERC, Maker, Taker interfaces
 import "./interfaces.sol";
 // Types common to main Dex contract and DexLib
-import "./DexCommon.sol";
+import {DexCommon as DC, DexEvents} from "./DexCommon.sol";
 // The purpose of DexLib is to keep Dex under the [Spurious Dragon](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md) 24kb limit.
 import "./DexLib.sol";
-import "hardhat/console.sol";
 
 /* # State variables
    This contract describes an orderbook-based exchange ("Dex") where market makers *do not have to provision their offer*. See `DexCommon.sol` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. The Dex transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
@@ -30,8 +29,8 @@ contract Dex {
    * `offers[id]` contains pointers to the `prev`ious (better) and `next` (worse) offer in the book, as well as the price and volume of the offer (in the form of two absolute quantities, `wants` and `gives`).
    * `offerDetails[id]` contains the market maker's address (`maker`), the amount of gas required by the offer (`gasreq`) as well cached values for the global `gasbase` and `gasprice` when the offer got created (see `DexCommon` for more on `gasbase` and `gasprice`).
    */
-  mapping(uint => Offer) private offers;
-  mapping(uint => OfferDetail) private offerDetails;
+  mapping(uint => DC.Offer) private offers;
+  mapping(uint => DC.OfferDetail) private offerDetails;
 
   /* * Makers provision their possible penalties in the `freeWei` mapping.
 
@@ -46,7 +45,7 @@ contract Dex {
 
   /* * The configuration, held in a struct defined in `DexCommon.sol` because
      it is sometimes passed to the library `DexLib` as a storage reference. */
-  Config private config;
+  DC.Config private config;
 
   /* * <a id="Dex/definition/open"></a>
      In case of emergency, the Dex can be shutdown by setting `open = false`. It cannot be reopened. When a Dex is closed, the following operations are disabled :
@@ -67,7 +66,7 @@ contract Dex {
   bool public reentrancyLock;
 
   /* `best` is a struct with a single field holding the current best offer id. The id is wrapped in a struct so it can be passed to `DexLib`. */
-  UintContainer public best;
+  DC.UintContainer public best;
 
   /*
   # Dex Constructor
@@ -94,11 +93,11 @@ contract Dex {
     REQ_TOKEN = _REQ_TOKEN;
     emit DexEvents.NewDex(address(this), _OFR_TOKEN, _REQ_TOKEN);
 
-    DexLib.setConfig(config, ConfigKey.admin, _admin);
-    DexLib.setConfig(config, ConfigKey.density, _density);
-    DexLib.setConfig(config, ConfigKey.gasbase, _gasbase);
-    DexLib.setConfig(config, ConfigKey.gasprice, _gasprice);
-    DexLib.setConfig(config, ConfigKey.gasmax, _gasmax);
+    DexLib.setConfig(config, DC.ConfigKey.admin, _admin);
+    DexLib.setConfig(config, DC.ConfigKey.density, _density);
+    DexLib.setConfig(config, DC.ConfigKey.gasbase, _gasbase);
+    DexLib.setConfig(config, DC.ConfigKey.gasprice, _gasprice);
+    DexLib.setConfig(config, DC.ConfigKey.gasmax, _gasmax);
   }
 
   /*
@@ -109,6 +108,7 @@ contract Dex {
 
   /* `requireAdmin` protects all functions which modify the configuration of the Dex as well as `closeMarket`, which irreversibly freezes offer creation/consumption. */
   function requireAdmin() internal view {
+    assert(false);
     require(msg.sender == config.admin, "dex/adminOnly");
   }
 
@@ -177,11 +177,11 @@ contract Dex {
   /* `cancelOffer` is available in closed markets, but only outside of reentrancy. Upon successful deletion of an offer, the ETH that were provisioned are returned to the maker as `freeWei` balance. */
   function cancelOffer(uint offerId) external returns (uint provision) {
     requireNoReentrancyLock();
-    Offer memory offer = offers[offerId];
-    if (!isOffer(offer)) {
+    DC.Offer memory offer = offers[offerId];
+    if (!DC.isOffer(offer)) {
       return 0; //no effect on offers absent from the offer book
     }
-    OfferDetail memory offerDetail = offerDetails[offerId];
+    DC.OfferDetail memory offerDetail = offerDetails[offerId];
     require(msg.sender == offerDetail.maker, "dex/cancelOffer/unauthorized");
 
     dirtyDeleteOffer(offerId);
@@ -213,9 +213,9 @@ contract Dex {
   /* Any provision not currently held to secure an offer's possible penalty is available for withdrawal. */
   function withdraw(uint amount) external {
     /* Since we only ever send money to the caller, we do not need to provide any particular amount of gas, the caller can manage that themselves. Still, as nonzero value calls provide a 2300 gas stipend, a `withdraw(0)` would trigger a call with actual 0 gas. */
-    if (amount == 0) return;
+    //if (amount == 0) return;
     //+clear+
-    DexLib.debitWei(freeWei, msg.sender, amount);
+    //DexLib.debitWei(freeWei, msg.sender, amount);
     bool success;
     (success, ) = msg.sender.call{gas: 0, value: amount}("");
   }
@@ -288,9 +288,9 @@ contract Dex {
      * will not set `prev`/`next` pointers to their correct locations at each offer taken (this is an optimization enabled by forbidding reentrancy).
      * after consuming a segment of offers, will connect the `prev` and `next` neighbors of the segment's ends.
      * Will maintain an array of pairs `(offerId, gasUsed)` to identify failed offers. Look at [punishment for failing offers](#dex.sol-punishment-for-failing-offers) for more information. Since there are no extensible in-memory arrays, `punishLength` should be an upper bound on the number of failed offers. */
-    Offer memory offer = offers[offerId];
+    DC.Offer memory offer = offers[offerId];
     /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. */
-    require(isOffer(offer), "dex/marketOrder/noSuchOffer");
+    require(DC.isOffer(offer), "dex/marketOrder/noSuchOffer");
     /* We pack some data in a memory struct to prevent stack too deep errors. */
     OrderData memory orderData = OrderData({
       minOrderSize: config.density * config.gasbase,
@@ -464,9 +464,9 @@ contract Dex {
       /* At each iteration, we extract the current `offerId` and `takerWants` */
       uint offerId = targets[2 * targetIndex];
       uint takerWants = targets[2 * targetIndex + 1];
-      Offer memory offer = offers[offerId];
+      DC.Offer memory offer = offers[offerId];
       /* If we removed the `isOffer` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. */
-      if (isOffer(offer)) {
+      if (DC.isOffer(offer)) {
         /* `localTakerWants` bounds the amount requested by the taker by the maximum amount on offer. It also obviates the need to check the size of `takerWants`: while in a market order we must compare the price a taker accepts with the offer price, here we just accept the offer's price. So if `takerWants` does not fit in 96 bits (the size of `offer.gives`), it won't be used in the line below. */
         uint localTakerWants = offer.gives < takerWants
           ? offer.gives
@@ -551,7 +551,7 @@ contract Dex {
   It would be nice to do those checks right here, in `executeOffer`. But market orders must make price computations necessary to those checks _before_ calling `executeOffer` anyway, so they can decide whether the offer should be executed at all or not. To save gas, we don't redo the checks here. */
   function executeOffer(
     uint offerId,
-    Offer memory offer,
+    DC.Offer memory offer,
     uint takerWants,
     uint takerGives,
     /* The last argument, `dirtyDelete`, is here for market orders: if true, `next`/`prev` pointers around the deleted offer are not reset properly. */
@@ -569,7 +569,7 @@ contract Dex {
     )
   {
     /* `executeOffer` and `flashSwapTokens` are separated for clarity, but `flashSwapTokens` is only used by `executeOffer`. It manages the actual work of flashloaning tokens and applying penalties. */
-    OfferDetail memory offerDetail = offerDetails[offerId];
+    DC.OfferDetail memory offerDetail = offerDetails[offerId];
     (success, gasUsedIfFailure) = flashSwapTokens(
       offerId,
       offerDetail,
@@ -610,7 +610,7 @@ contract Dex {
   2. invoke penalty application,   */
   function flashSwapTokens(
     uint offerId,
-    OfferDetail memory offerDetail,
+    DC.OfferDetail memory offerDetail,
     uint takerWants,
     uint takerGives
   ) internal returns (bool, uint) {
@@ -672,7 +672,7 @@ contract Dex {
   function applyPenalty(
     bool success,
     uint gasUsed,
-    OfferDetail memory offerDetail
+    DC.OfferDetail memory offerDetail
   ) internal {
     /* We set `gasDeducted = min(gasUsed,gasreq)` since `gasreq < gasUsed` is possible (e.g. with `gasreq = 0`). */
     uint gasDeducted = gasUsed < offerDetail.gasreq
@@ -850,8 +850,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     while (failureIndex < numFailures) {
       uint id = failures[failureIndex * 2];
       /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
-      Offer memory offer = offers[id];
-      OfferDetail memory offerDetail = offerDetails[id];
+      DC.Offer memory offer = offers[id];
+      DC.OfferDetail memory offerDetail = offerDetails[id];
       dirtyDeleteOffer(id);
       stitchOffers(offer.prev, offer.next);
       uint gasUsed = failures[failureIndex * 2 + 1];
@@ -873,20 +873,20 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 ## Configuration */
   //+clear+
   /* Configuration data strutures are defined in `DexCommon.sol`, and the actual getter/setter functions are in `DexLib`. The functions in this section are simple passthroughs to `DexLib`'s functions. */
-  function getConfigUint(ConfigKey key) external view returns (uint) {
+  function getConfigUint(DC.ConfigKey key) external view returns (uint) {
     return DexLib.getConfigUint(config, key);
   }
 
-  function getConfigAddress(ConfigKey key) external view returns (address) {
+  function getConfigAddress(DC.ConfigKey key) external view returns (address) {
     return DexLib.getConfigAddress(config, key);
   }
 
-  function setConfig(ConfigKey key, uint value) external {
+  function setConfig(DC.ConfigKey key, uint value) external {
     requireAdmin();
     DexLib.setConfig(config, key, value);
   }
 
-  function setConfig(ConfigKey key, address value) external {
+  function setConfig(DC.ConfigKey key, address value) external {
     requireAdmin();
     DexLib.setConfig(config, key, value);
   }
@@ -910,7 +910,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   function getOfferInfo(uint offerId, bool structured)
     external
     view
-    returns (Offer memory, OfferDetail memory)
+    returns (DC.Offer memory, DC.OfferDetail memory)
   {
     structured; // silence warning about unused variable
     return (offers[offerId], offerDetails[offerId]);
@@ -932,10 +932,10 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   {
     // TODO: Make sure `requireNoReentrancyLock` is necessary here
     requireNoReentrancyLock();
-    Offer memory offer = offers[offerId];
-    OfferDetail memory offerDetail = offerDetails[offerId];
+    DC.Offer memory offer = offers[offerId];
+    DC.OfferDetail memory offerDetail = offerDetails[offerId];
     return (
-      isOffer(offer),
+      DC.isOffer(offer),
       offer.wants,
       offer.gives,
       offer.next,

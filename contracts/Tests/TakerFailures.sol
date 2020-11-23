@@ -168,7 +168,7 @@ contract TakerFailures_Test {
   }
 
   function unsafe_gas_left_fails_order_test() public {
-    dex.setConfig(ConfigKey.gasbase, 1);
+    dex.setConfig(DC.ConfigKey.gasbase, 1);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
     try tkr.take{gas: 40_000}(ofr, 1 ether)  {
       TestEvents.fail("unsafe gas amount, order should fail");
@@ -178,7 +178,7 @@ contract TakerFailures_Test {
   }
 
   function taker_hasnt_approved_A_fails_order_test() public {
-    dex.setConfig(ConfigKey.fee, 300);
+    dex.setConfig(DC.ConfigKey.fee, 300);
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
@@ -191,7 +191,7 @@ contract TakerFailures_Test {
 
   function taker_has_no_A_fails_order_test() public {
     tkr.setEnabled(true);
-    dex.setConfig(ConfigKey.fee, 300);
+    dex.setConfig(DC.ConfigKey.fee, 300);
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 1 ether);
     tkr.approve(atk, 1 ether);
@@ -234,8 +234,8 @@ contract TakerFailures_Test {
   function small_partial_fill_can_be_retaken_test() public {
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 1 ether);
-    dex.setConfig(ConfigKey.density, 1);
-    dex.setConfig(ConfigKey.gasbase, 1);
+    dex.setConfig(DC.ConfigKey.density, 1);
+    dex.setConfig(DC.ConfigKey.gasbase, 1);
     uint ofr = mkr.newOffer(10_002, 10_002, 10_000, 0);
     tkr.take(ofr, 1);
     tkr.probeForFail(10_001, 10_001, 0, ofr);
@@ -244,8 +244,8 @@ contract TakerFailures_Test {
   function big_partial_fill_cant_be_retaken_test() public {
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 1 ether);
-    dex.setConfig(ConfigKey.density, 1);
-    dex.setConfig(ConfigKey.gasbase, 1);
+    dex.setConfig(DC.ConfigKey.density, 1);
+    dex.setConfig(DC.ConfigKey.gasbase, 1);
     uint ofr = mkr.newOffer(10_001, 10_001, 10_000, 0);
     tkr.take(ofr, 2);
     try tkr.probeForFail(10_001, 10_001, 0, ofr)  {

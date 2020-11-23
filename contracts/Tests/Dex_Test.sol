@@ -46,7 +46,7 @@ contract Dex_Test {
   function saveOffers() internal {
     uint offerId = dex.getBest();
     while (offerId != 0) {
-      (Offer memory offer, OfferDetail memory offerDetail) = dex.getOfferInfo(
+      (DC.Offer memory offer, DC.OfferDetail memory offerDetail) = dex.getOfferInfo(
         offerId,
         true
       );
@@ -97,7 +97,7 @@ contract Dex_Test {
     dex = DexSetup.setup(aToken, bToken);
     Display.register(address(dex), "dex");
     TestEvents.not0x(address(dex));
-    dex.setConfig(ConfigKey.fee, 300);
+    dex.setConfig(DC.ConfigKey.fee, 300);
   }
 
   function c_deployMakersTaker_beforeAll() public {
@@ -137,7 +137,7 @@ contract Dex_Test {
   function a_zeroDust_test() public {
     console.log("Starting a test (%d)", gasleft());
 
-    try dex.setConfig(ConfigKey.density, 0)  {
+    try dex.setConfig(DC.ConfigKey.density, 0)  {
       TestEvents.fail("zero density should revert");
     } catch Error(
       string memory /*reason*/

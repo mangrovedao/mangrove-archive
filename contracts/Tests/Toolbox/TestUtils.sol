@@ -25,12 +25,12 @@ library TestUtils {
   enum Info {makerWants, makerGives, nextId, gasreq, gasprice}
 
   function getFee(Dex dex, uint price) internal view returns (uint) {
-    return ((price * dex.getConfigUint(ConfigKey.fee)) / 10000);
+    return ((price * dex.getConfigUint(DC.ConfigKey.fee)) / 10000);
   }
 
   function getProvision(Dex dex, uint gasreq) internal view returns (uint) {
-    return ((gasreq + dex.getConfigUint(ConfigKey.gasbase)) *
-      dex.getConfigUint(ConfigKey.gasprice));
+    return ((gasreq + dex.getConfigUint(DC.ConfigKey.gasbase)) *
+      dex.getConfigUint(DC.ConfigKey.gasprice));
   }
 
   function getOfferInfo(
@@ -38,7 +38,7 @@ library TestUtils {
     Info infKey,
     uint offerId
   ) internal view returns (uint) {
-    (Offer memory offer, OfferDetail memory offerDetail) = dex.getOfferInfo(
+    (DC.Offer memory offer, DC.OfferDetail memory offerDetail) = dex.getOfferInfo(
       offerId,
       true
     );
@@ -59,7 +59,7 @@ library TestUtils {
   }
 
   function makerOf(Dex dex, uint offerId) internal view returns (address) {
-    (, OfferDetail memory od) = dex.getOfferInfo(offerId, true);
+    (, DC.OfferDetail memory od) = dex.getOfferInfo(offerId, true);
     return od.maker;
   }
 

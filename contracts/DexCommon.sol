@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity ^0.7.1;
+pragma solidity ^0.7.0;
 
 /* # Dex Summary
    * Each contract is half an offerbook for two ERC20 tokens.
@@ -17,6 +17,7 @@ pragma solidity ^0.7.1;
  */
 //+clear+
 
+library DexCommon {
 /* # Offer information */
 
 /* Offers are stored in a doubly-linked list, with all relevant offer data stored in structs `Offer` and `OfferDetail`. Functions often require only one of those structs to do their work. */
@@ -140,6 +141,20 @@ struct Config {
    as second argument. */
 enum ConfigKey {admin, fee, gasprice, gasbase, density, gasmax}
 
+/* # Misc.
+   Finally, some miscellaneous things useful to both `Dex` and `DexLib`:*/
+//+clear+
+/* A container for `uint` that can be passed to an external library function as a storage reference so that the library can write the `uint` (in Solidity, references to storage value types cannot be passed around). This is used to send a writeable reference to the current best offer to the library functions of `DexLib` (`DexLib` exists to reduce the contract size of `Dex`). */
+struct UintContainer {
+  uint value;
+}
+
+/* The Dex holds a `uint => Offer` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an uninitialized struct. A common way to check for initialization is to add an `exists` field to the struct. In our case, an invariant of the Dex is: on an existing offer, `offer.gives > 0`. So we just check the `gives` field. */
+function isOffer(Offer memory offer) pure internal returns (bool) {
+  return offer.gives > 0;
+}
+}
+
 /* # Events
 The events emitted for use by various bots are listed here: */
 library DexEvents {
@@ -187,17 +202,4 @@ library DexEvents {
 
   /* * `offerId` is removed from book. */
   event DeleteOffer(uint offerId);
-}
-
-/* # Misc.
-   Finally, some miscellaneous things useful to both `Dex` and `DexLib`:*/
-//+clear+
-/* A container for `uint` that can be passed to an external library function as a storage reference so that the library can write the `uint` (in Solidity, references to storage value types cannot be passed around). This is used to send a writeable reference to the current best offer to the library functions of `DexLib` (`DexLib` exists to reduce the contract size of `Dex`). */
-struct UintContainer {
-  uint value;
-}
-
-/* The Dex holds a `uint => Offer` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an uninitialized struct. A common way to check for initialization is to add an `exists` field to the struct. In our case, an invariant of the Dex is: on an existing offer, `offer.gives > 0`. So we just check the `gives` field. */
-function isOffer(Offer memory offer) pure returns (bool) {
-  return offer.gives > 0;
 }

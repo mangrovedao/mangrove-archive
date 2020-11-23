@@ -40,7 +40,7 @@ library TestInsert {
       maker: makers.getMaker(0), //failer
       wants: 20 ether,
       gives: 10 ether,
-      gasreq: dex.getConfigUint(ConfigKey.gasmax),
+      gasreq: dex.getConfigUint(DC.ConfigKey.gasmax),
       pivotId: 0
     });
     //Display.printOfferBook(dex);
@@ -63,7 +63,7 @@ library TestInsert {
     uint offerId = dex.best();
     uint expected_maker = 3;
     while (offerId != 0) {
-      (Offer memory offer, OfferDetail memory od) = dex.getOfferInfo(
+      (DC.Offer memory offer, DC.OfferDetail memory od) = dex.getOfferInfo(
         offerId,
         true
       );

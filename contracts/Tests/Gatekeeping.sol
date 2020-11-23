@@ -26,7 +26,7 @@ contract NotAdmin {
     dex = _dex;
   }
 
-  function setConfig(ConfigKey key, uint value) public {
+  function setConfig(DC.ConfigKey key, uint value) public {
     dex.setConfig(key, value);
   }
 }
@@ -65,7 +65,7 @@ contract Gatekeeping_Test {
 
   function only_admin_can_set_config_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
-    try notAdmin.setConfig(ConfigKey.fee, 0)  {
+    try notAdmin.setConfig(DC.ConfigKey.fee, 0)  {
       TestEvents.fail(
         "someone other than admin should not be able to set the configuration"
       );
@@ -83,6 +83,7 @@ contract Gatekeeping_Test {
     uint, /* offerGasprice*/ // silence warning about unused argument
     uint /*offerId */ // silence warning about unused argument
   ) external {
+    assert(false);
     (bool success, bytes memory retdata) = address(dex).call(reentrancer);
     if (success) {
       TestEvents.fail("should fail on reentrancy lock");
@@ -91,6 +92,12 @@ contract Gatekeeping_Test {
       TestEvents.eq(r, "dex/reentrancyLocked", "wrong revert reason");
     }
   }
+
+  function testGas_test() public {
+    uint ofr = dex.newOffer(1 ether, 1 ether, 100_000, 0);
+    tkr.take(ofr, 1 ether);
+  }
+
 
   function newOffer_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(1 ether, 1 ether, 30_000, 0);

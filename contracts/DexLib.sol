@@ -7,26 +7,26 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 import "./DexCommon.sol";
 import "./interfaces.sol";
-import "hardhat/console.sol";
+import {DexCommon as DC, DexEvents} from "./DexCommon.sol";
 
 library DexLib {
   /* # Configuration access */
   //+clear+
   /* Setter functions for configuration, called by `setConfig` which also exists in Dex. Overloaded by the type of the `value` parameter. See `DexCommon.sol` for more on the `config` and `key` parameters. */
   function setConfig(
-    Config storage config,
-    ConfigKey key,
+    DC.Config storage config,
+    DC.ConfigKey key,
     uint value
   ) external {
     /* Also, for more details on each parameter, see `DexCommon.sol` as well. For the limits on `uint*` sizes, note that while we do store all the following parameters as `uint`s, they will later be stored or used in calculations that must not over/underflow. */
     /* ### `fee` */
-    if (key == ConfigKey.fee) {
+    if (key == DC.ConfigKey.fee) {
       /* `fee` is in basis points, i.e. in percents of a percent. */
       require(value <= 10000, "dex/config/fee/IsBps"); // at most 14 bits
       config.fee = value;
       emit DexEvents.SetFee(value);
       /* ### `gasbase` */
-    } else if (key == ConfigKey.gasbase) {
+    } else if (key == DC.ConfigKey.gasbase) {
       /* `gasbase > 0` ensures various invariants -- this documentation explains how each time it is relevant */
       require(value > 0, "dex/config/gasbase/>0");
       /* Checking the size of `gasbase` is necessary to prevent a) data loss when `gasbase` is copied to an `OfferDetail` struct, and b) overflow when `gasbase` is used in calculations. */
@@ -35,7 +35,7 @@ library DexLib {
       config.gasbase = value;
       emit DexEvents.SetGasbase(value);
       /* ### `density` */
-    } else if (key == ConfigKey.density) {
+    } else if (key == DC.ConfigKey.density) {
       /* density > 0 ensures various invariants -- this documentation explains how each time it is relevant */
       require(value > 0, "dex/config/density/>0");
       /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
@@ -44,14 +44,14 @@ library DexLib {
       config.density = value;
       emit DexEvents.SetDustPerGasWanted(value);
       /* ### `gasprice` */
-    } else if (key == ConfigKey.gasprice) {
+    } else if (key == DC.ConfigKey.gasprice) {
       /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */
       require(uint48(value) == value, "dex/config/gasprice/48bits");
       //+clear+
       config.gasprice = value;
       emit DexEvents.SetGasprice(value);
       /* ### `gasmax` */
-    } else if (key == ConfigKey.gasmax) {
+    } else if (key == DC.ConfigKey.gasmax) {
       /* Since any new `gasreq` is bounded above by `config.gasmax`, this check implies that all offers' `gasreq` is 24 bits wide at most. */
       require(uint24(value) == value, "dex/config/gasmax/24bits");
       //+clear+
@@ -63,11 +63,11 @@ library DexLib {
   }
 
   function setConfig(
-    Config storage config,
-    ConfigKey key,
+    DC.Config storage config,
+    DC.ConfigKey key,
     address value
   ) external {
-    if (key == ConfigKey.admin) {
+    if (key == DC.ConfigKey.admin) {
       config.admin = value;
       emit DexEvents.SetAdmin(value);
     } else {
@@ -75,32 +75,32 @@ library DexLib {
     }
   }
 
-  function getConfigUint(Config storage config, ConfigKey key)
+  function getConfigUint(DC.Config storage config, DC.ConfigKey key)
     external
     view
     returns (uint)
   {
-    if (key == ConfigKey.fee) {
+    if (key == DC.ConfigKey.fee) {
       return config.fee;
-    } else if (key == ConfigKey.gasbase) {
+    } else if (key == DC.ConfigKey.gasbase) {
       return config.gasbase;
-    } else if (key == ConfigKey.density) {
+    } else if (key == DC.ConfigKey.density) {
       return config.density;
-    } else if (key == ConfigKey.gasprice) {
+    } else if (key == DC.ConfigKey.gasprice) {
       return config.gasprice;
-    } else if (key == ConfigKey.gasmax) {
+    } else if (key == DC.ConfigKey.gasmax) {
       return config.gasmax;
     } else {
       revert("dex/config/read/noMatch/uint");
     }
   }
 
-  function getConfigAddress(Config storage config, ConfigKey key)
+  function getConfigAddress(DC.Config storage config, DC.ConfigKey key)
     external
     view
     returns (address value)
   {
-    if (key == ConfigKey.admin) {
+    if (key == DC.ConfigKey.admin) {
       return config.admin;
     } else {
       revert("dex/config/read/noMatch/address");
@@ -122,16 +122,28 @@ library DexLib {
     uint offerId,
     uint takerGives,
     uint takerWants,
-    OfferDetail memory offerDetail
+    DC.OfferDetail memory offerDetail
   ) external returns (bool) {
     if (transferToken(reqToken, msg.sender, offerDetail.maker, takerGives)) {
       // Execute offer
-      IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
+      //uint gr = offerDetail.gasreq;
+      //uint g = gasleft();
+      //(bool s,) = 
+        IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
         takerWants,
         takerGives,
         offerDetail.gasprice,
-        offerId
-      );
+        offerId);
+      //) {} catch {
+      //(bool s,) = address(offerDetail.maker).call{gas:gr}(abi.encodeWithSelector(IMaker.execute.selector,
+        //takerWants,
+        //takerGives,
+        //offerDetail.gasprice,
+        //offerId));
+      //) {} catch {
+      //g = g-gasleft();
+      //console.log("gas used",g);
+      //}
       require(
         transferToken(ofrToken, offerDetail.maker, msg.sender, takerWants),
         "dex/makerFailToPayTaker"
@@ -166,11 +178,11 @@ library DexLib {
   /* <a id="DexLib/definition/newOffer"></a> When a maker posts a new offer, the offer gets automatically inserted at the correct location in the book, starting from a maker-supplied `pivotId` parameter. The extra `storage` parameters are sent to `DexLib` by `Dex` so that it can write to `Dex`'s storage. */
   function newOffer(
     /* `config`, `freeWei`, `offers`, `offerDetails`, `best` and `offerId` are trusted arguments from `Dex`, while */
-    Config storage config,
+    DC.Config storage config,
     mapping(address => uint) storage freeWei,
-    mapping(uint => Offer) storage offers,
-    mapping(uint => OfferDetail) storage offerDetails,
-    UintContainer storage best,
+    mapping(uint => DC.Offer) storage offers,
+    mapping(uint => DC.OfferDetail) storage offerDetails,
+    DC.UintContainer storage best,
     uint offerId,
     /* `wants`, `gives`, `gasreq`, and `pivotId` are given by `msg.sender`. */
     uint wants,
@@ -221,14 +233,14 @@ library DexLib {
 
     //TODO Check if Solidity optimizer prefers this or offers[i].a = a'; ... ; offers[i].b = b'
     /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 32 bits. */
-    offers[offerId] = Offer({
+    offers[offerId] = DC.Offer({
       prev: uint32(prev),
       next: uint32(next),
       wants: uint96(wants),
       gives: uint96(gives)
     });
 
-    offerDetails[offerId] = OfferDetail({
+    offerDetails[offerId] = DC.OfferDetail({
       gasreq: uint24(gasreq),
       gasbase: uint24(config.gasbase),
       gasprice: uint48(config.gasprice),
@@ -244,16 +256,16 @@ library DexLib {
 
   If prices are equal, `findPosition` will put the newest offer last. */
   function findPosition(
-    mapping(uint => Offer) storage offers,
+    mapping(uint => DC.Offer) storage offers,
     /* As a backup pivot, the id of the current best offer is sent by `Dex` to `DexLib`. This is in case `pivotId` turns out to be an invalid offer id. This part of the code relies on consumed offers being deleted, otherwise we would blindly insert offers next to garbage old values. */
     uint bestValue,
     uint wants,
     uint gives,
     uint pivotId
   ) internal view returns (uint, uint) {
-    Offer memory pivot = offers[pivotId];
+    DC.Offer memory pivot = offers[pivotId];
 
-    if (!isOffer(pivot)) {
+    if (!DC.isOffer(pivot)) {
       // in case pivotId is not or no longer a valid offer
       pivot = offers[bestValue];
       pivotId = bestValue;
@@ -261,7 +273,7 @@ library DexLib {
 
     // pivot price better than `wants/gives`, we follow next
     if (better(pivot.wants, pivot.gives, wants, gives)) {
-      Offer memory pivotNext;
+      DC.Offer memory pivotNext;
       while (pivot.next != 0) {
         pivotNext = offers[pivot.next];
         if (better(pivotNext.wants, pivotNext.gives, wants, gives)) {
@@ -276,7 +288,7 @@ library DexLib {
 
       // pivot price strictly worse than `wants/gives`, we follow prev
     } else {
-      Offer memory pivotPrev;
+      DC.Offer memory pivotPrev;
       while (pivot.prev != 0) {
         pivotPrev = offers[pivot.prev];
         if (better(pivotPrev.wants, pivotPrev.gives, wants, gives)) {

@@ -132,13 +132,13 @@ contract MakerOperations_Test {
   function gasreq_max_with_newOffer_ok_test() public {
     mkr.provisionDex(1 ether);
     uint gasmax = 750000;
-    dex.setConfig(ConfigKey.gasmax, gasmax);
+    dex.setConfig(DC.ConfigKey.gasmax, gasmax);
     mkr.newOffer(1 ether, 1 ether, gasmax, 0);
   }
 
   function gasreq_too_high_fails_newOffer_test() public {
     uint gasmax = 12;
-    dex.setConfig(ConfigKey.gasmax, gasmax);
+    dex.setConfig(DC.ConfigKey.gasmax, gasmax);
     try mkr.newOffer(1 ether, 1 ether, gasmax + 1, 0)  {
       TestEvents.fail("gasreq above gasmax, newOffer should fail");
     } catch Error(string memory r) {
@@ -149,15 +149,15 @@ contract MakerOperations_Test {
   function min_density_with_newOffer_ok_test() public {
     mkr.provisionDex(1 ether);
     uint density = 10**7;
-    dex.setConfig(ConfigKey.gasbase, 1);
-    dex.setConfig(ConfigKey.density, density);
+    dex.setConfig(DC.ConfigKey.gasbase, 1);
+    dex.setConfig(DC.ConfigKey.density, density);
     mkr.newOffer(1 ether, density, 0, 0);
   }
 
   function low_density_fails_newOffer_test() public {
     uint density = 10**7;
-    dex.setConfig(ConfigKey.gasbase, 1);
-    dex.setConfig(ConfigKey.density, density);
+    dex.setConfig(DC.ConfigKey.gasbase, 1);
+    dex.setConfig(DC.ConfigKey.density, density);
     try mkr.newOffer(1 ether, density - 1, 0, 0)  {
       TestEvents.fail("density too low, newOffer should fail");
     } catch Error(string memory r) {
@@ -166,8 +166,8 @@ contract MakerOperations_Test {
   }
 
   function wants_too_wide_fails_newOffer_test() public {
-    dex.setConfig(ConfigKey.gasbase, 1);
-    dex.setConfig(ConfigKey.density, 1);
+    dex.setConfig(DC.ConfigKey.gasbase, 1);
+    dex.setConfig(DC.ConfigKey.density, 1);
     mkr.provisionDex(1 ether);
 
     uint wants = type(uint96).max + uint(1);
@@ -190,8 +190,8 @@ contract MakerOperations_Test {
   }
 
   function pivotId_too_wide_fails_newOffer_test() public {
-    dex.setConfig(ConfigKey.gasbase, 1);
-    dex.setConfig(ConfigKey.density, 1);
+    dex.setConfig(DC.ConfigKey.gasbase, 1);
+    dex.setConfig(DC.ConfigKey.density, 1);
     mkr.provisionDex(1 ether);
 
     uint pivotId = type(uint32).max + uint(1);

@@ -147,7 +147,7 @@ library Display {
     console.log("Displaying OB");
     uint c = 0;
     while ((offerId != 0) && (c < size)) {
-      (Offer memory offer, OfferDetail memory od) = dex.getOfferInfo(
+      (DC.Offer memory offer, DC.OfferDetail memory od) = dex.getOfferInfo(
         offerId,
         true
       );
