@@ -108,7 +108,6 @@ contract Dex {
 
   /* `requireAdmin` protects all functions which modify the configuration of the Dex as well as `closeMarket`, which irreversibly freezes offer creation/consumption. */
   function requireAdmin() internal view {
-    assert(false);
     require(msg.sender == config.admin, "dex/adminOnly");
   }
 
