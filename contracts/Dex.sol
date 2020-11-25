@@ -56,7 +56,7 @@ contract Dex {
        * Creating a new offerX
    */
   bool public open = true;
-  /* * If `reentrancyLock` is true, orders may not be added nor executed.
+  /* * If `reentrancyLock` is > 1, orders may not be added nor executed.
 
        Reentrancy during offer execution is not considered safe:
        * during execution, an offer could consume other offers further up in the book, effectively frontrunning the taker currently executing the offer.
@@ -65,7 +65,7 @@ contract Dex {
 
        Note: An optimization in the `marketOrder` function relies on reentrancy being forbidden.
    */
-  bool public reentrancyLock;
+  uint public reentrancyLock = 1;
 
   /* `best` is a struct with a single field holding the current best offer id. The id is wrapped in a struct so it can be passed to `DexLib`. */
   DC.UintContainer public best;
@@ -122,7 +122,7 @@ contract Dex {
 
   /* `requireNoReentrancyLock` protects modifying the book while an order is in progress. */
   function requireNoReentrancyLock() internal view {
-    require(!reentrancyLock, "dex/reentrancyLocked");
+    require(reentrancyLock < 2, "dex/reentrancyLocked");
   }
 
   /* `requireOpenMarket` protects against operations listed [next to the definition of `open`](#Dex/definition/open). */
@@ -309,7 +309,7 @@ contract Dex {
     uint[] memory failures = new uint[](2 * punishLength);
     uint numFailures;
 
-    reentrancyLock = true;
+    reentrancyLock = 2;
 
     uint localTakerWants;
     uint localTakerGives;
@@ -411,7 +411,7 @@ contract Dex {
     //+clear+
     /* `applyFee` extracts the fee from the taker, proportional to the amount purchased (which is `initialTakerWants - takerWants`). */
     applyFee(orderData.initialTakerWants - takerWants);
-    reentrancyLock = false;
+    reentrancyLock = 1;
     /* After exiting the loop, we connect the beginning & end of the segment just consumed by the market order. */
     stitchOffers(orderData.pastOfferId, offerId);
 
@@ -463,7 +463,7 @@ contract Dex {
     uint targetIndex;
     uint numFailures;
     uint[] memory failures = new uint[](punishLength * 2);
-    reentrancyLock = true;
+    reentrancyLock = 2;
     /* ### Main loop */
     //+clear+
 
@@ -511,7 +511,7 @@ contract Dex {
     }
     /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
     applyFee(takerGot);
-    reentrancyLock = false;
+    reentrancyLock = 1;
     /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `2 * numFailures` in the length field of `failures` (there are 2 elements (`offerId`, `gasUsed`) for every failure in `failures`).
 
        The above is hackish and we may want to just return a `(uint,uint[])` pair.
