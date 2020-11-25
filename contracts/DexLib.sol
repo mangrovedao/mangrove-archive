@@ -170,7 +170,7 @@ library DexLib {
     uint offerId,
     uint takerGives,
     uint takerWants,
-    OfferDetail memory offerDetail
+    DC.OfferDetail memory offerDetail
   ) external returns (bool) {
     // Execute offer
     IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
