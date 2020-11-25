@@ -40,7 +40,7 @@ contract DexDeployer {
     
     mapping (address => mapping(address => address)) storage map = takerLends ? dexes : invertedDexes;
 
-    require(map[ofrToken][reqToken] != address(0), "DexDeployer/alreadyDeployed");
+    require(map[ofrToken][reqToken] == address(0), "DexDeployer/alreadyDeployed");
     map[ofrToken][reqToken] = address(dex);
 
     return dex;
