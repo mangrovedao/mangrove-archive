@@ -8,8 +8,12 @@ contract DexDeployer {
   mapping(address => mapping(address => Dex)) public dexes;
   mapping(address => mapping(address => Dex)) public invertedDexes;
 
-  constructor(address initialAdmin) {
-    admin = initialAdmin;
+  constructor(address _admin) {
+    admin = _admin;
+  }
+
+  function requireAdmin() internal view {
+    require(msg.sender == admin, "DexDeployer/adminOnly");
   }
 
   function deploy(
@@ -21,7 +25,7 @@ contract DexDeployer {
     address reqToken,
     bool takerLends
   ) external returns (Dex) {
-    require(isAdmin(msg.sender));
+    requireAdmin();
 
     Dex dex = new Dex({
       _admin: admin,
@@ -42,13 +46,8 @@ contract DexDeployer {
     return dex;
   }
 
-  function isAdmin(address maybeAdmin) internal view returns (bool) {
-    return maybeAdmin == admin;
-  }
-
-  function updateAdmin(address newValue) external {
-    if (isAdmin(msg.sender)) {
-      admin = newValue;
-    }
+  function updateAdmin(address _admin) external {
+    requireAdmin();
+    admin = _admin;
   }
 }
