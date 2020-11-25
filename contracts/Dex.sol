@@ -667,7 +667,7 @@ contract Dex {
       bool appliedFee = DexLib.transferToken(
         OFR_TOKEN,
         msg.sender,
-        address(this),
+        address(config.admin),
         fee
       );
       require(appliedFee, "dex/takerFailToPayDex");
