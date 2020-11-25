@@ -110,10 +110,11 @@ library DexLib {
   /* # Token transfer */
   //+clear+
   /*
-   `swapTokens` flashloans `takerGives` `REQ_TOKEN` from the taker to the maker and returns false if the loan fails. It then:
-  1. Runs `offerDetail.maker`'s `execute` function.
-  2. Attempts to send `takerWants` `OFR_TOKEN` from the maker to the taker and reverts if it cannot.
-  3. Returns true.
+     `swapTokens` is for the 'normal' mode of operation. It:
+     1. Flashloans `takerGives` `REQ_TOKEN` from the taker to the maker and returns false if the loan fails.
+     2. Runs `offerDetail.maker`'s `execute` function.
+     3. Attempts to send `takerWants` `OFR_TOKEN` from the maker to the taker and reverts if it cannot.
+     4. Returns true.
     */
 
   function swapTokens(
@@ -152,6 +153,43 @@ library DexLib {
     } else {
       return false;
     }
+  }
+
+  /*
+     `swapTokens` is for the 'arbitrage' mode of operation. It:
+     0. Calls the maker's `execute` function
+     1. Flashloans `takerWants` `OFR_TOKEN` from the maker to the taker and reverts if the loan fails.
+     2. Runs `msg.sender`'s `execute` function.
+     3. Attempts to send `takerGives` `REQ_TOKEN` from the taker to the maker. 
+     4. Returns whether the attempt worked.
+    */
+
+  function invertedSwapTokens(
+    address ofrToken,
+    address reqToken,
+    uint offerId,
+    uint takerGives,
+    uint takerWants,
+    OfferDetail memory offerDetail
+  ) external returns (bool) {
+    // Execute offer
+    IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
+      takerWants,
+      takerGives,
+      offerDetail.gasprice,
+      offerId
+    );
+    require(
+      transferToken(ofrToken, offerDetail.maker, msg.sender, takerWants),
+      "dex/makerFailToPayTaker"
+    );
+    IMaker(msg.sender).execute(
+      takerWants,
+      takerGives,
+      offerDetail.gasprice,
+      offerId
+    );
+    return transferToken(reqToken, msg.sender, offerDetail.maker, takerGives);
   }
 
   /* `transferToken` is adapted from [existing code](https://soliditydeveloper.com/safe-erc20) and in particular avoids the

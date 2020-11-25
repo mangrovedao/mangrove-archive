@@ -24,6 +24,8 @@ contract Dex {
   address public immutable OFR_TOKEN;
   /* * The token offers want */
   address public immutable REQ_TOKEN;
+  /* The signature of the low-level swapping function. */
+  bytes4 immutable SWAPPER;
 
   /* * An offer `id` is defined by two structs, `Offer` and `OfferDetail`, defined in `DexCommon.sol`.
    * `offers[id]` contains pointers to the `prev`ious (better) and `next` (worse) offer in the book, as well as the price and volume of the offer (in the form of two absolute quantities, `wants` and `gives`).
@@ -87,8 +89,15 @@ contract Dex {
     /* * `OFR_TOKEN` ERC20 contract */
     address _OFR_TOKEN,
     /* * `REQ_TOKEN` ERC20 contract */
-    address _REQ_TOKEN
+    address _REQ_TOKEN,
+    /* determines whether the taker or maker does the flashlend */
+    bool takerLends
   ) {
+    /* In a 'normal' mode of operation, takers lend the liquidity to the maker. */
+    /* In an 'arbitrage' mode of operation, takers come ask the makers for liquidity. */
+    SWAPPER = takerLends
+      ? DexLib.swapTokens.selector
+      : DexLib.invertedSwapTokens.selector;
     OFR_TOKEN = _OFR_TOKEN;
     REQ_TOKEN = _REQ_TOKEN;
     emit DexEvents.NewDex(address(this), _OFR_TOKEN, _REQ_TOKEN);
@@ -625,10 +634,10 @@ contract Dex {
       "dex/unsafeGasAmount"
     );
 
-    /* The flashswap is executed by delegatecall to `DexLib.swapTokens`. If the call reverts, it means the maker failed to send back `takerWants` `OFR_TOKEN` to the taker. If the call succeeds, `retdata` encodes a boolean indicating whether the taker did send enough to the maker or not. */
+    /* The flashswap is executed by delegatecall to `SWAPPER`. If the call reverts, it means the maker failed to send back `takerWants` `OFR_TOKEN` to the taker. If the call succeeds, `retdata` encodes a boolean indicating whether the taker did send enough to the maker or not. */
     (bool noRevert, bytes memory retdata) = address(DexLib).delegatecall(
       abi.encodeWithSelector(
-        DexLib.swapTokens.selector,
+        SWAPPER,
         OFR_TOKEN,
         REQ_TOKEN,
         offerId,
@@ -639,8 +648,8 @@ contract Dex {
     );
     /* In both cases, we call `applyPenalty`, which splits the provisioned penalty (set aside during the `newOffer` call which created the offer between the taker and maker. */
     if (noRevert) {
-      bool flashSuccess = abi.decode(retdata, (bool));
-      require(flashSuccess, "dex/takerFailToPayMaker");
+      bool takerPaid = abi.decode(retdata, (bool));
+      require(takerPaid, "dex/takerFailToPayMaker");
       applyPenalty(true, 0, offerDetail);
       return (true, 0);
     } else {

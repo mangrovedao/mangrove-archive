@@ -28,7 +28,8 @@ contract DexDeployer {
       _gasbase: gasbase,
       _gasmax: gasmax,
       _OFR_TOKEN: ofrToken,
-      _REQ_TOKEN: reqToken
+      _REQ_TOKEN: reqToken,
+      takerLends: true
     });
 
     dexes[ofrToken][reqToken] = dex;
