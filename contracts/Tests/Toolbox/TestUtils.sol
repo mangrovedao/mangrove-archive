@@ -178,7 +178,7 @@ library DexSetup {
       reqToken: address(bToken),
       takerLends: true
     });
-    return deployer.dexes(address(aToken), address(bToken));
+    return Dex(payable(deployer.dexes(address(aToken), address(bToken))));
   }
 }
 

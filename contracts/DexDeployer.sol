@@ -5,8 +5,8 @@ import "./Dex.sol";
 
 contract DexDeployer {
   address public admin;
-  mapping(address => mapping(address => Dex)) public dexes;
-  mapping(address => mapping(address => Dex)) public invertedDexes;
+  mapping(address => mapping(address => address)) public dexes;
+  mapping(address => mapping(address => address)) public invertedDexes;
 
   constructor(address _admin) {
     admin = _admin;
@@ -38,10 +38,10 @@ contract DexDeployer {
       takerLends: takerLends
     });
     
-    mapping (address => mapping(address => Dex)) storage map = takerLends ? dexes : invertedDexes;
+    mapping (address => mapping(address => address)) storage map = takerLends ? dexes : invertedDexes;
 
-    require(address(map[ofrToken][reqToken]) != address(0), "DexDeployer/alreadyDeployed");
-    map[ofrToken][reqToken] = dex;
+    require(map[ofrToken][reqToken] != address(0), "DexDeployer/alreadyDeployed");
+    map[ofrToken][reqToken] = address(dex);
 
     return dex;
   }
