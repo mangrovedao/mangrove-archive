@@ -175,7 +175,8 @@ library DexSetup {
       gasbase: 30000,
       gasmax: 1000000,
       ofrToken: address(aToken),
-      reqToken: address(bToken)
+      reqToken: address(bToken),
+      takerLends: true
     });
     return deployer.dexes(address(aToken), address(bToken));
   }

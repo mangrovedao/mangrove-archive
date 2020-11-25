@@ -6,6 +6,7 @@ import "./Dex.sol";
 contract DexDeployer {
   address public admin;
   mapping(address => mapping(address => Dex)) public dexes;
+  mapping(address => mapping(address => Dex)) public invertedDexes;
 
   constructor(address initialAdmin) {
     admin = initialAdmin;
@@ -17,7 +18,8 @@ contract DexDeployer {
     uint gasbase,
     uint gasmax,
     address ofrToken,
-    address reqToken
+    address reqToken,
+    bool takerLends
   ) external returns (Dex) {
     require(isAdmin(msg.sender));
 
@@ -29,10 +31,13 @@ contract DexDeployer {
       _gasmax: gasmax,
       _OFR_TOKEN: ofrToken,
       _REQ_TOKEN: reqToken,
-      takerLends: true
+      takerLends: takerLends
     });
+    
+    mapping (address => mapping(address => Dex)) storage map = takerLends ? dexes : invertedDexes;
 
-    dexes[ofrToken][reqToken] = dex;
+    require(address(map[ofrToken][reqToken]) != address(0), "DexDeployer/alreadyDeployed");
+    map[ofrToken][reqToken] = dex;
 
     return dex;
   }
