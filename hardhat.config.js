@@ -80,16 +80,17 @@ module.exports = {
       const lineA = ({id, wants, gives, maker}) => {
         const p = (s, n) =>
           (s.length > n ? s.slice(0, n - 1) + "…" : s).padEnd(n);
-        return `${p(id, 3)}: ${p(wants, 15)}${p(gives, 15)}${p(maker, 15)}`;
+        return ` ${p(id, 3)}: ${p(wants, 15)}${p(gives, 15)}${p(maker, 15)}`;
       };
       //const lineB = ({gas,gasprice});
 
       console.log(
         " " + lineA({id: "id", wants: "wants", gives: "gives", maker: "maker"})
       );
-      console.log("├" + "─".repeat(3 + 2 + 15 + 15 + 15 - 2) + "┤");
-      ob.forEach((o) => console.log(" " + lineA(o)));
-      console.log("└" + "─".repeat(3 + 2 + 15 + 15 + 15 - 2) + "┘");
+      lineLength = 1 + 3 + 2 + 15 + 15 + 15;
+      console.log("├" + "─".repeat(lineLength - 1) + "┤");
+      ob.forEach(o => console.log(lineA(o)));
+      console.log("└" + "─".repeat(lineLength - 1) + "┘");
     },
     LogString: (log) => {
       console.log(" ".repeat(log.args.indentLevel) + log.args.message);
