@@ -66,7 +66,7 @@ library TestMarketOrder {
 
     // Checking DEX Fee Balance
     TestEvents.eq(
-      aToken.balanceOf(address(dex)), //actual
+      aToken.balanceOf(TestUtils.adminOf(dex)), //actual
       balances.dexBalanceFees + TestUtils.getFee(dex, takerWants), //expected
       "incorrect Dex balances"
     );

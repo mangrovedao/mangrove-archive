@@ -23,7 +23,7 @@ library TestSnipe {
       "snipe should be a success"
     );
     TestEvents.eq(
-      aToken.balanceOf(address(dex)), //actual
+      aToken.balanceOf(dex.getConfigAddress(DexCommon.ConfigKey.admin)), //actual
       balances.dexBalanceFees + TestUtils.getFee(dex, orderAmount), //expected
       "incorrect Dex A balance"
     );

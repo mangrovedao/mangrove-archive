@@ -24,6 +24,10 @@ library TestUtils {
   }
   enum Info {makerWants, makerGives, nextId, gasreq, gasprice}
 
+  function adminOf(Dex dex) internal view returns (address) {
+    return dex.getConfigAddress(DC.ConfigKey.admin);
+  }
+
   function getFee(Dex dex, uint price) internal view returns (uint) {
     return ((price * dex.getConfigUint(DC.ConfigKey.fee)) / 10000);
   }
@@ -38,10 +42,8 @@ library TestUtils {
     Info infKey,
     uint offerId
   ) internal view returns (uint) {
-    (DC.Offer memory offer, DC.OfferDetail memory offerDetail) = dex.getOfferInfo(
-      offerId,
-      true
-    );
+    (DC.Offer memory offer, DC.OfferDetail memory offerDetail) = dex
+      .getOfferInfo(offerId, true);
     if (infKey == Info.makerWants) {
       return offer.wants;
     }
