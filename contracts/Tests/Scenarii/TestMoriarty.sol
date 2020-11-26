@@ -35,9 +35,12 @@ library TestMoriarty {
     });
     uint failedOffer = 1;
     for (uint i = 0; i < failures.length - 1; i += 2) {
-      console.log(failures[i], failures[i + 1]);
       TestEvents.eq(failures[i], failedOffer, "Incorrect failed offer Id");
-      TestEvents.more(failures[i + 1], 7000, "Incorrect Gas consummed");
+      TestEvents.less(
+        failures[i + 1],
+        100000 + dex.getConfigUint(DC.ConfigKey.gasbase),
+        "Incorrect Gas consummed"
+      );
       failedOffer++;
     }
   }
