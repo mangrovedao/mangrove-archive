@@ -4,9 +4,9 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "../DexDeployer.sol";
-import "../Dex.sol";
-import "../DexCommon.sol";
-import "../interfaces.sol";
+//import "../Dex.sol";
+//import "../DexCommon.sol";
+//import "../interfaces.sol";
 import "hardhat/console.sol";
 
 import "./Toolbox/TestEvents.sol";
@@ -46,10 +46,8 @@ contract Dex_Test {
   function saveOffers() internal {
     uint offerId = dex.getBest();
     while (offerId != 0) {
-      (DC.Offer memory offer, DC.OfferDetail memory offerDetail) = dex.getOfferInfo(
-        offerId,
-        true
-      );
+      (DC.Offer memory offer, DC.OfferDetail memory offerDetail) = dex
+        .getOfferInfo(offerId, true);
       offers[offerId][TestUtils.Info.makerWants] = offer.wants;
       offers[offerId][TestUtils.Info.makerGives] = offer.gives;
       offers[offerId][TestUtils.Info.gasreq] = offerDetail.gasreq;
@@ -68,7 +66,7 @@ contract Dex_Test {
     }
     balances = TestUtils.Balances({
       dexBalanceWei: address(dex).balance,
-      dexBalanceFees: aToken.balanceOf(address(dex)),
+      dexBalanceFees: aToken.balanceOf(TestUtils.adminOf(dex)),
       takerBalanceA: aToken.balanceOf(address(taker)),
       takerBalanceB: bToken.balanceOf(address(taker)),
       takerBalanceWei: dex.balanceOf(address(taker)),
@@ -164,7 +162,6 @@ contract Dex_Test {
     saveBalances();
     saveOffers();
     TestMarketOrder.run(balances, offers, dex, makers, taker, aToken, bToken);
-    TestEvents.logString("End of MarketOrder test", 0);
     //Display.logOfferBook(dex, 4);
 
     TestEvents.logString("=== Failling offer test ===", 0);
@@ -180,26 +177,9 @@ contract Dex_Test {
       aToken,
       bToken
     );
-    TestEvents.logString("end of FailingOffer test", 0);
     //Display.logOfferBook(dex, 4);
     saveBalances();
     saveOffers();
-
-    // TestCancelOffer.run(
-    //   balances,
-    //   offers,
-    //   dex,
-    //   makers.getMaker(0),
-    //   makers.getMaker(1),
-    //   offerOf[1],
-    //   taker,
-    //   aToken,
-    //   bToken
-    // );
-    //
-    // test closeMarket
-    // test withdraw
-    // test reintrant offer
   }
 }
 

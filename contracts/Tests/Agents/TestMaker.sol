@@ -50,8 +50,8 @@ contract TestMaker is IMaker, Passthrough {
     require(success, "provision dex failed");
   }
 
-  function withdrawDex(uint amount) public {
-    dex.withdraw(amount);
+  function withdrawDex(uint amount) public returns (bool) {
+    return dex.withdraw(amount);
   }
 
   function approve(IERC20 token, uint amount) public {
