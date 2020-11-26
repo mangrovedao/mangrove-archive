@@ -219,12 +219,11 @@ contract Dex {
   }
 
   /* Any provision not currently held to secure an offer's possible penalty is available for withdrawal. */
-  function withdraw(uint amount) external {
+  function withdraw(uint amount) external returns (bool success) {
     /* Since we only ever send money to the caller, we do not need to provide any particular amount of gas, the caller can manage that themselves. Still, as nonzero value calls provide a 2300 gas stipend, a `withdraw(0)` would trigger a call with actual 0 gas. */
     //if (amount == 0) return;
     //+clear+
-    //DexLib.debitWei(freeWei, msg.sender, amount);
-    bool success;
+    DexLib.debitWei(freeWei, msg.sender, amount);
     (success, ) = msg.sender.call{gas: 0, value: amount}("");
   }
 
@@ -587,7 +586,7 @@ contract Dex {
 
     /* After execution, there are four possible outcomes, along 2 axes: the transaction was successful (or not), the offer was consumed to below the absolute dust limit (or not).
 
-    If the transaction was successful and the offer was not consumed too much, it stays on the book with updated values. 
+    If the transaction was successful and the offer was not consumed too much, it stays on the book with updated values.
 
     Note how we use `config.gasbase` instead of `offerDetail.gasbase` to check dust limit. `offerDetail.gasbase` is used to correctly apply penalties; here we are making sure the offer  is still good enough according to the current configuration.
 
@@ -625,7 +624,7 @@ contract Dex {
     /* We start by saving the amount of gas currently available so we can measure how much we spent later. */
     uint oldGas = gasleft();
 
-    /* We will slightly overapproximate the gas consumed by the maker since some local operations will take place in addition to the call; the total cost must not exceed `config.gasbase`. 
+    /* We will slightly overapproximate the gas consumed by the maker since some local operations will take place in addition to the call; the total cost must not exceed `config.gasbase`.
 
     Note that we use `config.gasbase`, not `offerDetail.gasbase`. `gasbase` is cached in `offerDetail` for the purpose of applying penalties; when checking if it's worth going through with taking an offer, we look at the most up-to-date `gasbase` value.
     */
