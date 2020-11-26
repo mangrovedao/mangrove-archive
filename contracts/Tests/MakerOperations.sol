@@ -79,8 +79,8 @@ contract MakerOperations_Test {
     uint amt2 = 0.12 ether;
 
     mkr.provisionDex(amt1);
-    mkr.withdrawDex(amt2);
-
+    bool success = mkr.withdrawDex(amt2);
+    TestEvents.check(success, "mkr was not able to withdraw from dex");
     TestEvents.eq(mkr.freeWei(), amt1 - amt2, "incorrect mkr freeWei amount");
     TestEvents.eq(
       address(dex).balance,
