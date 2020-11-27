@@ -39,4 +39,8 @@ contract TestTaker is ITaker {
   ) external returns (uint[] memory failures) {
     return (dex.marketOrder(wants, gives, punishLength, offerId));
   }
+
+  function snipeForFail(uint[] calldata targets, uint punishLength) external {
+    dex.punishingSnipes(targets, punishLength);
+  }
 }
