@@ -736,7 +736,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   function punishingSnipes(uint[] calldata targets, uint punishLength)
     external
   {
-    /* We do not directly call `snipes` because we want to revert all the offer executions before returning. So we call an intermediate function, `internalPunishingSnipes`.*/
+    /* We do not directly call `snipes` because we want to revert all the offer executions before returning. So we call an intermediate function, `internalPunishingSnipes` (we don't `call` to preserve the calling context, in partiular `msg.sender`). */
     (bool noRevert, bytes memory retdata) = address(this).delegatecall(
       abi.encodeWithSelector(
         this.internalPunishingSnipes.selector,
@@ -757,7 +757,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     }
   }
 
-  /* Sandwiched between `punishingSnipes` and `internalSnipes`, the function `internalPunishingSnipes` runs a sequence of snipes, reverts it, and sends up the list of failed offers. If it catches a revert inside `snipes`, it returns normally a `bytes` array with the raw revert data in it. */
+  /* Sandwiched between `punishingSnipes` and `internalSnipes`, the function `internalPunishingSnipes` runs a sequence of snipes, reverts it, and sends up the list of failed offers. If it catches a revert inside `snipes`, it returns normally a `bytes` array with the raw revert data in it. Again, we use `delegatecall` to preseve `msg.sender`. */
   function internalPunishingSnipes(uint[] calldata targets, uint punishLength)
     external
     returns (bytes memory retdata)
@@ -792,7 +792,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint takerGives,
     uint punishLength
   ) external {
-    /* We do not directly call `marketOrder` because we want to revert all the offer executions before returning. So we call an intermediate function, `internalPunishingMarketOrder`.*/
+    /* We do not directly call `marketOrder` because we want to revert all the offer executions before returning. So we delegatecall an intermediate function, `internalPunishingMarketOrder`. Again, we use `delegatecall` to preserve `msg.sender`. */
     (bool noRevert, bytes memory retdata) = address(this).delegatecall(
       abi.encodeWithSelector(
         this.internalPunishingMarketOrder.selector,
@@ -815,7 +815,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     }
   }
 
-  /* Sandwiched between `punishingMarketOrder` and `marketOrder`, the function `internalPunishingMarketOrder` runs a market order, reverts it, and sends up the list of failed offers. If it catches a revert inside `marketOrder`, it returns normally a `bytes` array with the raw revert data in it. */
+  /* Sandwiched between `punishingMarketOrder` and `marketOrder`, the function `internalPunishingMarketOrder` runs a market order, reverts it, and sends up the list of failed offers. If it catches a revert inside `marketOrder`, it returns normally a `bytes` array with the raw revert data in it. Again, we use `delegatecall` to preserve `msg.sender`. */
   function internalPunishingMarketOrder(
     uint offerId,
     uint takerWants,
@@ -869,7 +869,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     }
   }
 
-  /* Given some `bytes`, `evmRevert` reverts the current call with the raw byes as revert data. Prevents abi-encoding of solidity-revert's string argument.  */
+  /* Given some `bytes`, `evmRevert` reverts the current call with the raw bytes as revert data. The length prefix is omitted. Prevents abi-encoding of solidity-revert's string argument.  */
   function evmRevert(bytes memory data) internal pure {
     uint length = data.length;
     assembly {
