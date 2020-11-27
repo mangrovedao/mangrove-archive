@@ -858,11 +858,13 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       uint id = failures[failureIndex * 2];
       /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
       DC.Offer memory offer = offers[id];
-      DC.OfferDetail memory offerDetail = offerDetails[id];
-      dirtyDeleteOffer(id);
-      stitchOffers(offer.prev, offer.next);
-      uint gasUsed = failures[failureIndex * 2 + 1];
-      applyPenalty(false, gasUsed, offerDetail);
+      if (DC.isOffer(offer)) {
+        DC.OfferDetail memory offerDetail = offerDetails[id];
+        dirtyDeleteOffer(id);
+        stitchOffers(offer.prev, offer.next);
+        uint gasUsed = failures[failureIndex * 2 + 1];
+        applyPenalty(false, gasUsed, offerDetail);
+      }
       failureIndex++;
     }
   }
