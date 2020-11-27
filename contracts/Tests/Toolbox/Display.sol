@@ -143,8 +143,6 @@ library Display {
     uint[] memory gives = new uint[](size);
     address[] memory makerAddr = new address[](size);
     uint[] memory offerIds = new uint[](size);
-
-    console.log("Displaying OB");
     uint c = 0;
     while ((offerId != 0) && (c < size)) {
       (DC.Offer memory offer, DC.OfferDetail memory od) = dex.getOfferInfo(
@@ -175,13 +173,12 @@ library Display {
         // silence warning about unused argument
         uint wants,
         uint gives,
-        uint nextId, // silence warning about unused argument // silence warning about unused argument // silence warning about unused argument // silence warning about unused argument
+        uint nextId, // silence warning about unused argument // silence warning about unused argument // silence warning about unused argument // silence warning about unused argument /* uint gasreq */
         ,
         ,
         ,
 
-      ) = /* uint gasreq */
-      /* uint minFinishGas */
+      ) = /* uint minFinishGas */
       /* uint gasprice */
       /* address makerAddr */
       dex.getOfferInfo(offerId);

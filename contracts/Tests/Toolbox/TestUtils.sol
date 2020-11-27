@@ -24,6 +24,11 @@ library TestUtils {
   }
   enum Info {makerWants, makerGives, nextId, gasreq, gasprice}
 
+  function isEmptyOB(Dex dex) internal view returns (bool) {
+    (DC.Offer memory offer, ) = dex.getOfferInfo(dex.getBest(), true);
+    return !DC.isOffer(offer);
+  }
+
   function adminOf(Dex dex) internal view returns (address) {
     return dex.getConfigAddress(DC.ConfigKey.admin);
   }
@@ -58,6 +63,10 @@ library TestUtils {
     } else {
       return offerDetail.gasprice;
     }
+  }
+
+  function hasOffer(Dex dex, uint offerId) internal view returns (bool) {
+    return (getOfferInfo(dex, Info.makerGives, offerId) > 0);
   }
 
   function makerOf(Dex dex, uint offerId) internal view returns (address) {
