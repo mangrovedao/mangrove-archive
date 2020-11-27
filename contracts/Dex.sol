@@ -751,9 +751,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
          * If `internalPunishingSnipes` returns normally, then _the sniping **did** revert_ and `retdata` is the revert data. In that case we "re-throw".
          * If it reverts, then _the sniping **did not** revert_ and `retdata` is an array of failed offers. We punish those offers. */
     if (noRevert) {
-      evmRevert(retdata);
+      evmRevert(abi.decode(retdata,(bytes)));
     } else {
-      punish(retdata);
+      punish(abi.decode(retdata,(uint[])));
     }
   }
 
@@ -809,9 +809,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
          * If `internalPunishingMarketOrder` returns normally, then _the market order **did** revert_ and `retdata` is the revert data. In that case we "re-throw".
          * If it reverts, then _the market order **did not** revert_ and `retdata` is an array of failed offers. We punish those offers. */
     if (noRevert) {
-      evmRevert(retdata);
+      evmRevert(abi.decode(retdata,(bytes)));
     } else {
-      punish(retdata);
+      punish(abi.decode(retdata,(uint[])));
     }
   }
 
@@ -847,12 +847,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   //+clear+
   /* Given a sequence of `(offerId, gasUsed)` pairs, `punish` assumes they have failed and
      executes `applyPenalty` on them.  */
-  function punish(bytes memory failureBytes) internal {
+  function punish(uint[] memory failures) internal {
     uint failureIndex;
-    uint[] memory failures;
-    assembly {
-      failures := failureBytes
-    }
     uint numFailures = failures.length / 2;
     while (failureIndex < numFailures) {
       uint id = failures[failureIndex * 2];
@@ -873,7 +869,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   function evmRevert(bytes memory data) internal pure {
     uint length = data.length;
     assembly {
-      revert(data, add(length, 32))
+      revert(add(data,32), length)
     }
   }
 
