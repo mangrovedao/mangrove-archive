@@ -23,14 +23,14 @@ import "./Scenarii/TestCancelOffer.sol";
 import "./Scenarii/TestCollectFailingOffer.sol";
 import "./Scenarii/TestInsert.sol";
 import "./Scenarii/TestSnipe.sol";
-import "./Scenarii/TestMoriarty.sol";
+import "./Scenarii/TestFailingMarketOrder.sol";
 import "./Scenarii/TestMarketOrder.sol";
 
 // Pretest libraries are for deploying large contracts independently.
 // Otherwise bytecode can be too large. See EIP 170 for more on size limit:
 // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
 
-contract Dex_Test {
+contract Scenarii_test {
   Dex dex;
   TestTaker taker;
   MakerDeployer makers;
@@ -132,7 +132,7 @@ contract Dex_Test {
     saveBalances();
   }
 
-  function a_zeroDust_test() public {
+  function zeroDust_test() public {
     console.log("Starting a test (%d)", gasleft());
 
     try dex.setConfig(DC.ConfigKey.density, 0)  {
@@ -144,27 +144,25 @@ contract Dex_Test {
     }
   }
 
-  function b_basic_test() public {
-    TestEvents.logString("=== Insert test ===", 0);
+  function snap_insert_and_fail_test() public {
+    //TestEvents.logString("=== Insert test ===", 0);
     offerOf = TestInsert.run(balances, dex, makers, taker, aToken, bToken);
-    TestEvents.logString("End of Insert test", 0);
     //Display.printOfferBook(dex);
     //Display.logOfferBook(dex,4);
 
-    TestEvents.logString("=== Snipe test ===", 0);
+    //TestEvents.logString("=== Snipe test ===", 0);
     saveBalances();
     saveOffers();
     TestSnipe.run(balances, offers, dex, makers, taker, aToken, bToken);
-    TestEvents.logString("End of Snipe test", 0);
     //Display.logOfferBook(dex, 4);
 
-    TestEvents.logString("=== Market order test ===", 0);
+    //TestEvents.logString("=== Market order test ===", 0);
     saveBalances();
     saveOffers();
     TestMarketOrder.run(balances, offers, dex, makers, taker, aToken, bToken);
     //Display.logOfferBook(dex, 4);
 
-    TestEvents.logString("=== Failling offer test ===", 0);
+    //TestEvents.logString("=== Failling offer test ===", 0);
     saveBalances();
     saveOffers();
     TestCollectFailingOffer.run(
@@ -188,6 +186,7 @@ contract DeepCollect_Test {
   TestToken btk;
   Dex dex;
   TestTaker tkr;
+  TestMoriartyMaker evil;
 
   receive() external payable {}
 
@@ -207,10 +206,30 @@ contract DeepCollect_Test {
     btk.mint(address(tkr), 5 ether);
     tkr.approve(btk, 20 ether);
     tkr.approve(atk, 20 ether);
+
+    evil = new TestMoriartyMaker(dex);
+    Display.register(address(evil), "Moriarty");
+
+    (bool success, ) = address(evil).call{gas: gasleft(), value: 20 ether}("");
+    require(success, "maker transfer");
+    evil.provisionDex(10 ether);
+    atk.mint(address(evil), 5 ether);
+    evil.approve(atk, 5 ether);
+
+    evil.newOffer({
+      wants: 1 ether,
+      gives: 0.5 ether,
+      gasreq: 100000,
+      pivotId: 0
+    });
   }
 
-  function deepCollect_test() public {
-    TestEvents.logString("=== DeepCollect test ===", 0);
-    TestMoriarty.run(dex, tkr, atk, btk);
+  function failing_market_order_test() public {
+    //TestEvents.logString("=== DeepCollect test ===", 0);
+    TestFailingMarketOrder.run(dex, tkr, atk);
+  }
+
+  function deep_collect_offer_book_test() public {
+    TestFailingMarketOrder.runAndRevert(dex, tkr, atk);
   }
 }
