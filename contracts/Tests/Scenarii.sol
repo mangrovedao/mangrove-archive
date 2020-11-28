@@ -133,8 +133,6 @@ contract Scenarii_test {
   }
 
   function zeroDust_test() public {
-    console.log("Starting a test (%d)", gasleft());
-
     try dex.setConfig(DC.ConfigKey.density, 0)  {
       TestEvents.fail("zero density should revert");
     } catch Error(
@@ -224,12 +222,16 @@ contract DeepCollect_Test {
     });
   }
 
-  function failing_market_order_test() public {
+  function market_with_failures_test() public {
     //TestEvents.logString("=== DeepCollect test ===", 0);
-    TestFailingMarketOrder.run(dex, tkr, atk);
+    TestFailingMarketOrder.moWithFailures(dex, tkr);
   }
 
-  function deep_collect_offer_book_test() public {
-    TestFailingMarketOrder.runAndRevert(dex, tkr, atk);
+  function punishing_snipes_test() public {
+    TestFailingMarketOrder.snipesAndRevert(dex, tkr);
+  }
+
+  function punishing_market_order_test() public {
+    TestFailingMarketOrder.moAndRevert(dex, tkr);
   }
 }

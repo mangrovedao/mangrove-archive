@@ -3,12 +3,8 @@ pragma solidity ^0.7.0;
 import "../Toolbox/TestUtils.sol";
 
 library TestFailingMarketOrder {
-  function run(
-    Dex dex,
-    TestTaker taker,
-    TestToken aToken
-  ) external {
-    uint[] memory failures = taker.probeForFail({
+  function moWithFailures(Dex dex, TestTaker taker) external {
+    uint[] memory failures = taker.marketOrderWithFail({
       wants: 10 ether,
       gives: 30 ether,
       punishLength: 10,
@@ -27,20 +23,41 @@ library TestFailingMarketOrder {
     TestEvents.check(TestUtils.isEmptyOB(dex), "Offer book should be empty");
   }
 
-  function runAndRevert(
-    Dex dex,
-    TestTaker taker,
-    TestToken aToken
-  ) external {
+  function snipesAndRevert(Dex dex, TestTaker taker) external {
     uint tkrBalance = address(taker).balance;
-    uint[] memory targets = new uint[](10);
+    uint[] memory targetsOK = new uint[](10);
+    uint[] memory targetsWrong = new uint[](10);
+
     uint cpt = 0;
     for (uint i = 5; i > 0; i--) {
-      targets[2 * cpt] = i;
-      targets[2 * cpt + 1] = 0.5 ether;
+      targetsOK[2 * cpt] = i;
+      targetsWrong[2 * cpt] = cpt + 1;
+      targetsOK[2 * cpt + 1] = 0.5 ether;
+      targetsWrong[2 * cpt + 1] = 0.5 ether;
       cpt++;
     }
-    taker.snipeForFail(targets, 5);
+    // if offers are not consumed in the order given by OB
+    // no offer fails and the OB should be unchanged
+    taker.snipesAndRevert(targetsWrong, 5);
+    for (uint i = 1; i <= 5; i++) {
+      TestEvents.check(
+        TestUtils.hasOffer(dex, i),
+        Display.append(
+          "Offer ",
+          Display.uint2str(i),
+          " should have been kept in OB"
+        )
+      );
+    }
+    TestEvents.eq(
+      address(taker).balance, //actual
+      tkrBalance,
+      "Incorrect taker balance"
+    );
+
+    // sniping offers in the OB order.
+    taker.snipesAndRevert(targetsOK, 5);
+    // Display.logOfferBook(dex,5);
     // check that dummy offer is still there:
     TestEvents.check(
       TestUtils.hasOffer(dex, 5),
@@ -48,13 +65,41 @@ library TestFailingMarketOrder {
     );
     for (uint i = 1; i < 5; i++) {
       TestEvents.check(
-        !TestUtils.hasOffer(dex, 5),
-        "Failing offer should have been removed from OB"
+        !TestUtils.hasOffer(dex, i),
+        Display.append(
+          "Failing offer ",
+          Display.uint2str(i),
+          " should have been removed from OB"
+        )
       );
     }
     TestEvents.eq(
-      address(taker).balance,
-      tkrBalance - 4 * TestUtils.getProvision(dex, 100000),
+      address(taker).balance, //actual
+      tkrBalance + 4 * TestUtils.getProvision(dex, 100000),
+      "Incorrect taker balance"
+    );
+  }
+
+  function moAndRevert(Dex dex, TestTaker tkr) external {
+    uint tkrBalance = address(tkr).balance;
+    tkr.marketOrderAndRevert(dex.getBest(), 10 ether, 30 ether, 10);
+    TestEvents.check(
+      TestUtils.hasOffer(dex, 5),
+      "Dummy offer should still be in OB"
+    );
+    for (uint i = 1; i < 5; i++) {
+      TestEvents.check(
+        !TestUtils.hasOffer(dex, i),
+        Display.append(
+          "Failing offer ",
+          Display.uint2str(i),
+          " should have been removed from OB"
+        )
+      );
+    }
+    TestEvents.eq(
+      address(tkr).balance, //actual
+      tkrBalance + 4 * TestUtils.getProvision(dex, 100000),
       "Incorrect taker balance"
     );
   }
