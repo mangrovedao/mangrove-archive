@@ -252,9 +252,11 @@ library DexLib {
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
     (uint prev, uint next) = findPosition(
       offers,
+      offerDetails,
       best.value,
       wants,
       gives,
+      gasreq,
       pivotId
     );
 
@@ -295,10 +297,12 @@ library DexLib {
   If prices are equal, `findPosition` will put the newest offer last. */
   function findPosition(
     mapping(uint => DC.Offer) storage offers,
+    mapping(uint => DC.OfferDetail) storage offerDetails,
     /* As a backup pivot, the id of the current best offer is sent by `Dex` to `DexLib`. This is in case `pivotId` turns out to be an invalid offer id. This part of the code relies on consumed offers being deleted, otherwise we would blindly insert offers next to garbage old values. */
     uint bestValue,
     uint wants,
     uint gives,
+    uint gasreq,
     uint pivotId
   ) internal view returns (uint, uint) {
     DC.Offer memory pivot = offers[pivotId];
@@ -309,12 +313,12 @@ library DexLib {
       pivotId = bestValue;
     }
 
-    // pivot price better than `wants/gives`, we follow next
-    if (better(pivot.wants, pivot.gives, wants, gives)) {
+    // pivot better than `wants/gives`, we follow next
+    if (better(offerDetails, pivot.wants, pivot.gives, pivotId, wants, gives, gasreq)) {
       DC.Offer memory pivotNext;
       while (pivot.next != 0) {
         pivotNext = offers[pivot.next];
-        if (better(pivotNext.wants, pivotNext.gives, wants, gives)) {
+        if (better(offerDetails, pivotNext.wants, pivotNext.gives, pivot.next, wants, gives, gasreq)) {
           pivotId = pivot.next;
           pivot = pivotNext;
         } else {
@@ -324,12 +328,12 @@ library DexLib {
       // this is also where we end up with an empty book
       return (pivotId, pivot.next);
 
-      // pivot price strictly worse than `wants/gives`, we follow prev
+      // pivot strictly worse than `wants/gives`, we follow prev
     } else {
       DC.Offer memory pivotPrev;
       while (pivot.prev != 0) {
         pivotPrev = offers[pivot.prev];
-        if (better(pivotPrev.wants, pivotPrev.gives, wants, gives)) {
+        if (better(offerDetails, pivotPrev.wants, pivotPrev.gives, pivot.prev, wants, gives, gasreq)) {
           break;
         } else {
           pivotId = pivot.prev;
@@ -340,15 +344,31 @@ library DexLib {
     }
   }
 
-  /* The utility method better
-    returns false iff the price induced by _(`wants1`,`gives1`)_ is strictly worse than the price induced by _(`wants2`,`gives2`)_. It makes `findPosition` easier to read. */
+  /* The utility method `better`
+    returns false iff the point induced by _(`wants1`,`gives1`,`offerDetails[offerId1].gasreq`)_ is strictly worse than the point induced by _(`wants2`,`gives2`,`gasreq2`)_. It makes `findPosition` easier to read. "Worse" is defined on the lexicographic order $\textrm{price} \times_{\textrm{lex}} \textrm{density}^{-1}$. 
+
+    This means that for the same price, offers that deliver more volume per gas are taken first.
+
+    To save gas, instead of giving the `gasreq1` argument directly, we provide a path to it (with `offerDetails` and `offerid1`). If necessary (ie. if the prices `wants1/gives1` and `wants2/gives2` are the same), we spend gas and read `gasreq2`.
+
+  */
   function better(
+    mapping(uint => DC.OfferDetail) storage offerDetails,
     uint wants1,
     uint gives1,
+    uint offerId1,
     uint wants2,
-    uint gives2
-  ) internal pure returns (bool) {
-    return wants1 * gives2 <= wants2 * gives1;
+    uint gives2,
+    uint gasreq2
+  ) internal view returns (bool) {
+    uint weight1 = wants1 * gives2;
+    uint weight2 = wants2 * gives1;
+    if (weight1 == weight2) {
+      uint gasreq1 = offerDetails[offerId1].gasreq;
+      return (gives1 * gasreq2 >= gives2 * gasreq1);
+    } else {
+      return weight1 < weight2;
+    }
   }
 
   /* # Maker debit/credit utility functions */
