@@ -28,8 +28,8 @@ contract TestMaker is IMaker, Passthrough {
     assert(!shouldFail);
   }
 
-  function cancelOffer(Dex _dex, uint offerId) public returns (uint) {
-    return (_dex.cancelOffer(offerId));
+  function cancelOffer(Dex _dex, uint offerId) public {
+    _dex.cancelOffer(offerId);
   }
 
   function newOffer(

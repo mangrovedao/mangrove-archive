@@ -14,20 +14,16 @@ library TestCancelOffer {
     TestToken, /* aToken */
     TestToken /* bToken */ // silence warnings about unused arguments
   ) external {
-    try wrongOwner.cancelOffer(dex, offerId) returns (uint) {
+    try wrongOwner.cancelOffer(dex, offerId) {
       TestEvents.fail("Invalid authorization to cancel order");
     } catch Error(string memory reason) {
       TestEvents.eq(reason, "dex/cancelOffer/unauthorized", "Unexpected throw");
-      try maker.cancelOffer(dex, offerId) returns (uint released) {
-        require(maker.cancelOffer(dex, 0) == 0); // should be no-op
-        TestEvents.eq(
-          released,
-          TestUtils.getProvision(dex, offers[offerId][TestUtils.Info.gasreq]),
-          "Incorrect released amount"
-        );
+      try maker.cancelOffer(dex, offerId) {
+        maker.cancelOffer(dex, 0);
+        uint provisioned = TestUtils.getProvision(dex, offers[offerId][TestUtils.Info.gasreq]);
         TestEvents.eq(
           dex.balanceOf(address(maker)),
-          balances.makersBalanceWei[offerId] + released,
+          balances.makersBalanceWei[offerId] + provisioned,
           "Incorrect returned provision to maker"
         );
       } catch {

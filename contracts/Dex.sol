@@ -166,13 +166,14 @@ contract Dex {
     uint newLastId = ++lastId;
     require(uint32(newLastId) == newLastId, "dex/offerIdOverflow");
     return
-      DexLib.newOffer(
+      DexLib.writeOffer(
         config,
         freeWei,
         offers,
         offerDetails,
         best,
         newLastId,
+        0,
         wants,
         gives,
         gasreq,
@@ -180,27 +181,56 @@ contract Dex {
       );
   }
 
+
+  function updateOffer(
+    uint wants,
+    uint gives,
+    uint gasreq,
+    uint pivotId,
+    uint offerId
+  ) public returns (uint) {
+    requireNoReentrancyLock();
+    DC.OfferDetail memory offerDetail = offerDetails[offerId];
+    require(msg.sender == offerDetail.maker, "dex/updateOffer/unauthorized");
+
+    {
+      DC.Offer memory offer = offers[offerId];
+      if (!DC.isOffer(offer)) {
+        return 0; //no effect on offers absent from the offer book
+      }
+      stitchOffers(offer.prev, offer.next);
+    }
+    emit DexEvents.UpdateOffer(wants,gives,gasreq,offerId);
+    if (gives == 0) {
+      delete offers[offerId];
+      delete offerDetails[offerId];
+      return 0;
+    } else {
+      requireOpenMarket();
+      return
+      DexLib.writeOffer(
+        config,
+        freeWei,
+        offers,
+        offerDetails,
+        best,
+        offerId,
+        /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
+        offerDetail.gasprice *
+          (uint(offerDetail.gasreq) + offerDetail.gasbase),
+        wants,
+        gives,
+        gasreq,
+        pivotId
+      );
+    }
+  }
+
   /* ## Cancel Offer */
   //+clear+
-  /* `cancelOffer` is available in closed markets, but only outside of reentrancy. Upon successful deletion of an offer, the ETH that were provisioned are returned to the maker as `freeWei` balance. */
-  function cancelOffer(uint offerId) external returns (uint provision) {
-    requireNoReentrancyLock();
-    DC.Offer memory offer = offers[offerId];
-    if (!DC.isOffer(offer)) {
-      return 0; //no effect on offers absent from the offer book
-    }
-    DC.OfferDetail memory offerDetail = offerDetails[offerId];
-    require(msg.sender == offerDetail.maker, "dex/cancelOffer/unauthorized");
-
-    dirtyDeleteOffer(offerId);
-    stitchOffers(offer.prev, offer.next);
-
-    /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
-    provision =
-      offerDetail.gasprice *
-      (uint(offerDetail.gasreq) + offerDetail.gasbase);
-    DexLib.creditWei(freeWei, msg.sender, provision);
-    emit DexEvents.CancelOffer(offerId);
+  /* `cancelOffer` is a simple convenience wrapper around `updateOffer`. */
+  function cancelOffer(uint offerId) external {
+    updateOffer(0,0,0,0,offerId);
   }
 
   /* ## Provisioning
@@ -350,7 +380,7 @@ contract Dex {
 
         /* `success` means that the maker delivered `localTakerWants` `OFR_TOKEN` to the taker. We update the total amount wanted and spendable by the taker (possibly changing the remaining average price). */
         if (success) {
-          emit DexEvents.Success(offerId, localTakerWants, localTakerGives);
+          emit DexEvents.Success(offerId, localTakerWants, localTakerGives, deleted);
           takerWants -= localTakerWants;
           takerGives -= localTakerGives;
           /*
@@ -486,7 +516,7 @@ contract Dex {
         if (localTakerGives == 0) localTakerGives = 1;
 
         /* We execute the offer with the flag `dirtyDeleteOffer` set to `false`, so the offers before and after the selected one get stitched back together. */
-        (bool success, uint gasUsedIfFailure, ) = executeOffer(
+        (bool success, uint gasUsedIfFailure, bool deleted) = executeOffer(
           offerId,
           offer,
           localTakerWants,
@@ -495,7 +525,7 @@ contract Dex {
         );
         /* For punishment purposes (never triggered if `punishLength = 0`), we store the offer id and the gas wasted by the maker */
         if (success) {
-          emit DexEvents.Success(offerId, localTakerWants, localTakerGives);
+          emit DexEvents.Success(offerId, localTakerWants, localTakerGives, deleted);
           takerGot += localTakerWants;
         } else {
           emit DexEvents.Failure(offerId, localTakerWants, localTakerGives);
@@ -527,9 +557,7 @@ contract Dex {
   //+clear+
   /* 1. Zero out `offers[id]` and `offerDetails[id]`. Apart from setting `offers[id].gives` to 0 (which is how we detect invalid offers), the rest is just for the gas refund. */
   function dirtyDeleteOffer(uint offerId) internal {
-    delete offers[offerId];
-    delete offerDetails[offerId];
-    emit DexEvents.DeleteOffer(offerId);
+    offers[offerId].gives = 0;
   }
 
   /* 2. Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer` */

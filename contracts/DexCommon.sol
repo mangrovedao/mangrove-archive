@@ -180,20 +180,24 @@ library DexEvents {
   event SetAdmin(address addr);
 
   /* * Offer execution */
-  event Success(uint offerId, uint takerWants, uint takerGives);
+  event Success(uint offerId, uint takerWants, uint takerGives, bool deleted);
   event Failure(uint offerId, uint takerWants, uint takerGives);
 
   /* * Dex closure */
   event CloseMarket();
 
-  /* * `offerId` was successfully cancelled.
-     No event is emitted if `offerId` is absent from book. */
-  event CancelOffer(uint offerId);
-
   /* * A new offer was inserted into book.
    `maker` is the address of the contract that implements the offer. */
   event NewOffer(
     address maker,
+    uint wants,
+    uint gives,
+    uint gasreq,
+    uint offerId
+  );
+
+  /* * An offer was updated into book. */
+  event UpdateOffer(
     uint wants,
     uint gives,
     uint gasreq,

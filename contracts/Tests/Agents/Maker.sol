@@ -89,8 +89,8 @@ contract Maker is IMaker {
   ) external {
     if (msg.sender == admin) {
       address payable dex = selectDex(tk1, tk2);
-      uint releasedWei = Dex(dex).cancelOffer(offerId); // Dex will release provision of offerId
-      Dex(dex).withdraw(releasedWei);
+      Dex(dex).cancelOffer(offerId); // Dex will release provision of offerId
+      Dex(dex).withdraw(Dex(dex).balanceOf(address(this)));
     }
   }
 

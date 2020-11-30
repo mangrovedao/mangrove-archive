@@ -214,7 +214,7 @@ library DexLib {
   //+clear+
 
   /* <a id="DexLib/definition/newOffer"></a> When a maker posts a new offer, the offer gets automatically inserted at the correct location in the book, starting from a maker-supplied `pivotId` parameter. The extra `storage` parameters are sent to `DexLib` by `Dex` so that it can write to `Dex`'s storage. */
-  function newOffer(
+  function writeOffer(
     /* `config`, `freeWei`, `offers`, `offerDetails`, `best` and `offerId` are trusted arguments from `Dex`, while */
     DC.Config storage config,
     mapping(address => uint) storage freeWei,
@@ -222,6 +222,7 @@ library DexLib {
     mapping(uint => DC.OfferDetail) storage offerDetails,
     DC.UintContainer storage best,
     uint offerId,
+    uint oldPenalty,
     /* `wants`, `gives`, `gasreq`, and `pivotId` are given by `msg.sender`. */
     uint wants,
     uint gives,
@@ -244,8 +245,14 @@ library DexLib {
 
     /* With every new offer, a maker must deduct provisions from its `freeWei` balance. The maximum penalty is incurred when an offer fails after consuming all its `gasreq`. */
 
-    uint maxPenalty = (gasreq + config.gasbase) * config.gasprice;
-    debitWei(freeWei, msg.sender, maxPenalty);
+    { // prevent stack too deep error with lexical scope
+      uint maxPenalty = (gasreq + config.gasbase) * config.gasprice;
+      if (maxPenalty > oldPenalty) {
+        debitWei(freeWei, msg.sender, maxPenalty - oldPenalty);
+      } else if (maxPenalty < oldPenalty) {
+        creditWei(freeWei, msg.sender, oldPenalty - maxPenalty);
+      }
+    }
 
     /* Once provisioned, the position of the new offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
 
