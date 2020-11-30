@@ -186,17 +186,7 @@ library DexEvents {
   /* * Dex closure */
   event CloseMarket();
 
-  /* * A new offer was inserted into book.
-   `maker` is the address of the contract that implements the offer. */
-  event NewOffer(
-    address maker,
-    uint wants,
-    uint gives,
-    uint gasreq,
-    uint offerId
-  );
-
-  /* * An offer was updated into book. */
+  /* * An offer was updated into book. Creation if offerId is new, deletion if gives = 0. */
   event UpdateOffer(
     uint wants,
     uint gives,

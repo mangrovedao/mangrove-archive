@@ -38,7 +38,7 @@ contract Dex {
 
        Offers specify the amount of gas they require for successful execution (`gasreq`). To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq`. This provision is deducted from their `freeWei`. If an offer fails, part of that provision is given to the taker, as compensation. The exact amount depends on the gas used by the offer before failing.
 
-       The Dex keeps track of their available balance in the `freeWei` map, which is decremented every time a maker creates a new offer (new offer creation is in `DexLib`).
+       The Dex keeps track of their available balance in the `freeWei` map, which is decremented every time a maker creates a new offer (new offer creation is in `DexLib`, see `writeOffer`), and modified on offer updates/cancelations/takings.
    */
   mapping(address => uint) private freeWei;
 
@@ -53,7 +53,8 @@ contract Dex {
      In case of emergency, the Dex can be shutdown by setting `open = false`. It cannot be reopened. When a Dex is closed, the following operations are disabled :
        * Executing an offer
        * Sending ETH to the Dex (the normal way, usual shenanigans are possible)
-       * Creating a new offerX
+       * Creating a new offer
+       * Updating an offer
    */
   bool public open = true;
   /* * If `reentrancyLock` is > 1, orders may not be added nor executed.
@@ -182,6 +183,9 @@ contract Dex {
   }
 
 
+  /* ## Update Offer */
+  //+clear+
+  /* Very similar to `newOffer`, `updateOffer` uses the same code from `DexLib` (`writeOffer`). Makers should use it for updating live offers, but also to save on gas by reusing old, already consumed offers. A pivotId should still be given, to replace the offer at the right book position. It's OK to give the offers' own id as a pivot. */
   function updateOffer(
     uint wants,
     uint gives,
@@ -673,7 +677,7 @@ contract Dex {
         offerDetail
       )
     );
-    /* In both cases, we call `applyPenalty`, which splits the provisioned penalty (set aside during the `newOffer` call which created the offer between the taker and maker. */
+    /* In both cases, we call `applyPenalty`, which splits the provisioned penalty (set aside during the `writeOffer` call which created the offer (as it currently is). Some of the penalty goes to the taker, and the rest to the maker. */
     if (noRevert) {
       bool takerPaid = abi.decode(retdata, (bool));
       require(takerPaid, "dex/takerFailToPayMaker");

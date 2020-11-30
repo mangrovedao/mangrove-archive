@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 
 /* # Introduction
-Due to the 24kB contract size limit, we pay some additional complexity in the form of `DexLib`, to which `Dex` will delegate some calls. It notably includes configuration getters and setters, token transfer low-level functions, as well as the `newOffer` machinery used by makers when they post new offers.
+Due to the 24kB contract size limit, we pay some additional complexity in the form of `DexLib`, to which `Dex` will delegate some calls. It notably includes configuration getters and setters, token transfer low-level functions, as well as the `writeOffer` machinery used by makers when they post new offers and update existing ones.
 */
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
@@ -228,22 +228,23 @@ library DexLib {
     uint gives,
     uint gasreq,
     uint pivotId
+
   ) external returns (uint) {
     /* The following checks are first performed: */
     //+clear+
     /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `maxPenalty` (see below). */
-    require(gasreq <= config.gasmax, "dex/newOffer/gasreq/tooHigh");
+    require(gasreq <= config.gasmax, "dex/writeOffer/gasreq/tooHigh");
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isOffer` method sound. */
     require(
       gives >= (gasreq + config.gasbase) * config.density,
-      "dex/newOffer/gives/tooLow"
+      "dex/writeOffer/gives/tooLow"
     );
     /* * Unnecessary for safety: check width of `wants`, `gives` and `pivotId`. They will be truncated anyway, but if they are too wide, we assume the maker has made a mistake and revert. */
-    require(uint96(wants) == wants, "dex/newOffer/wants/96bits");
-    require(uint96(gives) == gives, "dex/newOffer/gives/96bits");
-    require(uint32(pivotId) == pivotId, "dex/newOffer/pivotId/32bits");
+    require(uint96(wants) == wants, "dex/writeOffer/wants/96bits");
+    require(uint96(gives) == gives, "dex/writeOffer/gives/96bits");
+    require(uint32(pivotId) == pivotId, "dex/writeOffer/pivotId/32bits");
 
-    /* With every new offer, a maker must deduct provisions from its `freeWei` balance. The maximum penalty is incurred when an offer fails after consuming all its `gasreq`. */
+    /* With every change to an offer, a maker must deduct provisions from its `freeWei` balance, or get some back if the updated offer requires fewer provisions. */
 
     { // prevent stack too deep error with lexical scope
       uint maxPenalty = (gasreq + config.gasbase) * config.gasprice;
@@ -254,7 +255,8 @@ library DexLib {
       }
     }
 
-    /* Once provisioned, the position of the new offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
+
+    /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
 
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
     (uint prev, uint next) = findPosition(
@@ -292,7 +294,6 @@ library DexLib {
     });
 
     /* And finally return the newly created offer id to the caller. */
-    emit DexEvents.NewOffer(msg.sender, wants, gives, gasreq, offerId);
     return offerId;
   }
 
@@ -301,7 +302,7 @@ library DexLib {
   If prices are equal, `findPosition` will put the newest offer last. */
   function findPosition(
     mapping(uint => DC.Offer) storage offers,
-    /* As a backup pivot, the id of the current best offer is sent by `Dex` to `DexLib`. This is in case `pivotId` turns out to be an invalid offer id. This part of the code relies on consumed offers being deleted, otherwise we would blindly insert offers next to garbage old values. */
+    /* As a backup pivot, the id of the current best offer is sent by `Dex` to `DexLib`. This is in case `pivotId` turns out to be an invalid offer id. This part of the code relies on consumed offers being marked as deleted, otherwise we would blindly insert offers next to garbage old values. */
     uint bestValue,
     uint wants,
     uint gives,
