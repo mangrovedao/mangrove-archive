@@ -30,7 +30,7 @@ library DexLib {
       /* `gasbase > 0` ensures various invariants -- this documentation explains how each time it is relevant */
       require(value > 0, "dex/config/gasbase/>0");
       /* Checking the size of `gasbase` is necessary to prevent a) data loss when `gasbase` is copied to an `OfferDetail` struct, and b) overflow when `gasbase` is used in calculations. */
-      require(uint24(value) == value, "dex/config/gasbase/24bits");
+      require(uint8(value) == value, "dex/config/gasbase/8bits");
       //+clear+
       config.gasbase = value;
       emit DexEvents.SetGasbase(value);
@@ -213,7 +213,11 @@ library DexLib {
   /* # New offer */
   //+clear+
 
-  /* <a id="DexLib/definition/newOffer"></a> When a maker posts a new offer, the offer gets automatically inserted at the correct location in the book, starting from a maker-supplied `pivotId` parameter. The extra `storage` parameters are sent to `DexLib` by `Dex` so that it can write to `Dex`'s storage. */
+  /* <a id="DexLib/definition/newOffer"></a> When a maker posts a new offer, the offer gets automatically inserted at the correct location in the book, starting from a maker-supplied `pivotId` parameter. The extra `storage` parameters are sent to `DexLib` by `Dex` so that it can write to `Dex`'s storage. 
+
+  Code in this function is weirdly structured; this is necessary to avoid "stack too deep" errors.
+
+  */
   function writeOffer(
     /* `config`, `freeWei`, `offers`, `offerDetails`, `best` and `offerId` are trusted arguments from `Dex`, while */
     DC.Config storage config,
@@ -222,12 +226,12 @@ library DexLib {
     mapping(uint => DC.OfferDetail) storage offerDetails,
     DC.UintContainer storage best,
     uint offerId,
-    uint oldPenalty,
     /* `wants`, `gives`, `gasreq`, and `pivotId` are given by `msg.sender`. */
     uint wants,
     uint gives,
     uint gasreq,
-    uint pivotId
+    uint pivotId,
+    bool update
 
   ) external returns (uint) {
     /* The following checks are first performed: */
@@ -236,7 +240,7 @@ library DexLib {
     require(gasreq <= config.gasmax, "dex/writeOffer/gasreq/tooHigh");
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isOffer` method sound. */
     require(
-      gives >= (gasreq + config.gasbase) * config.density,
+      gives >= (gasreq + config.gasbase*1000) * config.density,
       "dex/writeOffer/gives/tooLow"
     );
     /* * Unnecessary for safety: check width of `wants`, `gives` and `pivotId`. They will be truncated anyway, but if they are too wide, we assume the maker has made a mistake and revert. */
@@ -244,17 +248,35 @@ library DexLib {
     require(uint96(gives) == gives, "dex/writeOffer/gives/96bits");
     require(uint32(pivotId) == pivotId, "dex/writeOffer/pivotId/32bits");
 
+    uint oldPenalty;
+    {
+      DC.OfferDetail memory offerDetail = offerDetails[offerId];
+      if (update) {
+        require(msg.sender == offerDetail.maker, "dex/updateOffer/unauthorized");
+        require(offerDetail.version + 1 > offerDetail.version, "dex/updateOffer/versionOverflow");
+        oldPenalty = offerDetail.gasprice *
+          (uint(offerDetail.gasreq) + offerDetail.gasbase*1000);
+      }
+
+      offerDetails[offerId] = DC.OfferDetail({
+        gasreq: uint24(gasreq),
+        gasbase: uint8(config.gasbase),
+        gasprice: uint48(config.gasprice),
+        maker: msg.sender,
+        version: update ? offerDetail.version + 1 : 0
+      });
+    }
+
     /* With every change to an offer, a maker must deduct provisions from its `freeWei` balance, or get some back if the updated offer requires fewer provisions. */
 
-    { // prevent stack too deep error with lexical scope
-      uint maxPenalty = (gasreq + config.gasbase) * config.gasprice;
+    {
+      uint maxPenalty = (gasreq + config.gasbase*1000) * config.gasprice;
       if (maxPenalty > oldPenalty) {
         debitWei(freeWei, msg.sender, maxPenalty - oldPenalty);
       } else if (maxPenalty < oldPenalty) {
         creditWei(freeWei, msg.sender, oldPenalty - maxPenalty);
       }
     }
-
 
     /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
 
@@ -284,13 +306,6 @@ library DexLib {
       next: uint32(next),
       wants: uint96(wants),
       gives: uint96(gives)
-    });
-
-    offerDetails[offerId] = DC.OfferDetail({
-      gasreq: uint24(gasreq),
-      gasbase: uint24(config.gasbase),
-      gasprice: uint48(config.gasprice),
-      maker: msg.sender
     });
 
     /* And finally return the newly created offer id to the caller. */

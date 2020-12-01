@@ -174,11 +174,11 @@ contract Dex {
         offerDetails,
         best,
         newLastId,
-        0,
         wants,
         gives,
         gasreq,
-        pivotId
+        pivotId,
+        false
       );
   }
 
@@ -194,17 +194,14 @@ contract Dex {
     uint offerId
   ) public returns (uint) {
     requireNoReentrancyLock();
-    DC.OfferDetail memory offerDetail = offerDetails[offerId];
-    require(msg.sender == offerDetail.maker, "dex/updateOffer/unauthorized");
-
-    {
-      DC.Offer memory offer = offers[offerId];
-      if (!DC.isOffer(offer)) {
-        return 0; //no effect on offers absent from the offer book
-      }
-      stitchOffers(offer.prev, offer.next);
-    }
     emit DexEvents.UpdateOffer(wants,gives,gasreq,offerId);
+
+    DC.Offer memory offer = offers[offerId];
+    stitchOffers(offer.prev, offer.next);
+    if (!DC.isOffer(offer)) {
+      return 0; //no effect on offers absent from the offer book
+    }
+
     if (gives == 0) {
       delete offers[offerId];
       delete offerDetails[offerId];
@@ -219,13 +216,11 @@ contract Dex {
         offerDetails,
         best,
         offerId,
-        /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
-        offerDetail.gasprice *
-          (uint(offerDetail.gasreq) + offerDetail.gasbase),
         wants,
         gives,
         gasreq,
-        pivotId
+        pivotId,
+        true
       );
     }
   }
@@ -334,7 +329,7 @@ contract Dex {
     require(DC.isOffer(offer), "dex/marketOrder/noSuchOffer");
     /* We pack some data in a memory struct to prevent stack too deep errors. */
     OrderData memory orderData = OrderData({
-      minOrderSize: config.density * config.gasbase,
+      minOrderSize: config.density * config.gasbase*1000,
       initialTakerWants: takerWants,
       pastOfferId: offer.prev
     });
@@ -421,11 +416,11 @@ contract Dex {
            ```
            success &&
            gives - localTakerwants >=
-             density * (gasreq + gasbase)
+             density * (gasreq + gasbase*1000)
            ```
-          By `DexLib.setConfig`, `density * gasbase > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have
+          By `DexLib.setConfig`, `density * gasbase*1000 > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have
           ```
-           takerWants == 0 < density * gasbase
+           takerWants == 0 < density * gasbase*1000
           ```
           And so the loop ends.
         */
@@ -626,7 +621,7 @@ contract Dex {
     if (
       success &&
       offer.gives - takerWants >=
-      config.density * (offerDetail.gasreq + config.gasbase)
+      config.density * (offerDetail.gasreq + config.gasbase*1000)
     ) {
       offers[offerId].gives = uint96(offer.gives - takerWants);
       offers[offerId].wants = uint96(offer.wants - takerGives);
@@ -661,7 +656,7 @@ contract Dex {
     Note that we use `config.gasbase`, not `offerDetail.gasbase`. `gasbase` is cached in `offerDetail` for the purpose of applying penalties; when checking if it's worth going through with taking an offer, we look at the most up-to-date `gasbase` value.
     */
     require(
-      oldGas >= offerDetail.gasreq + config.gasbase,
+      oldGas >= offerDetail.gasreq + config.gasbase*1000,
       "dex/unsafeGasAmount"
     );
 
@@ -723,9 +718,9 @@ contract Dex {
 
        * If the transaction was a success, we entirely refund the maker and send nothing to the taker.
 
-       * Otherwise, the maker loses the cost of `gasDeducted + gasbase` gas. The gas price is estimated by `gasprice`.
+       * Otherwise, the maker loses the cost of `gasDeducted + gasbase*1000` gas. The gas price is estimated by `gasprice`.
 
-         Note that to create the offer, the maker had to provision for `gasreq + gasbase` gas.
+         Note that to create the offer, the maker had to provision for `gasreq + gasbase*1000` gas.
 
          Note that `offerDetail.gasbase` and `offerDetail.gasprice` are the values of the Dex parameters `config.gasbase` and `config.gasprice` when the offer was createdd. Without caching, the provision set aside could be insufficient to reimburse the maker (or to compensate the taker).
 
@@ -733,14 +728,14 @@ contract Dex {
     uint released = offerDetail.gasprice *
       (
         success
-          ? offerDetail.gasreq + offerDetail.gasbase
+          ? offerDetail.gasreq + offerDetail.gasbase*1000
           : offerDetail.gasreq - gasDeducted
       );
 
     DexLib.creditWei(freeWei, offerDetail.maker, released);
 
     if (!success) {
-      uint amount = offerDetail.gasprice * (offerDetail.gasbase + gasDeducted);
+      uint amount = offerDetail.gasprice * (offerDetail.gasbase*1000 + gasDeducted);
       emit DexEvents.Transfer(msg.sender, amount);
       bool noRevert;
       (noRevert, ) = msg.sender.call{gas: 0, value: amount}("");

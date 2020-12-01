@@ -82,8 +82,8 @@ struct OfferDetail {
   uint24 gasreq;
   /*
      * `gasbase` represents the gas overhead used by processing the offer
-       inside the Dex. The gas considered 'used' by an offer is at least
-       `gasbase`, and at most `gasreq + gasbase`.
+       inside the Dex, in increments of 1000 gas. The gas considered 'used' by an offer is at least
+       `gasbase * 1000`, and at most `gasreq + gasbase*1000`.
 
        If an offer fails, `gasprice` wei is taken from the
        provision per unit of gas used. `gasprice` should approximate the average gas
@@ -92,26 +92,27 @@ struct OfferDetail {
        So, when an offer is created, the maker is asked to provision the
        following amount of wei:
        ```
-       (gasreq + gasbase) * gasprice
+       (gasreq + gasbase*1000) * gasprice
        ```
         When an offer fails, the following amount is given to the taker as compensation:
        ```
-       (gasUsed + gasbase) * gasprice
+       (gasUsed + gasbase*1000) * gasprice
        ```
 
        and the rest is given back to the maker.
 
        `gasprice` is _48 bits wide_, which accomodates ~280k gwei / gas.
-       `gasbase` is _24 bits wide_, it could be 16 bits wide but we are
-       leaving a margin of safety for future gas repricings.
+       `gasbase` is _8 bits wide_, so up to 256k gas.
 
        Both `gasprice` and `gasbase` are also the names of global Dex
        parameters. When an offer is created, their current value is added to
        the offer's `OfferDetail`. The maker does not choose them.
 
     */
-  uint24 gasbase;
+  uint8 gasbase;
   uint48 gasprice;
+  /* When an offer is updated, is version number is incremented so that snipers know they are not taking an offer different from the one they saw. */
+  uint16 version;
 }
 
 /* # Configuration
@@ -125,9 +126,9 @@ struct Config {
   uint fee;
   /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
   uint gasprice;
-  /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at leat `gasbase` gas. Should only be updated when opcode prices change. */
+  /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer, in 1000 gas increments. The Dex considers that a failed offer has used at leat `gasbase*1000` gas. Should only be updated when opcode prices change. */
   uint gasbase;
-  /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `OFR_TOKEN` per gas requested. For instance, if `density == 10`, `gasbase == 5` an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 300050_ `OFR_TOKEN`. */
+  /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `OFR_TOKEN` per gas requested. For instance, if `density == 10`, `gasbase == 5` an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5*1000) = 305000_ `OFR_TOKEN`. */
   uint density;
   /*
     * An offer which asks for more gas than the block limit would live forever on
@@ -197,3 +198,5 @@ library DexEvents {
   /* * `offerId` is removed from book. */
   event DeleteOffer(uint offerId);
 }
+
+
