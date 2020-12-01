@@ -2,18 +2,14 @@
 pragma solidity ^0.7.0;
 
 import "./Dex.sol";
+import "./lib/HasAdmin.sol";
 
-contract DexDeployer {
-  address public admin;
+contract DexDeployer is HasAdmin {
   mapping(address => mapping(address => address)) public dexes;
   mapping(address => mapping(address => address)) public invertedDexes;
 
-  constructor(address _admin) {
-    admin = _admin;
-  }
-
-  function requireAdmin() internal view {
-    require(msg.sender == admin, "DexDeployer/adminOnly");
+  constructor() HasAdmin() {
+    
   }
 
   function deploy(
@@ -24,11 +20,9 @@ contract DexDeployer {
     address ofrToken,
     address reqToken,
     bool takerLends
-  ) external returns (Dex) {
-    requireAdmin();
+  ) external adminOnly returns (Dex) {
 
     Dex dex = new Dex({
-      _admin: admin,
       _density: density,
       _gasprice: gasprice,
       _gasbase: gasbase,
@@ -37,6 +31,8 @@ contract DexDeployer {
       _REQ_TOKEN: reqToken,
       takerLends: takerLends
     });
+
+    dex.setAdmin(admin);
     
     mapping (address => mapping(address => address)) storage map = takerLends ? dexes : invertedDexes;
 
@@ -44,10 +40,5 @@ contract DexDeployer {
     map[ofrToken][reqToken] = address(dex);
 
     return dex;
-  }
-
-  function updateAdmin(address _admin) external {
-    requireAdmin();
-    admin = _admin;
   }
 }

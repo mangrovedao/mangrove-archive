@@ -62,19 +62,6 @@ library DexLib {
     }
   }
 
-  function setConfig(
-    DC.Config storage config,
-    DC.ConfigKey key,
-    address value
-  ) external {
-    if (key == DC.ConfigKey.admin) {
-      config.admin = value;
-      emit DexEvents.SetAdmin(value);
-    } else {
-      revert("dex/config/write/noMatch/address");
-    }
-  }
-
   function getConfigUint(DC.Config storage config, DC.ConfigKey key)
     external
     view
@@ -92,18 +79,6 @@ library DexLib {
       return config.gasmax;
     } else {
       revert("dex/config/read/noMatch/uint");
-    }
-  }
-
-  function getConfigAddress(DC.Config storage config, DC.ConfigKey key)
-    external
-    view
-    returns (address value)
-  {
-    if (key == DC.ConfigKey.admin) {
-      return config.admin;
-    } else {
-      revert("dex/config/read/noMatch/address");
     }
   }
 

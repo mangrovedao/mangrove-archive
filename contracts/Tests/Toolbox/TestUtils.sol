@@ -30,7 +30,7 @@ library TestUtils {
   }
 
   function adminOf(Dex dex) internal view returns (address) {
-    return dex.getConfigAddress(DC.ConfigKey.admin);
+    return dex.admin();
   }
 
   function getFee(Dex dex, uint price) internal view returns (uint) {
@@ -178,7 +178,7 @@ library DexSetup {
   {
     TestEvents.not0x(address(aToken));
     TestEvents.not0x(address(bToken));
-    DexDeployer deployer = new DexDeployer(address(this));
+    DexDeployer deployer = new DexDeployer();
 
     deployer.deploy({
       density: 100,

@@ -9,6 +9,7 @@ import "./interfaces.sol";
 import {DexCommon as DC, DexEvents} from "./DexCommon.sol";
 // The purpose of DexLib is to keep Dex under the [Spurious Dragon](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md) 24kb limit.
 import "./DexLib.sol";
+import "./lib/HasAdmin.sol";
 
 /* # State variables
    This contract describes an orderbook-based exchange ("Dex") where market makers *do not have to provision their offer*. See `DexCommon.sol` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. The Dex transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
@@ -19,7 +20,7 @@ import "./DexLib.sol";
    The state variables are:
  */
 
-contract Dex {
+contract Dex is HasAdmin {
   /* * The token offers give */
   address public immutable OFR_TOKEN;
   /* * The token offers want */
@@ -76,8 +77,6 @@ contract Dex {
   A new Dex instance manages one side of a book; it offers `OFR_TOKEN` in return for `REQ_TOKEN`. To initialize a new instance, the deployer must provide initial configuration (see `DexCommon.sol` for more on configuration parameters):
   */
   constructor(
-    /* * address of the administrator */
-    address _admin,
     /* * minimum amount of `OFR_TOKEN` an offer must provide per unit of gas it demands */
     uint _density,
     /* * amount of gas the Dex needs to clean up its data structure after an offer has been taken/deleted */
@@ -92,7 +91,7 @@ contract Dex {
     address _REQ_TOKEN,
     /* determines whether the taker or maker does the flashlend */
     bool takerLends
-  ) {
+  ) HasAdmin() {
     /* In a 'normal' mode of operation, takers lend the liquidity to the maker. */
     /* In an 'arbitrage' mode of operation, takers come ask the makers for liquidity. */
     SWAPPER = takerLends
@@ -102,7 +101,6 @@ contract Dex {
     REQ_TOKEN = _REQ_TOKEN;
     emit DexEvents.NewDex(address(this), _OFR_TOKEN, _REQ_TOKEN);
 
-    DexLib.setConfig(config, DC.ConfigKey.admin, _admin);
     DexLib.setConfig(config, DC.ConfigKey.density, _density);
     DexLib.setConfig(config, DC.ConfigKey.gasbase, _gasbase);
     DexLib.setConfig(config, DC.ConfigKey.gasprice, _gasprice);
@@ -115,11 +113,6 @@ contract Dex {
   Gatekeeping functions start with `require` and are safety checks called in various places.
   */
 
-  /* `requireAdmin` protects all functions which modify the configuration of the Dex as well as `closeMarket`, which irreversibly freezes offer creation/consumption. */
-  function requireAdmin() internal view {
-    require(msg.sender == config.admin, "dex/adminOnly");
-  }
-
   /* `requireNoReentrancyLock` protects modifying the book while an order is in progress. */
   function requireNoReentrancyLock() internal view {
     require(reentrancyLock < 2, "dex/reentrancyLocked");
@@ -131,8 +124,7 @@ contract Dex {
   }
 
   /* `closeMarket` irreversibly closes the market. */
-  function closeMarket() external {
-    requireAdmin();
+  function closeMarket() external adminOnly {
     open = false;
     emit DexEvents.CloseMarket();
   }
@@ -664,7 +656,7 @@ contract Dex {
       bool appliedFee = DexLib.transferToken(
         OFR_TOKEN,
         msg.sender,
-        address(config.admin),
+        admin,
         fee
       );
       require(appliedFee, "dex/takerFailToPayDex");
@@ -880,17 +872,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     return DexLib.getConfigUint(config, key);
   }
 
-  function getConfigAddress(DC.ConfigKey key) external view returns (address) {
-    return DexLib.getConfigAddress(config, key);
-  }
-
-  function setConfig(DC.ConfigKey key, uint value) external {
-    requireAdmin();
-    DexLib.setConfig(config, key, value);
-  }
-
-  function setConfig(DC.ConfigKey key, address value) external {
-    requireAdmin();
+  function setConfig(DC.ConfigKey key, uint value) external adminOnly {
     DexLib.setConfig(config, key, value);
   }
 
