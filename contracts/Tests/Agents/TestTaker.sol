@@ -31,7 +31,7 @@ contract TestTaker is ITaker {
     dex.simpleMarketOrder(wants, gives);
   }
 
-  function probeForFail(
+  function marketOrderWithFail(
     uint wants,
     uint gives,
     uint punishLength,
@@ -40,7 +40,18 @@ contract TestTaker is ITaker {
     return (dex.marketOrder(wants, gives, punishLength, offerId));
   }
 
-  function snipeForFail(uint[] calldata targets, uint punishLength) external {
+  function snipesAndRevert(uint[] calldata targets, uint punishLength)
+    external
+  {
     dex.punishingSnipes(targets, punishLength);
+  }
+
+  function marketOrderAndRevert(
+    uint fromOfferId,
+    uint takerWants,
+    uint takerGives,
+    uint punishLength
+  ) external {
+    dex.punishingMarketOrder(fromOfferId, takerWants, takerGives, punishLength);
   }
 }

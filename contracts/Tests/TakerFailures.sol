@@ -212,7 +212,7 @@ contract TakerFailures_Test {
   }
 
   function marketOrder_with_bad_offer_id_fails_test() public {
-    try tkr.probeForFail(1 ether, 1 ether, 0, 43)  {
+    try tkr.marketOrderWithFail(1 ether, 1 ether, 0, 43)  {
       TestEvents.fail("market order wit bad offer id should fail");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
@@ -224,7 +224,7 @@ contract TakerFailures_Test {
     mkr.approve(atk, 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
     tkr.take(ofr, 1 ether);
-    try tkr.probeForFail(0, 0, 0, ofr)  {
+    try tkr.marketOrderWithFail(0, 0, 0, ofr)  {
       TestEvents.fail("Offer should have been deleted");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
@@ -238,7 +238,7 @@ contract TakerFailures_Test {
     dex.setConfig(DC.ConfigKey.gasbase, 1);
     uint ofr = mkr.newOffer(10_002, 10_002, 10_000, 0);
     tkr.take(ofr, 1);
-    tkr.probeForFail(10_001, 10_001, 0, ofr);
+    tkr.marketOrderWithFail(10_001, 10_001, 0, ofr);
   }
 
   function big_partial_fill_cant_be_retaken_test() public {
@@ -248,7 +248,7 @@ contract TakerFailures_Test {
     dex.setConfig(DC.ConfigKey.gasbase, 1);
     uint ofr = mkr.newOffer(10_001, 10_001, 10_000, 0);
     tkr.take(ofr, 2);
-    try tkr.probeForFail(10_001, 10_001, 0, ofr)  {
+    try tkr.marketOrderWithFail(10_001, 10_001, 0, ofr)  {
       TestEvents.fail("Offer should have been deleted");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
