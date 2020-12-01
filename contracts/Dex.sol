@@ -285,6 +285,7 @@ contract Dex {
     uint minOrderSize;
     uint initialTakerWants;
     uint pastOfferId;
+    uint offerId;
   }
 
   function marketOrder(
@@ -331,7 +332,8 @@ contract Dex {
     OrderData memory orderData = OrderData({
       minOrderSize: config.density * config.gasbase*1000,
       initialTakerWants: takerWants,
-      pastOfferId: offer.prev
+      pastOfferId: offer.prev,
+      offerId: offerId
     });
 
     uint[] memory failures = new uint[](2 * punishLength);
@@ -369,9 +371,11 @@ contract Dex {
           : (takerWants, makerWouldWant);
 
         /* Execute the offer after loaning money to the maker. The last argument to `executeOffer` is `true` to flag that pointers shouldn't be updated (thus saving writes). The returned values are explained below: */
+
         (bool success, uint gasUsedIfFailure, bool deleted) = executeOffer(
-          offerId,
+          orderData.offerId,
           offer,
+          offerDetails[orderData.offerId],
           localTakerWants,
           localTakerGives,
           true
@@ -457,12 +461,14 @@ contract Dex {
   /* ## Sniping */
   //+clear+
   /* `snipe` takes a single offer from the book, at whatever price is induced by the offer. */
-  function snipe(uint offerId, uint takerWants) external returns (bool) {
+  function snipe(uint offerId, uint version, uint takerWants) external returns (bool) {
     uint[] memory targets = new uint[](1);
+    uint[] memory versions = new uint[](1);
     uint[] memory wants = new uint[](1);
     targets[0] = offerId;
+    versions[0] = version;
     wants[0] = takerWants;
-    uint[] memory failures = internalSnipes(targets, wants, 1);
+    uint[] memory failures = internalSnipes(targets, versions, wants, 1);
     return (failures.length == 0);
   }
 
@@ -475,7 +481,7 @@ contract Dex {
     `marketOrder`). Returns an array of size at most
     twice `punishLength` containing info on failed offers. Only existing offers can fail: if an offerId is invalid, it will just be skipped. **You should probably set `punishLength` to 1.**
       */
-  function internalSnipes(uint[] memory targets, uint[] memory wants, uint punishLength)
+  function internalSnipes(uint[] memory targets, uint[] memory versions, uint[] memory wants, uint punishLength)
     public
     returns (uint[] memory)
   {
@@ -498,10 +504,12 @@ contract Dex {
       /* ### In-loop initilization */
       /* At each iteration, we extract the current `offerId` and `takerWants` */
       uint offerId = targets[i];
+      uint version = targets[i];
       uint takerWants = wants[i];
       DC.Offer memory offer = offers[offerId];
+      DC.OfferDetail memory offerDetail = offerDetails[offerId];
       /* If we removed the `isOffer` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. */
-      if (DC.isOffer(offer)) {
+      if (DC.isOffer(offer) && offerDetail.version <= version) {
         /* `localTakerWants` bounds the amount requested by the taker by the maximum amount on offer. It also obviates the need to check the size of `takerWants`: while in a market order we must compare the price a taker accepts with the offer price, here we just accept the offer's price. So if `takerWants` does not fit in 96 bits (the size of `offer.gives`), it won't be used in the line below. */
         uint localTakerWants = offer.gives < takerWants
           ? offer.gives
@@ -517,6 +525,7 @@ contract Dex {
         (bool success, uint gasUsedIfFailure, bool deleted) = executeOffer(
           offerId,
           offer,
+          offerDetail,
           localTakerWants,
           localTakerGives,
           false
@@ -584,6 +593,7 @@ contract Dex {
   function executeOffer(
     uint offerId,
     DC.Offer memory offer,
+    DC.OfferDetail memory offerDetail,
     uint takerWants,
     uint takerGives,
     /* The last argument, `dirtyDelete`, is here for market orders: if true, `next`/`prev` pointers around the deleted offer are not reset properly. */
@@ -601,7 +611,6 @@ contract Dex {
     )
   {
     /* `executeOffer` and `flashSwapTokens` are separated for clarity, but `flashSwapTokens` is only used by `executeOffer`. It manages the actual work of flashloaning tokens and applying penalties. */
-    DC.OfferDetail memory offerDetail = offerDetails[offerId];
     (success, gasUsedIfFailure) = flashSwapTokens(
       offerId,
       offerDetail,
