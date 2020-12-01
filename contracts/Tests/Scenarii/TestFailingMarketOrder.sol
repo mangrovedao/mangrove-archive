@@ -4,17 +4,17 @@ import "../Toolbox/TestUtils.sol";
 
 library TestFailingMarketOrder {
   function moWithFailures(Dex dex, TestTaker taker) external {
-    uint[] memory failures = taker.marketOrderWithFail({
+    (uint numFailures, uint[] memory failureIds, uint[] memory failureGas) = taker.marketOrderWithFail({
       wants: 10 ether,
       gives: 30 ether,
       punishLength: 10,
       offerId: dex.getBest()
     });
     uint failedOffer = 1;
-    for (uint i = 0; i < failures.length - 1; i += 2) {
-      TestEvents.eq(failures[i], failedOffer, "Incorrect failed offer Id");
+    for (uint i = 0; i < numFailures; i++) {
+      TestEvents.eq(failureIds[i], failedOffer, "Incorrect failed offer Id");
       TestEvents.less(
-        failures[i + 1],
+        failureGas[i],
         100000 + dex.getConfigUint(DC.ConfigKey.gasbase),
         "Incorrect Gas consummed"
       );

@@ -256,6 +256,9 @@ contract Dex {
     uint minOrderSize;
     uint initialTakerWants;
     uint pastOfferId;
+    uint numFailures;
+    uint[] failureIds;
+    uint[] failureGas;
   }
 
   function marketOrder(
@@ -273,6 +276,8 @@ contract Dex {
     public
     returns (
       /* The return value is used for book cleaning: it contains a list (of length `2 * punishLength`) of the offers that failed during the market order, along with the gas they used before failing. */
+      uint,
+      uint[] memory,
       uint[] memory
     )
   {
@@ -302,11 +307,12 @@ contract Dex {
     OrderData memory orderData = OrderData({
       minOrderSize: config.density * config.gasbase,
       initialTakerWants: takerWants,
-      pastOfferId: offer.prev
+      pastOfferId: offer.prev,
+      numFailures: 0,
+      failureIds: new uint[](punishLength),
+      failureGas: new uint[](punishLength)
     });
 
-    uint[] memory failures = new uint[](2 * punishLength);
-    uint numFailures;
 
     reentrancyLock = 2;
 
@@ -361,10 +367,10 @@ contract Dex {
         } else {
           emit DexEvents.Failure(offerId, localTakerWants, localTakerGives);
           /* For penalty application purposes (never triggered if `punishLength = 0`), store the offer id and the gas wasted by the maker */
-          if (numFailures < punishLength) {
-            failures[2 * numFailures] = offerId;
-            failures[2 * numFailures + 1] = gasUsedIfFailure;
-            numFailures++;
+          if (orderData.numFailures < punishLength) {
+            orderData.failureIds[orderData.numFailures] = offerId;
+            orderData.failureGas[orderData.numFailures] = gasUsedIfFailure;
+            orderData.numFailures++;
           }
         }
         /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
@@ -416,13 +422,8 @@ contract Dex {
 
     /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `2 * numFailures` in the length field of `failures` (there are 2 elements (`offerId`, `gasUsed`) for every failure in `failures`).
 
-       The above is hackish and we may want to just return a `(uint,uint[])` pair.
-
     */
-    assembly {
-      mstore(failures, mul(2, numFailures))
-    }
-    return failures;
+    return (orderData.numFailures, orderData.failureIds, orderData.failureGas);
   }
 
   /* ## Sniping */
@@ -433,8 +434,8 @@ contract Dex {
     uint[] memory wants = new uint[](1);
     targets[0] = offerId;
     wants[0] = takerWants;
-    uint[] memory failures = internalSnipes(targets, wants, 1);
-    return (failures.length == 0);
+    (uint numFailures,,) = internalSnipes(targets, wants, 1);
+    return (numFailures == 0);
   }
 
   //+clear+
@@ -448,7 +449,7 @@ contract Dex {
       */
   function internalSnipes(uint[] memory targets, uint[] memory wants, uint punishLength)
     public
-    returns (uint[] memory)
+    returns (uint, uint[] memory, uint[] memory)
   {
     /* ### Pre-loop Checks */
     //+clear+
@@ -460,7 +461,8 @@ contract Dex {
 
     uint takerGot;
     uint numFailures;
-    uint[] memory failures = new uint[](punishLength * 2);
+    uint[] memory failureIds = new uint[](punishLength);
+    uint[] memory failureGas = new uint[](punishLength);
     reentrancyLock = 2;
     /* ### Main loop */
     //+clear+
@@ -499,8 +501,8 @@ contract Dex {
         } else {
           emit DexEvents.Failure(offerId, localTakerWants, localTakerGives);
           if (numFailures < punishLength) {
-            failures[2 * numFailures] = offerId;
-            failures[2 * numFailures + 1] = gasUsedIfFailure;
+            failureIds[numFailures] = offerId;
+            failureGas[numFailures] = gasUsedIfFailure;
             numFailures++;
           }
         }
@@ -510,14 +512,8 @@ contract Dex {
     applyFee(takerGot);
     reentrancyLock = 1;
     /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `2 * numFailures` in the length field of `failures` (there are 2 elements (`offerId`, `gasUsed`) for every failure in `failures`).
-
-       The above is hackish and we may want to just return a `(uint,uint[])` pair.
-
     */
-    assembly {
-      mstore(failures, mul(2, numFailures))
-    }
-    return failures;
+    return (numFailures,failureIds,failureGas);
   }
 
   /* # Low-level offer deletion */
@@ -751,7 +747,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     if (noRevert) {
       evmRevert(abi.decode(retdata,(bytes)));
     } else {
-      punish(abi.decode(retdata,(uint[])));
+      punish(retdata);
     }
   }
 
@@ -809,7 +805,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     if (noRevert) {
       evmRevert(abi.decode(retdata,(bytes)));
     } else {
-      punish(abi.decode(retdata,(uint[])));
+      punish(retdata);
     }
   }
 
@@ -845,18 +841,18 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   //+clear+
   /* Given a sequence of `(offerId, gasUsed)` pairs, `punish` assumes they have failed and
      executes `applyPenalty` on them.  */
-  function punish(uint[] memory failures) internal {
+  function punish(bytes memory data) internal {
+    (uint numFailures, uint[] memory failureIds, uint[] memory failureGas) = abi.decode(data, (uint, uint[], uint[]));
     uint failureIndex;
-    uint numFailures = failures.length / 2;
     while (failureIndex < numFailures) {
-      uint id = failures[failureIndex * 2];
+      uint id = failureIds[failureIndex];
       /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
       DC.Offer memory offer = offers[id];
       if (DC.isOffer(offer)) {
         DC.OfferDetail memory offerDetail = offerDetails[id];
         dirtyDeleteOffer(id);
         stitchOffers(offer.prev, offer.next);
-        uint gasUsed = failures[failureIndex * 2 + 1];
+        uint gasUsed = failureGas[failureIndex];
         applyPenalty(false, gasUsed, offerDetail);
       }
       failureIndex++;

@@ -36,7 +36,7 @@ contract TestTaker is ITaker {
     uint gives,
     uint punishLength,
     uint offerId
-  ) external returns (uint[] memory failures) {
+  ) external returns (uint, uint[] memory, uint[] memory) {
     return (dex.marketOrder(wants, gives, punishLength, offerId));
   }
 
