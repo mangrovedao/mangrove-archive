@@ -32,6 +32,7 @@ library TestFailingMarketOrder {
     TestTaker taker,
     TestToken aToken
   ) external {
+    Display.logOfferBook(dex,5);
     uint tkrBalance = address(taker).balance;
     uint[] memory targets = new uint[](10);
     uint cpt = 0;
@@ -48,13 +49,14 @@ library TestFailingMarketOrder {
     );
     for (uint i = 1; i < 5; i++) {
       TestEvents.check(
-        !TestUtils.hasOffer(dex, 5),
+        !TestUtils.hasOffer(dex, i),
         "Failing offer should have been removed from OB"
       );
     }
+    Display.logOfferBook(dex,5);
     TestEvents.eq(
       address(taker).balance,
-      tkrBalance - 4 * TestUtils.getProvision(dex, 100000),
+      tkrBalance + 4 * TestUtils.getProvision(dex, 100000),
       "Incorrect taker balance"
     );
   }
