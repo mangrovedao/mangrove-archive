@@ -46,8 +46,8 @@ contract Scenarii_test {
   function saveOffers() internal {
     uint offerId = dex.getBest();
     while (offerId != 0) {
-      (DC.Offer memory offer, DC.OfferDetail memory offerDetail) = dex
-        .getOfferInfo(offerId, true);
+      (DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
+        dex.getOfferInfo(offerId, true);
       offers[offerId][TestUtils.Info.makerWants] = offer.wants;
       offers[offerId][TestUtils.Info.makerGives] = offer.gives;
       offers[offerId][TestUtils.Info.gasreq] = offerDetail.gasreq;
@@ -114,9 +114,8 @@ contract Scenarii_test {
 
   function d_provisionAll_beforeAll() public {
     // low level tranfer because makers needs gas to transfer to each maker
-    (bool success, ) = address(makers).call{gas: gasleft(), value: 80 ether}(
-      ""
-    ); // msg.value is distributed evenly amongst makers
+    (bool success, ) =
+      address(makers).call{gas: gasleft(), value: 80 ether}(""); // msg.value is distributed evenly amongst makers
     require(success, "maker transfer");
 
     for (uint i = 0; i < makers.length(); i++) {
@@ -133,7 +132,7 @@ contract Scenarii_test {
   }
 
   function zeroDust_test() public {
-    try dex.setConfig(DC.ConfigKey.density, 0)  {
+    try dex.setConfig(DC.ConfigKey.density, 0) {
       TestEvents.fail("zero density should revert");
     } catch Error(
       string memory /*reason*/
