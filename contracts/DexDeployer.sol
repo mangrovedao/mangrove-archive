@@ -8,9 +8,7 @@ contract DexDeployer is HasAdmin {
   mapping(address => mapping(address => address)) public dexes;
   mapping(address => mapping(address => address)) public invertedDexes;
 
-  constructor() HasAdmin() {
-    
-  }
+  constructor() HasAdmin() {}
 
   function deploy(
     uint density,
@@ -21,22 +19,26 @@ contract DexDeployer is HasAdmin {
     address reqToken,
     bool takerLends
   ) external adminOnly returns (Dex) {
-
-    Dex dex = new Dex({
-      _density: density,
-      _gasprice: gasprice,
-      _gasbase: gasbase,
-      _gasmax: gasmax,
-      _OFR_TOKEN: ofrToken,
-      _REQ_TOKEN: reqToken,
-      takerLends: takerLends
-    });
+    Dex dex =
+      new Dex({
+        _density: density,
+        _gasprice: gasprice,
+        _gasbase: gasbase,
+        _gasmax: gasmax,
+        _OFR_TOKEN: ofrToken,
+        _REQ_TOKEN: reqToken,
+        takerLends: takerLends
+      });
 
     dex.setAdmin(admin);
-    
-    mapping (address => mapping(address => address)) storage map = takerLends ? dexes : invertedDexes;
 
-    require(map[ofrToken][reqToken] == address(0), "DexDeployer/alreadyDeployed");
+    mapping(address => mapping(address => address)) storage map =
+      takerLends ? dexes : invertedDexes;
+
+    require(
+      map[ofrToken][reqToken] == address(0),
+      "DexDeployer/alreadyDeployed"
+    );
     map[ofrToken][reqToken] = address(dex);
 
     return dex;

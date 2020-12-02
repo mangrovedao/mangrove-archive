@@ -47,8 +47,8 @@ library TestUtils {
     Info infKey,
     uint offerId
   ) internal view returns (uint) {
-    (DC.Offer memory offer, DC.OfferDetail memory offerDetail) = dex
-      .getOfferInfo(offerId, true);
+    (DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
+      dex.getOfferInfo(offerId, true);
     if (infKey == Info.makerWants) {
       return offer.wants;
     }
@@ -87,16 +87,17 @@ library TestUtils {
     uint snipedId,
     uint orderAmount
   ) internal returns (bool) {
-    bytes memory retdata = TestEvents.execWithCost(
-      "snipe",
-      address(TestUtils),
-      abi.encodeWithSelector(
-        TestUtils._snipe.selector,
-        taker,
-        snipedId,
-        orderAmount
-      )
-    );
+    bytes memory retdata =
+      TestEvents.execWithCost(
+        "snipe",
+        address(TestUtils),
+        abi.encodeWithSelector(
+          TestUtils._snipe.selector,
+          taker,
+          snipedId,
+          orderAmount
+        )
+      );
     return (abi.decode(retdata, (bool)));
   }
 
@@ -117,18 +118,19 @@ library TestUtils {
     uint gasreq,
     uint pivotId
   ) internal returns (uint) {
-    bytes memory retdata = TestEvents.execWithCost(
-      "newOffer",
-      address(TestUtils),
-      abi.encodeWithSelector(
-        TestUtils._newOffer.selector,
-        maker,
-        wants,
-        gives,
-        gasreq,
-        pivotId
-      )
-    );
+    bytes memory retdata =
+      TestEvents.execWithCost(
+        "newOffer",
+        address(TestUtils),
+        abi.encodeWithSelector(
+          TestUtils._newOffer.selector,
+          maker,
+          wants,
+          gives,
+          gasreq,
+          pivotId
+        )
+      );
     return (abi.decode(retdata, (uint)));
   }
 

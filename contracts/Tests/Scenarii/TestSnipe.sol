@@ -52,8 +52,8 @@ library TestSnipe {
       "incorrect maker B balance"
     );
     // Testing residual offer
-    (bool exists, uint makerWants, uint makerGives, , , , , ) = dex
-      .getOfferInfo(snipedId);
+    (bool exists, uint makerWants, uint makerGives, , , , , ) =
+      dex.getOfferInfo(snipedId);
     TestEvents.check(exists, "Offer should have a residual");
     TestEvents.eq(
       makerGives,

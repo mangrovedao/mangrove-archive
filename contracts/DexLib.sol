@@ -104,18 +104,19 @@ library DexLib {
       // Execute offer
       //uint gr = offerDetail.gasreq;
       //uint g = gasleft();
-      //(bool s,) = 
-        IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
+      //(bool s,) =
+      IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
         takerWants,
         takerGives,
         offerDetail.gasprice,
-        offerId);
+        offerId
+      );
       //) {} catch {
       //(bool s,) = address(offerDetail.maker).call{gas:gr}(abi.encodeWithSelector(IMaker.execute.selector,
-        //takerWants,
-        //takerGives,
-        //offerDetail.gasprice,
-        //offerId));
+      //takerWants,
+      //takerGives,
+      //offerDetail.gasprice,
+      //offerId));
       //) {} catch {
       //g = g-gasleft();
       //console.log("gas used",g);
@@ -175,12 +176,8 @@ library DexLib {
     address to,
     uint value
   ) internal returns (bool) {
-    bytes memory cd = abi.encodeWithSelector(
-      IERC20.transferFrom.selector,
-      from,
-      to,
-      value
-    );
+    bytes memory cd =
+      abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, value);
     (bool success, bytes memory data) = tokenAddress.call(cd);
     return (success && (data.length == 0 || abi.decode(data, (bool))));
   }
@@ -225,13 +222,8 @@ library DexLib {
     /* Once provisioned, the position of the new offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
 
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
-    (uint prev, uint next) = findPosition(
-      offers,
-      best.value,
-      wants,
-      gives,
-      pivotId
-    );
+    (uint prev, uint next) =
+      findPosition(offers, best.value, wants, gives, pivotId);
 
     /* Then we place the offer in the book at the position found by `findPosition`. */
     if (prev != 0) {
