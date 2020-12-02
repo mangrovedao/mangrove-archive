@@ -23,7 +23,7 @@ library TestSnipe {
       "snipe should be a success"
     );
     TestEvents.eq(
-      aToken.balanceOf(dex.getConfigAddress(DexCommon.ConfigKey.admin)), //actual
+      aToken.balanceOf(TestUtils.adminOf(dex)), //actual
       balances.dexBalanceFees + TestUtils.getFee(dex, orderAmount), //expected
       "incorrect Dex A balance"
     );
@@ -52,8 +52,8 @@ library TestSnipe {
       "incorrect maker B balance"
     );
     // Testing residual offer
-    (bool exists, uint makerWants, uint makerGives, , , , , ) = dex
-      .getOfferInfo(snipedId);
+    (bool exists, uint makerWants, uint makerGives, , , , , ) =
+      dex.getOfferInfo(snipedId);
     TestEvents.check(exists, "Offer should have a residual");
     TestEvents.eq(
       makerGives,

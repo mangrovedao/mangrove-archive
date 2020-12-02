@@ -62,19 +62,6 @@ library DexLib {
     }
   }
 
-  function setConfig(
-    DC.Config storage config,
-    DC.ConfigKey key,
-    address value
-  ) external {
-    if (key == DC.ConfigKey.admin) {
-      config.admin = value;
-      emit DexEvents.SetAdmin(value);
-    } else {
-      revert("dex/config/write/noMatch/address");
-    }
-  }
-
   function getConfigUint(DC.Config storage config, DC.ConfigKey key)
     external
     view
@@ -92,18 +79,6 @@ library DexLib {
       return config.gasmax;
     } else {
       revert("dex/config/read/noMatch/uint");
-    }
-  }
-
-  function getConfigAddress(DC.Config storage config, DC.ConfigKey key)
-    external
-    view
-    returns (address value)
-  {
-    if (key == DC.ConfigKey.admin) {
-      return config.admin;
-    } else {
-      revert("dex/config/read/noMatch/address");
     }
   }
 
@@ -129,18 +104,19 @@ library DexLib {
       // Execute offer
       //uint gr = offerDetail.gasreq;
       //uint g = gasleft();
-      //(bool s,) = 
-        IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
+      //(bool s,) =
+      IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
         takerWants,
         takerGives,
         offerDetail.gasprice,
-        offerId);
+        offerId
+      );
       //) {} catch {
       //(bool s,) = address(offerDetail.maker).call{gas:gr}(abi.encodeWithSelector(IMaker.execute.selector,
-        //takerWants,
-        //takerGives,
-        //offerDetail.gasprice,
-        //offerId));
+      //takerWants,
+      //takerGives,
+      //offerDetail.gasprice,
+      //offerId));
       //) {} catch {
       //g = g-gasleft();
       //console.log("gas used",g);
@@ -200,12 +176,8 @@ library DexLib {
     address to,
     uint value
   ) internal returns (bool) {
-    bytes memory cd = abi.encodeWithSelector(
-      IERC20.transferFrom.selector,
-      from,
-      to,
-      value
-    );
+    bytes memory cd =
+      abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, value);
     (bool success, bytes memory data) = tokenAddress.call(cd);
     return (success && (data.length == 0 || abi.decode(data, (bool))));
   }
@@ -232,7 +204,6 @@ library DexLib {
     uint gasreq,
     uint pivotId,
     bool update
-
   ) external returns (uint) {
     /* The following checks are first performed: */
     //+clear+
@@ -240,7 +211,7 @@ library DexLib {
     require(gasreq <= config.gasmax, "dex/writeOffer/gasreq/tooHigh");
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isOffer` method sound. */
     require(
-      gives >= (gasreq + config.gasbase*1000) * config.density,
+      gives >= (gasreq + config.gasbase * 1000) * config.density,
       "dex/writeOffer/gives/tooLow"
     );
     /* * Unnecessary for safety: check width of `wants`, `gives` and `pivotId`. They will be truncated anyway, but if they are too wide, we assume the maker has made a mistake and revert. */
@@ -252,10 +223,17 @@ library DexLib {
     {
       DC.OfferDetail memory offerDetail = offerDetails[offerId];
       if (update) {
-        require(msg.sender == offerDetail.maker, "dex/updateOffer/unauthorized");
-        require(offerDetail.version + 1 > offerDetail.version, "dex/updateOffer/versionOverflow");
-        oldPenalty = offerDetail.gasprice *
-          (uint(offerDetail.gasreq) + offerDetail.gasbase*1000);
+        require(
+          msg.sender == offerDetail.maker,
+          "dex/updateOffer/unauthorized"
+        );
+        require(
+          offerDetail.version + 1 > offerDetail.version,
+          "dex/updateOffer/versionOverflow"
+        );
+        oldPenalty =
+          offerDetail.gasprice *
+          (uint(offerDetail.gasreq) + offerDetail.gasbase * 1000);
       }
 
       offerDetails[offerId] = DC.OfferDetail({
@@ -270,7 +248,7 @@ library DexLib {
     /* With every change to an offer, a maker must deduct provisions from its `freeWei` balance, or get some back if the updated offer requires fewer provisions. */
 
     {
-      uint maxPenalty = (gasreq + config.gasbase*1000) * config.gasprice;
+      uint maxPenalty = (gasreq + config.gasbase * 1000) * config.gasprice;
       if (maxPenalty > oldPenalty) {
         debitWei(freeWei, msg.sender, maxPenalty - oldPenalty);
       } else if (maxPenalty < oldPenalty) {
@@ -281,13 +259,8 @@ library DexLib {
     /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
 
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
-    (uint prev, uint next) = findPosition(
-      offers,
-      best.value,
-      wants,
-      gives,
-      pivotId
-    );
+    (uint prev, uint next) =
+      findPosition(offers, best.value, wants, gives, pivotId);
 
     /* Then we place the offer in the book at the position found by `findPosition`. */
     if (prev != 0) {
