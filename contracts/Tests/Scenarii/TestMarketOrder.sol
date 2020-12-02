@@ -15,10 +15,9 @@ library TestMarketOrder {
     uint takerWants = 1.6 ether; // of B token
     uint takerGives = 3 ether; // of A token
 
-    Display.logOfferBook(dex,5);
+    Display.logOfferBook(dex, 5);
     TestUtils.marketOrderWithGas(taker, takerWants, takerGives);
-    Display.logOfferBook(dex,5);
-
+    Display.logOfferBook(dex, 5);
 
     // Checking Makers balances
     for (uint i = 2; i < 4; i++) {
@@ -34,12 +33,14 @@ library TestMarketOrder {
         Display.append("Incorrect B balance for maker ", Display.uint2str(i))
       );
     }
-    uint leftTkrWants = takerWants -
-      (offers[2][TestUtils.Info.makerGives] +
-        offers[3][TestUtils.Info.makerGives]);
+    uint leftTkrWants =
+      takerWants -
+        (offers[2][TestUtils.Info.makerGives] +
+          offers[3][TestUtils.Info.makerGives]);
 
-    uint leftMkrWants = (offers[1][TestUtils.Info.makerWants] * leftTkrWants) /
-      offers[1][TestUtils.Info.makerGives];
+    uint leftMkrWants =
+      (offers[1][TestUtils.Info.makerWants] * leftTkrWants) /
+        offers[1][TestUtils.Info.makerGives];
 
     TestEvents.eq(
       aToken.balanceOf(address(makers.getMaker(1))),

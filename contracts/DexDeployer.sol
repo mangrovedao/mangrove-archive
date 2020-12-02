@@ -27,20 +27,25 @@ contract DexDeployer {
   ) external returns (Dex) {
     requireAdmin();
 
-    Dex dex = new Dex({
-      _admin: admin,
-      _density: density,
-      _gasprice: gasprice,
-      _gasbase: gasbase,
-      _gasmax: gasmax,
-      _OFR_TOKEN: ofrToken,
-      _REQ_TOKEN: reqToken,
-      takerLends: takerLends
-    });
-    
-    mapping (address => mapping(address => address)) storage map = takerLends ? dexes : invertedDexes;
+    Dex dex =
+      new Dex({
+        _admin: admin,
+        _density: density,
+        _gasprice: gasprice,
+        _gasbase: gasbase,
+        _gasmax: gasmax,
+        _OFR_TOKEN: ofrToken,
+        _REQ_TOKEN: reqToken,
+        takerLends: takerLends
+      });
 
-    require(map[ofrToken][reqToken] == address(0), "DexDeployer/alreadyDeployed");
+    mapping(address => mapping(address => address)) storage map =
+      takerLends ? dexes : invertedDexes;
+
+    require(
+      map[ofrToken][reqToken] == address(0),
+      "DexDeployer/alreadyDeployed"
+    );
     map[ofrToken][reqToken] = address(dex);
 
     return dex;

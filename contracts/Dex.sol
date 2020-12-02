@@ -299,11 +299,12 @@ contract Dex {
     /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. */
     require(DC.isOffer(offer), "dex/marketOrder/noSuchOffer");
     /* We pack some data in a memory struct to prevent stack too deep errors. */
-    OrderData memory orderData = OrderData({
-      minOrderSize: config.density * config.gasbase,
-      initialTakerWants: takerWants,
-      pastOfferId: offer.prev
-    });
+    OrderData memory orderData =
+      OrderData({
+        minOrderSize: config.density * config.gasbase,
+        initialTakerWants: takerWants,
+        pastOfferId: offer.prev
+      });
 
     uint[] memory failures = new uint[](2 * punishLength);
     uint numFailures;
@@ -340,13 +341,8 @@ contract Dex {
           : (takerWants, makerWouldWant);
 
         /* Execute the offer after loaning money to the maker. The last argument to `executeOffer` is `true` to flag that pointers shouldn't be updated (thus saving writes). The returned values are explained below: */
-        (bool success, uint gasUsedIfFailure, bool deleted) = executeOffer(
-          offerId,
-          offer,
-          localTakerWants,
-          localTakerGives,
-          true
-        );
+        (bool success, uint gasUsedIfFailure, bool deleted) =
+          executeOffer(offerId, offer, localTakerWants, localTakerGives, true);
 
         /* `success` means that the maker delivered `localTakerWants` `OFR_TOKEN` to the taker. We update the total amount wanted and spendable by the taker (possibly changing the remaining average price). */
         if (success) {
@@ -446,10 +442,11 @@ contract Dex {
     `marketOrder`). Returns an array of size at most
     twice `punishLength` containing info on failed offers. Only existing offers can fail: if an offerId is invalid, it will just be skipped. **You should probably set `punishLength` to 1.**
       */
-  function internalSnipes(uint[] memory targets, uint[] memory wants, uint punishLength)
-    public
-    returns (uint[] memory)
-  {
+  function internalSnipes(
+    uint[] memory targets,
+    uint[] memory wants,
+    uint punishLength
+  ) public returns (uint[] memory) {
     /* ### Pre-loop Checks */
     //+clear+
     requireOpenMarket();
@@ -474,9 +471,8 @@ contract Dex {
       /* If we removed the `isOffer` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. */
       if (DC.isOffer(offer)) {
         /* `localTakerWants` bounds the amount requested by the taker by the maximum amount on offer. It also obviates the need to check the size of `takerWants`: while in a market order we must compare the price a taker accepts with the offer price, here we just accept the offer's price. So if `takerWants` does not fit in 96 bits (the size of `offer.gives`), it won't be used in the line below. */
-        uint localTakerWants = offer.gives < takerWants
-          ? offer.gives
-          : takerWants;
+        uint localTakerWants =
+          offer.gives < takerWants ? offer.gives : takerWants;
 
         /* `localTakerGives` is the amount to be paid using the price induced by the offer. */
         uint localTakerGives = (localTakerWants * offer.wants) / offer.gives;
@@ -485,13 +481,8 @@ contract Dex {
         if (localTakerGives == 0) localTakerGives = 1;
 
         /* We execute the offer with the flag `dirtyDeleteOffer` set to `false`, so the offers before and after the selected one get stitched back together. */
-        (bool success, uint gasUsedIfFailure, ) = executeOffer(
-          offerId,
-          offer,
-          localTakerWants,
-          localTakerGives,
-          false
-        );
+        (bool success, uint gasUsedIfFailure, ) =
+          executeOffer(offerId, offer, localTakerWants, localTakerGives, false);
         /* For punishment purposes (never triggered if `punishLength = 0`), we store the offer id and the gas wasted by the maker */
         if (success) {
           emit DexEvents.Success(offerId, localTakerWants, localTakerGives);
@@ -632,17 +623,18 @@ contract Dex {
     );
 
     /* The flashswap is executed by delegatecall to `SWAPPER`. If the call reverts, it means the maker failed to send back `takerWants` `OFR_TOKEN` to the taker. If the call succeeds, `retdata` encodes a boolean indicating whether the taker did send enough to the maker or not. */
-    (bool noRevert, bytes memory retdata) = address(DexLib).delegatecall(
-      abi.encodeWithSelector(
-        SWAPPER,
-        OFR_TOKEN,
-        REQ_TOKEN,
-        offerId,
-        takerGives,
-        takerWants,
-        offerDetail
-      )
-    );
+    (bool noRevert, bytes memory retdata) =
+      address(DexLib).delegatecall(
+        abi.encodeWithSelector(
+          SWAPPER,
+          OFR_TOKEN,
+          REQ_TOKEN,
+          offerId,
+          takerGives,
+          takerWants,
+          offerDetail
+        )
+      );
     /* In both cases, we call `applyPenalty`, which splits the provisioned penalty (set aside during the `newOffer` call which created the offer between the taker and maker. */
     if (noRevert) {
       bool takerPaid = abi.decode(retdata, (bool));
@@ -661,12 +653,8 @@ contract Dex {
     if (amount > 0) {
       // amount is at most 160 bits wide and fee it at most 14 bits wide.
       uint fee = (amount * config.fee) / 10000;
-      bool appliedFee = DexLib.transferToken(
-        OFR_TOKEN,
-        msg.sender,
-        address(config.admin),
-        fee
-      );
+      bool appliedFee =
+        DexLib.transferToken(OFR_TOKEN, msg.sender, address(config.admin), fee);
       require(appliedFee, "dex/takerFailToPayDex");
     }
   }
@@ -680,9 +668,8 @@ contract Dex {
     DC.OfferDetail memory offerDetail
   ) internal {
     /* We set `gasDeducted = min(gasUsed,gasreq)` since `gasreq < gasUsed` is possible (e.g. with `gasreq = 0`). */
-    uint gasDeducted = gasUsed < offerDetail.gasreq
-      ? gasUsed
-      : offerDetail.gasreq;
+    uint gasDeducted =
+      gasUsed < offerDetail.gasreq ? gasUsed : offerDetail.gasreq;
 
     /*
        Then we apply penalties:
@@ -696,12 +683,13 @@ contract Dex {
          Note that `offerDetail.gasbase` and `offerDetail.gasprice` are the values of the Dex parameters `config.gasbase` and `config.gasprice` when the offer was createdd. Without caching, the provision set aside could be insufficient to reimburse the maker (or to compensate the taker).
 
      */
-    uint released = offerDetail.gasprice *
-      (
-        success
-          ? offerDetail.gasreq + offerDetail.gasbase
-          : offerDetail.gasreq - gasDeducted
-      );
+    uint released =
+      offerDetail.gasprice *
+        (
+          success
+            ? offerDetail.gasreq + offerDetail.gasbase
+            : offerDetail.gasreq - gasDeducted
+        );
 
     DexLib.creditWei(freeWei, offerDetail.maker, released);
 
@@ -735,13 +723,14 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     external
   {
     /* We do not directly call `snipes` because we want to revert all the offer executions before returning. So we call an intermediate function, `internalPunishingSnipes` (we don't `call` to preserve the calling context, in partiular `msg.sender`). */
-    (bool noRevert, bytes memory retdata) = address(this).delegatecall(
-      abi.encodeWithSelector(
-        this.internalPunishingSnipes.selector,
-        targets,
-        punishLength
-      )
-    );
+    (bool noRevert, bytes memory retdata) =
+      address(this).delegatecall(
+        abi.encodeWithSelector(
+          this.internalPunishingSnipes.selector,
+          targets,
+          punishLength
+        )
+      );
 
     /* To avoid spurious capture of reverts (for instance a failed `require` in the pre-execution checks),
        `internalPunishingSnipes` returns normally with revert data if it detects a revert.
@@ -749,9 +738,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
          * If `internalPunishingSnipes` returns normally, then _the sniping **did** revert_ and `retdata` is the revert data. In that case we "re-throw".
          * If it reverts, then _the sniping **did not** revert_ and `retdata` is an array of failed offers. We punish those offers. */
     if (noRevert) {
-      evmRevert(abi.decode(retdata,(bytes)));
+      evmRevert(abi.decode(retdata, (bytes)));
     } else {
-      punish(abi.decode(retdata,(uint[])));
+      punish(abi.decode(retdata, (uint[])));
     }
   }
 
@@ -791,15 +780,16 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint punishLength
   ) external {
     /* We do not directly call `marketOrder` because we want to revert all the offer executions before returning. So we delegatecall an intermediate function, `internalPunishingMarketOrder`. Again, we use `delegatecall` to preserve `msg.sender`. */
-    (bool noRevert, bytes memory retdata) = address(this).delegatecall(
-      abi.encodeWithSelector(
-        this.internalPunishingMarketOrder.selector,
-        fromOfferId,
-        takerWants,
-        takerGives,
-        punishLength
-      )
-    );
+    (bool noRevert, bytes memory retdata) =
+      address(this).delegatecall(
+        abi.encodeWithSelector(
+          this.internalPunishingMarketOrder.selector,
+          fromOfferId,
+          takerWants,
+          takerGives,
+          punishLength
+        )
+      );
 
     /* To avoid spurious capture of reverts (for instance a failed `require` in the pre-execution checks),
        `internalPunishingMarketOrder` returns normally with revert data if it detects a revert.
@@ -807,9 +797,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
          * If `internalPunishingMarketOrder` returns normally, then _the market order **did** revert_ and `retdata` is the revert data. In that case we "re-throw".
          * If it reverts, then _the market order **did not** revert_ and `retdata` is an array of failed offers. We punish those offers. */
     if (noRevert) {
-      evmRevert(abi.decode(retdata,(bytes)));
+      evmRevert(abi.decode(retdata, (bytes)));
     } else {
-      punish(abi.decode(retdata,(uint[])));
+      punish(abi.decode(retdata, (uint[])));
     }
   }
 
@@ -867,7 +857,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   function evmRevert(bytes memory data) internal pure {
     uint length = data.length;
     assembly {
-      revert(add(data,32), length)
+      revert(add(data, 32), length)
     }
   }
 

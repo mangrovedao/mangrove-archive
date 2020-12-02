@@ -129,18 +129,19 @@ library DexLib {
       // Execute offer
       //uint gr = offerDetail.gasreq;
       //uint g = gasleft();
-      //(bool s,) = 
-        IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
+      //(bool s,) =
+      IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
         takerWants,
         takerGives,
         offerDetail.gasprice,
-        offerId);
+        offerId
+      );
       //) {} catch {
       //(bool s,) = address(offerDetail.maker).call{gas:gr}(abi.encodeWithSelector(IMaker.execute.selector,
-        //takerWants,
-        //takerGives,
-        //offerDetail.gasprice,
-        //offerId));
+      //takerWants,
+      //takerGives,
+      //offerDetail.gasprice,
+      //offerId));
       //) {} catch {
       //g = g-gasleft();
       //console.log("gas used",g);
@@ -200,12 +201,8 @@ library DexLib {
     address to,
     uint value
   ) internal returns (bool) {
-    bytes memory cd = abi.encodeWithSelector(
-      IERC20.transferFrom.selector,
-      from,
-      to,
-      value
-    );
+    bytes memory cd =
+      abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, value);
     (bool success, bytes memory data) = tokenAddress.call(cd);
     return (success && (data.length == 0 || abi.decode(data, (bool))));
   }
@@ -250,15 +247,16 @@ library DexLib {
     /* Once provisioned, the position of the new offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
 
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
-    (uint prev, uint next) = findPosition(
-      offers,
-      offerDetails,
-      best.value,
-      wants,
-      gives,
-      gasreq,
-      pivotId
-    );
+    (uint prev, uint next) =
+      findPosition(
+        offers,
+        offerDetails,
+        best.value,
+        wants,
+        gives,
+        gasreq,
+        pivotId
+      );
 
     /* Then we place the offer in the book at the position found by `findPosition`. */
     if (prev != 0) {
@@ -313,11 +311,31 @@ library DexLib {
     }
 
     // pivot better than `wants/gives`, we follow next
-    if (better(offerDetails, pivot.wants, pivot.gives, pivotId, wants, gives, gasreq)) {
+    if (
+      better(
+        offerDetails,
+        pivot.wants,
+        pivot.gives,
+        pivotId,
+        wants,
+        gives,
+        gasreq
+      )
+    ) {
       DC.Offer memory pivotNext;
       while (pivot.next != 0) {
         pivotNext = offers[pivot.next];
-        if (better(offerDetails, pivotNext.wants, pivotNext.gives, pivot.next, wants, gives, gasreq)) {
+        if (
+          better(
+            offerDetails,
+            pivotNext.wants,
+            pivotNext.gives,
+            pivot.next,
+            wants,
+            gives,
+            gasreq
+          )
+        ) {
           pivotId = pivot.next;
           pivot = pivotNext;
         } else {
@@ -332,7 +350,17 @@ library DexLib {
       DC.Offer memory pivotPrev;
       while (pivot.prev != 0) {
         pivotPrev = offers[pivot.prev];
-        if (better(offerDetails, pivotPrev.wants, pivotPrev.gives, pivot.prev, wants, gives, gasreq)) {
+        if (
+          better(
+            offerDetails,
+            pivotPrev.wants,
+            pivotPrev.gives,
+            pivot.prev,
+            wants,
+            gives,
+            gasreq
+          )
+        ) {
           break;
         } else {
           pivotId = pivot.prev;

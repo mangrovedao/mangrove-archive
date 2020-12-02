@@ -46,11 +46,8 @@ library TestInsert {
     //Display.printOfferBook(dex);
     //Checking makers have correctly provisoned their offers
     for (uint i = 0; i < makers.length(); i++) {
-      uint gasreq_i = TestUtils.getOfferInfo(
-        dex,
-        TestUtils.Info.gasreq,
-        offerOf[i]
-      );
+      uint gasreq_i =
+        TestUtils.getOfferInfo(dex, TestUtils.Info.gasreq, offerOf[i]);
       uint provision_i = TestUtils.getProvision(dex, gasreq_i);
       TestEvents.eq(
         dex.balanceOf(address(makers.getMaker(i))),
@@ -58,15 +55,13 @@ library TestInsert {
         Display.append("Incorrect wei balance for maker ", Display.uint2str(i))
       );
     }
-    Display.logOfferBook(dex,5);
+    Display.logOfferBook(dex, 5);
     //Checking offers are correctly positioned (3 > 2 > 1 > 0)
     uint offerId = dex.best();
     uint expected_maker = 3;
     while (offerId != 0) {
-      (DC.Offer memory offer, DC.OfferDetail memory od) = dex.getOfferInfo(
-        offerId,
-        true
-      );
+      (DC.Offer memory offer, DC.OfferDetail memory od) =
+        dex.getOfferInfo(offerId, true);
       TestEvents.eq(
         od.maker,
         address(makers.getMaker(expected_maker)),

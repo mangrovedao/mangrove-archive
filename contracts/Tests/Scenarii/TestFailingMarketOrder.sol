@@ -4,12 +4,13 @@ import "../Toolbox/TestUtils.sol";
 
 library TestFailingMarketOrder {
   function moWithFailures(Dex dex, TestTaker taker) external {
-    uint[] memory failures = taker.marketOrderWithFail({
-      wants: 10 ether,
-      gives: 30 ether,
-      punishLength: 10,
-      offerId: dex.getBest()
-    });
+    uint[] memory failures =
+      taker.marketOrderWithFail({
+        wants: 10 ether,
+        gives: 30 ether,
+        punishLength: 10,
+        offerId: dex.getBest()
+      });
     uint failedOffer = 1;
     for (uint i = 0; i < failures.length - 1; i += 2) {
       TestEvents.eq(failures[i], failedOffer, "Incorrect failed offer Id");
@@ -66,7 +67,6 @@ library TestFailingMarketOrder {
     for (uint i = 1; i < 5; i++) {
       TestEvents.check(
         !TestUtils.hasOffer(dex, i),
-
         Display.append(
           "Failing offer ",
           Display.uint2str(i),
@@ -98,7 +98,7 @@ library TestFailingMarketOrder {
         )
       );
     }
-    Display.logOfferBook(dex,5);
+    Display.logOfferBook(dex, 5);
     TestEvents.eq(
       address(tkr).balance, //actual
       tkrBalance + 4 * TestUtils.getProvision(dex, 100000),
