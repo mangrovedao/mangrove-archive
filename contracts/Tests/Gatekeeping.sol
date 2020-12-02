@@ -65,7 +65,7 @@ contract Gatekeeping_Test {
 
   function only_admin_can_set_config_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
-    try notAdmin.setConfig(DC.ConfigKey.fee, 0)  {
+    try notAdmin.setConfig(DC.ConfigKey.fee, 0) {
       TestEvents.fail(
         "someone other than admin should not be able to set the configuration"
       );
@@ -97,7 +97,6 @@ contract Gatekeeping_Test {
     uint ofr = dex.newOffer(1 ether, 1 ether, 100_000, 0);
     tkr.take(ofr, 1 ether);
   }
-
 
   function newOffer_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(1 ether, 1 ether, 30_000, 0);
@@ -141,7 +140,7 @@ contract Gatekeeping_Test {
 
   function newOffer_on_closed_fails_test() public {
     dex.closeMarket();
-    try dex.newOffer(1 ether, 1 ether, 0, 0)  {
+    try dex.newOffer(1 ether, 1 ether, 0, 0) {
       TestEvents.fail("newOffer should fail on closed market");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/closed", "wrong revert reason");
@@ -151,9 +150,8 @@ contract Gatekeeping_Test {
   function receive_on_closed_fails_test() public {
     dex.closeMarket();
 
-    (bool success, bytes memory retdata) = address(dex).call{value: 10 ether}(
-      ""
-    );
+    (bool success, bytes memory retdata) =
+      address(dex).call{value: 10 ether}("");
     if (success) {
       TestEvents.fail("receive() should fail on closed market");
     } else {
@@ -164,7 +162,7 @@ contract Gatekeeping_Test {
 
   function marketOrder_on_closed_fails_test() public {
     dex.closeMarket();
-    try tkr.marketOrder(1 ether, 1 ether)  {
+    try tkr.marketOrder(1 ether, 1 ether) {
       TestEvents.fail("marketOrder should fail on closed market");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/closed", "wrong revert reason");
@@ -173,7 +171,7 @@ contract Gatekeeping_Test {
 
   function snipe_on_closed_fails_test() public {
     dex.closeMarket();
-    try tkr.take(0, 1 ether)  {
+    try tkr.take(0, 1 ether) {
       TestEvents.fail("snipe should fail on closed market");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/closed", "wrong revert reason");
