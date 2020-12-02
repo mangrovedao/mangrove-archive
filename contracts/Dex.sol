@@ -703,7 +703,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   //+clear+
   /* Run and revert a sequence of snipes so as to collect `offerId`s that are failing.
    `punishLength` is the number of failing offers one is trying to catch. */
-  function punishingSnipes(uint[] calldata targets, uint punishLength)
+  function punishingSnipes(uint[2][] calldata targets, uint punishLength)
     external
   {
     /* We do not directly call `snipes` because we want to revert all the offer executions before returning. So we call an intermediate function, `internalPunishingSnipes` (we don't `call` to preserve the calling context, in partiular `msg.sender`). */
@@ -729,10 +729,10 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   }
 
   /* Sandwiched between `punishingSnipes` and `internalSnipes`, the function `internalPunishingSnipes` runs a sequence of snipes, reverts it, and sends up the list of failed offers. If it catches a revert inside `snipes`, it returns normally a `bytes` array with the raw revert data in it. Again, we use `delegatecall` to preseve `msg.sender`. */
-  function internalPunishingSnipes(uint[] calldata targets, uint punishLength)
-    external
-    returns (bytes memory retdata)
-  {
+  function internalPunishingSnipes(
+    uint[2][] calldata targets,
+    uint punishLength
+  ) external returns (bytes memory retdata) {
     bool noRevert;
     (noRevert, retdata) = address(this).delegatecall(
       abi.encodeWithSelector(
