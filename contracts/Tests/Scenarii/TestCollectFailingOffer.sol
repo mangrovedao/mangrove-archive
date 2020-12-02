@@ -23,12 +23,14 @@ library TestCollectFailingOffer {
         !exists,
         "Failing offer should have been removed from Dex"
       );
-      uint returned = dex.balanceOf(address(makers.getMaker(0))) -
-        balances.makersBalanceWei[0];
-      uint provision = TestUtils.getProvision(
-        dex,
-        offers[failingOfferId][TestUtils.Info.gasreq]
-      );
+      uint returned =
+        dex.balanceOf(address(makers.getMaker(0))) -
+          balances.makersBalanceWei[0];
+      uint provision =
+        TestUtils.getProvision(
+          dex,
+          offers[failingOfferId][TestUtils.Info.gasreq]
+        );
       TestEvents.eq(
         address(dex).balance,
         balances.dexBalanceWei - (provision - returned),
