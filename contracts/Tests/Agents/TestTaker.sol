@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 
 pragma solidity ^0.7.0;
+pragma experimental ABIEncoderV2;
 import "../../interfaces.sol";
 import "../../Dex.sol";
 
@@ -36,7 +37,7 @@ contract TestTaker is ITaker {
     uint gives,
     uint punishLength,
     uint offerId
-  ) external returns (uint, uint[] memory, uint[] memory) {
+  ) external returns (uint[2][] memory) {
     return (dex.marketOrder(wants, gives, punishLength, offerId));
   }
 
