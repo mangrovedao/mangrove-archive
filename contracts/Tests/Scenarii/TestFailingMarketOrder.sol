@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
+pragma experimental ABIEncoderV2;
 import "../Toolbox/TestUtils.sol";
 
 library TestFailingMarketOrder {
   function moWithFailures(Dex dex, TestTaker taker) external {
-    uint[] memory failures =
+    uint[2][] memory failures =
       taker.marketOrderWithFail({
         wants: 10 ether,
         gives: 30 ether,
@@ -12,10 +13,10 @@ library TestFailingMarketOrder {
         offerId: dex.getBest()
       });
     uint failedOffer = 1;
-    for (uint i = 0; i < failures.length - 1; i += 2) {
-      TestEvents.eq(failures[i], failedOffer, "Incorrect failed offer Id");
+    for (uint i = 0; i < failures.length; i++) {
+      TestEvents.eq(failures[i][0], failedOffer, "Incorrect failed offer Id");
       TestEvents.less(
-        failures[i + 1],
+        failures[i][1],
         100000 + dex.getConfigUint(DC.ConfigKey.gasbase),
         "Incorrect Gas consummed"
       );

@@ -265,7 +265,7 @@ contract Dex is HasAdmin {
     public
     returns (
       /* The return value is used for book cleaning: it contains a list (of length `2 * punishLength`) of the offers that failed during the market order, along with the gas they used before failing. */
-      uint[] memory
+      uint[2][] memory
     )
   {
     /* ### Checks */
@@ -298,8 +298,8 @@ contract Dex is HasAdmin {
         pastOfferId: offer.prev
       });
 
-    uint[] memory failures = new uint[](2 * punishLength);
-    uint numFailures;
+    uint numFailures = 0;
+    uint[2][] memory failures = new uint[2][](punishLength);
 
     reentrancyLock = 2;
 
@@ -350,8 +350,7 @@ contract Dex is HasAdmin {
           emit DexEvents.Failure(offerId, localTakerWants, localTakerGives);
           /* For penalty application purposes (never triggered if `punishLength = 0`), store the offer id and the gas wasted by the maker */
           if (numFailures < punishLength) {
-            failures[2 * numFailures] = offerId;
-            failures[2 * numFailures + 1] = gasUsedIfFailure;
+            failures[numFailures] = [offerId, gasUsedIfFailure];
             numFailures++;
           }
         }
@@ -402,13 +401,12 @@ contract Dex is HasAdmin {
     /* After exiting the loop, we connect the beginning & end of the segment just consumed by the market order. */
     stitchOffers(orderData.pastOfferId, offerId);
 
-    /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `2 * numFailures` in the length field of `failures` (there are 2 elements (`offerId`, `gasUsed`) for every failure in `failures`).
+    /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `numFailures` in the length field of `failures`. This also saves on the amount of memory copied in the return value.
 
-       The above is hackish and we may want to just return a `(uint,uint[])` pair.
-
+       The line below is hackish though, and we may want to just return a `(uint,uint[2][])` pair.
     */
     assembly {
-      mstore(failures, mul(2, numFailures))
+      mstore(failures, numFailures)
     }
     return failures;
   }
@@ -419,7 +417,7 @@ contract Dex is HasAdmin {
   function snipe(uint offerId, uint takerWants) external returns (bool) {
     uint[2][] memory targets = new uint[2][](1);
     targets[0] = [offerId, takerWants];
-    uint[] memory failures = internalSnipes(targets, 1);
+    uint[2][] memory failures = internalSnipes(targets, 1);
     return (failures.length == 0);
   }
 
@@ -434,7 +432,7 @@ contract Dex is HasAdmin {
       */
   function internalSnipes(uint[2][] memory targets, uint punishLength)
     public
-    returns (uint[] memory)
+    returns (uint[2][] memory)
   {
     /* ### Pre-loop Checks */
     //+clear+
@@ -446,7 +444,7 @@ contract Dex is HasAdmin {
 
     uint takerGot;
     uint numFailures;
-    uint[] memory failures = new uint[](punishLength * 2);
+    uint[2][] memory failures = new uint[2][](punishLength);
     reentrancyLock = 2;
     /* ### Main loop */
     //+clear+
@@ -479,8 +477,7 @@ contract Dex is HasAdmin {
         } else {
           emit DexEvents.Failure(offerId, localTakerWants, localTakerGives);
           if (numFailures < punishLength) {
-            failures[2 * numFailures] = offerId;
-            failures[2 * numFailures + 1] = gasUsedIfFailure;
+            failures[numFailures] = [offerId, gasUsedIfFailure];
             numFailures++;
           }
         }
@@ -489,13 +486,12 @@ contract Dex is HasAdmin {
     /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
     applyFee(takerGot);
     reentrancyLock = 1;
-    /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `2 * numFailures` in the length field of `failures` (there are 2 elements (`offerId`, `gasUsed`) for every failure in `failures`).
+    /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `numFailures` in the length field of `failures`. This also saves on the amount of memory copied in the return value.
 
-       The above is hackish and we may want to just return a `(uint,uint[])` pair.
-
+       The line below is hackish though, and we may want to just return a `(uint,uint[2][])` pair.
     */
     assembly {
-      mstore(failures, mul(2, numFailures))
+      mstore(failures, numFailures)
     }
     return failures;
   }
@@ -728,7 +724,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     if (noRevert) {
       evmRevert(abi.decode(retdata, (bytes)));
     } else {
-      punish(abi.decode(retdata, (uint[])));
+      punish(abi.decode(retdata, (uint[2][])));
     }
   }
 
@@ -787,7 +783,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     if (noRevert) {
       evmRevert(abi.decode(retdata, (bytes)));
     } else {
-      punish(abi.decode(retdata, (uint[])));
+      punish(abi.decode(retdata, (uint[2][])));
     }
   }
 
@@ -823,18 +819,17 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   //+clear+
   /* Given a sequence of `(offerId, gasUsed)` pairs, `punish` assumes they have failed and
      executes `applyPenalty` on them.  */
-  function punish(uint[] memory failures) internal {
+  function punish(uint[2][] memory failures) internal {
     uint failureIndex;
-    uint numFailures = failures.length / 2;
-    while (failureIndex < numFailures) {
-      uint id = failures[failureIndex * 2];
+    while (failureIndex < failures.length) {
+      uint id = failures[failureIndex][0];
       /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
       DC.Offer memory offer = offers[id];
       if (DC.isOffer(offer)) {
         DC.OfferDetail memory offerDetail = offerDetails[id];
         dirtyDeleteOffer(id);
         stitchOffers(offer.prev, offer.next);
-        uint gasUsed = failures[failureIndex * 2 + 1];
+        uint gasUsed = failures[failureIndex][1];
         applyPenalty(false, gasUsed, offerDetail);
       }
       failureIndex++;
