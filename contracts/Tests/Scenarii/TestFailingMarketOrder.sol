@@ -27,15 +27,13 @@ library TestFailingMarketOrder {
 
   function snipesAndRevert(Dex dex, TestTaker taker) external {
     uint tkrBalance = address(taker).balance;
-    uint[] memory targetsOK = new uint[](10);
-    uint[] memory targetsWrong = new uint[](10);
+    uint[2][] memory targetsOK = new uint[2][](5);
+    uint[2][] memory targetsWrong = new uint[2][](5);
 
     uint cpt = 0;
     for (uint i = 5; i > 0; i--) {
-      targetsOK[2 * cpt] = i;
-      targetsWrong[2 * cpt] = cpt + 1;
-      targetsOK[2 * cpt + 1] = 0.5 ether;
-      targetsWrong[2 * cpt + 1] = 0.5 ether;
+      targetsOK[cpt] = [i, 0.5 ether];
+      targetsWrong[cpt] = [cpt + 1, 0.5 ether];
       cpt++;
     }
     // if offers are not consumed in the order given by OB
