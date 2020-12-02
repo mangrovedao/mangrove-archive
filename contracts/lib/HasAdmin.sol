@@ -2,27 +2,26 @@
 pragma solidity ^0.7.0;
 
 contract HasAdmin {
-    address public admin;
+  address public admin;
 
-    event SetAdmin(address value);
+  event SetAdmin(address value);
 
-    constructor() {
-      admin = msg.sender;
-      emit SetAdmin(msg.sender);
-    }
+  constructor() {
+    admin = msg.sender;
+    emit SetAdmin(msg.sender);
+  }
 
-    function isAdmin(address candidate) internal view returns (bool) {
-      return (candidate == admin || candidate == address(this));
-    }
+  function isAdmin(address candidate) internal view returns (bool) {
+    return (candidate == admin || candidate == address(this));
+  }
 
-    function setAdmin(address _admin) public adminOnly
-    {
-      admin = _admin;
-      emit SetAdmin(msg.sender);
-    }
+  function setAdmin(address _admin) public adminOnly {
+    admin = _admin;
+    emit SetAdmin(msg.sender);
+  }
 
-    modifier adminOnly {
-      require(isAdmin(msg.sender), "adminOnly");
-      _;
-    }
+  modifier adminOnly {
+    require(isAdmin(msg.sender), "adminOnly");
+    _;
+  }
 }

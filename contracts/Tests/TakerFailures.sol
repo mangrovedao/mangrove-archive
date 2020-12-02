@@ -74,7 +74,7 @@ contract TokenWithCb is TestToken {
     ret = super.transferFrom(sender, recipient, amount);
     CallableRecipient cr = CallableRecipient(recipient);
     ERC20 that = ERC20(address(this));
-    try cr.received(that, sender, amount)  {} catch {}
+    try cr.received(that, sender, amount) {} catch {}
   }
 }
 
@@ -123,7 +123,7 @@ contract TakerFailures_Test {
 
   function taker_hasnt_approved_B_fails_order_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 0, 0);
-    try tkr.take(ofr, 1 ether)  {
+    try tkr.take(ofr, 1 ether) {
       TestEvents.fail("Taker hasn't approved B, order should fail");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/takerFailToPayMaker", "wrong revert reason");
@@ -133,7 +133,7 @@ contract TakerFailures_Test {
   function taker_has_no_B_fails_order_test() public {
     uint ofr = mkr.newOffer(1.1 ether, 1 ether, 10_000, 0);
     tkr.approve(btk, 1.1 ether);
-    try tkr.take(ofr, 1.1 ether)  {
+    try tkr.take(ofr, 1.1 ether) {
       TestEvents.fail("Taker doesn't have enough B, order should fail");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/takerFailToPayMaker", "wrong revert reason");
@@ -156,7 +156,7 @@ contract TakerFailures_Test {
   }
 
   function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
-    try tkr.marketOrder(2**160, 0)  {
+    try tkr.marketOrder(2**160, 0) {
       TestEvents.fail("TakerWants > 160bits, order should fail");
     } catch Error(string memory r) {
       TestEvents.eq(
@@ -170,7 +170,7 @@ contract TakerFailures_Test {
   function unsafe_gas_left_fails_order_test() public {
     dex.setConfig(DC.ConfigKey.gasbase, 1);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
-    try tkr.take{gas: 40_000}(ofr, 1 ether)  {
+    try tkr.take{gas: 40_000}(ofr, 1 ether) {
       TestEvents.fail("unsafe gas amount, order should fail");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/unsafeGasAmount", "wrong revert reason");
@@ -182,7 +182,7 @@ contract TakerFailures_Test {
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
-    try tkr.take(ofr, 1 ether)  {
+    try tkr.take(ofr, 1 ether) {
       TestEvents.fail("Taker hasn't approved for A, order should fail");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/takerFailToPayDex", "wrong revert reason");
@@ -196,7 +196,7 @@ contract TakerFailures_Test {
     mkr.approve(atk, 1 ether);
     tkr.approve(atk, 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
-    try tkr.take(ofr, 1 ether)  {
+    try tkr.take(ofr, 1 ether) {
       TestEvents.fail("Taker doesn't have enough A, order should fail");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/takerFailToPayDex", "wrong revert reason");
@@ -204,7 +204,7 @@ contract TakerFailures_Test {
   }
 
   function marketOrder_on_empty_book_fails_test() public {
-    try tkr.marketOrder(1 ether, 1 ether)  {
+    try tkr.marketOrder(1 ether, 1 ether) {
       TestEvents.fail("market order on empty book should fail");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
@@ -212,7 +212,7 @@ contract TakerFailures_Test {
   }
 
   function marketOrder_with_bad_offer_id_fails_test() public {
-    try tkr.marketOrderWithFail(1 ether, 1 ether, 0, 43)  {
+    try tkr.marketOrderWithFail(1 ether, 1 ether, 0, 43) {
       TestEvents.fail("market order wit bad offer id should fail");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
@@ -224,7 +224,7 @@ contract TakerFailures_Test {
     mkr.approve(atk, 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
     tkr.take(ofr, 1 ether);
-    try tkr.marketOrderWithFail(0, 0, 0, ofr)  {
+    try tkr.marketOrderWithFail(0, 0, 0, ofr) {
       TestEvents.fail("Offer should have been deleted");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
@@ -248,7 +248,7 @@ contract TakerFailures_Test {
     dex.setConfig(DC.ConfigKey.gasbase, 1);
     uint ofr = mkr.newOffer(10_001, 10_001, 10_000, 0);
     tkr.take(ofr, 2);
-    try tkr.marketOrderWithFail(10_001, 10_001, 0, ofr)  {
+    try tkr.marketOrderWithFail(10_001, 10_001, 0, ofr) {
       TestEvents.fail("Offer should have been deleted");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");
