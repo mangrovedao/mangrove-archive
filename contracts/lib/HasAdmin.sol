@@ -21,7 +21,7 @@ contract HasAdmin {
   }
 
   modifier adminOnly {
-    require(isAdmin(msg.sender), "adminOnly");
+    require(isAdmin(msg.sender), "dex/adminOnly");
     _;
   }
 }
