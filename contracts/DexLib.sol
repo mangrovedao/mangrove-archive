@@ -271,7 +271,6 @@ library DexLib {
       offers[next].prev = uint32(offerId);
     }
 
-    //TODO Check if Solidity optimizer prefers this or offers[i].a = a'; ... ; offers[i].b = b'
     /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 32 bits. */
     offers[offerId] = DC.Offer({
       prev: uint32(prev),

@@ -429,10 +429,11 @@ contract Dex {
   //+clear+
   /* `snipe` takes a single offer from the book, at whatever price is induced by the offer. */
   function snipe(uint offerId, uint takerWants) external returns (bool) {
-    uint[] memory targets = new uint[](2);
+    uint[] memory targets = new uint[](1);
+    uint[] memory wants = new uint[](1);
     targets[0] = offerId;
-    targets[1] = takerWants;
-    uint[] memory failures = internalSnipes(targets, 1);
+    wants[0] = takerWants;
+    uint[] memory failures = internalSnipes(targets, wants, 1);
     return (failures.length == 0);
   }
 
@@ -445,7 +446,7 @@ contract Dex {
     `marketOrder`). Returns an array of size at most
     twice `punishLength` containing info on failed offers. Only existing offers can fail: if an offerId is invalid, it will just be skipped. **You should probably set `punishLength` to 1.**
       */
-  function internalSnipes(uint[] memory targets, uint punishLength)
+  function internalSnipes(uint[] memory targets, uint[] memory wants, uint punishLength)
     public
     returns (uint[] memory)
   {
@@ -458,19 +459,17 @@ contract Dex {
     //+clear+
 
     uint takerGot;
-    uint numTargets = targets.length / 2;
-    uint targetIndex;
     uint numFailures;
     uint[] memory failures = new uint[](punishLength * 2);
     reentrancyLock = 2;
     /* ### Main loop */
     //+clear+
 
-    while (targetIndex < numTargets) {
+    for (uint i = 0; i < targets.length; i++) {
       /* ### In-loop initilization */
       /* At each iteration, we extract the current `offerId` and `takerWants` */
-      uint offerId = targets[2 * targetIndex];
-      uint takerWants = targets[2 * targetIndex + 1];
+      uint offerId = targets[i];
+      uint takerWants = wants[i];
       DC.Offer memory offer = offers[offerId];
       /* If we removed the `isOffer` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. */
       if (DC.isOffer(offer)) {
@@ -506,7 +505,6 @@ contract Dex {
           }
         }
       }
-      targetIndex++;
     }
     /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
     applyFee(takerGot);
