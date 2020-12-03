@@ -19,7 +19,7 @@ import "./Agents/TestMoriartyMaker.sol";
 import "./Agents/MakerDeployer.sol";
 import "./Agents/TestTaker.sol";
 
-contract NotAdmin {
+contract AdminShim {
   Dex dex;
 
   constructor(Dex _dex) {
@@ -73,16 +73,16 @@ contract Gatekeeping_Test {
   }
 
   function admin_can_set_admin_test() public {
-    NotAdmin notAdmin = new NotAdmin(dex);
-    try dex.setAdmin(address(notAdmin)) {
-      try notAdmin.setAdmin(address(this)) {
-        try notAdmin.setGasprice(10000) {
-          TestEvents.fail("notAdmin should no longer have admin rights");
+    AdminShim adminShim = new AdminShim(dex);
+    try dex.setAdmin(address(adminShim)) {
+      try adminShim.setAdmin(address(this)) {
+        try adminShim.setGasprice(10000) {
+          TestEvents.fail("adminShim should no longer have admin rights");
         } catch Error(string memory nolonger_admin) {
           TestEvents.revertEq(nolonger_admin, "dex/adminOnly");
         }
       } catch {
-        TestEvents.fail("notAdmin should have been given admin rights");
+        TestEvents.fail("adminShim should have been given admin rights");
       }
     } catch {
       TestEvents.fail("failed to pass admin rights");
@@ -90,8 +90,8 @@ contract Gatekeeping_Test {
   }
 
   function only_admin_can_set_config_test() public {
-    NotAdmin notAdmin = new NotAdmin(dex);
-    try notAdmin.setFee(0) {
+    AdminShim adminShim = new AdminShim(dex);
+    try adminShim.setFee(0) {
       TestEvents.fail(
         "someone other than admin should not be able to set the configuration"
       );
