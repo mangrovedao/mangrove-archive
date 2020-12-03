@@ -167,7 +167,7 @@ library DexEvents {
   event SetFee(address dex, uint value);
   event SetGasbase(uint value);
   event SetGasmax(uint value);
-  event SetDustPerGasWanted(address dex, uint value);
+  event SetDensity(address dex, uint value);
   event SetGasprice(uint value);
 
   /* * Offer execution */

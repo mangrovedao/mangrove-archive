@@ -44,11 +44,9 @@ contract Sauron is HasAdmin, ISauron {
     Local memory local = locals[dex];
 
     return
-      DC.Config({
-        fee: /* By default, fee is 0, which is fine. */
-        local.fee,
-        density: /* A density of 0 breaks a Dex, and without a call to `density(value)`, density will be 0. So we return a density of 1 by default. */
-        local.density == 0 ? 1 : local.density,
+      DC.Config({ /* By default, fee is 0, which is fine. */
+        fee: local.fee, /* A density of 0 breaks a Dex, and without a call to `density(value)`, density will be 0. So we return a density of 1 by default. */
+        density: local.density == 0 ? 1 : local.density,
         gasprice: global.gasprice,
         gasbase: global.gasbase,
         gasmax: global.gasmax
@@ -77,7 +75,7 @@ contract Sauron is HasAdmin, ISauron {
     require(uint32(value) == value);
     //+clear+
     locals[dex].density = uint32(value);
-    emit DexEvents.SetDustPerGasWanted(dex, value);
+    emit DexEvents.SetDensity(dex, value);
   }
 
   /* ## Globals */
