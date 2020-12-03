@@ -10,78 +10,6 @@ import "./interfaces.sol";
 import {DexCommon as DC, DexEvents} from "./DexCommon.sol";
 
 library DexLib {
-  /* # Configuration access */
-  //+clear+
-  /* Setter functions for configuration, called by `setConfig` which also exists in Dex. Overloaded by the type of the `value` parameter. See `DexCommon.sol` for more on the `config` and `key` parameters. */
-  function setConfig(
-    DC.Config storage config,
-    DC.ConfigKey key,
-    uint value
-  ) external {
-    /* Also, for more details on each parameter, see `DexCommon.sol` as well. For the limits on `uint*` sizes, note that while we do store all the following parameters as `uint`s, they will later be stored or used in calculations that must not over/underflow. */
-    /* ### `fee` */
-    if (key == DC.ConfigKey.fee) {
-      /* `fee` is in basis points, i.e. in percents of a percent. */
-      require(value <= 10000, "dex/config/fee/IsBps"); // at most 14 bits
-      config.fee = value;
-      emit DexEvents.SetFee(value);
-      /* ### `gasbase` */
-    } else if (key == DC.ConfigKey.gasbase) {
-      /* `gasbase > 0` ensures various invariants -- this documentation explains how each time it is relevant */
-      require(value > 0, "dex/config/gasbase/>0");
-      /* Checking the size of `gasbase` is necessary to prevent a) data loss when `gasbase` is copied to an `OfferDetail` struct, and b) overflow when `gasbase` is used in calculations. */
-      require(uint24(value) == value, "dex/config/gasbase/24bits");
-      //+clear+
-      config.gasbase = value;
-      emit DexEvents.SetGasbase(value);
-      /* ### `density` */
-    } else if (key == DC.ConfigKey.density) {
-      /* density > 0 ensures various invariants -- this documentation explains how each time it is relevant */
-      require(value > 0, "dex/config/density/>0");
-      /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
-      require(uint32(value) == value);
-      //+clear+
-      config.density = value;
-      emit DexEvents.SetDustPerGasWanted(value);
-      /* ### `gasprice` */
-    } else if (key == DC.ConfigKey.gasprice) {
-      /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */
-      require(uint48(value) == value, "dex/config/gasprice/48bits");
-      //+clear+
-      config.gasprice = value;
-      emit DexEvents.SetGasprice(value);
-      /* ### `gasmax` */
-    } else if (key == DC.ConfigKey.gasmax) {
-      /* Since any new `gasreq` is bounded above by `config.gasmax`, this check implies that all offers' `gasreq` is 24 bits wide at most. */
-      require(uint24(value) == value, "dex/config/gasmax/24bits");
-      //+clear+
-      config.gasmax = value;
-      emit DexEvents.SetGasmax(value);
-    } else {
-      revert("dex/config/write/noMatch/uint");
-    }
-  }
-
-  function getConfigUint(DC.Config storage config, DC.ConfigKey key)
-    external
-    view
-    returns (uint)
-  {
-    if (key == DC.ConfigKey.fee) {
-      return config.fee;
-    } else if (key == DC.ConfigKey.gasbase) {
-      return config.gasbase;
-    } else if (key == DC.ConfigKey.density) {
-      return config.density;
-    } else if (key == DC.ConfigKey.gasprice) {
-      return config.gasprice;
-    } else if (key == DC.ConfigKey.gasmax) {
-      return config.gasmax;
-    } else {
-      revert("dex/config/read/noMatch/uint");
-    }
-  }
-
   /* # Token transfer */
   //+clear+
   /*
@@ -188,7 +116,7 @@ library DexLib {
   /* <a id="DexLib/definition/newOffer"></a> When a maker posts a new offer, the offer gets automatically inserted at the correct location in the book, starting from a maker-supplied `pivotId` parameter. The extra `storage` parameters are sent to `DexLib` by `Dex` so that it can write to `Dex`'s storage. */
   function newOffer(
     /* `config`, `freeWei`, `offers`, `offerDetails`, `best` and `offerId` are trusted arguments from `Dex`, while */
-    DC.Config storage config,
+    DC.Config memory config,
     mapping(address => uint) storage freeWei,
     mapping(uint => DC.Offer) storage offers,
     mapping(uint => DC.OfferDetail) storage offerDetails,

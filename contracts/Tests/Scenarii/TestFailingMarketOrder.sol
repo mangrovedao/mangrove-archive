@@ -17,7 +17,7 @@ library TestFailingMarketOrder {
       TestEvents.eq(failures[i][0], failedOffer, "Incorrect failed offer Id");
       TestEvents.less(
         failures[i][1],
-        100000 + dex.getConfigUint(DC.ConfigKey.gasbase),
+        100000 + dex.config().gasbase,
         "Incorrect Gas consummed"
       );
       failedOffer++;

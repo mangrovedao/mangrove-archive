@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
+pragma experimental ABIEncoderV2;
 
 import "../../interfaces.sol";
 import "../../Dex.sol";
@@ -75,7 +76,7 @@ contract Maker is IMaker {
     if (msg.sender == admin) {
       address payable dex = selectDex(tk1, tk2);
       dex.transfer(msg.value);
-      uint gasprice = Dex(dex).getConfigUint(DC.ConfigKey.gasprice); //current price per gas spent in offer fails
+      uint gasprice = Dex(dex).config().gasprice; //current price per gas spent in offer fails
       uint available = Dex(dex).balanceOf(address(this)) - (gasprice * execGas); //enabling delegatecall
       require(available >= 0, "Insufficient funds to push offer."); //better fail early
       Dex(dex).newOffer(wants, gives, execGas, position); // discards offerId

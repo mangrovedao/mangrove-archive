@@ -26,8 +26,12 @@ contract NotAdmin {
     dex = _dex;
   }
 
-  function setConfig(DC.ConfigKey key, uint value) public {
-    dex.setConfig(key, value);
+  function setGasprice(uint value) public {
+    dex.deployer().sauron().gasprice(value);
+  }
+
+  function setFee(uint fee) public {
+    dex.deployer().sauron().fee(address(dex), fee);
   }
 
   function setAdmin(address newAdmin) public {
@@ -40,6 +44,7 @@ contract Gatekeeping_Test {
   receive() external payable {}
 
   Dex dex;
+  ISauron sauron;
   TestTaker tkr;
 
   function a_beforeAll() public {
@@ -71,7 +76,7 @@ contract Gatekeeping_Test {
     NotAdmin notAdmin = new NotAdmin(dex);
     try dex.setAdmin(address(notAdmin)) {
       try notAdmin.setAdmin(address(this)) {
-        try notAdmin.setConfig(DC.ConfigKey.gasprice, 10000) {
+        try notAdmin.setGasprice(10000) {
           TestEvents.fail("notAdmin should no longer have admin rights");
         } catch Error(string memory nolonger_admin) {
           TestEvents.revertEq(nolonger_admin, "dex/adminOnly");
@@ -86,7 +91,7 @@ contract Gatekeeping_Test {
 
   function only_admin_can_set_config_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
-    try notAdmin.setConfig(DC.ConfigKey.fee, 0) {
+    try notAdmin.setFee(0) {
       TestEvents.fail(
         "someone other than admin should not be able to set the configuration"
       );

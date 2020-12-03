@@ -133,11 +133,6 @@ They have the following fields: */
     uint gasmax;
   }
 
-  /* Every configuration parameter in the `Config` struct has a counterpart in the `ConfigKey` enum. To get and set the configuration, generic functions (one per type) in `DexLib`
-   accept a `ConfigKey` as first argument, and the setter functions takes a value
-   as second argument. */
-  enum ConfigKey {fee, gasprice, gasbase, density, gasmax}
-
   /* # Misc.
    Finally, some miscellaneous things useful to both `Dex` and `DexLib`:*/
   //+clear+
@@ -169,10 +164,10 @@ library DexEvents {
   event Debit(address maker, uint amount);
 
   /* * Dex reconfiguration */
-  event SetFee(uint value);
+  event SetFee(address dex, uint value);
   event SetGasbase(uint value);
   event SetGasmax(uint value);
-  event SetDustPerGasWanted(uint value);
+  event SetDustPerGasWanted(address dex, uint value);
   event SetGasprice(uint value);
 
   /* * Offer execution */

@@ -40,7 +40,7 @@ library TestInsert {
       maker: makers.getMaker(0), //failer
       wants: 20 ether,
       gives: 10 ether,
-      gasreq: dex.getConfigUint(DC.ConfigKey.gasmax),
+      gasreq: dex.config().gasmax,
       pivotId: 0
     });
     //Display.printOfferBook(dex);

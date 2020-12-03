@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
+pragma experimental ABIEncoderV2;
 import "./Passthrough.sol";
 import "../../interfaces.sol";
 import "../../Dex.sol";
@@ -38,8 +39,8 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     dex.newOffer(wants, gives, gasreq, pivotId);
     dex.newOffer(wants, gives, gasreq, pivotId);
     dex.newOffer(wants, gives, gasreq, pivotId);
-    uint density = dex.getConfigUint(DC.ConfigKey.density);
-    uint gasbase = dex.getConfigUint(DC.ConfigKey.gasbase);
+    uint density = dex.config().density;
+    uint gasbase = dex.config().gasbase;
     dummy = dex.newOffer({
       wants: 1,
       gives: density * (gasbase + 10000),
