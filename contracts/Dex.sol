@@ -280,9 +280,8 @@ contract Dex is HasAdmin {
     /* We pack some data in a memory struct to prevent stack too deep errors. */
     OrderData memory orderData =
       OrderData({
-        config: config(),
-        initialTakerWants: /* Here we convert one of the operands to `uint` so the multiplication is not truncated. */
-        takerWants,
+        config: config(), /* Here we convert one of the operands to `uint` so the multiplication is not truncated. */
+        initialTakerWants: takerWants,
         pastOfferId: offer.prev,
         numFailures: 0
       });
@@ -648,9 +647,9 @@ contract Dex is HasAdmin {
     if (amount > 0) {
       // amount is at most 160 bits wide and fee it at most 14 bits wide.
       uint concreteFee = (amount * fee) / 10000;
-      bool appliedFee =
+      bool success =
         DexLib.transferToken(OFR_TOKEN, msg.sender, admin, concreteFee);
-      require(appliedFee, "dex/takerFailToPayDex");
+      require(success, "dex/takerFailToPayDex");
     }
   }
 
