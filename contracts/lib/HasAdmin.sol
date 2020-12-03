@@ -17,7 +17,7 @@ contract HasAdmin {
 
   function setAdmin(address _admin) public adminOnly {
     admin = _admin;
-    emit SetAdmin(msg.sender);
+    emit SetAdmin(admin);
   }
 
   modifier adminOnly {
