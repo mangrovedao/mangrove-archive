@@ -79,7 +79,7 @@ contract Gatekeeping_Test {
         try adminShim.setGasprice(10000) {
           TestEvents.fail("adminShim should no longer have admin rights");
         } catch Error(string memory nolonger_admin) {
-          TestEvents.revertEq(nolonger_admin, "dex/adminOnly");
+          TestEvents.revertEq(nolonger_admin, "HasAdmin/adminOnly");
         }
       } catch {
         TestEvents.fail("adminShim should have been given admin rights");
@@ -96,7 +96,7 @@ contract Gatekeeping_Test {
         "someone other than admin should not be able to set the configuration"
       );
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/adminOnly");
+      TestEvents.revertEq(r, "HasAdmin/adminOnly");
     }
   }
 
