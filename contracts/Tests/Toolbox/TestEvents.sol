@@ -14,6 +14,7 @@ library TestEvents {
 
   event ExpectFrom(address from);
 
+  /* Usage: from a test contract t, call `expectFrom(a)`. Any subsequent non-special event emitted by t will mean "I expect a to emit the exact same event". The order of expectations must be respected. */
   function expectFrom(address from) internal {
     emit ExpectFrom(from);
   }
