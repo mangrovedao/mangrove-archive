@@ -49,6 +49,13 @@ library TestEvents {
     return success;
   }
 
+  function revertEq(string memory actual_reason, string memory expected_reason)
+    internal
+    returns (bool)
+  {
+    return eq(actual_reason, expected_reason, "wrong revert reason");
+  }
+
   function less(
     uint actual,
     uint expected,
