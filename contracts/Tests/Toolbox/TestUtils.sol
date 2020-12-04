@@ -27,7 +27,7 @@ library TestUtils {
 
   function isEmptyOB(Dex dex) internal view returns (bool) {
     (DC.Offer memory offer, ) = dex.getOfferInfo(dex.getBest(), true);
-    return !DC.isOffer(offer);
+    return !DC.isLive(offer);
   }
 
   function adminOf(Dex dex) internal view returns (address) {

@@ -174,38 +174,47 @@ contract Dex is HasAdmin {
     emit DexEvents.UpdateOffer(wants, gives, gasreq, offerId);
 
     DC.Offer memory offer = offers[offerId];
-    if (DC.isOffer(offer)) {
+    /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *move* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
+    if (DC.isLive(offer)) {
       stitchOffers(offer.prev, offer.next);
     }
 
-    if (gives == 0) {
-      delete offers[offerId];
-      delete offerDetails[offerId];
-      return 0;
-    } else {
-      requireOpenMarket();
-      return
-        DexLib.writeOffer(
-          config(),
-          freeWei,
-          offers,
-          offerDetails,
-          best,
-          offerId,
-          wants,
-          gives,
-          gasreq,
-          pivotId,
-          true
-        );
-    }
+    requireOpenMarket();
+    return
+      DexLib.writeOffer(
+        config(),
+        freeWei,
+        offers,
+        offerDetails,
+        best,
+        offerId,
+        wants,
+        gives,
+        gasreq,
+        pivotId,
+        true
+      );
   }
 
   /* ## Cancel Offer */
   //+clear+
-  /* `cancelOffer` is a simple convenience wrapper around `updateOffer`. */
-  function cancelOffer(uint offerId) external {
-    updateOffer(0, 0, 0, 0, offerId);
+  /* `cancelOffer` with `erase == false` takes the offer out of the book. However, `erase == true` clears out the offer's entry in `offers` and `offerDetails` -- an erased offer cannot be resurrected. */
+  function cancelOffer(uint offerId, bool erase) external {
+    requireNoReentrancyLock();
+    emit DexEvents.CancelOffer(offerId, erase);
+    DC.Offer memory offer = offers[offerId];
+    DC.OfferDetail memory offerDetail = offerDetails[offerId];
+    /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *un-live* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
+    require(msg.sender == offerDetail.maker, "dex/updateOffer/unauthorized");
+    if (DC.isLive(offer)) {
+      stitchOffers(offer.prev, offer.next);
+    }
+    if (erase) {
+      delete offers[offerId];
+      delete offerDetails[offerId];
+    } else {
+      offers[offerId].gives = 0;
+    }
   }
 
   /* ## Provisioning
@@ -304,7 +313,7 @@ contract Dex is HasAdmin {
      * Will maintain an array of pairs `(offerId, gasUsed)` to identify failed offers. Look at [punishment for failing offers](#dex.sol-punishment-for-failing-offers) for more information. Since there are no extensible in-memory arrays, `punishLength` should be an upper bound on the number of failed offers. */
     DC.Offer memory offer = offers[offerId];
     /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. */
-    require(DC.isOffer(offer), "dex/marketOrder/noSuchOffer");
+    require(DC.isLive(offer), "dex/marketOrder/noSuchOffer");
     /* We pack some data in a memory struct to prevent stack too deep errors. */
     OrderData memory orderData =
       OrderData({
@@ -509,8 +518,8 @@ contract Dex is HasAdmin {
       */
       sd.offer = offers[targets[i][0]];
       sd.offerDetail = offerDetails[targets[i][0]];
-      /* If we removed the `isOffer` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. */
-      if (DC.isOffer(sd.offer) && sd.offerDetail.version <= targets[i][1]) {
+      /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. */
+      if (DC.isLive(sd.offer) && sd.offerDetail.version <= targets[i][1]) {
         /* `localTakerWants` bounds the amount requested by the taker by the maximum amount on offer. It also obviates the need to check the size of `takerWants`: while in a market order we must compare the price a taker accepts with the offer price, here we just accept the offer's price. So if `takerWants` does not fit in 96 bits (the size of `offer.gives`), it won't be used in the line below. */
         sd.localTakerWants = sd.offer.gives < targets[i][2]
           ? sd.offer.gives
@@ -903,7 +912,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       uint id = failures[failureIndex][0];
       /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
       DC.Offer memory offer = offers[id];
-      if (DC.isOffer(offer)) {
+      if (DC.isLive(offer)) {
         DC.OfferDetail memory offerDetail = offerDetails[id];
         dirtyDeleteOffer(id);
         stitchOffers(offer.prev, offer.next);
@@ -976,7 +985,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     DC.Offer memory offer = offers[offerId];
     DC.OfferDetail memory offerDetail = offerDetails[offerId];
     return (
-      DC.isOffer(offer),
+      DC.isLive(offer),
       offer.wants,
       offer.gives,
       offer.next,

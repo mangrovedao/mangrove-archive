@@ -143,7 +143,8 @@ They have the following fields: */
   }
 
   /* The Dex holds a `uint => Offer` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an uninitialized struct. A common way to check for initialization is to add an `exists` field to the struct. In our case, an invariant of the Dex is: on an existing offer, `offer.gives > 0`. So we just check the `gives` field. */
-  function isOffer(Offer memory offer) internal pure returns (bool) {
+  /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). */
+  function isLive(Offer memory offer) internal pure returns (bool) {
     return offer.gives > 0;
   }
 }
@@ -178,8 +179,11 @@ library DexEvents {
   /* * Dex closure */
   event CloseMarket();
 
-  /* * An offer was updated into book. Creation if offerId is new, deletion if gives = 0. */
+  /* * An offer was created/updated into book. Creation if offerId is new. */
   event UpdateOffer(uint wants, uint gives, uint gasreq, uint offerId);
+
+  /* * An offer was canceled (and possibly erase). */
+  event CancelOffer(uint offerId, bool erase);
 
   /* * `offerId` is removed from book. */
   event DeleteOffer(uint offerId);

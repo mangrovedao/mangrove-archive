@@ -212,6 +212,6 @@ contract Gatekeeping_Test {
   function cancelOffer_on_closed_ok_test() public {
     uint ofr = dex.newOffer(1 ether, 1 ether, 0, 0);
     dex.closeMarket();
-    dex.cancelOffer(ofr);
+    dex.cancelOffer(ofr, false);
   }
 }

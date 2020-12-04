@@ -137,7 +137,7 @@ library DexLib {
     //+clear+
     /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `maxPenalty` (see below). */
     require(gasreq <= config.gasmax, "dex/writeOffer/gasreq/tooHigh");
-    /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isOffer` method sound. */
+    /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isLive` method sound. */
     require(
       gives >= (gasreq + config.gasbase * 1000) * config.density,
       "dex/writeOffer/gives/tooLow"
@@ -226,7 +226,7 @@ library DexLib {
   ) internal view returns (uint, uint) {
     DC.Offer memory pivot = offers[pivotId];
 
-    if (!DC.isOffer(pivot)) {
+    if (!DC.isLive(pivot)) {
       // in case pivotId is not or no longer a valid offer
       pivot = offers[bestValue];
       pivotId = bestValue;
