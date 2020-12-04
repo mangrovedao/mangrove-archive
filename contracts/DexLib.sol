@@ -198,7 +198,7 @@ library DexLib {
       offers[next].prev = uint32(offerId);
     }
 
-    /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 32 bits. */
+    /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 32 bits (if there is an update, `offerDetails[offerId]` must be owned by `msg.sender`, os `offerId` has the right width). */
     offers[offerId] = DC.Offer({
       prev: uint32(prev),
       next: uint32(next),
