@@ -174,9 +174,8 @@ contract Dex is HasAdmin {
     emit DexEvents.UpdateOffer(wants, gives, gasreq, offerId);
 
     DC.Offer memory offer = offers[offerId];
-    stitchOffers(offer.prev, offer.next);
-    if (!DC.isOffer(offer)) {
-      return 0; //no effect on offers absent from the offer book
+    if (DC.isOffer(offer)) {
+      stitchOffers(offer.prev, offer.next);
     }
 
     if (gives == 0) {
