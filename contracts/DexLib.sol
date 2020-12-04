@@ -161,13 +161,16 @@ library DexLib {
         pivotId
       );
 
-    /* Then we place the offer in the book at the position found by `findPosition`. */
+    /* Then we place the offer in the book at the position found by `findPosition`.
+
+       If the offer is not the best one, we update its predecessor; otherwise we update the `best` value. */
     if (prev != 0) {
       offers[prev].next = uint32(offerId);
     } else {
       best.value = uint32(offerId);
     }
 
+    /* If the offer is not the last one, we update its successor. */
     if (next != 0) {
       offers[next].prev = uint32(offerId);
     }
