@@ -138,13 +138,7 @@ contract Gatekeeping_Test {
 
   function cancelOffer_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(1 ether, 1 ether, 30_000, 0);
-    reentrancer = abi.encodeWithSelector(
-      Dex.cancelOffer.selector,
-      1 ether,
-      1 ether,
-      30_000,
-      0
-    );
+    reentrancer = abi.encodeWithSelector(Dex.cancelOffer.selector, ofr);
     tkr.take(ofr, 1 ether);
   }
 
