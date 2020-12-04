@@ -30,7 +30,7 @@ import "./Scenarii/TestMarketOrder.sol";
 // Otherwise bytecode can be too large. See EIP 170 for more on size limit:
 // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
 
-contract Scenarii_test {
+contract Scenarii_Test {
   Dex dex;
   TestTaker taker;
   MakerDeployer makers;

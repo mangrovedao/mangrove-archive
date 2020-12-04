@@ -31,9 +31,9 @@ library TestInsert {
     });
     offerOf[3] = TestUtils.newOfferWithGas({
       maker: makers.getMaker(3),
-      wants: 0.5 ether,
-      gives: 1 ether,
-      gasreq: 9000,
+      wants: 1 ether,
+      gives: 0.8 ether,
+      gasreq: 7999, // should beat offer 2 thx to low gas
       pivotId: 72
     });
     offerOf[0] = TestUtils.newOfferWithGas({
@@ -55,7 +55,7 @@ library TestInsert {
         Display.append("Incorrect wei balance for maker ", Display.uint2str(i))
       );
     }
-    console.log("Provision OK");
+    Display.logOfferBook(dex, 5);
     //Checking offers are correctly positioned (3 > 2 > 1 > 0)
     uint offerId = dex.best();
     uint expected_maker = 3;

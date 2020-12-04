@@ -74,21 +74,31 @@ module.exports = {
           wants: formatArg(log.args.wants[i]),
           gives: formatArg(log.args.gives[i]),
           maker: formatArg(log.args.makerAddr[i], "address"),
+          gas: formatArg(log.args.gasreq[i]),
         };
       });
 
-      const lineA = ({ id, wants, gives, maker }) => {
+      const lineA = ({ id, wants, gives, maker, gas }) => {
         const p = (s, n) =>
           (s.length > n ? s.slice(0, n - 1) + "…" : s).padEnd(n);
-        return ` ${p(id, 3)}: ${p(wants, 15)}${p(gives, 15)}${p(maker, 15)}`;
+        return ` ${p(id, 3)}: ${p(wants, 15)}${p(gives, 15)}${p(gas, 15)}${p(
+          maker,
+          15
+        )}`;
       };
       //const lineB = ({gas,gasprice});
 
       console.log(
         " " +
-          lineA({ id: "id", wants: "wants", gives: "gives", maker: "maker" })
+          lineA({
+            id: "id",
+            wants: "wants",
+            gives: "gives",
+            gas: "gasreq",
+            maker: "maker",
+          })
       );
-      lineLength = 1 + 3 + 2 + 15 + 15 + 15;
+      lineLength = 1 + 3 + 2 + 15 + 15 + 15 + 15;
       console.log("├" + "─".repeat(lineLength - 1) + "┤");
       ob.forEach((o) => console.log(lineA(o)));
       console.log("└" + "─".repeat(lineLength - 1) + "┘");

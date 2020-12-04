@@ -97,6 +97,7 @@ library TestFailingMarketOrder {
         )
       );
     }
+    Display.logOfferBook(dex, 5);
     TestEvents.eq(
       address(tkr).balance, //actual
       tkrBalance + 4 * TestUtils.getProvision(dex, 100000),
