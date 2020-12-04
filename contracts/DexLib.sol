@@ -135,7 +135,7 @@ library DexLib {
   ) external returns (uint) {
     /* The following checks are first performed: */
     //+clear+
-    /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `maxPenalty` (see below). */
+    /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `provision` (see below). */
     require(gasreq <= config.gasmax, "dex/writeOffer/gasreq/tooHigh");
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isLive` method sound. */
     require(
@@ -143,7 +143,8 @@ library DexLib {
       "dex/writeOffer/gives/tooLow"
     );
 
-    uint oldPenalty;
+    /* First, we write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `freeWei`. Since the offer version must be updated anyway, there is no way to save a SSTORE by checking if any other value has changed. */
+    uint oldProvision;
     {
       DC.OfferDetail memory offerDetail = offerDetails[offerId];
       if (update) {
@@ -155,7 +156,7 @@ library DexLib {
           offerDetail.version + 1 > offerDetail.version,
           "dex/updateOffer/versionOverflow"
         );
-        oldPenalty =
+        oldProvision =
           offerDetail.gasprice *
           (uint(offerDetail.gasreq) + offerDetail.gasbase * 1000);
       }
@@ -172,11 +173,11 @@ library DexLib {
     /* With every change to an offer, a maker must deduct provisions from its `freeWei` balance, or get some back if the updated offer requires fewer provisions. */
 
     {
-      uint maxPenalty = (gasreq + config.gasbase * 1000) * config.gasprice;
-      if (maxPenalty > oldPenalty) {
-        debitWei(freeWei, msg.sender, maxPenalty - oldPenalty);
-      } else if (maxPenalty < oldPenalty) {
-        creditWei(freeWei, msg.sender, oldPenalty - maxPenalty);
+      uint provision = (gasreq + config.gasbase * 1000) * config.gasprice;
+      if (provision > oldProvision) {
+        debitWei(freeWei, msg.sender, provision - oldProvision);
+      } else if (provision < oldProvision) {
+        creditWei(freeWei, msg.sender, oldProvision - provision);
       }
     }
 
