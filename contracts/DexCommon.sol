@@ -118,9 +118,6 @@ They have the following fields: */
    All configuration information of the Dex is in a `Config` struct. Configuration fields are:
 */
   struct Config {
-    /* * The `admin`, allowed to change anything in the configuration and irreversibly
-     close the market. It has no other powers. */
-    address admin;
     /* * `fee`, in basis points, of `OFR_TOKEN` given to the taker. This fee is sent to the Dex. */
     uint fee;
     /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
@@ -135,11 +132,6 @@ They have the following fields: */
   */
     uint gasmax;
   }
-
-  /* Every configuration parameter in the `Config` struct has a counterpart in the `ConfigKey` enum. To get and set the configuration, generic functions (one per type) in `DexLib`
-   accept a `ConfigKey` as first argument, and the setter functions takes a value
-   as second argument. */
-  enum ConfigKey {admin, fee, gasprice, gasbase, density, gasmax}
 
   /* # Misc.
    Finally, some miscellaneous things useful to both `Dex` and `DexLib`:*/
@@ -172,12 +164,11 @@ library DexEvents {
   event Debit(address maker, uint amount);
 
   /* * Dex reconfiguration */
-  event SetFee(uint value);
+  event SetFee(address dex, uint value);
   event SetGasbase(uint value);
   event SetGasmax(uint value);
-  event SetDustPerGasWanted(uint value);
+  event SetDensity(address dex, uint value);
   event SetGasprice(uint value);
-  event SetAdmin(address addr);
 
   /* * Offer execution */
   event Success(uint offerId, uint takerWants, uint takerGives);

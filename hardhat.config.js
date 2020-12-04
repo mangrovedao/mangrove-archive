@@ -1,6 +1,6 @@
 //usePlugin("@nomiclabs/buidler-truffle5");
-require("@nomiclabs/hardhat-ethers");
 require("hardhat-deploy");
+require("hardhat-deploy-ethers");
 const test_solidity = require("./lib/test_solidity.js");
 
 // Special task for running Solidity tests
@@ -35,7 +35,7 @@ task(
 module.exports = {
   defaultNetwork: "hardhat",
   networks: {
-    hardhat: {blockGasLimit: 7000000000},
+    hardhat: { blockGasLimit: 7000000000 },
     localhost: {
       url: "http://127.0.0.1:8545",
     },
@@ -45,9 +45,9 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: false,
-        runs: 200,
+        runs: 20000,
       },
-    }
+    },
   },
   paths: {
     sources: "./contracts",
@@ -78,19 +78,29 @@ module.exports = {
         };
       });
 
-      const lineA = ({id, wants, gives, maker, gas}) => {
+      const lineA = ({ id, wants, gives, maker, gas }) => {
         const p = (s, n) =>
           (s.length > n ? s.slice(0, n - 1) + "…" : s).padEnd(n);
-        return ` ${p(id, 3)}: ${p(wants, 15)}${p(gives, 15)}${p(gas, 15)}${p(maker, 15)}`;
+        return ` ${p(id, 3)}: ${p(wants, 15)}${p(gives, 15)}${p(gas, 15)}${p(
+          maker,
+          15
+        )}`;
       };
       //const lineB = ({gas,gasprice});
 
       console.log(
-        " " + lineA({id: "id", wants: "wants", gives: "gives", gas: "gasreq", maker: "maker"})
+        " " +
+          lineA({
+            id: "id",
+            wants: "wants",
+            gives: "gives",
+            gas: "gasreq",
+            maker: "maker",
+          })
       );
       lineLength = 1 + 3 + 2 + 15 + 15 + 15 + 15;
       console.log("├" + "─".repeat(lineLength - 1) + "┤");
-      ob.forEach(o => console.log(lineA(o)));
+      ob.forEach((o) => console.log(lineA(o)));
       console.log("└" + "─".repeat(lineLength - 1) + "┘");
     },
     LogString: (log) => {

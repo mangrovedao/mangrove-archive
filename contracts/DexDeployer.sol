@@ -2,42 +2,33 @@
 pragma solidity ^0.7.0;
 
 import "./Dex.sol";
+import "./interfaces.sol";
+import "./lib/HasAdmin.sol";
 
-contract DexDeployer {
-  address public admin;
+contract DexDeployer is HasAdmin, IDeployer {
   mapping(address => mapping(address => address)) public dexes;
   mapping(address => mapping(address => address)) public invertedDexes;
+  /* Configuration contract is called "Sauron". It is upgradeable. */
+  ISauron public override sauron;
 
-  constructor(address _admin) {
-    admin = _admin;
-  }
-
-  function requireAdmin() internal view {
-    require(msg.sender == admin, "DexDeployer/adminOnly");
+  constructor(ISauron _sauron) HasAdmin() {
+    setSauron(_sauron);
   }
 
   function deploy(
-    uint density,
-    uint gasprice,
-    uint gasbase,
-    uint gasmax,
     address ofrToken,
     address reqToken,
     bool takerLends
-  ) external returns (Dex) {
-    requireAdmin();
-
+  ) external adminOnly returns (Dex) {
+    /* When a new dex is deployed, its `density` is 1 by default and its `fee` is 0 (see `Sauron.sol`). Other parameters are global. */
     Dex dex =
       new Dex({
-        _admin: admin,
-        _density: density,
-        _gasprice: gasprice,
-        _gasbase: gasbase,
-        _gasmax: gasmax,
         _OFR_TOKEN: ofrToken,
         _REQ_TOKEN: reqToken,
         takerLends: takerLends
       });
+
+    dex.setAdmin(admin);
 
     mapping(address => mapping(address => address)) storage map =
       takerLends ? dexes : invertedDexes;
@@ -51,8 +42,7 @@ contract DexDeployer {
     return dex;
   }
 
-  function updateAdmin(address _admin) external {
-    requireAdmin();
-    admin = _admin;
+  function setSauron(ISauron _sauron) public adminOnly {
+    sauron = _sauron;
   }
 }

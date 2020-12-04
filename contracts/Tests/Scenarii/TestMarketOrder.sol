@@ -37,7 +37,6 @@ library TestMarketOrder {
       takerWants -
         (offers[2][TestUtils.Info.makerGives] +
           offers[3][TestUtils.Info.makerGives]);
-
     uint leftMkrWants =
       (offers[1][TestUtils.Info.makerWants] * leftTkrWants) /
         offers[1][TestUtils.Info.makerGives];

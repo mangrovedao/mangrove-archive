@@ -95,7 +95,7 @@ contract Scenarii_Test {
     dex = DexSetup.setup(aToken, bToken);
     Display.register(address(dex), "dex");
     TestEvents.not0x(address(dex));
-    dex.setConfig(DC.ConfigKey.fee, 300);
+    dex.deployer().sauron().fee(address(dex), 300);
   }
 
   function c_deployMakersTaker_beforeAll() public {
@@ -132,7 +132,7 @@ contract Scenarii_Test {
   }
 
   function zeroDust_test() public {
-    try dex.setConfig(DC.ConfigKey.density, 0) {
+    try dex.deployer().sauron().density(address(dex), 0) {
       TestEvents.fail("zero density should revert");
     } catch Error(
       string memory /*reason*/

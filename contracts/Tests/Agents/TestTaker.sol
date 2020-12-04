@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 
 pragma solidity ^0.7.0;
+pragma experimental ABIEncoderV2;
 import "../../interfaces.sol";
 import "../../Dex.sol";
 
@@ -36,11 +37,11 @@ contract TestTaker is ITaker {
     uint gives,
     uint punishLength,
     uint offerId
-  ) external returns (uint[] memory failures) {
+  ) external returns (uint[2][] memory) {
     return (dex.marketOrder(wants, gives, punishLength, offerId));
   }
 
-  function snipesAndRevert(uint[] calldata targets, uint punishLength)
+  function snipesAndRevert(uint[2][] calldata targets, uint punishLength)
     external
   {
     dex.punishingSnipes(targets, punishLength);
