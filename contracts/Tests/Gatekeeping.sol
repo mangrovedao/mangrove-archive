@@ -19,15 +19,23 @@ import "./Agents/TestMoriartyMaker.sol";
 import "./Agents/MakerDeployer.sol";
 import "./Agents/TestTaker.sol";
 
-contract NotAdmin {
+contract AdminShim {
   Dex dex;
 
   constructor(Dex _dex) {
     dex = _dex;
   }
 
-  function setConfig(DC.ConfigKey key, uint value) public {
-    dex.setConfig(key, value);
+  function setGasprice(uint value) public {
+    dex.deployer().sauron().gasprice(value);
+  }
+
+  function setFee(uint fee) public {
+    dex.deployer().sauron().fee(address(dex), fee);
+  }
+
+  function setAdmin(address newAdmin) public {
+    dex.setAdmin(newAdmin);
   }
 }
 
@@ -36,6 +44,7 @@ contract Gatekeeping_Test {
   receive() external payable {}
 
   Dex dex;
+  ISauron sauron;
   TestTaker tkr;
 
   function a_beforeAll() public {
@@ -63,14 +72,31 @@ contract Gatekeeping_Test {
     Display.register(address(tkr), "taker");
   }
 
+  function admin_can_set_admin_test() public {
+    AdminShim adminShim = new AdminShim(dex);
+    try dex.setAdmin(address(adminShim)) {
+      try adminShim.setAdmin(address(this)) {
+        try adminShim.setGasprice(10000) {
+          TestEvents.fail("adminShim should no longer have admin rights");
+        } catch Error(string memory nolonger_admin) {
+          TestEvents.revertEq(nolonger_admin, "HasAdmin/adminOnly");
+        }
+      } catch {
+        TestEvents.fail("adminShim should have been given admin rights");
+      }
+    } catch {
+      TestEvents.fail("failed to pass admin rights");
+    }
+  }
+
   function only_admin_can_set_config_test() public {
-    NotAdmin notAdmin = new NotAdmin(dex);
-    try notAdmin.setConfig(DC.ConfigKey.fee, 0) {
+    AdminShim adminShim = new AdminShim(dex);
+    try adminShim.setFee(0) {
       TestEvents.fail(
         "someone other than admin should not be able to set the configuration"
       );
     } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/adminOnly", "wrong revert reason");
+      TestEvents.revertEq(r, "HasAdmin/adminOnly");
     }
   }
 
@@ -89,7 +115,7 @@ contract Gatekeeping_Test {
       TestEvents.fail("should fail on reentrancy lock");
     } else {
       string memory r = string(retdata);
-      TestEvents.eq(r, "dex/reentrancyLocked", "wrong revert reason");
+      TestEvents.revertEq(r, "dex/reentrancyLocked");
     }
   }
 
@@ -143,7 +169,7 @@ contract Gatekeeping_Test {
     try dex.newOffer(1 ether, 1 ether, 0, 0) {
       TestEvents.fail("newOffer should fail on closed market");
     } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/closed", "wrong revert reason");
+      TestEvents.revertEq(r, "dex/closed");
     }
   }
 
@@ -156,7 +182,7 @@ contract Gatekeeping_Test {
       TestEvents.fail("receive() should fail on closed market");
     } else {
       string memory r = string(retdata);
-      TestEvents.eq(r, "dex/closed", "wrong revert reason");
+      TestEvents.revertEq(r, "dex/closed");
     }
   }
 
@@ -165,7 +191,7 @@ contract Gatekeeping_Test {
     try tkr.marketOrder(1 ether, 1 ether) {
       TestEvents.fail("marketOrder should fail on closed market");
     } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/closed", "wrong revert reason");
+      TestEvents.revertEq(r, "dex/closed");
     }
   }
 
@@ -174,7 +200,7 @@ contract Gatekeeping_Test {
     try tkr.take(0, 1 ether) {
       TestEvents.fail("snipe should fail on closed market");
     } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/closed", "wrong revert reason");
+      TestEvents.revertEq(r, "dex/closed");
     }
   }
 

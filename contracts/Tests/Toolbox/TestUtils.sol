@@ -2,6 +2,7 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 import "../../DexDeployer.sol";
+import "../../Sauron.sol";
 
 import "../Agents/TestTaker.sol";
 import "../Agents/MakerDeployer.sol";
@@ -34,12 +35,12 @@ library TestUtils {
   }
 
   function getFee(Dex dex, uint price) internal view returns (uint) {
-    return ((price * dex.getConfigUint(DC.ConfigKey.fee)) / 10000);
+    return ((price * dex.config().fee) / 10000);
   }
 
   function getProvision(Dex dex, uint gasreq) internal view returns (uint) {
-    return ((gasreq + dex.getConfigUint(DC.ConfigKey.gasbase)) *
-      dex.getConfigUint(DC.ConfigKey.gasprice));
+    DC.Config memory config = dex.config();
+    return ((gasreq + config.gasbase) * config.gasprice);
   }
 
   function getOfferInfo(
@@ -173,6 +174,23 @@ library TokenSetup {
   }
 }
 
+library SauronSetup {
+  function setup(
+    uint gasprice,
+    uint gasbase,
+    uint gasmax
+  ) external returns (ISauron) {
+    return
+      new Sauron({_gasprice: gasprice, _gasbase: gasbase, _gasmax: gasmax});
+  }
+}
+
+library DexDeployerSetup {
+  function setup(ISauron sauron) external returns (DexDeployer) {
+    return new DexDeployer(sauron);
+  }
+}
+
 library DexSetup {
   function setup(TestToken aToken, TestToken bToken)
     external
@@ -180,18 +198,24 @@ library DexSetup {
   {
     TestEvents.not0x(address(aToken));
     TestEvents.not0x(address(bToken));
-    DexDeployer deployer = new DexDeployer();
+    ISauron sauron =
+      SauronSetup.setup({
+        gasprice: 40 * 10**9,
+        gasbase: 30_000,
+        gasmax: 1_000_000
+      });
 
-    deployer.deploy({
-      density: 100,
-      gasprice: 40 * 10**9,
-      gasbase: 30000,
-      gasmax: 1000000,
+    DexDeployer deployer = DexDeployerSetup.setup(sauron);
+
+    dex = deployer.deploy({
       ofrToken: address(aToken),
       reqToken: address(bToken),
       takerLends: true
     });
-    return Dex(payable(deployer.dexes(address(aToken), address(bToken))));
+
+    sauron.density(address(dex), 100);
+
+    return dex;
   }
 }
 

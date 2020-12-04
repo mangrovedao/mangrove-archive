@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
+pragma experimental ABIEncoderV2;
+import {DexCommon as DC} from "./DexCommon.sol";
 
 interface IMaker {
   function execute(
@@ -8,6 +10,26 @@ interface IMaker {
     uint offerGasprice,
     uint offerId
   ) external;
+}
+
+/* We declare a specific ISauron interface because it is upgradeable, so there may be multiple Sauron implementations. */
+interface ISauron {
+  function config(address dex) external view returns (DC.Config memory);
+
+  function fee(address dex, uint value) external;
+
+  function density(address dex, uint value) external;
+
+  function gasprice(uint value) external;
+
+  function gasbase(uint value) external;
+
+  function gasmax(uint value) external;
+}
+
+/* We declare a specific IDeployer interface because Deployer already depends on Dex and we can't have circular dependencies. */
+interface IDeployer {
+  function sauron() external view returns (ISauron);
 }
 
 interface ITaker {

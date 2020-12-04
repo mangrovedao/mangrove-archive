@@ -92,6 +92,7 @@ contract TakerFailures_Test {
   TestToken atk;
   TestToken btk;
   Dex dex;
+  ISauron sauron;
   BlackholeTaker tkr;
   TestMaker mkr;
 
@@ -101,6 +102,7 @@ contract TakerFailures_Test {
     atk = TokenWithCbSetup.setup(address(this), "A", "$A");
     btk = TokenSetup.setup("B", "$B");
     dex = DexSetup.setup(atk, btk);
+    sauron = dex.deployer().sauron();
     tkr = BlackholeTakerSetup.setup(dex);
     mkr = MakerSetup.setup(dex, false);
 
@@ -168,7 +170,7 @@ contract TakerFailures_Test {
   }
 
   function unsafe_gas_left_fails_order_test() public {
-    dex.setConfig(DC.ConfigKey.gasbase, 1);
+    sauron.gasbase(1);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
     try tkr.take{gas: 40_000}(ofr, 1 ether) {
       TestEvents.fail("unsafe gas amount, order should fail");
@@ -178,7 +180,7 @@ contract TakerFailures_Test {
   }
 
   function taker_hasnt_approved_A_fails_order_test() public {
-    dex.setConfig(DC.ConfigKey.fee, 300);
+    sauron.fee(address(dex), 300);
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
@@ -191,7 +193,7 @@ contract TakerFailures_Test {
 
   function taker_has_no_A_fails_order_test() public {
     tkr.setEnabled(true);
-    dex.setConfig(DC.ConfigKey.fee, 300);
+    sauron.fee(address(dex), 300);
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 1 ether);
     tkr.approve(atk, 1 ether);
@@ -234,8 +236,8 @@ contract TakerFailures_Test {
   function small_partial_fill_can_be_retaken_test() public {
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 1 ether);
-    dex.setConfig(DC.ConfigKey.density, 1);
-    dex.setConfig(DC.ConfigKey.gasbase, 1);
+    sauron.density(address(dex), 1);
+    sauron.gasbase(1);
     uint ofr = mkr.newOffer(10_002, 10_002, 10_000, 0);
     tkr.take(ofr, 1);
     tkr.marketOrderWithFail(10_001, 10_001, 0, ofr);
@@ -244,8 +246,8 @@ contract TakerFailures_Test {
   function big_partial_fill_cant_be_retaken_test() public {
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 1 ether);
-    dex.setConfig(DC.ConfigKey.density, 1);
-    dex.setConfig(DC.ConfigKey.gasbase, 1);
+    sauron.density(address(dex), 1);
+    sauron.gasbase(1);
     uint ofr = mkr.newOffer(10_001, 10_001, 10_000, 0);
     tkr.take(ofr, 2);
     try tkr.marketOrderWithFail(10_001, 10_001, 0, ofr) {
