@@ -142,10 +142,6 @@ library DexLib {
       gives >= (gasreq + config.gasbase * 1000) * config.density,
       "dex/writeOffer/gives/tooLow"
     );
-    /* * Unnecessary for safety: check width of `wants`, `gives` and `pivotId`. They will be truncated anyway, but if they are too wide, we assume the maker has made a mistake and revert. */
-    require(uint96(wants) == wants, "dex/writeOffer/wants/96bits");
-    require(uint96(gives) == gives, "dex/writeOffer/gives/96bits");
-    require(uint32(pivotId) == pivotId, "dex/writeOffer/pivotId/32bits");
 
     uint oldPenalty;
     {
