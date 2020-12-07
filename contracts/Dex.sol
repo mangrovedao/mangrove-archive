@@ -178,7 +178,6 @@ contract Dex is HasAdmin {
       offerDetail.gasprice *
       (uint(offerDetail.gasreq) + offerDetail.gasbase);
     DexLib.creditWei(freeWei, msg.sender, provision);
-    emit DexEvents.CancelOffer(offerId);
   }
 
   /* ## Provisioning
@@ -689,7 +688,6 @@ contract Dex is HasAdmin {
 
     if (!success) {
       uint amount = offerDetail.gasprice * (offerDetail.gasbase + gasDeducted);
-      emit DexEvents.Transfer(msg.sender, amount);
       bool noRevert;
       (noRevert, ) = msg.sender.call{gas: 0, value: amount}("");
     }

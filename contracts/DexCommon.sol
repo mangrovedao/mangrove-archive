@@ -155,10 +155,6 @@ library DexEvents {
 
   event TestEvent(uint);
 
-  /* * Dex receives/sends amount to receiver/sender */
-  event Receive(address sender, uint amount);
-  event Transfer(address payable receiver, uint amout);
-
   /* * Dex adds or removes wei from `maker`'s account */
   event Credit(address maker, uint amount);
   event Debit(address maker, uint amount);
@@ -177,8 +173,6 @@ library DexEvents {
   /* * Dex closure */
   event CloseMarket();
 
-  /* * `offerId` was successfully cancelled.
-     No event is emitted if `offerId` is absent from book. */
   event CancelOffer(uint offerId);
 
   /* * A new offer was inserted into book.
@@ -191,6 +185,6 @@ library DexEvents {
     uint offerId
   );
 
-  /* * `offerId` is removed from book. */
+  /* * `offerId` is was present and now removed from the book. */
   event DeleteOffer(uint offerId);
 }
