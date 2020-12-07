@@ -73,6 +73,11 @@ contract MakerOperations_Test {
       dex_bal + amt1 + amt2,
       "incorrect dex ETH balance (2)"
     );
+
+    /////// Testing log
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.Credit(address(mkr), amt1);
+    emit DexEvents.Credit(address(mkr), amt2);
   }
 
   function withdraw_removes_freeWei_and_ethers_test() public {
@@ -89,6 +94,10 @@ contract MakerOperations_Test {
       dex_bal + amt1 - amt2,
       "incorrect dex ETH balance"
     );
+    /////// Testing log
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.Credit(address(mkr), amt1);
+    emit DexEvents.Debit(address(mkr), amt2);
   }
 
   function withdraw_too_much_fails_test() public {
@@ -114,11 +123,22 @@ contract MakerOperations_Test {
   }
 
   function cancel_restores_balance_test() public {
+    uint provision = TestUtils.getProvision(dex, 2300);
+
     mkr.provisionDex(1 ether);
     uint bal = mkr.freeWei();
-    mkr.cancelOffer(mkr.newOffer(1 ether, 1 ether, 2300, 0));
+    uint offerId = mkr.newOffer(1 ether, 1 ether, 2300, 0);
+    mkr.cancelOffer(offerId);
 
     TestEvents.eq(mkr.freeWei(), bal, "cancel has not restored balance");
+
+    /////// Testing log
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.Credit(address(mkr), 1 ether);
+    emit DexEvents.Debit(address(mkr), provision);
+    emit DexEvents.NewOffer(address(mkr), 1 ether, 1 ether, 2300, 1);
+    emit DexEvents.DeleteOffer(offerId);
+    emit DexEvents.Credit(address(mkr), provision);
   }
 
   function cancel_wrong_offer_fails_test() public {

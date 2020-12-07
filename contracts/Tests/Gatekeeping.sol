@@ -40,7 +40,7 @@ contract AdminShim {
 }
 
 // In these tests, the testing contract is the market maker.
-contract Gatekeeping_Test {
+contract Gatekeeping_Test is HasAdmin {
   receive() external payable {}
 
   Dex dex;
@@ -51,6 +51,7 @@ contract Gatekeeping_Test {
     TestToken atk = TokenSetup.setup("A", "$A");
     TestToken btk = TokenSetup.setup("B", "$B");
     dex = DexSetup.setup(atk, btk);
+    sauron = dex.deployer().sauron();
     tkr = TakerSetup.setup(dex);
 
     address(tkr).transfer(10 ether);
@@ -66,6 +67,7 @@ contract Gatekeeping_Test {
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "Gatekeeping_Test/maker");
+    Display.register(address(sauron), "Dex controller");
     Display.register(address(atk), "$A");
     Display.register(address(btk), "$B");
     Display.register(address(dex), "dex");
@@ -89,6 +91,21 @@ contract Gatekeeping_Test {
     }
   }
 
+  function controller_log_correct_test() public {
+    sauron.density(address(dex), 1);
+    sauron.fee(address(dex), 2);
+    sauron.gasprice(3);
+    sauron.gasbase(4);
+    sauron.gasmax(5);
+    //// Test log
+    TestEvents.expectFrom(address(sauron));
+    emit DexEvents.SetDensity(address(dex), 1);
+    emit DexEvents.SetFee(address(dex), 2);
+    emit DexEvents.SetGasprice(3);
+    emit DexEvents.SetGasbase(4);
+    emit DexEvents.SetGasmax(5);
+  }
+
   function only_admin_can_set_config_test() public {
     AdminShim adminShim = new AdminShim(dex);
     try adminShim.setFee(0) {
@@ -98,6 +115,19 @@ contract Gatekeeping_Test {
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "HasAdmin/adminOnly");
     }
+  }
+
+  function set_admin_and_config_are_logged_test() public {
+    AdminShim notAdmin = new AdminShim(dex);
+    Display.register(address(notAdmin), "test contract");
+
+    dex.setAdmin(address(notAdmin));
+    sauron.gasprice(1000);
+
+    TestEvents.expectFrom(address(dex));
+    emit SetAdmin(address(notAdmin));
+    TestEvents.expectFrom(address(sauron));
+    emit DexEvents.SetGasprice(1000);
   }
 
   bytes reentrancer;
