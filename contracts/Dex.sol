@@ -170,6 +170,7 @@ contract Dex is HasAdmin {
     uint pivotId,
     uint offerId
   ) public returns (uint) {
+    requireOpenMarket();
     requireNoReentrancyLock();
     emit DexEvents.UpdateOffer(wants, gives, gasreq, offerId);
 
@@ -179,7 +180,6 @@ contract Dex is HasAdmin {
       stitchOffers(offer.prev, offer.next);
     }
 
-    requireOpenMarket();
     return
       DexLib.writeOffer(
         config(),
