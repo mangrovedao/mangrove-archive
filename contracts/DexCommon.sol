@@ -3,17 +3,20 @@
 pragma solidity ^0.7.0;
 
 /* # Dex Summary
-   * Each contract is half an offerbook for two ERC20 tokens.
-   * Each maker's offer promises `OFR_TOKEN` and requests `REQ_TOKEN`.
-   * Executing an offer means:
-     1. Flashloaning some `REQ_TOKEN` to a contract.
-     2. Calling arbitrary code on that contract.
+   * Each Dex instance is half an offerbook for two ERC20 tokens.
+   * Each offer promises `OFR_TOKEN` and requests `REQ_TOKEN`.
+   * Each offer has an attached `maker` address.
+   * When an offer is executed, we:
+     1. Flashloan some `REQ_TOKEN` to the offer's `maker`.
+     2. Call an arbitrary `execute` function on that address.
+     3. Transfer back some `OFR_TOKEN`.
    * Offer are just promises. They can fail.
-   * A safety provision must be posted with each offer.
+   * If an offer fails to transfer the right amount back, the loan is reverted.
+   * A penalty mechanism incentivizes keepers to keep the book clean of failing offers.
+   * A penalty provision must be posted with each offer.
    * If the offer succeeds, the provision returns to the maker.
    * If the offer fails, the provision is given to the taker as penalty.
-   * The penalty should compensate for the taker's lost gas.
-   * This incentivizes keepers to keep the book clean of failing offers.
+   * The penalty should overcompensate for the taker's lost gas.
  */
 //+clear+
 
