@@ -115,12 +115,15 @@ library DexLib {
 
   /* <a id="DexLib/definition/newOffer"></a> When a maker posts a new offer, the offer gets automatically inserted at the correct location in the book, starting from a maker-supplied `pivotId` parameter. The extra `storage` parameters are sent to `DexLib` by `Dex` so that it can write to `Dex`'s storage. */
   function newOffer(
+    address ofrToken,
+    address reqToken,
     /* `config`, `freeWei`, `offers`, `offerDetails`, `best` and `offerId` are trusted arguments from `Dex`, while */
     DC.Config memory config,
     mapping(address => uint) storage freeWei,
-    mapping(uint => DC.Offer) storage offers,
+    mapping(address => mapping(address => mapping(uint => DC.Offer)))
+      storage offers,
     mapping(uint => DC.OfferDetail) storage offerDetails,
-    DC.UintContainer storage best,
+    mapping(address => mapping(address => uint)) storage bests,
     uint offerId,
     /* `wants`, `gives`, `gasreq`, and `pivotId` are given by `msg.sender`. */
     uint wants,
@@ -151,21 +154,27 @@ library DexLib {
 
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
     (uint prev, uint next) =
-      findPosition(offers, best.value, wants, gives, pivotId);
+      findPosition(
+        offers[ofrToken][reqToken],
+        bests[ofrToken][reqToken],
+        wants,
+        gives,
+        pivotId
+      );
 
     /* Then we place the offer in the book at the position found by `findPosition`. */
     if (prev != 0) {
-      offers[prev].next = uint32(offerId);
+      offers[ofrToken][reqToken][prev].next = uint32(offerId);
     } else {
-      best.value = uint32(offerId);
+      bests[ofrToken][reqToken] = uint32(offerId);
     }
 
     if (next != 0) {
-      offers[next].prev = uint32(offerId);
+      offers[ofrToken][reqToken][next].prev = uint32(offerId);
     }
 
     /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 32 bits. */
-    offers[offerId] = DC.Offer({
+    offers[ofrToken][reqToken][offerId] = DC.Offer({
       prev: uint32(prev),
       next: uint32(next),
       wants: uint96(wants),
@@ -180,7 +189,15 @@ library DexLib {
     });
 
     /* And finally return the newly created offer id to the caller. */
-    emit DexEvents.NewOffer(msg.sender, wants, gives, gasreq, offerId);
+    emit DexEvents.NewOffer(
+      ofrToken,
+      reqToken,
+      msg.sender,
+      wants,
+      gives,
+      gasreq,
+      offerId
+    );
     return offerId;
   }
 
@@ -188,18 +205,18 @@ library DexLib {
 
   If prices are equal, `findPosition` will put the newest offer last. */
   function findPosition(
-    mapping(uint => DC.Offer) storage offers,
+    mapping(uint => DC.Offer) storage _offers,
     /* As a backup pivot, the id of the current best offer is sent by `Dex` to `DexLib`. This is in case `pivotId` turns out to be an invalid offer id. This part of the code relies on consumed offers being deleted, otherwise we would blindly insert offers next to garbage old values. */
     uint bestValue,
     uint wants,
     uint gives,
     uint pivotId
   ) internal view returns (uint, uint) {
-    DC.Offer memory pivot = offers[pivotId];
+    DC.Offer memory pivot = _offers[pivotId];
 
     if (!DC.isOffer(pivot)) {
       // in case pivotId is not or no longer a valid offer
-      pivot = offers[bestValue];
+      pivot = _offers[bestValue];
       pivotId = bestValue;
     }
 
@@ -207,7 +224,7 @@ library DexLib {
     if (better(pivot.wants, pivot.gives, wants, gives)) {
       DC.Offer memory pivotNext;
       while (pivot.next != 0) {
-        pivotNext = offers[pivot.next];
+        pivotNext = _offers[pivot.next];
         if (better(pivotNext.wants, pivotNext.gives, wants, gives)) {
           pivotId = pivot.next;
           pivot = pivotNext;
@@ -222,7 +239,7 @@ library DexLib {
     } else {
       DC.Offer memory pivotPrev;
       while (pivot.prev != 0) {
-        pivotPrev = offers[pivot.prev];
+        pivotPrev = _offers[pivot.prev];
         if (better(pivotPrev.wants, pivotPrev.gives, wants, gives)) {
           break;
         } else {

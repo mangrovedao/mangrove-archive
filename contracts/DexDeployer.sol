@@ -21,12 +21,7 @@ contract DexDeployer is HasAdmin, IDeployer {
     bool takerLends
   ) external adminOnly returns (Dex) {
     /* When a new dex is deployed, its `density` is 1 by default and its `fee` is 0 (see `Sauron.sol`). Other parameters are global. */
-    Dex dex =
-      new Dex({
-        _OFR_TOKEN: ofrToken,
-        _REQ_TOKEN: reqToken,
-        takerLends: takerLends
-      });
+    Dex dex = new Dex({takerLends: takerLends});
 
     dex.setAdmin(admin);
 

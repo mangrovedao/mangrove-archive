@@ -151,7 +151,7 @@ They have the following fields: */
 The events emitted for use by various bots are listed here: */
 library DexEvents {
   /* * Emitted at the creation of the new Dex contract on the pair (`reqToken`, `ofrToken`)*/
-  event NewDex(address dex, address reqToken, address ofrToken);
+  event NewDex(address dex);
 
   event TestEvent(uint);
 
@@ -175,7 +175,7 @@ library DexEvents {
   event Failure(uint offerId, uint takerWants, uint takerGives);
 
   /* * Dex closure */
-  event CloseMarket();
+  event Close();
 
   /* * `offerId` was successfully cancelled.
      No event is emitted if `offerId` is absent from book. */
@@ -184,6 +184,8 @@ library DexEvents {
   /* * A new offer was inserted into book.
    `maker` is the address of the contract that implements the offer. */
   event NewOffer(
+    address ofrToken,
+    address reqToken,
     address maker,
     uint wants,
     uint gives,
