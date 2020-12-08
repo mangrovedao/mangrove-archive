@@ -205,7 +205,7 @@ contract Dex is HasAdmin {
     DC.Offer memory offer = offers[offerId];
     DC.OfferDetail memory offerDetail = offerDetails[offerId];
     /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *un-live* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
-    require(msg.sender == offerDetail.maker, "dex/updateOffer/unauthorized");
+    require(msg.sender == offerDetail.maker, "dex/cancelOffer/unauthorized");
     if (DC.isLive(offer)) {
       stitchOffers(offer.prev, offer.next);
     }
