@@ -21,8 +21,6 @@ import "./lib/HasAdmin.sol";
  */
 
 contract Dex is HasAdmin {
-  /* * The contract who deployed the dex */
-  address private immutable DEPLOYER;
   /* The signature of the low-level swapping function. */
   bytes4 immutable SWAPPER;
 
@@ -33,6 +31,23 @@ contract Dex is HasAdmin {
   mapping(address => mapping(address => mapping(uint => DC.Offer)))
     private offers;
   mapping(uint => DC.OfferDetail) private offerDetails;
+
+  /* Configuration. See DexLib for more information. */
+  struct Global {
+    uint48 gasprice;
+    uint24 gasbase;
+    uint24 gasmax;
+    bool dead;
+  }
+
+  struct Local {
+    bool active;
+    uint16 fee;
+    uint32 density;
+  }
+
+  Global private global;
+  mapping(address => mapping(address => Local)) private locals;
 
   /* * Makers provision their possible penalties in the `freeWei` mapping.
 
@@ -54,10 +69,10 @@ contract Dex is HasAdmin {
 
        Note: An optimization in the `marketOrder` function relies on reentrancy being forbidden.
    */
-  mapping(address => mapping(address => uint)) locks;
+  mapping(address => mapping(address => uint)) private locks;
 
   /* `best` is a struct with a single field holding the current best offer id. The id is wrapped in a struct so it can be passed to `DexLib`. */
-  mapping(address => mapping(address => uint)) bests;
+  mapping(address => mapping(address => uint)) public bests;
 
   /*
   # Dex Constructor
@@ -65,10 +80,15 @@ contract Dex is HasAdmin {
   A new Dex instance manages one side of a book; it offers `OFR_TOKEN` in return for `REQ_TOKEN`. To initialize a new instance, the deployer must provide initial configuration (see `DexCommon.sol` for more on configuration parameters):
   */
   constructor(
+    uint gasprice,
+    uint gasbase,
+    uint gasmax,
     /* determines whether the taker or maker does the flashlend */
     bool takerLends
   ) HasAdmin() {
-    DEPLOYER = msg.sender;
+    setGasprice(gasprice);
+    setGasbase(gasbase);
+    setGasmax(gasmax);
     /* In a 'normal' mode of operation, takers lend the liquidity to the maker. */
     /* In an 'arbitrage' mode of operation, takers come ask the makers for liquidity. */
     SWAPPER = takerLends
@@ -88,19 +108,19 @@ contract Dex is HasAdmin {
     require(locks[ofrToken][reqToken] < 2, "dex/reentrancyLocked");
   }
 
-  /* * <a id="Dex/definition/requireLiveMarket"></a>
+  /* * <a id="Dex/definition/requireLiveDex"></a>
      In case of emergency, the Dex can be `kill()`ed. It cannot be resurrected. When a Dex is dead, the following operations are disabled :
        * Executing an offer
        * Sending ETH to the Dex (the normal way, usual shenanigans are possible)
        * Creating a new offerX
    */
-  function requireLiveMarket(DC.Config memory _config) internal pure {
+  function requireLiveDex(DC.Config memory _config) internal pure {
     require(!_config.dead, "dex/dead");
   }
 
   /* TODO documentation */
   function requireActiveMarket(DC.Config memory _config) internal pure {
-    requireLiveMarket(_config);
+    requireLiveDex(_config);
     require(_config.active, "dex/inactive");
   }
 
@@ -131,7 +151,7 @@ contract Dex is HasAdmin {
     uint pivotId
   ) external returns (uint) {
     requireUnlocked(ofrToken, reqToken);
-    DC.Config memory _config = config();
+    DC.Config memory _config = config(ofrToken, reqToken);
     uint newLastId = ++lastId;
     requireActiveMarket(_config);
     require(uint32(newLastId) == newLastId, "dex/offerIdOverflow");
@@ -145,7 +165,7 @@ contract Dex is HasAdmin {
         id: newLastId,
         gasreq: gasreq,
         pivotId: pivotId,
-        config: config()
+        config: _config
       });
     return DexLib.newOffer(ofp, freeWei, offers, offerDetails, bests);
   }
@@ -182,7 +202,7 @@ contract Dex is HasAdmin {
 
   /* A transfer with enough gas to the Dex will increase the caller's available `freeWei` balance. _You should send enough gas to execute this function when sending money to the Dex._  */
   receive() external payable {
-    requireLiveMarket(config());
+    requireLiveDex(config(address(0), address(0)));
     DexLib.creditWei(freeWei, msg.sender, msg.value);
   }
 
@@ -263,14 +283,13 @@ contract Dex is HasAdmin {
     orp.reqToken = reqToken;
     orp.offerId = offerId;
     orp.offer = offers[ofrToken][reqToken][offerId];
-    orp.config = config();
+    orp.config = config(ofrToken, reqToken);
     orp.failures = new uint[2][](punishLength);
 
     /* ### Checks */
     //+clear+
     /* For the market order to even start, the market needs to be both alive (that is, not irreversibly killed following emergency action), and not currently protected from reentrancy. */
-    DC.Config memory _config = config();
-    requireActiveMarket(_config);
+    requireActiveMarket(orp.config);
     requireUnlocked(orp.ofrToken, orp.reqToken);
 
     /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
@@ -367,7 +386,7 @@ contract Dex is HasAdmin {
            gives - localTakerwants >=
              density * (gasreq + gasbase)
            ```
-          By the `Sauron` contract, `density * gasbase > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have
+          By the `Config`, `density * gasbase > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have
           ```
            takerWants == 0 < density * gasbase
           ```
@@ -436,18 +455,17 @@ contract Dex is HasAdmin {
   ) public returns (uint[2][] memory) {
     /* ### Pre-loop Checks */
     //+clear+
-    DC.Config memory _config = config();
-    requireActiveMarket(_config);
+    DC.OrderPack memory orp;
+    orp.config = config(ofrToken, reqToken);
+    orp.ofrToken = ofrToken;
+    orp.reqToken = reqToken;
+    orp.failures = new uint[2][](punishLength);
+
+    requireActiveMarket(orp.config);
     requireUnlocked(ofrToken, reqToken);
 
     /* ### Pre-loop initialization */
     //+clear+
-
-    DC.OrderPack memory orp;
-    orp.config = config();
-    orp.ofrToken = ofrToken;
-    orp.reqToken = reqToken;
-    orp.failures = new uint[2][](punishLength);
 
     uint takerGot;
     locks[ofrToken][reqToken] = 2;
@@ -915,14 +933,6 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     return (offers[ofrToken][reqToken][offerId], offerDetails[offerId]);
   }
 
-  function config() public view returns (DC.Config memory) {
-    return IDeployer(DEPLOYER).sauron().config(address(this));
-  }
-
-  function deployer() external view returns (IDeployer) {
-    return IDeployer(DEPLOYER);
-  }
-
   function getOfferInfo(
     address ofrToken,
     address reqToken,
@@ -960,4 +970,102 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   //+ignore+TODO low gascost bookkeeping methods
   //+ignore+updateOffer(constant price)
   //+ignore+updateOffer(change price)
+  /* # Configuration */
+  function config(address ofrToken, address reqToken)
+    public
+    view
+    returns (DC.Config memory)
+  {
+    Global memory _global = global;
+    Local memory local = locals[ofrToken][reqToken];
+
+    return
+      DC.Config({ /* By default, fee is 0, which is fine. */
+        dead: _global.dead,
+        active: local.active,
+        fee: local.fee, /* A density of 0 breaks a Dex, and without a call to `density(value)`, density will be 0. So we return a density of 1 by default. */
+        density: local.density == 0 ? 1 : local.density,
+        gasprice: _global.gasprice,
+        gasbase: _global.gasbase,
+        gasmax: _global.gasmax
+      });
+  }
+
+  /* # Configuration access */
+  //+clear+
+  /* Setter functions for configuration, called by `setConfig` which also exists in Dex. Overloaded by the type of the `value` parameter. See `DexCommon.sol` for more on the `config` and `key` parameters. */
+
+  /* ## Locals */
+  /* ### `active` */
+  function setActive(
+    address ofrToken,
+    address reqToken,
+    bool value
+  ) public adminOnly {
+    locals[ofrToken][reqToken].active = value;
+    emit DexEvents.SetActive(ofrToken, reqToken, value);
+  }
+
+  /* ### `fee` */
+  function setFee(
+    address ofrToken,
+    address reqToken,
+    uint value
+  ) public adminOnly {
+    /* `fee` is in basis points, i.e. in percents of a percent. */
+    require(value <= 10000, "dex/config/fee/IsBps"); // at most 14 bits
+    locals[ofrToken][reqToken].fee = uint16(value);
+    emit DexEvents.SetFee(ofrToken, reqToken, value);
+  }
+
+  /* ### `density` */
+  function setDensity(
+    address ofrToken,
+    address reqToken,
+    uint value
+  ) public adminOnly {
+    /* `density > 0` ensures various invariants -- this documentation explains each time how it is relevant. */
+    require(value > 0, "dex/config/density/>0");
+    /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
+    require(uint32(value) == value);
+    //+clear+
+    locals[ofrToken][reqToken].density = uint32(value);
+    emit DexEvents.SetDensity(ofrToken, reqToken, value);
+  }
+
+  /* ## Globals */
+  /* ### `kill` */
+  function kill() public adminOnly {
+    global.dead = true;
+    emit DexEvents.Kill();
+  }
+
+  /* ### `gasprice` */
+  function setGasprice(uint value) public adminOnly {
+    /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */
+    require(uint48(value) == value, "dex/config/gasprice/48bits");
+    //+clear+
+    global.gasprice = uint48(value);
+    emit DexEvents.SetGasprice(value);
+  }
+
+  /* ### `gasbase` */
+  function setGasbase(uint value) public adminOnly {
+    /* `gasbase > 0` ensures various invariants -- this documentation explains how each time it is relevant */
+    require(value > 0, "dex/config/gasbase/>0");
+    /* Checking the size of `gasbase` is necessary to prevent a) data loss when `gasbase` is copied to an `OfferDetail` struct, and b) overflow when `gasbase` is used in calculations. */
+    require(uint24(value) == value, "dex/config/gasbase/24bits");
+    //+clear+
+    global.gasbase = uint24(value);
+    emit DexEvents.SetGasbase(value);
+  }
+
+  /* ### `gasmax` */
+  function setGasmax(uint value) public adminOnly {
+    /* Since any new `gasreq` is bounded above by `config.gasmax`, this check implies that all offers' `gasreq` is 24 bits wide at most. */
+    require(uint24(value) == value, "dex/config/gasmax/24bits");
+    //+clear+
+    global.gasmax = uint24(value);
+    emit DexEvents.SetGasmax(value);
+  }
 }

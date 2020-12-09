@@ -190,11 +190,11 @@ library DexEvents {
   event Debit(address maker, uint amount);
 
   /* * Dex reconfiguration */
-  event SetActive(address dex, bool value);
-  event SetFee(address dex, uint value);
+  event SetActive(address ofrToken, address reqToken, bool value);
+  event SetFee(address ofrToken, address reqToken, uint value);
   event SetGasbase(uint value);
   event SetGasmax(uint value);
-  event SetDensity(address dex, uint value);
+  event SetDensity(address ofrToken, address reqToken, uint value);
   event SetGasprice(uint value);
 
   /* * Offer execution */

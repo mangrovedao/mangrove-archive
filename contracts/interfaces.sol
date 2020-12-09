@@ -14,30 +14,6 @@ interface IMaker {
   ) external;
 }
 
-/* We declare a specific ISauron interface because it is upgradeable, so there may be multiple Sauron implementations. */
-interface ISauron {
-  function config(address dex) external view returns (DC.Config memory);
-
-  function active(address dex, bool value) external;
-
-  function fee(address dex, uint value) external;
-
-  function density(address dex, uint value) external;
-
-  function kill() external;
-
-  function gasprice(uint value) external;
-
-  function gasbase(uint value) external;
-
-  function gasmax(uint value) external;
-}
-
-/* We declare a specific IDeployer interface because Deployer already depends on Dex and we can't have circular dependencies. */
-interface IDeployer {
-  function sauron() external view returns (ISauron);
-}
-
 interface ITaker {
   function take(uint offerId, uint takerWants) external returns (bool);
 

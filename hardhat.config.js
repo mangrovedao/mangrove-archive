@@ -35,7 +35,10 @@ task(
 module.exports = {
   defaultNetwork: "hardhat",
   networks: {
-    hardhat: { blockGasLimit: 7000000000 },
+    hardhat: {
+      blockGasLimit: 7000000000,
+      allowUnlimitedContractSize: true,
+    },
     localhost: {
       url: "http://127.0.0.1:8545",
     },
