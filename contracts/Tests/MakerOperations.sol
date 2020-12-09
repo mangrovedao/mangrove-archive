@@ -3,7 +3,6 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "../DexDeployer.sol";
 import "../Dex.sol";
 import "../DexCommon.sol";
 import "../interfaces.sol";
@@ -21,19 +20,19 @@ import "./Agents/TestTaker.sol";
 
 contract MakerOperations_Test {
   Dex dex;
-  ISauron sauron;
   TestMaker mkr;
   TestMaker mkr2;
+  TestToken atk;
+  TestToken btk;
 
   receive() external payable {}
 
   function a_beforeAll() public {
-    TestToken atk = TokenSetup.setup("A", "$A");
-    TestToken btk = TokenSetup.setup("B", "$B");
+    atk = TokenSetup.setup("A", "$A");
+    btk = TokenSetup.setup("B", "$B");
     dex = DexSetup.setup(atk, btk);
-    sauron = dex.deployer().sauron();
-    mkr = MakerSetup.setup(dex, false);
-    mkr2 = MakerSetup.setup(dex, false);
+    mkr = MakerSetup.setup(dex, address(atk), address(btk), false);
+    mkr2 = MakerSetup.setup(dex, address(atk), address(btk), false);
 
     address(mkr).transfer(10 ether);
     address(mkr2).transfer(10 ether);
@@ -134,13 +133,13 @@ contract MakerOperations_Test {
   function gasreq_max_with_newOffer_ok_test() public {
     mkr.provisionDex(1 ether);
     uint gasmax = 750000;
-    sauron.gasmax(gasmax);
+    dex.setGasmax(gasmax);
     mkr.newOffer(1 ether, 1 ether, gasmax, 0);
   }
 
   function gasreq_too_high_fails_newOffer_test() public {
     uint gasmax = 12;
-    sauron.gasmax(gasmax);
+    dex.setGasmax(gasmax);
     try mkr.newOffer(1 ether, 1 ether, gasmax + 1, 0) {
       TestEvents.fail("gasreq above gasmax, newOffer should fail");
     } catch Error(string memory r) {
@@ -151,15 +150,15 @@ contract MakerOperations_Test {
   function min_density_with_newOffer_ok_test() public {
     mkr.provisionDex(1 ether);
     uint density = 10**7;
-    sauron.gasbase(1);
-    sauron.density(address(dex), density);
+    dex.setGasbase(1);
+    dex.setDensity(address(atk), address(btk), density);
     mkr.newOffer(1 ether, density, 0, 0);
   }
 
   function low_density_fails_newOffer_test() public {
     uint density = 10**7;
-    sauron.gasbase(1);
-    sauron.density(address(dex), density);
+    dex.setGasbase(1);
+    dex.setDensity(address(atk), address(btk), density);
     try mkr.newOffer(1 ether, density - 1, 0, 0) {
       TestEvents.fail("density too low, newOffer should fail");
     } catch Error(string memory r) {
@@ -168,8 +167,8 @@ contract MakerOperations_Test {
   }
 
   function wants_too_wide_fails_newOffer_test() public {
-    sauron.gasbase(1);
-    sauron.density(address(dex), 1);
+    dex.setGasbase(1);
+    dex.setDensity(address(atk), address(btk), 1);
     mkr.provisionDex(1 ether);
 
     uint wants = type(uint96).max + uint(1);
@@ -192,8 +191,8 @@ contract MakerOperations_Test {
   }
 
   function pivotId_too_wide_fails_newOffer_test() public {
-    sauron.gasbase(1);
-    sauron.density(address(dex), 1);
+    dex.setGasbase(1);
+    dex.setDensity(address(atk), address(btk), 1);
     mkr.provisionDex(1 ether);
 
     uint pivotId = type(uint32).max + uint(1);

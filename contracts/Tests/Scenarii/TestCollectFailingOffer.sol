@@ -10,15 +10,16 @@ library TestCollectFailingOffer {
     uint failingOfferId,
     MakerDeployer makers,
     TestTaker taker,
-    TestToken, /* aToken */ // silence warning about unused argument
-    TestToken /* bToken */ // silence warning about unused argument
+    TestToken aToken,
+    TestToken bToken
   ) external {
     // executing failing offer
     try taker.take(failingOfferId, 0.5 ether) returns (bool success) {
       // take should return false not throw
       TestEvents.check(!success, "Failer should fail");
       // failingOffer should have been removed from Dex
-      (bool exists, , , , , , , ) = dex.getOfferInfo(failingOfferId);
+      (bool exists, , , , , , , ) =
+        dex.getOfferInfo(address(aToken), address(bToken), failingOfferId);
       TestEvents.check(
         !exists,
         "Failing offer should have been removed from Dex"
@@ -29,6 +30,8 @@ library TestCollectFailingOffer {
       uint provision =
         TestUtils.getProvision(
           dex,
+          address(aToken),
+          address(bToken),
           offers[failingOfferId][TestUtils.Info.gasreq]
         );
       TestEvents.eq(

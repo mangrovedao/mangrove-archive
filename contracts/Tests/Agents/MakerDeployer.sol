@@ -14,9 +14,17 @@ contract MakerDeployer {
   address payable[] makers;
   bool deployed;
   Dex dex;
+  address atk;
+  address btk;
 
-  constructor(Dex _dex) {
+  constructor(
+    Dex _dex,
+    address _atk,
+    address _btk
+  ) {
     dex = _dex;
+    atk = _atk;
+    btk = _btk;
   }
 
   receive() external payable {
@@ -42,7 +50,7 @@ contract MakerDeployer {
     if (!deployed) {
       makers = new address payable[](k);
       for (uint i = 0; i < k; i++) {
-        makers[i] = address(new TestMaker(dex, i == 0)); //maker-0 is failer
+        makers[i] = address(new TestMaker(dex, atk, btk, i == 0)); //maker-0 is failer
       }
     }
     deployed = true;

@@ -3,7 +3,6 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "../DexDeployer.sol";
 //import "../Dex.sol";
 //import "../DexCommon.sol";
 //import "../interfaces.sol";
@@ -44,10 +43,10 @@ contract Scenarii_test {
   receive() external payable {}
 
   function saveOffers() internal {
-    uint offerId = dex.getBest();
+    uint offerId = dex.bests(address(aToken), address(bToken));
     while (offerId != 0) {
       (DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
-        dex.getOfferInfo(offerId, true);
+        dex.getOfferInfo(address(aToken), address(bToken), offerId, true);
       offers[offerId][TestUtils.Info.makerWants] = offer.wants;
       offers[offerId][TestUtils.Info.makerGives] = offer.gives;
       offers[offerId][TestUtils.Info.gasreq] = offerDetail.gasreq;
@@ -95,11 +94,11 @@ contract Scenarii_test {
     dex = DexSetup.setup(aToken, bToken);
     Display.register(address(dex), "dex");
     TestEvents.not0x(address(dex));
-    dex.deployer().sauron().fee(address(dex), 300);
+    dex.setFee(address(aToken), address(bToken), 300);
   }
 
   function c_deployMakersTaker_beforeAll() public {
-    makers = MakerDeployerSetup.setup(dex);
+    makers = MakerDeployerSetup.setup(dex, address(aToken), address(bToken));
     makers.deploy(4);
     for (uint i = 1; i < makers.length(); i++) {
       Display.register(
@@ -108,7 +107,7 @@ contract Scenarii_test {
       );
     }
     Display.register(address(makers.getMaker(0)), "failer");
-    taker = TakerSetup.setup(dex);
+    taker = TakerSetup.setup(dex, address(aToken), address(bToken));
     Display.register(address(taker), "taker");
   }
 
@@ -132,7 +131,7 @@ contract Scenarii_test {
   }
 
   function zeroDust_test() public {
-    try dex.deployer().sauron().density(address(dex), 0) {
+    try dex.setDensity(address(aToken), address(bToken), 0) {
       TestEvents.fail("zero density should revert");
     } catch Error(
       string memory /*reason*/
@@ -179,8 +178,8 @@ contract Scenarii_test {
 }
 
 contract DeepCollect_Test {
-  TestToken atk;
-  TestToken btk;
+  TestToken aToken;
+  TestToken bToken;
   Dex dex;
   TestTaker tkr;
   TestMoriartyMaker evil;
@@ -188,30 +187,30 @@ contract DeepCollect_Test {
   receive() external payable {}
 
   function a_beforeAll() public {
-    atk = TokenSetup.setup("A", "$A");
-    btk = TokenSetup.setup("B", "$B");
-    dex = DexSetup.setup(atk, btk);
-    tkr = TakerSetup.setup(dex);
+    aToken = TokenSetup.setup("A", "$A");
+    bToken = TokenSetup.setup("B", "$B");
+    dex = DexSetup.setup(aToken, bToken);
+    tkr = TakerSetup.setup(dex, address(aToken), address(bToken));
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "DeepCollect_Tester");
-    Display.register(address(atk), "$A");
-    Display.register(address(btk), "$B");
+    Display.register(address(aToken), "$A");
+    Display.register(address(bToken), "$B");
     Display.register(address(dex), "dex");
     Display.register(address(tkr), "taker");
 
-    btk.mint(address(tkr), 5 ether);
-    tkr.approve(btk, 20 ether);
-    tkr.approve(atk, 20 ether);
+    bToken.mint(address(tkr), 5 ether);
+    tkr.approve(bToken, 20 ether);
+    tkr.approve(aToken, 20 ether);
 
-    evil = new TestMoriartyMaker(dex);
+    evil = new TestMoriartyMaker(dex, address(aToken), address(bToken));
     Display.register(address(evil), "Moriarty");
 
     (bool success, ) = address(evil).call{gas: gasleft(), value: 20 ether}("");
     require(success, "maker transfer");
     evil.provisionDex(10 ether);
-    atk.mint(address(evil), 5 ether);
-    evil.approve(atk, 5 ether);
+    aToken.mint(address(evil), 5 ether);
+    evil.approve(aToken, 5 ether);
 
     evil.newOffer({
       wants: 1 ether,
@@ -223,14 +222,29 @@ contract DeepCollect_Test {
 
   function market_with_failures_test() public {
     //TestEvents.logString("=== DeepCollect test ===", 0);
-    TestFailingMarketOrder.moWithFailures(dex, tkr);
+    TestFailingMarketOrder.moWithFailures(
+      dex,
+      address(aToken),
+      address(bToken),
+      tkr
+    );
   }
 
   function punishing_snipes_test() public {
-    TestFailingMarketOrder.snipesAndRevert(dex, tkr);
+    TestFailingMarketOrder.snipesAndRevert(
+      dex,
+      address(aToken),
+      address(bToken),
+      tkr
+    );
   }
 
   function punishing_market_order_test() public {
-    TestFailingMarketOrder.moAndRevert(dex, tkr);
+    TestFailingMarketOrder.moAndRevert(
+      dex,
+      address(aToken),
+      address(bToken),
+      tkr
+    );
   }
 }

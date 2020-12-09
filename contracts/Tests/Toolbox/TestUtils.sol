@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
-import "../../DexDeployer.sol";
-import "../../Sauron.sol";
 
 import "../Agents/TestTaker.sol";
 import "../Agents/MakerDeployer.sol";
@@ -25,8 +23,13 @@ library TestUtils {
   }
   enum Info {makerWants, makerGives, nextId, gasreq, gasprice}
 
-  function isEmptyOB(Dex dex) internal view returns (bool) {
-    (DC.Offer memory offer, ) = dex.getOfferInfo(dex.getBest(), true);
+  function isEmptyOB(
+    Dex dex,
+    address atk,
+    address btk
+  ) internal view returns (bool) {
+    (DC.Offer memory offer, ) =
+      dex.getOfferInfo(atk, btk, dex.bests(atk, btk), true);
     return !DC.isOffer(offer);
   }
 
@@ -34,22 +37,34 @@ library TestUtils {
     return dex.admin();
   }
 
-  function getFee(Dex dex, uint price) internal view returns (uint) {
-    return ((price * dex.config().fee) / 10000);
+  function getFee(
+    Dex dex,
+    address atk,
+    address btk,
+    uint price
+  ) internal view returns (uint) {
+    return ((price * dex.config(atk, btk).fee) / 10000);
   }
 
-  function getProvision(Dex dex, uint gasreq) internal view returns (uint) {
-    DC.Config memory config = dex.config();
+  function getProvision(
+    Dex dex,
+    address atk,
+    address btk,
+    uint gasreq
+  ) internal view returns (uint) {
+    DC.Config memory config = dex.config(atk, btk);
     return ((gasreq + config.gasbase) * config.gasprice);
   }
 
   function getOfferInfo(
     Dex dex,
+    address atk,
+    address btk,
     Info infKey,
     uint offerId
   ) internal view returns (uint) {
     (DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
-      dex.getOfferInfo(offerId, true);
+      dex.getOfferInfo(atk, btk, offerId, true);
     if (infKey == Info.makerWants) {
       return offer.wants;
     }
@@ -66,12 +81,22 @@ library TestUtils {
     }
   }
 
-  function hasOffer(Dex dex, uint offerId) internal view returns (bool) {
-    return (getOfferInfo(dex, Info.makerGives, offerId) > 0);
+  function hasOffer(
+    Dex dex,
+    address atk,
+    address btk,
+    uint offerId
+  ) internal view returns (bool) {
+    return (getOfferInfo(dex, atk, btk, Info.makerGives, offerId) > 0);
   }
 
-  function makerOf(Dex dex, uint offerId) internal view returns (address) {
-    (, DC.OfferDetail memory od) = dex.getOfferInfo(offerId, true);
+  function makerOf(
+    Dex dex,
+    address atk,
+    address btk,
+    uint offerId
+  ) internal view returns (address) {
+    (, DC.OfferDetail memory od) = dex.getOfferInfo(atk, btk, offerId, true);
     return od.maker;
   }
 
@@ -174,23 +199,6 @@ library TokenSetup {
   }
 }
 
-library SauronSetup {
-  function setup(
-    uint gasprice,
-    uint gasbase,
-    uint gasmax
-  ) external returns (ISauron) {
-    return
-      new Sauron({_gasprice: gasprice, _gasbase: gasbase, _gasmax: gasmax});
-  }
-}
-
-library DexDeployerSetup {
-  function setup(ISauron sauron) external returns (DexDeployer) {
-    return new DexDeployer(sauron);
-  }
-}
-
 library DexSetup {
   function setup(TestToken aToken, TestToken bToken)
     external
@@ -198,43 +206,49 @@ library DexSetup {
   {
     TestEvents.not0x(address(aToken));
     TestEvents.not0x(address(bToken));
-    ISauron sauron =
-      SauronSetup.setup({
-        gasprice: 40 * 10**9,
-        gasbase: 30_000,
-        gasmax: 1_000_000
-      });
-
-    DexDeployer deployer = DexDeployerSetup.setup(sauron);
-
-    dex = deployer.deploy({
-      ofrToken: address(aToken),
-      reqToken: address(bToken),
+    dex = new Dex({
+      gasprice: 40 * 10**9,
+      gasbase: 30_000,
+      gasmax: 1_000_000,
       takerLends: true
     });
 
-    sauron.density(address(dex), 100);
+    dex.setActive(address(aToken), address(bToken), true);
+    dex.setDensity(address(aToken), address(bToken), 100);
 
     return dex;
   }
 }
 
 library MakerSetup {
-  function setup(Dex dex, bool shouldFail) external returns (TestMaker) {
-    return new TestMaker(dex, shouldFail);
+  function setup(
+    Dex dex,
+    address atk,
+    address btk,
+    bool shouldFail
+  ) external returns (TestMaker) {
+    return new TestMaker(dex, atk, btk, shouldFail);
   }
 }
 
 library MakerDeployerSetup {
-  function setup(Dex dex) external returns (MakerDeployer) {
+  function setup(
+    Dex dex,
+    address atk,
+    address btk
+  ) external returns (MakerDeployer) {
     TestEvents.not0x(address(dex));
-    return (new MakerDeployer(dex));
+    return (new MakerDeployer(dex, atk, btk));
   }
 }
 
 library TakerSetup {
-  function setup(Dex dex) external returns (TestTaker) {
+  function setup(
+    Dex dex,
+    address atk,
+    address btk
+  ) external returns (TestTaker) {
     TestEvents.not0x(address(dex));
-    return new TestTaker(dex);
+    return new TestTaker(dex, atk, btk);
   }
 }

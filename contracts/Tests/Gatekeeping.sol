@@ -3,7 +3,6 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "../DexDeployer.sol";
 import "../Dex.sol";
 import "../DexCommon.sol";
 import "../interfaces.sol";
@@ -21,17 +20,19 @@ import "./Agents/TestTaker.sol";
 
 contract NotAdmin {
   Dex dex;
+  address base;
+  address quote;
 
   constructor(Dex _dex) {
     dex = _dex;
   }
 
   function setGasprice(uint value) public {
-    dex.deployer().sauron().gasprice(value);
+    dex.setGasprice(value);
   }
 
   function setFee(uint fee) public {
-    dex.deployer().sauron().fee(address(dex), fee);
+    dex.setFee(base, quote, fee);
   }
 
   function setAdmin(address newAdmin) public {
@@ -44,14 +45,17 @@ contract Gatekeeping_Test {
   receive() external payable {}
 
   Dex dex;
-  ISauron sauron;
   TestTaker tkr;
+  address base;
+  address quote;
 
   function a_beforeAll() public {
     TestToken atk = TokenSetup.setup("A", "$A");
     TestToken btk = TokenSetup.setup("B", "$B");
+    base = address(atk);
+    quote = address(btk);
     dex = DexSetup.setup(atk, btk);
-    tkr = TakerSetup.setup(dex);
+    tkr = TakerSetup.setup(dex, address(atk), address(btk));
 
     address(tkr).transfer(10 ether);
 
@@ -79,7 +83,7 @@ contract Gatekeeping_Test {
         try notAdmin.setGasprice(10000) {
           TestEvents.fail("notAdmin should no longer have admin rights");
         } catch Error(string memory nolonger_admin) {
-          TestEvents.revertEq(nolonger_admin, "dex/adminOnly");
+          TestEvents.revertEq(nolonger_admin, "HasAdmin/adminOnly");
         }
       } catch {
         TestEvents.fail("notAdmin should have been given admin rights");
@@ -96,7 +100,7 @@ contract Gatekeeping_Test {
         "someone other than admin should not be able to set the configuration"
       );
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/adminOnly");
+      TestEvents.revertEq(r, "HasAdmin/adminOnly");
     }
   }
 
@@ -120,12 +124,12 @@ contract Gatekeeping_Test {
   }
 
   function testGas_test() public {
-    uint ofr = dex.newOffer(1 ether, 1 ether, 100_000, 0);
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
     tkr.take(ofr, 1 ether);
   }
 
   function newOffer_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(1 ether, 1 ether, 30_000, 0);
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
     reentrancer = abi.encodeWithSelector(
       Dex.newOffer.selector,
       1 ether,
@@ -137,9 +141,11 @@ contract Gatekeeping_Test {
   }
 
   function cancelOffer_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(1 ether, 1 ether, 30_000, 0);
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
     reentrancer = abi.encodeWithSelector(
       Dex.cancelOffer.selector,
+      base,
+      quote,
       1 ether,
       1 ether,
       30_000,
@@ -149,7 +155,7 @@ contract Gatekeeping_Test {
   }
 
   function marketOrder_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(1 ether, 1 ether, 30_000, 0);
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
     reentrancer = abi.encodeWithSelector(
       Dex.simpleMarketOrder.selector,
       1 ether,
@@ -159,22 +165,22 @@ contract Gatekeeping_Test {
   }
 
   function internalSnipes_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(1 ether, 1 ether, 30_000, 0);
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
     reentrancer = abi.encodeWithSelector(Dex.snipe.selector, 0, 1 ether);
     tkr.take(ofr, 1 ether);
   }
 
   function newOffer_on_closed_fails_test() public {
-    dex.closeMarket();
-    try dex.newOffer(1 ether, 1 ether, 0, 0) {
+    dex.kill();
+    try dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0) {
       TestEvents.fail("newOffer should fail on closed market");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/closed");
+      TestEvents.revertEq(r, "dex/dead");
     }
   }
 
   function receive_on_closed_fails_test() public {
-    dex.closeMarket();
+    dex.kill();
 
     (bool success, bytes memory retdata) =
       address(dex).call{value: 10 ether}("");
@@ -182,36 +188,36 @@ contract Gatekeeping_Test {
       TestEvents.fail("receive() should fail on closed market");
     } else {
       string memory r = string(retdata);
-      TestEvents.revertEq(r, "dex/closed");
+      TestEvents.revertEq(r, "dex/dead");
     }
   }
 
   function marketOrder_on_closed_fails_test() public {
-    dex.closeMarket();
+    dex.kill();
     try tkr.marketOrder(1 ether, 1 ether) {
       TestEvents.fail("marketOrder should fail on closed market");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/closed");
+      TestEvents.revertEq(r, "dex/dead");
     }
   }
 
   function snipe_on_closed_fails_test() public {
-    dex.closeMarket();
+    dex.kill();
     try tkr.take(0, 1 ether) {
       TestEvents.fail("snipe should fail on closed market");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/closed");
+      TestEvents.revertEq(r, "dex/dead");
     }
   }
 
   function withdraw_on_closed_ok_test() public {
-    dex.closeMarket();
+    dex.kill();
     dex.withdraw(0.1 ether);
   }
 
   function cancelOffer_on_closed_ok_test() public {
-    uint ofr = dex.newOffer(1 ether, 1 ether, 0, 0);
-    dex.closeMarket();
-    dex.cancelOffer(ofr);
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0);
+    dex.kill();
+    dex.cancelOffer(base, quote, ofr);
   }
 }

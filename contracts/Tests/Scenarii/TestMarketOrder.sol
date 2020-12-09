@@ -53,7 +53,9 @@ library TestMarketOrder {
     // Checking taker balance
     TestEvents.eq(
       aToken.balanceOf(address(taker)), // actual
-      balances.takerBalanceA + takerWants - TestUtils.getFee(dex, takerWants), // expected
+      balances.takerBalanceA +
+        takerWants -
+        TestUtils.getFee(dex, address(aToken), address(bToken), takerWants), // expected
       "incorrect taker A balance"
     );
 
@@ -69,7 +71,8 @@ library TestMarketOrder {
     // Checking DEX Fee Balance
     TestEvents.eq(
       aToken.balanceOf(TestUtils.adminOf(dex)), //actual
-      balances.dexBalanceFees + TestUtils.getFee(dex, takerWants), //expected
+      balances.dexBalanceFees +
+        TestUtils.getFee(dex, address(aToken), address(bToken), takerWants), //expected
       "incorrect Dex balances"
     );
   }

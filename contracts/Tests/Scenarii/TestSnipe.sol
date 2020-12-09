@@ -24,7 +24,8 @@ library TestSnipe {
     );
     TestEvents.eq(
       aToken.balanceOf(TestUtils.adminOf(dex)), //actual
-      balances.dexBalanceFees + TestUtils.getFee(dex, orderAmount), //expected
+      balances.dexBalanceFees +
+        TestUtils.getFee(dex, address(aToken), address(bToken), orderAmount), //expected
       "incorrect Dex A balance"
     );
     TestEvents.eq(
@@ -36,7 +37,9 @@ library TestSnipe {
     );
     TestEvents.eq(
       aToken.balanceOf(address(taker)), // actual
-      balances.takerBalanceA + orderAmount - TestUtils.getFee(dex, orderAmount), // expected
+      balances.takerBalanceA +
+        orderAmount -
+        TestUtils.getFee(dex, address(aToken), address(bToken), orderAmount), // expected
       "incorrect taker A balance"
     );
     TestEvents.eq(
@@ -53,7 +56,7 @@ library TestSnipe {
     );
     // Testing residual offer
     (bool exists, uint makerWants, uint makerGives, , , , , ) =
-      dex.getOfferInfo(snipedId);
+      dex.getOfferInfo(address(aToken), address(bToken), snipedId);
     TestEvents.check(exists, "Offer should have a residual");
     TestEvents.eq(
       makerGives,

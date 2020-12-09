@@ -4,28 +4,41 @@ pragma experimental ABIEncoderV2;
 import "../Toolbox/TestUtils.sol";
 
 library TestFailingMarketOrder {
-  function moWithFailures(Dex dex, TestTaker taker) external {
+  function moWithFailures(
+    Dex dex,
+    address atk,
+    address btk,
+    TestTaker taker
+  ) external {
     uint[2][] memory failures =
       taker.marketOrderWithFail({
         wants: 10 ether,
         gives: 30 ether,
         punishLength: 10,
-        offerId: dex.getBest()
+        offerId: dex.bests(atk, btk)
       });
     uint failedOffer = 1;
     for (uint i = 0; i < failures.length; i++) {
       TestEvents.eq(failures[i][0], failedOffer, "Incorrect failed offer Id");
       TestEvents.less(
         failures[i][1],
-        100000 + dex.config().gasbase,
+        100000 + dex.config(atk, btk).gasbase,
         "Incorrect Gas consummed"
       );
       failedOffer++;
     }
-    TestEvents.check(TestUtils.isEmptyOB(dex), "Offer book should be empty");
+    TestEvents.check(
+      TestUtils.isEmptyOB(dex, atk, btk),
+      "Offer book should be empty"
+    );
   }
 
-  function snipesAndRevert(Dex dex, TestTaker taker) external {
+  function snipesAndRevert(
+    Dex dex,
+    address atk,
+    address btk,
+    TestTaker taker
+  ) external {
     uint tkrBalance = address(taker).balance;
     uint[2][] memory targetsOK = new uint[2][](5);
     uint[2][] memory targetsWrong = new uint[2][](5);
@@ -41,7 +54,7 @@ library TestFailingMarketOrder {
     taker.snipesAndRevert(targetsWrong, 5);
     for (uint i = 1; i <= 5; i++) {
       TestEvents.check(
-        TestUtils.hasOffer(dex, i),
+        TestUtils.hasOffer(dex, atk, btk, i),
         Display.append(
           "Offer ",
           Display.uint2str(i),
@@ -60,12 +73,12 @@ library TestFailingMarketOrder {
     // Display.logOfferBook(dex,5);
     // check that dummy offer is still there:
     TestEvents.check(
-      TestUtils.hasOffer(dex, 5),
+      TestUtils.hasOffer(dex, atk, btk, 5),
       "Dummy offer should still be in OB"
     );
     for (uint i = 1; i < 5; i++) {
       TestEvents.check(
-        !TestUtils.hasOffer(dex, i),
+        !TestUtils.hasOffer(dex, atk, btk, i),
         Display.append(
           "Failing offer ",
           Display.uint2str(i),
@@ -75,21 +88,26 @@ library TestFailingMarketOrder {
     }
     TestEvents.eq(
       address(taker).balance, //actual
-      tkrBalance + 4 * TestUtils.getProvision(dex, 100000),
+      tkrBalance + 4 * TestUtils.getProvision(dex, atk, btk, 100000),
       "Incorrect taker balance"
     );
   }
 
-  function moAndRevert(Dex dex, TestTaker tkr) external {
+  function moAndRevert(
+    Dex dex,
+    address atk,
+    address btk,
+    TestTaker tkr
+  ) external {
     uint tkrBalance = address(tkr).balance;
-    tkr.marketOrderAndRevert(dex.getBest(), 10 ether, 30 ether, 10);
+    tkr.marketOrderAndRevert(dex.bests(atk, btk), 10 ether, 30 ether, 10);
     TestEvents.check(
-      TestUtils.hasOffer(dex, 5),
+      TestUtils.hasOffer(dex, atk, btk, 5),
       "Dummy offer should still be in OB"
     );
     for (uint i = 1; i < 5; i++) {
       TestEvents.check(
-        !TestUtils.hasOffer(dex, i),
+        !TestUtils.hasOffer(dex, atk, btk, i),
         Display.append(
           "Failing offer ",
           Display.uint2str(i),
@@ -99,7 +117,7 @@ library TestFailingMarketOrder {
     }
     TestEvents.eq(
       address(tkr).balance, //actual
-      tkrBalance + 4 * TestUtils.getProvision(dex, 100000),
+      tkrBalance + 4 * TestUtils.getProvision(dex, atk, btk, 100000),
       "Incorrect taker balance"
     );
   }

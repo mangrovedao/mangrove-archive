@@ -3,7 +3,6 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "../DexDeployer.sol";
 import "../Dex.sol";
 import "../DexCommon.sol";
 import "../interfaces.sol";
@@ -31,7 +30,11 @@ interface CallableRecipient {
 }
 
 contract BlackholeTaker is TestTaker, CallableRecipient {
-  constructor(Dex _dex) TestTaker(_dex) {}
+  constructor(
+    Dex _dex,
+    address atk,
+    address btk
+  ) TestTaker(_dex, atk, btk) {}
 
   bool enabled;
 
@@ -54,8 +57,12 @@ contract BlackholeTaker is TestTaker, CallableRecipient {
 }
 
 library BlackholeTakerSetup {
-  function setup(Dex dex) external returns (BlackholeTaker) {
-    return new BlackholeTaker(dex);
+  function setup(
+    Dex dex,
+    address atk,
+    address btk
+  ) external returns (BlackholeTaker) {
+    return new BlackholeTaker(dex, atk, btk);
   }
 }
 
@@ -92,7 +99,6 @@ contract TakerFailures_Test {
   TestToken atk;
   TestToken btk;
   Dex dex;
-  ISauron sauron;
   BlackholeTaker tkr;
   TestMaker mkr;
 
@@ -102,9 +108,8 @@ contract TakerFailures_Test {
     atk = TokenWithCbSetup.setup(address(this), "A", "$A");
     btk = TokenSetup.setup("B", "$B");
     dex = DexSetup.setup(atk, btk);
-    sauron = dex.deployer().sauron();
-    tkr = BlackholeTakerSetup.setup(dex);
-    mkr = MakerSetup.setup(dex, false);
+    tkr = BlackholeTakerSetup.setup(dex, address(atk), address(btk));
+    mkr = MakerSetup.setup(dex, address(atk), address(btk), false);
 
     address(mkr).transfer(10 ether);
     address(tkr).transfer(1 ether);
@@ -170,9 +175,9 @@ contract TakerFailures_Test {
   }
 
   function unsafe_gas_left_fails_order_test() public {
-    sauron.gasbase(1);
+    dex.setGasbase(1);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
-    try tkr.take{gas: 40_000}(ofr, 1 ether) {
+    try tkr.take{gas: 80_000}(ofr, 1 ether) {
       TestEvents.fail("unsafe gas amount, order should fail");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/unsafeGasAmount", "wrong revert reason");
@@ -180,7 +185,7 @@ contract TakerFailures_Test {
   }
 
   function taker_hasnt_approved_A_fails_order_test() public {
-    sauron.fee(address(dex), 300);
+    dex.setFee(address(atk), address(btk), 300);
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
@@ -193,7 +198,7 @@ contract TakerFailures_Test {
 
   function taker_has_no_A_fails_order_test() public {
     tkr.setEnabled(true);
-    sauron.fee(address(dex), 300);
+    dex.setFee(address(atk), address(btk), 300);
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 1 ether);
     tkr.approve(atk, 1 ether);
@@ -236,8 +241,8 @@ contract TakerFailures_Test {
   function small_partial_fill_can_be_retaken_test() public {
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 1 ether);
-    sauron.density(address(dex), 1);
-    sauron.gasbase(1);
+    dex.setDensity(address(atk), address(btk), 1);
+    dex.setGasbase(1);
     uint ofr = mkr.newOffer(10_002, 10_002, 10_000, 0);
     tkr.take(ofr, 1);
     tkr.marketOrderWithFail(10_001, 10_001, 0, ofr);
@@ -246,8 +251,8 @@ contract TakerFailures_Test {
   function big_partial_fill_cant_be_retaken_test() public {
     tkr.approve(btk, 1 ether);
     mkr.approve(atk, 1 ether);
-    sauron.density(address(dex), 1);
-    sauron.gasbase(1);
+    dex.setDensity(address(atk), address(btk), 1);
+    dex.setGasbase(1);
     uint ofr = mkr.newOffer(10_001, 10_001, 10_000, 0);
     tkr.take(ofr, 2);
     try tkr.marketOrderWithFail(10_001, 10_001, 0, ofr) {

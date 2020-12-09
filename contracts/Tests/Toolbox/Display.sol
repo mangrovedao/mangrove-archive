@@ -136,8 +136,13 @@ library Display {
     address[] makerAddr
   );
 
-  function logOfferBook(Dex dex, uint size) internal {
-    uint offerId = dex.best();
+  function logOfferBook(
+    Dex dex,
+    address ofrToken,
+    address reqToken,
+    uint size
+  ) internal {
+    uint offerId = dex.bests(ofrToken, reqToken);
 
     uint[] memory wants = new uint[](size);
     uint[] memory gives = new uint[](size);
@@ -146,7 +151,7 @@ library Display {
     uint c = 0;
     while ((offerId != 0) && (c < size)) {
       (DC.Offer memory offer, DC.OfferDetail memory od) =
-        dex.getOfferInfo(offerId, true);
+        dex.getOfferInfo(ofrToken, reqToken, offerId, true);
       wants[c] = offer.wants;
       gives[c] = offer.gives;
       makerAddr[c] = od.maker;
@@ -158,12 +163,16 @@ library Display {
     emit OBState(offerIds, wants, gives, makerAddr);
   }
 
-  function printOfferBook(Dex dex) internal view {
-    uint offerId = dex.best();
-    TestToken req_tk = TestToken(dex.REQ_TOKEN());
-    TestToken ofr_tk = TestToken(dex.OFR_TOKEN());
+  function printOfferBook(
+    Dex dex,
+    address ofrToken,
+    address reqToken
+  ) internal view {
+    uint offerId = dex.bests(ofrToken, reqToken);
+    TestToken req_tk = TestToken(reqToken);
+    TestToken ofr_tk = TestToken(ofrToken);
 
-    console.log("-----Best offer: %d-----", dex.getBest());
+    console.log("-----Best offer: %d-----", offerId);
     while (offerId != 0) {
       (
         ,
@@ -179,7 +188,7 @@ library Display {
       ) =
         /* uint gasprice */
         /* address makerAddr */
-        dex.getOfferInfo(offerId);
+        dex.getOfferInfo(ofrToken, reqToken, offerId);
       console.log(
         "[offer %d] %s/%s",
         offerId,
