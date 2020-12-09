@@ -13,9 +13,11 @@ contract Sauron is HasAdmin, ISauron {
     uint48 gasprice;
     uint24 gasbase;
     uint24 gasmax;
+    bool dead;
   }
 
   struct Local {
+    bool active;
     uint16 fee;
     uint32 density;
   }
@@ -45,6 +47,8 @@ contract Sauron is HasAdmin, ISauron {
 
     return
       DC.Config({ /* By default, fee is 0, which is fine. */
+        dead: global.dead,
+        active: local.active,
         fee: local.fee, /* A density of 0 breaks a Dex, and without a call to `density(value)`, density will be 0. So we return a density of 1 by default. */
         density: local.density == 0 ? 1 : local.density,
         gasprice: global.gasprice,
@@ -58,6 +62,11 @@ contract Sauron is HasAdmin, ISauron {
   /* Setter functions for configuration, called by `setConfig` which also exists in Dex. Overloaded by the type of the `value` parameter. See `DexCommon.sol` for more on the `config` and `key` parameters. */
 
   /* ## Locals */
+  /* ### `active` */
+  function active(address dex, bool value) public override adminOnly {
+    locals[dex].active = value;
+    emit DexEvents.SetActive(dex, value);
+  }
 
   /* ### `fee` */
   function fee(address dex, uint value) public override adminOnly {
@@ -79,6 +88,12 @@ contract Sauron is HasAdmin, ISauron {
   }
 
   /* ## Globals */
+  /* ### `kill` */
+  function kill() public override adminOnly {
+    _global.dead = true;
+    emit DexEvents.Kill();
+  }
+
   /* ### `gasprice` */
   function gasprice(uint value) public override adminOnly {
     /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */

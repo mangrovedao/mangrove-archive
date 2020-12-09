@@ -121,6 +121,8 @@ They have the following fields: */
    All configuration information of the Dex is in a `Config` struct. Configuration fields are:
 */
   struct Config {
+    bool dead;
+    bool active;
     /* * `fee`, in basis points, of `OFR_TOKEN` given to the taker. This fee is sent to the Dex. */
     uint fee;
     /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
@@ -163,6 +165,7 @@ library DexEvents {
   event Debit(address maker, uint amount);
 
   /* * Dex reconfiguration */
+  event SetActive(address dex, bool value);
   event SetFee(address dex, uint value);
   event SetGasbase(uint value);
   event SetGasmax(uint value);
@@ -174,7 +177,7 @@ library DexEvents {
   event Failure(uint offerId, uint takerWants, uint takerGives);
 
   /* * Dex closure */
-  event CloseMarket();
+  event Kill();
 
   event CancelOffer(uint offerId);
 

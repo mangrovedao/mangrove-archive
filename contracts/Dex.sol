@@ -48,13 +48,6 @@ contract Dex is HasAdmin {
   /* * `lastId` is a counter for offer ids, incremented every time a new offer is created. It can't go above 2^32-1. */
   uint private lastId;
 
-  /* * <a id="Dex/definition/open"></a>
-     In case of emergency, the Dex can be shutdown by setting `open = false`. It cannot be reopened. When a Dex is closed, the following operations are disabled :
-       * Executing an offer
-       * Sending ETH to the Dex (the normal way, usual shenanigans are possible)
-       * Creating a new offerX
-   */
-  bool public open = true;
   /* * If `reentrancyLock` is > 1, orders may not be added nor executed.
 
        Reentrancy during offer execution is not considered safe:
@@ -104,15 +97,20 @@ contract Dex is HasAdmin {
     require(reentrancyLock < 2, "dex/reentrancyLocked");
   }
 
-  /* `requireOpenMarket` protects against operations listed [next to the definition of `open`](#Dex/definition/open). */
-  function requireOpenMarket() internal view {
-    require(open, "dex/closed");
+  /* * <a id="Dex/definition/requireLiveMarket"></a>
+     In case of emergency, the Dex can be `kill()`ed. It cannot be resurrected. When a Dex is dead, the following operations are disabled :
+       * Executing an offer
+       * Sending ETH to the Dex (the normal way, usual shenanigans are possible)
+       * Creating a new offerX
+   */
+  function requireLiveMarket(DC.Config memory _config) internal pure {
+    require(!_config.dead, "dex/dead");
   }
 
-  /* `closeMarket` irreversibly closes the market. */
-  function closeMarket() external adminOnly {
-    open = false;
-    emit DexEvents.CloseMarket();
+  /* TODO documentation */
+  function requireActiveMarket(DC.Config memory _config) internal pure {
+    requireLiveMarket(_config);
+    require(_config.active, "dex/inactive");
   }
 
   /* # Maker operations
@@ -139,13 +137,14 @@ contract Dex is HasAdmin {
     uint gasreq,
     uint pivotId
   ) external returns (uint) {
-    requireOpenMarket();
+    DC.Config memory _config = config();
     requireNoReentrancyLock();
+    requireActiveMarket(_config);
     uint newLastId = ++lastId;
     require(uint32(newLastId) == newLastId, "dex/offerIdOverflow");
     return
       DexLib.newOffer(
-        config(),
+        _config,
         freeWei,
         offers,
         offerDetails,
@@ -186,7 +185,7 @@ contract Dex is HasAdmin {
 
   /* A transfer with enough gas to the Dex will increase the caller's available `freeWei` balance. _You should send enough gas to execute this function when sending money to the Dex._  */
   receive() external payable {
-    requireOpenMarket();
+    requireLiveMarket(config());
     DexLib.creditWei(freeWei, msg.sender, msg.value);
   }
 
@@ -234,6 +233,7 @@ contract Dex is HasAdmin {
     uint initialTakerWants;
     uint pastOfferId;
     uint numFailures;
+    uint minOrderSize;
   }
 
   function marketOrder(
@@ -256,8 +256,9 @@ contract Dex is HasAdmin {
   {
     /* ### Checks */
     //+clear+
-    /* For the market order to even start, the market needs to be both open (that is, not irreversibly closed following emergency action), and not currently protected from reentrancy. */
-    requireOpenMarket();
+    /* For the market order to even start, the market needs to be both alive (that is, not irreversibly killed following emergency action), and not currently protected from reentrancy. */
+    DC.Config memory _config = config();
+    requireActiveMarket(_config);
     requireNoReentrancyLock();
 
     /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
@@ -279,13 +280,12 @@ contract Dex is HasAdmin {
     /* We pack some data in a memory struct to prevent stack too deep errors. */
     OrderData memory orderData =
       OrderData({
-        config: config(), /* Here we convert one of the operands to `uint` so the multiplication is not truncated. */
+        config: _config, /* Here we convert one of the operands to `uint` so the multiplication is not truncated. */
         initialTakerWants: takerWants,
         pastOfferId: offer.prev,
-        numFailures: 0
+        numFailures: 0,
+        minOrderSize: _config.density * _config.gasbase
       });
-
-    uint minOrderSize = orderData.config.density * orderData.config.gasbase;
 
     uint[2][] memory failures = new uint[2][](punishLength);
 
@@ -299,7 +299,7 @@ contract Dex is HasAdmin {
     /* Offers are looped through until:
      * the remaining amount wanted by the taker is smaller than the current minimum offer size,
      * or `offerId == 0`, which means we've gone past the end of the book. */
-    while (takerWants >= minOrderSize && offerId != 0) {
+    while (takerWants >= orderData.minOrderSize && offerId != 0) {
       /* #### `makerWouldWant` */
       //+clear+
       /* The current offer has a price <code>_p_ = offer.wants/offer.gives</code>. `makerWouldWant` is the amount of `REQ_TOKEN` the offer would require at price _p_ to provide `takerWants` `OFR_TOKEN`. Computing `makeWouldWant` gives us both a test that _p_ is an acceptable price for the taker, and the amount of `REQ_TOKEN` to send to the maker.
@@ -435,13 +435,13 @@ contract Dex is HasAdmin {
   {
     /* ### Pre-loop Checks */
     //+clear+
-    requireOpenMarket();
+    DC.Config memory _config = config();
+    requireActiveMarket(_config);
     requireNoReentrancyLock();
 
     /* ### Pre-loop initialization */
     //+clear+
 
-    DC.Config memory _config = config();
     uint takerGot;
     uint numFailures;
     uint[2][] memory failures = new uint[2][](punishLength);

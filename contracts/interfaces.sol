@@ -16,9 +16,13 @@ interface IMaker {
 interface ISauron {
   function config(address dex) external view returns (DC.Config memory);
 
+  function active(address dex, bool value) external;
+
   function fee(address dex, uint value) external;
 
   function density(address dex, uint value) external;
+
+  function kill() external;
 
   function gasprice(uint value) external;
 

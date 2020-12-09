@@ -188,54 +188,54 @@ contract Gatekeeping_Test is HasAdmin {
     tkr.take(ofr, 1 ether);
   }
 
-  function newOffer_on_closed_fails_test() public {
-    dex.closeMarket();
+  function newOffer_on_dead_fails_test() public {
+    dex.deployer().sauron().kill();
     try dex.newOffer(1 ether, 1 ether, 0, 0) {
       TestEvents.fail("newOffer should fail on closed market");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/closed");
+      TestEvents.revertEq(r, "dex/dead");
     }
   }
 
-  function receive_on_closed_fails_test() public {
-    dex.closeMarket();
+  function receive_on_dead_fails_test() public {
+    dex.deployer().sauron().kill();
 
     (bool success, bytes memory retdata) =
       address(dex).call{value: 10 ether}("");
     if (success) {
-      TestEvents.fail("receive() should fail on closed market");
+      TestEvents.fail("receive() should fail on dead market");
     } else {
       string memory r = string(retdata);
-      TestEvents.revertEq(r, "dex/closed");
+      TestEvents.revertEq(r, "dex/dead");
     }
   }
 
-  function marketOrder_on_closed_fails_test() public {
-    dex.closeMarket();
+  function marketOrder_on_dead_fails_test() public {
+    dex.deployer().sauron().kill();
     try tkr.marketOrder(1 ether, 1 ether) {
-      TestEvents.fail("marketOrder should fail on closed market");
+      TestEvents.fail("marketOrder should fail on dead market");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/closed");
+      TestEvents.revertEq(r, "dex/dead");
     }
   }
 
-  function snipe_on_closed_fails_test() public {
-    dex.closeMarket();
+  function snipe_on_dead_fails_test() public {
+    dex.deployer().sauron().kill();
     try tkr.take(0, 1 ether) {
-      TestEvents.fail("snipe should fail on closed market");
+      TestEvents.fail("snipe should fail on dead market");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/closed");
+      TestEvents.revertEq(r, "dex/dead");
     }
   }
 
   function withdraw_on_closed_ok_test() public {
-    dex.closeMarket();
+    dex.deployer().sauron().kill();
     dex.withdraw(0.1 ether);
   }
 
   function cancelOffer_on_closed_ok_test() public {
     uint ofr = dex.newOffer(1 ether, 1 ether, 0, 0);
-    dex.closeMarket();
+    dex.deployer().sauron().kill();
     dex.cancelOffer(ofr);
   }
 }
