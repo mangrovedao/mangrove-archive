@@ -136,21 +136,19 @@ contract Dex is HasAdmin {
     requireUnlocked(ofrToken, reqToken);
     uint newLastId = ++lastId;
     require(uint32(newLastId) == newLastId, "dex/offerIdOverflow");
-    return
-      DexLib.newOffer(
-        ofrToken,
-        reqToken,
-        config(),
-        freeWei,
-        offers,
-        offerDetails,
-        bests,
-        newLastId,
-        wants,
-        gives,
-        gasreq,
-        pivotId
-      );
+
+    DC.OfferPack memory ofp =
+      DC.OfferPack({
+        ofrToken: ofrToken,
+        reqToken: reqToken,
+        wants: wants,
+        gives: gives,
+        id: newLastId,
+        gasreq: gasreq,
+        pivotId: pivotId,
+        config: config()
+      });
+    return DexLib.newOffer(ofp, freeWei, offers, offerDetails, bests);
   }
 
   /* ## Cancel Offer */
@@ -280,40 +278,40 @@ contract Dex is HasAdmin {
       "dex/marketOrder/takerWants/160bits"
     );
 
+    DC.OrderPack memory orp;
+    orp.ofrToken = ofrToken;
+    orp.reqToken = reqToken;
+    orp.offerId = offerId;
+    orp.offer = offers[ofrToken][reqToken][offerId];
+    orp.config = config();
+
     /* ### Initialization */
-    //+clear+
     /* The market order will operate as follows : it will go through offers from best to worse, starting from `offerId`, and: */
     /* * will maintain remaining `takerWants` and `takerGives` values. Their initial ratio is the average price the taker will accept. Better prices may be found early in the book, and worse ones later.
      * will not set `prev`/`next` pointers to their correct locations at each offer taken (this is an optimization enabled by forbidding reentrancy).
      * after consuming a segment of offers, will connect the `prev` and `next` neighbors of the segment's ends.
      * Will maintain an array of pairs `(offerId, gasUsed)` to identify failed offers. Look at [punishment for failing offers](#dex.sol-punishment-for-failing-offers) for more information. Since there are no extensible in-memory arrays, `punishLength` should be an upper bound on the number of failed offers. */
-    DC.Offer memory offer = offers[ofrToken][reqToken][offerId];
-    /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. */
-    require(DC.isOffer(offer), "dex/marketOrder/noSuchOffer");
-    /* We pack some data in a memory struct to prevent stack too deep errors. */
-    OrderData memory orderData =
-      OrderData({
-        config: config(), /* Here we convert one of the operands to `uint` so the multiplication is not truncated. */
-        initialTakerWants: takerWants,
-        pastOfferId: offer.prev,
-        numFailures: 0
-      });
+    //+clear+
 
-    uint minOrderSize = orderData.config.density * orderData.config.gasbase;
+    /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. */
+    require(DC.isOffer(orp.offer), "dex/marketOrder/noSuchOffer");
+
+    uint initialTakerWants = takerWants;
+    uint pastOfferId = orp.offer.prev;
+    uint numFailures;
+
+    uint minOrderSize = orp.config.density * orp.config.gasbase;
 
     uint[2][] memory failures = new uint[2][](punishLength);
 
-    locks[ofrToken][reqToken] = 2;
-
-    uint localTakerWants;
-    uint localTakerGives;
+    locks[orp.ofrToken][orp.reqToken] = 2;
 
     /* ### Main loop */
     //+clear+
     /* Offers are looped through until:
      * the remaining amount wanted by the taker is smaller than the current minimum offer size,
      * or `offerId == 0`, which means we've gone past the end of the book. */
-    while (takerWants >= minOrderSize && offerId != 0) {
+    while (takerWants >= minOrderSize && orp.offerId != 0) {
       /* #### `makerWouldWant` */
       //+clear+
       /* The current offer has a price <code>_p_ = offer.wants/offer.gives</code>. `makerWouldWant` is the amount of `REQ_TOKEN` the offer would require at price _p_ to provide `takerWants` `OFR_TOKEN`. Computing `makeWouldWant` gives us both a test that _p_ is an acceptable price for the taker, and the amount of `REQ_TOKEN` to send to the maker.
@@ -322,48 +320,38 @@ contract Dex is HasAdmin {
 
    **Note**: Since `takerWants` fits in 160 bits and `offer.wants` fits in 96 bits, the multiplication does not overflow. Since division rounds towards 0, the maker may have to accept a price slightly worse than expected.
        */
-      uint makerWouldWant = (takerWants * offer.wants) / offer.gives;
+      uint makerWouldWant = (takerWants * orp.offer.wants) / orp.offer.gives;
 
       /* We set `makerWouldWant > 0` to prevent takers from leaking money out of makers for free. */
       if (makerWouldWant == 0) makerWouldWant = 1;
 
       /* #### Offer taken */
       if (makerWouldWant <= takerGives) {
-        /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get. */
-        (localTakerWants, localTakerGives) = offer.gives < takerWants
-          ? (offer.gives, offer.wants)
+        /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `orp.wants`,`orp.gives` are how much the taker will trade with the current offer. */
+        (orp.wants, orp.gives) = orp.offer.gives < takerWants
+          ? (orp.offer.gives, orp.offer.wants)
           : (takerWants, makerWouldWant);
 
         /* Execute the offer after loaning money to the maker. The last argument to `executeOffer` is `true` to flag that pointers shouldn't be updated (thus saving writes). The returned values are explained below: */
         (bool success, uint gasUsedIfFailure, bool deleted) =
-          executeOffer(
-            ofrToken,
-            reqToken,
-            orderData.config.density,
-            orderData.config.gasbase,
-            offerId,
-            offer,
-            localTakerWants,
-            localTakerGives,
-            true
-          );
+          executeOffer(orp, true);
 
         /* `success` means that the maker delivered `localTakerWants` `OFR_TOKEN` to the taker. We update the total amount wanted and spendable by the taker (possibly changing the remaining average price). */
         if (success) {
-          emit DexEvents.Success(offerId, localTakerWants, localTakerGives);
-          takerWants -= localTakerWants;
-          takerGives -= localTakerGives;
+          emit DexEvents.Success(orp.offerId, orp.wants, orp.gives);
+          takerWants -= orp.wants;
+          takerGives -= orp.gives;
           /*
           If `!success`, the maker failed to deliver `localTakerWants`. In that case `gasUsedIfFailure` is nonzero and will be used to apply a penalty (penalties are applied in proportion with wasted gas).
 
           Note that partial fulfillment of the amount requested in `localTakerWants` is not taken into account. Any delivery strictly less than `localTakerWants` will trigger a rollback and be considered a failure.
           */
         } else {
-          emit DexEvents.Failure(offerId, localTakerWants, localTakerGives);
+          emit DexEvents.Failure(orp.offerId, orp.wants, orp.gives);
           /* For penalty application purposes (never triggered if `punishLength = 0`), store the offer id and the gas wasted by the maker */
-          if (orderData.numFailures < punishLength) {
-            failures[orderData.numFailures] = [offerId, gasUsedIfFailure];
-            orderData.numFailures++;
+          if (numFailures < punishLength) {
+            failures[numFailures] = [orp.offerId, gasUsedIfFailure];
+            numFailures++;
           }
         }
         /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
@@ -395,8 +383,8 @@ contract Dex is HasAdmin {
           And so the loop ends.
         */
         if (deleted) {
-          offerId = offer.next;
-          offer = offers[ofrToken][reqToken][offerId];
+          orp.offerId = orp.offer.next;
+          orp.offer = offers[orp.ofrToken][orp.reqToken][orp.offerId];
         }
         /* #### Offer not taken */
         //+clear+
@@ -408,24 +396,17 @@ contract Dex is HasAdmin {
     /* ### Post-while loop */
     //+clear+
     /* `applyFee` extracts the fee from the taker, proportional to the amount purchased (which is `initialTakerWants - takerWants`). */
-    applyFee(
-      ofrToken,
-      orderData.config.fee,
-      orderData.initialTakerWants - takerWants
-    );
-    locks[ofrToken][reqToken] = 1;
+    applyFee(orp.ofrToken, orp.config.fee, initialTakerWants - takerWants);
+    locks[orp.ofrToken][orp.reqToken] = 1;
     /* After exiting the loop, we connect the beginning & end of the segment just consumed by the market order. */
-    stitchOffers(ofrToken, reqToken, orderData.pastOfferId, offerId);
+    stitchOffers(orp.ofrToken, orp.reqToken, pastOfferId, orp.offerId);
 
     /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `numFailures` in the length field of `failures`. This also saves on the amount of memory copied in the return value.
 
        The line below is hackish though, and we may want to just return a `(uint,uint[2][])` pair.
     */
-    {
-      uint numFailures = orderData.numFailures;
-      assembly {
-        mstore(failures, numFailures)
-      }
+    assembly {
+      mstore(failures, numFailures)
     }
     return failures;
   }
@@ -468,7 +449,11 @@ contract Dex is HasAdmin {
     /* ### Pre-loop initialization */
     //+clear+
 
-    DC.Config memory _config = config();
+    DC.OrderPack memory orp;
+    orp.config = config();
+    orp.ofrToken = ofrToken;
+    orp.reqToken = reqToken;
+
     uint takerGot;
     uint numFailures;
     uint[2][] memory failures = new uint[2][](punishLength);
@@ -479,50 +464,40 @@ contract Dex is HasAdmin {
     for (uint i = 0; i < targets.length; i++) {
       /* ### In-loop initilization */
       /* At each iteration, we extract the current `offerId` and `takerWants` */
-      uint offerId = targets[i][0];
+      orp.offerId = targets[i][0];
+
       uint takerWants = targets[i][1];
-      DC.Offer memory offer = offers[ofrToken][reqToken][offerId];
+      orp.offer = offers[orp.ofrToken][orp.reqToken][orp.offerId];
+
       /* If we removed the `isOffer` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. */
-      if (DC.isOffer(offer)) {
-        /* `localTakerWants` bounds the amount requested by the taker by the maximum amount on offer. It also obviates the need to check the size of `takerWants`: while in a market order we must compare the price a taker accepts with the offer price, here we just accept the offer's price. So if `takerWants` does not fit in 96 bits (the size of `offer.gives`), it won't be used in the line below. */
-        uint localTakerWants =
-          offer.gives < takerWants ? offer.gives : takerWants;
+      if (DC.isOffer(orp.offer)) {
+        /* `localTakerWants` bounds the amount requested by the taker (`takerWants`) by the maximum amount on offer. It also obviates the need to check the size of `takerWants`: while in a market order we must compare the price a taker accepts with the offer price, here we just accept the offer's price. So if `takerWants` does not fit in 96 bits (the size of `offer.gives`), it won't be used in the line below. */
+        orp.wants = orp.offer.gives < takerWants ? orp.offer.gives : takerWants;
 
         /* `localTakerGives` is the amount to be paid using the price induced by the offer. */
-        uint localTakerGives = (localTakerWants * offer.wants) / offer.gives;
+        orp.gives = (orp.wants * orp.offer.wants) / orp.offer.gives;
 
         /* We set `localTakerGives > 0` to prevent takers from leaking money out of makers for free. */
-        if (localTakerGives == 0) localTakerGives = 1;
+        if (orp.gives == 0) orp.gives = 1;
 
         /* We execute the offer with the flag `dirtyDeleteOffer` set to `false`, so the offers before and after the selected one get stitched back together. */
-        (bool success, uint gasUsedIfFailure, ) =
-          executeOffer(
-            ofrToken,
-            reqToken,
-            _config.density,
-            _config.gasbase,
-            offerId,
-            offer,
-            localTakerWants,
-            localTakerGives,
-            false
-          );
+        (bool success, uint gasUsedIfFailure, ) = executeOffer(orp, false);
         /* For punishment purposes (never triggered if `punishLength = 0`), we store the offer id and the gas wasted by the maker */
         if (success) {
-          emit DexEvents.Success(offerId, localTakerWants, localTakerGives);
-          takerGot += localTakerWants;
+          emit DexEvents.Success(orp.offerId, orp.wants, orp.gives);
+          takerGot += orp.wants;
         } else {
-          emit DexEvents.Failure(offerId, localTakerWants, localTakerGives);
+          emit DexEvents.Failure(orp.offerId, orp.wants, orp.gives);
           if (numFailures < punishLength) {
-            failures[numFailures] = [offerId, gasUsedIfFailure];
+            failures[numFailures] = [orp.offerId, gasUsedIfFailure];
             numFailures++;
           }
         }
       }
     }
     /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
-    applyFee(ofrToken, _config.fee, takerGot);
-    locks[ofrToken][reqToken] = 1;
+    applyFee(orp.ofrToken, orp.config.fee, takerGot);
+    locks[orp.ofrToken][orp.reqToken] = 1;
     /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `numFailures` in the length field of `failures`. This also saves on the amount of memory copied in the return value.
 
        The line below is hackish though, and we may want to just return a `(uint,uint[2][])` pair.
@@ -577,14 +552,7 @@ contract Dex is HasAdmin {
 
   It would be nice to do those checks right here, in `executeOffer`. But market orders must make price computations necessary to those checks _before_ calling `executeOffer` anyway, so they can decide whether the offer should be executed at all or not. To save gas, we don't redo the checks here. */
   function executeOffer(
-    address ofrToken,
-    address reqToken,
-    uint density,
-    uint gasbase,
-    uint offerId,
-    DC.Offer memory offer,
-    uint takerWants,
-    uint takerGives,
+    DC.OrderPack memory orp,
     /* The last argument, `dirtyDelete`, is here for market orders: if true, `next`/`prev` pointers around the deleted offer are not reset properly. */
     bool dirtyDelete
   )
@@ -600,16 +568,8 @@ contract Dex is HasAdmin {
     )
   {
     /* `executeOffer` and `flashSwapTokens` are separated for clarity, but `flashSwapTokens` is only used by `executeOffer`. It manages the actual work of flashloaning tokens and applying penalties. */
-    DC.OfferDetail memory offerDetail = offerDetails[offerId];
-    (success, gasUsedIfFailure) = flashSwapTokens(
-      ofrToken,
-      reqToken,
-      gasbase,
-      offerId,
-      offerDetail,
-      takerWants,
-      takerGives
-    );
+    DC.OfferDetail memory offerDetail = offerDetails[orp.offerId];
+    (success, gasUsedIfFailure) = flashSwapTokens(orp, offerDetail);
 
     /* After execution, there are four possible outcomes, along 2 axes: the transaction was successful (or not), the offer was consumed to below the absolute dust limit (or not).
 
@@ -620,20 +580,26 @@ contract Dex is HasAdmin {
     */
     if (
       success &&
-      offer.gives - takerWants >= density * (offerDetail.gasreq + gasbase)
+      orp.offer.gives - orp.wants >=
+      orp.config.density * (offerDetail.gasreq + orp.config.gasbase)
     ) {
-      offers[ofrToken][reqToken][offerId].gives = uint96(
-        offer.gives - takerWants
+      offers[orp.ofrToken][orp.reqToken][orp.offerId].gives = uint96(
+        orp.offer.gives - orp.wants
       );
-      offers[ofrToken][reqToken][offerId].wants = uint96(
-        offer.wants - takerGives
+      offers[orp.ofrToken][orp.reqToken][orp.offerId].wants = uint96(
+        orp.offer.wants - orp.gives
       );
       deleted = false;
       /* Otherwise, it will be deleted. */
     } else {
-      dirtyDeleteOffer(ofrToken, reqToken, offerId);
+      dirtyDeleteOffer(orp.ofrToken, orp.reqToken, orp.offerId);
       if (!dirtyDelete) {
-        stitchOffers(ofrToken, reqToken, offer.prev, offer.next);
+        stitchOffers(
+          orp.ofrToken,
+          orp.reqToken,
+          orp.offer.prev,
+          orp.offer.next
+        );
       }
       deleted = true;
     }
@@ -646,13 +612,8 @@ contract Dex is HasAdmin {
   1. measure gas used by executing the offer
   2. invoke penalty application,   */
   function flashSwapTokens(
-    address ofrToken,
-    address reqToken,
-    uint gasbase,
-    uint offerId,
-    DC.OfferDetail memory offerDetail,
-    uint takerWants,
-    uint takerGives
+    DC.OrderPack memory orp,
+    DC.OfferDetail memory offerDetail
   ) internal returns (bool, uint) {
     /* We start by saving the amount of gas currently available so we can measure how much we spent later. */
     uint oldGas = gasleft();
@@ -661,18 +622,21 @@ contract Dex is HasAdmin {
 
     Note that we use `config.gasbase`, not `offerDetail.gasbase`. `gasbase` is cached in `offerDetail` for the purpose of applying penalties; when checking if it's worth going through with taking an offer, we look at the most up-to-date `gasbase` value.
     */
-    require(oldGas >= offerDetail.gasreq + gasbase, "dex/unsafeGasAmount");
+    require(
+      oldGas >= offerDetail.gasreq + orp.config.gasbase,
+      "dex/unsafeGasAmount"
+    );
 
     /* The flashswap is executed by delegatecall to `SWAPPER`. If the call reverts, it means the maker failed to send back `takerWants` `OFR_TOKEN` to the taker. If the call succeeds, `retdata` encodes a boolean indicating whether the taker did send enough to the maker or not. */
     (bool noRevert, bytes memory retdata) =
       address(DexLib).delegatecall(
         abi.encodeWithSelector(
           SWAPPER,
-          ofrToken,
-          reqToken,
-          offerId,
-          takerGives,
-          takerWants,
+          orp.ofrToken,
+          orp.reqToken,
+          orp.offerId,
+          orp.gives,
+          orp.wants,
           offerDetail
         )
       );

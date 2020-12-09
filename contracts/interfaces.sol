@@ -5,6 +5,8 @@ import {DexCommon as DC} from "./DexCommon.sol";
 
 interface IMaker {
   function execute(
+    address ofrToken,
+    address reqToken,
     uint takerWants,
     uint takerGives,
     uint offerGasprice,

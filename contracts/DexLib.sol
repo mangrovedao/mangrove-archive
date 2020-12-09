@@ -34,6 +34,8 @@ library DexLib {
       //uint g = gasleft();
       //(bool s,) =
       IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
+        ofrToken,
+        reqToken,
         takerWants,
         takerGives,
         offerDetail.gasprice,
@@ -78,6 +80,8 @@ library DexLib {
   ) external returns (bool) {
     // Execute offer
     IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
+      ofrToken,
+      reqToken,
       takerWants,
       takerGives,
       offerDetail.gasprice,
@@ -88,6 +92,8 @@ library DexLib {
       "dex/makerFailToPayTaker"
     );
     IMaker(msg.sender).execute(
+      ofrToken,
+      reqToken,
       takerWants,
       takerGives,
       offerDetail.gasprice,
@@ -115,39 +121,30 @@ library DexLib {
 
   /* <a id="DexLib/definition/newOffer"></a> When a maker posts a new offer, the offer gets automatically inserted at the correct location in the book, starting from a maker-supplied `pivotId` parameter. The extra `storage` parameters are sent to `DexLib` by `Dex` so that it can write to `Dex`'s storage. */
   function newOffer(
-    address ofrToken,
-    address reqToken,
-    /* `config`, `freeWei`, `offers`, `offerDetails`, `best` and `offerId` are trusted arguments from `Dex`, while */
-    DC.Config memory config,
+    DC.OfferPack memory ofp,
     mapping(address => uint) storage freeWei,
     mapping(address => mapping(address => mapping(uint => DC.Offer)))
       storage offers,
     mapping(uint => DC.OfferDetail) storage offerDetails,
-    mapping(address => mapping(address => uint)) storage bests,
-    uint offerId,
-    /* `wants`, `gives`, `gasreq`, and `pivotId` are given by `msg.sender`. */
-    uint wants,
-    uint gives,
-    uint gasreq,
-    uint pivotId
+    mapping(address => mapping(address => uint)) storage bests
   ) external returns (uint) {
     /* The following checks are first performed: */
     //+clear+
     /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `maxPenalty` (see below). */
-    require(gasreq <= config.gasmax, "dex/newOffer/gasreq/tooHigh");
+    require(ofp.gasreq <= ofp.config.gasmax, "dex/newOffer/gasreq/tooHigh");
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isOffer` method sound. */
     require(
-      gives >= (gasreq + config.gasbase) * config.density,
+      ofp.gives >= (ofp.gasreq + ofp.config.gasbase) * ofp.config.density,
       "dex/newOffer/gives/tooLow"
     );
     /* * Unnecessary for safety: check width of `wants`, `gives` and `pivotId`. They will be truncated anyway, but if they are too wide, we assume the maker has made a mistake and revert. */
-    require(uint96(wants) == wants, "dex/newOffer/wants/96bits");
-    require(uint96(gives) == gives, "dex/newOffer/gives/96bits");
-    require(uint32(pivotId) == pivotId, "dex/newOffer/pivotId/32bits");
+    require(uint96(ofp.wants) == ofp.wants, "dex/newOffer/wants/96bits");
+    require(uint96(ofp.gives) == ofp.gives, "dex/newOffer/gives/96bits");
+    require(uint32(ofp.pivotId) == ofp.pivotId, "dex/newOffer/pivotId/32bits");
 
     /* With every new offer, a maker must deduct provisions from its `freeWei` balance. The maximum penalty is incurred when an offer fails after consuming all its `gasreq`. */
 
-    uint maxPenalty = (gasreq + config.gasbase) * config.gasprice;
+    uint maxPenalty = (ofp.gasreq + ofp.config.gasbase) * ofp.config.gasprice;
     debitWei(freeWei, msg.sender, maxPenalty);
 
     /* Once provisioned, the position of the new offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
@@ -155,50 +152,50 @@ library DexLib {
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
     (uint prev, uint next) =
       findPosition(
-        offers[ofrToken][reqToken],
-        bests[ofrToken][reqToken],
-        wants,
-        gives,
-        pivotId
+        offers[ofp.ofrToken][ofp.reqToken],
+        bests[ofp.ofrToken][ofp.reqToken],
+        ofp.wants,
+        ofp.gives,
+        ofp.pivotId
       );
 
     /* Then we place the offer in the book at the position found by `findPosition`. */
     if (prev != 0) {
-      offers[ofrToken][reqToken][prev].next = uint32(offerId);
+      offers[ofp.ofrToken][ofp.reqToken][prev].next = uint32(ofp.id);
     } else {
-      bests[ofrToken][reqToken] = uint32(offerId);
+      bests[ofp.ofrToken][ofp.reqToken] = uint32(ofp.id);
     }
 
     if (next != 0) {
-      offers[ofrToken][reqToken][next].prev = uint32(offerId);
+      offers[ofp.ofrToken][ofp.reqToken][next].prev = uint32(ofp.id);
     }
 
     /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 32 bits. */
-    offers[ofrToken][reqToken][offerId] = DC.Offer({
+    offers[ofp.ofrToken][ofp.reqToken][ofp.id] = DC.Offer({
       prev: uint32(prev),
       next: uint32(next),
-      wants: uint96(wants),
-      gives: uint96(gives)
+      wants: uint96(ofp.wants),
+      gives: uint96(ofp.gives)
     });
 
-    offerDetails[offerId] = DC.OfferDetail({
-      gasreq: uint24(gasreq),
-      gasbase: uint24(config.gasbase),
-      gasprice: uint48(config.gasprice),
+    offerDetails[ofp.id] = DC.OfferDetail({
+      gasreq: uint24(ofp.gasreq),
+      gasbase: uint24(ofp.config.gasbase),
+      gasprice: uint48(ofp.config.gasprice),
       maker: msg.sender
     });
 
     /* And finally return the newly created offer id to the caller. */
     emit DexEvents.NewOffer(
-      ofrToken,
-      reqToken,
+      ofp.ofrToken,
+      ofp.reqToken,
       msg.sender,
-      wants,
-      gives,
-      gasreq,
-      offerId
+      ofp.wants,
+      ofp.gives,
+      ofp.gasreq,
+      ofp.id
     );
-    return offerId;
+    return ofp.id;
   }
 
   /* `findPosition` takes a price in the form of a `wants/gives` pair, an offer id (`pivotId`) and walks the book from that offer (backward or forward) until the right position for the price `wants/gives` is found. The position is returned as a `(prev,next)` pair, with `prev` or `next` at 0 to mark the beginning/end of the book (no offer ever has id 0).

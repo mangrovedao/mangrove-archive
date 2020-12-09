@@ -145,6 +145,29 @@ They have the following fields: */
   function isOffer(Offer memory offer) internal pure returns (bool) {
     return offer.gives > 0;
   }
+
+  /* Holds data about offers in a struct, used by `newOffer` to avoid stack too deep errors. */
+  struct OfferPack {
+    address ofrToken;
+    address reqToken;
+    uint wants;
+    uint gives;
+    uint id;
+    uint gasreq;
+    uint pivotId;
+    Config config;
+  }
+
+  /* Holds data about orders in a struct, used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
+  struct OrderPack {
+    address ofrToken;
+    address reqToken;
+    uint wants;
+    uint gives;
+    uint offerId;
+    Offer offer;
+    Config config;
+  }
 }
 
 /* # Events
