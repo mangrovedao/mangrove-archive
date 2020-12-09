@@ -45,13 +45,6 @@ contract Dex is HasAdmin {
   /* * `lastId` is a counter for offer ids, incremented every time a new offer is created. It can't go above 2^32-1. */
   uint private lastId;
 
-  /* * <a id="Dex/definition/open"></a>
-     In case of emergency, the Dex can be shutdown by setting `open = false`. It cannot be reopened. When a Dex is closed, the following operations are disabled :
-       * Executing an offer
-       * Sending ETH to the Dex (the normal way, usual shenanigans are possible)
-       * Creating a new offerX
-   */
-  bool public open = true;
   /* * If `reentrancyLock` is > 1, orders may not be added nor executed.
 
        Reentrancy during offer execution is not considered safe:
@@ -95,15 +88,20 @@ contract Dex is HasAdmin {
     require(locks[ofrToken][reqToken] < 2, "dex/reentrancyLocked");
   }
 
-  /* `requireOpen` protects against operations listed [next to the definition of `open`](#Dex/definition/open). */
-  function requireOpen() internal view {
-    require(open, "dex/closed");
+  /* * <a id="Dex/definition/requireLiveMarket"></a>
+     In case of emergency, the Dex can be `kill()`ed. It cannot be resurrected. When a Dex is dead, the following operations are disabled :
+       * Executing an offer
+       * Sending ETH to the Dex (the normal way, usual shenanigans are possible)
+       * Creating a new offerX
+   */
+  function requireLiveMarket(DC.Config memory _config) internal pure {
+    require(!_config.dead, "dex/dead");
   }
 
-  /* `closeMarket` irreversibly closes the market. */
-  function close() external adminOnly {
-    open = false;
-    emit DexEvents.Close();
+  /* TODO documentation */
+  function requireActiveMarket(DC.Config memory _config) internal pure {
+    requireLiveMarket(_config);
+    require(_config.active, "dex/inactive");
   }
 
   /* # Maker operations
@@ -132,9 +130,10 @@ contract Dex is HasAdmin {
     uint gasreq,
     uint pivotId
   ) external returns (uint) {
-    requireOpen();
     requireUnlocked(ofrToken, reqToken);
+    DC.Config memory _config = config();
     uint newLastId = ++lastId;
+    requireActiveMarket(_config);
     require(uint32(newLastId) == newLastId, "dex/offerIdOverflow");
 
     DC.OfferPack memory ofp =
@@ -175,7 +174,6 @@ contract Dex is HasAdmin {
       offerDetail.gasprice *
       (uint(offerDetail.gasreq) + offerDetail.gasbase);
     DexLib.creditWei(freeWei, msg.sender, provision);
-    emit DexEvents.CancelOffer(offerId);
   }
 
   /* ## Provisioning
@@ -184,7 +182,7 @@ contract Dex is HasAdmin {
 
   /* A transfer with enough gas to the Dex will increase the caller's available `freeWei` balance. _You should send enough gas to execute this function when sending money to the Dex._  */
   receive() external payable {
-    requireOpen();
+    requireLiveMarket(config());
     DexLib.creditWei(freeWei, msg.sender, msg.value);
   }
 
@@ -239,12 +237,6 @@ contract Dex is HasAdmin {
   //+ignore+ not work, you'll just be asking for a ~0 price.
 
   /* During execution, we store some values in a memory struct to avoid solc's [stack too deep errors](https://medium.com/coinmonks/stack-too-deep-error-in-solidity-608d1bd6a1ea) that can occur when too many local variables are used. */
-  struct OrderData {
-    DC.Config config;
-    uint initialTakerWants;
-    uint pastOfferId;
-    uint numFailures;
-  }
 
   function marketOrder(
     /*   ### Arguments */
@@ -266,24 +258,26 @@ contract Dex is HasAdmin {
       uint[2][] memory
     )
   {
-    /* ### Checks */
-    //+clear+
-    /* For the market order to even start, the market needs to be both open (that is, not irreversibly closed following emergency action), and not currently protected from reentrancy. */
-    requireOpen();
-    requireUnlocked(ofrToken, reqToken);
-
-    /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
-    require(
-      uint160(takerWants) == takerWants,
-      "dex/marketOrder/takerWants/160bits"
-    );
-
     DC.OrderPack memory orp;
     orp.ofrToken = ofrToken;
     orp.reqToken = reqToken;
     orp.offerId = offerId;
     orp.offer = offers[ofrToken][reqToken][offerId];
     orp.config = config();
+    orp.failures = new uint[2][](punishLength);
+
+    /* ### Checks */
+    //+clear+
+    /* For the market order to even start, the market needs to be both alive (that is, not irreversibly killed following emergency action), and not currently protected from reentrancy. */
+    DC.Config memory _config = config();
+    requireActiveMarket(_config);
+    requireUnlocked(orp.ofrToken, orp.reqToken);
+
+    /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
+    require(
+      uint160(takerWants) == takerWants,
+      "dex/marketOrder/takerWants/160bits"
+    );
 
     /* ### Initialization */
     /* The market order will operate as follows : it will go through offers from best to worse, starting from `offerId`, and: */
@@ -298,11 +292,8 @@ contract Dex is HasAdmin {
 
     uint initialTakerWants = takerWants;
     uint pastOfferId = orp.offer.prev;
-    uint numFailures;
 
     uint minOrderSize = orp.config.density * orp.config.gasbase;
-
-    uint[2][] memory failures = new uint[2][](punishLength);
 
     locks[orp.ofrToken][orp.reqToken] = 2;
 
@@ -349,9 +340,9 @@ contract Dex is HasAdmin {
         } else {
           emit DexEvents.Failure(orp.offerId, orp.wants, orp.gives);
           /* For penalty application purposes (never triggered if `punishLength = 0`), store the offer id and the gas wasted by the maker */
-          if (numFailures < punishLength) {
-            failures[numFailures] = [orp.offerId, gasUsedIfFailure];
-            numFailures++;
+          if (orp.numFailures < orp.failures.length) {
+            orp.failures[orp.numFailures] = [orp.offerId, gasUsedIfFailure];
+            orp.numFailures++;
           }
         }
         /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
@@ -405,6 +396,8 @@ contract Dex is HasAdmin {
 
        The line below is hackish though, and we may want to just return a `(uint,uint[2][])` pair.
     */
+    uint numFailures = orp.numFailures;
+    uint[2][] memory failures = orp.failures;
     assembly {
       mstore(failures, numFailures)
     }
@@ -443,7 +436,8 @@ contract Dex is HasAdmin {
   ) public returns (uint[2][] memory) {
     /* ### Pre-loop Checks */
     //+clear+
-    requireOpen();
+    DC.Config memory _config = config();
+    requireActiveMarket(_config);
     requireUnlocked(ofrToken, reqToken);
 
     /* ### Pre-loop initialization */
@@ -453,10 +447,9 @@ contract Dex is HasAdmin {
     orp.config = config();
     orp.ofrToken = ofrToken;
     orp.reqToken = reqToken;
+    orp.failures = new uint[2][](punishLength);
 
     uint takerGot;
-    uint numFailures;
-    uint[2][] memory failures = new uint[2][](punishLength);
     locks[ofrToken][reqToken] = 2;
     /* ### Main loop */
     //+clear+
@@ -488,9 +481,9 @@ contract Dex is HasAdmin {
           takerGot += orp.wants;
         } else {
           emit DexEvents.Failure(orp.offerId, orp.wants, orp.gives);
-          if (numFailures < punishLength) {
-            failures[numFailures] = [orp.offerId, gasUsedIfFailure];
-            numFailures++;
+          if (orp.numFailures < orp.failures.length) {
+            orp.failures[orp.numFailures] = [orp.offerId, gasUsedIfFailure];
+            orp.numFailures++;
           }
         }
       }
@@ -502,6 +495,8 @@ contract Dex is HasAdmin {
 
        The line below is hackish though, and we may want to just return a `(uint,uint[2][])` pair.
     */
+    uint numFailures = orp.numFailures;
+    uint[2][] memory failures = orp.failures;
     assembly {
       mstore(failures, numFailures)
     }
@@ -662,9 +657,9 @@ contract Dex is HasAdmin {
     if (amount > 0) {
       // amount is at most 160 bits wide and fee it at most 14 bits wide.
       uint concreteFee = (amount * fee) / 10000;
-      bool appliedFee =
+      bool success =
         DexLib.transferToken(ofrToken, msg.sender, admin, concreteFee);
-      require(appliedFee, "dex/takerFailToPayDex");
+      require(success, "dex/takerFailToPayDex");
     }
   }
 
@@ -704,7 +699,6 @@ contract Dex is HasAdmin {
 
     if (!success) {
       uint amount = offerDetail.gasprice * (offerDetail.gasbase + gasDeducted);
-      emit DexEvents.Transfer(msg.sender, amount);
       bool noRevert;
       (noRevert, ) = msg.sender.call{gas: 0, value: amount}("");
     }

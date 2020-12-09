@@ -3,17 +3,20 @@
 pragma solidity ^0.7.0;
 
 /* # Dex Summary
-   * Each contract is half an offerbook for two ERC20 tokens.
-   * Each maker's offer promises `OFR_TOKEN` and requests `REQ_TOKEN`.
-   * Executing an offer means:
-     1. Flashloaning some `REQ_TOKEN` to a contract.
-     2. Calling arbitrary code on that contract.
+   * Each Dex instance is half an offerbook for two ERC20 tokens.
+   * Each offer promises `OFR_TOKEN` and requests `REQ_TOKEN`.
+   * Each offer has an attached `maker` address.
+   * When an offer is executed, we:
+     1. Flashloan some `REQ_TOKEN` to the offer's `maker`.
+     2. Call an arbitrary `execute` function on that address.
+     3. Transfer back some `OFR_TOKEN`.
    * Offer are just promises. They can fail.
-   * A safety provision must be posted with each offer.
+   * If an offer fails to transfer the right amount back, the loan is reverted.
+   * A penalty mechanism incentivizes keepers to keep the book clean of failing offers.
+   * A penalty provision must be posted with each offer.
    * If the offer succeeds, the provision returns to the maker.
    * If the offer fails, the provision is given to the taker as penalty.
-   * The penalty should compensate for the taker's lost gas.
-   * This incentivizes keepers to keep the book clean of failing offers.
+   * The penalty should overcompensate for the taker's lost gas.
  */
 //+clear+
 
@@ -118,6 +121,8 @@ They have the following fields: */
    All configuration information of the Dex is in a `Config` struct. Configuration fields are:
 */
   struct Config {
+    bool dead;
+    bool active;
     /* * `fee`, in basis points, of `OFR_TOKEN` given to the taker. This fee is sent to the Dex. */
     uint fee;
     /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
@@ -167,6 +172,8 @@ They have the following fields: */
     uint offerId;
     Offer offer;
     Config config;
+    uint numFailures;
+    uint[2][] failures;
   }
 }
 
@@ -178,19 +185,16 @@ library DexEvents {
 
   event TestEvent(uint);
 
-  /* * Dex receives/sends amount to receiver/sender */
-  event Receive(address sender, uint amount);
-  event Transfer(address payable receiver, uint amout);
-
   /* * Dex adds or removes wei from `maker`'s account */
   event Credit(address maker, uint amount);
   event Debit(address maker, uint amount);
 
   /* * Dex reconfiguration */
+  event SetActive(address dex, bool value);
   event SetFee(address dex, uint value);
   event SetGasbase(uint value);
   event SetGasmax(uint value);
-  event SetDustPerGasWanted(address dex, uint value);
+  event SetDensity(address dex, uint value);
   event SetGasprice(uint value);
 
   /* * Offer execution */
@@ -198,10 +202,8 @@ library DexEvents {
   event Failure(uint offerId, uint takerWants, uint takerGives);
 
   /* * Dex closure */
-  event Close();
+  event Kill();
 
-  /* * `offerId` was successfully cancelled.
-     No event is emitted if `offerId` is absent from book. */
   event CancelOffer(uint offerId);
 
   /* * A new offer was inserted into book.
@@ -216,6 +218,6 @@ library DexEvents {
     uint offerId
   );
 
-  /* * `offerId` is removed from book. */
+  /* * `offerId` is was present and now removed from the book. */
   event DeleteOffer(uint offerId);
 }
