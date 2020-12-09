@@ -217,11 +217,9 @@ contract Dex is HasAdmin {
     }
 
     /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
-    provision =
-      offerDetail.gasprice *
-      (uint(offerDetail.gasreq) + offerDetail.gasbase);
+    uint provision =
+      offerDetail.gasprice * (uint(offerDetail.gasreq) + offerDetail.gasbase);
     DexLib.creditWei(freeWei, msg.sender, provision);
-    emit DexEvents.CancelOffer(offerId);
   }
 
   /* ## Provisioning
