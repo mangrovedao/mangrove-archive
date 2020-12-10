@@ -126,6 +126,7 @@ library DexLib {
     mapping(address => mapping(address => mapping(uint => DC.Offer)))
       storage offers,
     mapping(uint => DC.OfferDetail) storage offerDetails,
+    /* The `bests` map is given (instead of current best value) because this function may _write_ a new best value. */
     mapping(address => mapping(address => uint)) storage bests
   ) external returns (uint) {
     /* The following checks are first performed: */
