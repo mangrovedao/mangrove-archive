@@ -1010,7 +1010,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint value
   ) public adminOnly {
     /* `fee` is in basis points, i.e. in percents of a percent. */
-    require(value <= 10000, "dex/config/fee/IsBps"); // at most 14 bits
+    require(value <= 500, "dex/config/fee/IsBps"); // at most 5%
     locals[ofrToken][reqToken].fee = uint16(value);
     emit DexEvents.SetFee(ofrToken, reqToken, value);
   }
