@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
+// Encode structs
 pragma experimental ABIEncoderV2;
+
 import "../../DexDeployer.sol";
 import "../../Sauron.sol";
 
@@ -213,7 +215,8 @@ library DexSetup {
       takerLends: true
     });
 
-    sauron.density(address(dex), 100);
+    sauron.density(address(dex), 100); //sets density for this specific Dex
+    sauron.active(address(dex), true); //activates exchanges on this Dex
 
     return dex;
   }
