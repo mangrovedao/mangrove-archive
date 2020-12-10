@@ -204,8 +204,6 @@ library DexEvents {
   /* * Dex closure */
   event Kill();
 
-  event CancelOffer(uint offerId);
-
   /* * A new offer was inserted into book.
    `maker` is the address of the contract that implements the offer. */
   event NewOffer(

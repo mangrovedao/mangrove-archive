@@ -86,6 +86,7 @@ contract Dex is HasAdmin {
     /* determines whether the taker or maker does the flashlend */
     bool takerLends
   ) HasAdmin() {
+    emit DexEvents.NewDex(address(this));
     setGasprice(gasprice);
     setGasbase(gasbase);
     setGasmax(gasmax);
@@ -94,7 +95,6 @@ contract Dex is HasAdmin {
     SWAPPER = takerLends
       ? DexLib.swapTokens.selector
       : DexLib.invertedSwapTokens.selector;
-    emit DexEvents.NewDex(address(this));
   }
 
   /*
@@ -152,8 +152,9 @@ contract Dex is HasAdmin {
   ) external returns (uint) {
     requireUnlocked(ofrToken, reqToken);
     DC.Config memory _config = config(ofrToken, reqToken);
-    uint newLastId = ++lastId;
     requireActiveMarket(_config);
+
+    uint newLastId = ++lastId;
     require(uint32(newLastId) == newLastId, "dex/offerIdOverflow");
 
     DC.OfferPack memory ofp =
