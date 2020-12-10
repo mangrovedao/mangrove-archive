@@ -104,8 +104,9 @@ contract Dex is HasAdmin {
   */
 
   /* `requireNoReentrancyLock` protects modifying the book while an order is in progress. */
-  function requireUnlocked(address ofrToken, address reqToken) internal view {
+  modifier unlockedOnly(address ofrToken, address reqToken) {
     require(locks[ofrToken][reqToken] < 2, "dex/reentrancyLocked");
+    _;
   }
 
   /* * <a id="Dex/definition/requireLiveDex"></a>
@@ -149,8 +150,7 @@ contract Dex is HasAdmin {
     uint gives,
     uint gasreq,
     uint pivotId
-  ) external returns (uint) {
-    requireUnlocked(ofrToken, reqToken);
+  ) external unlockedOnly(ofrToken, reqToken) returns (uint) {
     DC.Config memory _config = config(ofrToken, reqToken);
     requireActiveMarket(_config);
 
@@ -178,8 +178,7 @@ contract Dex is HasAdmin {
     address ofrToken,
     address reqToken,
     uint offerId
-  ) external returns (uint provision) {
-    requireUnlocked(ofrToken, reqToken);
+  ) external unlockedOnly(ofrToken, reqToken) returns (uint provision) {
     DC.Offer memory offer = offers[ofrToken][reqToken][offerId];
     if (!DC.isOffer(offer)) {
       return 0; //no effect on offers absent from the offer book
@@ -274,6 +273,7 @@ contract Dex is HasAdmin {
     uint offerId
   )
     public
+    unlockedOnly(ofrToken, reqToken)
     returns (
       /* The return value is used for book cleaning: it contains a list (of length `2 * punishLength`) of the offers that failed during the market order, along with the gas they used before failing. */
       uint[2][] memory
@@ -291,7 +291,6 @@ contract Dex is HasAdmin {
     //+clear+
     /* For the market order to even start, the market needs to be both alive (that is, not irreversibly killed following emergency action), and not currently protected from reentrancy. */
     requireActiveMarket(orp.config);
-    requireUnlocked(orp.ofrToken, orp.reqToken);
 
     /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
     require(
@@ -453,7 +452,7 @@ contract Dex is HasAdmin {
     address reqToken,
     uint[2][] memory targets,
     uint punishLength
-  ) public returns (uint[2][] memory) {
+  ) public unlockedOnly(ofrToken, reqToken) returns (uint[2][] memory) {
     /* ### Pre-loop Checks */
     //+clear+
     DC.OrderPack memory orp;
@@ -463,7 +462,6 @@ contract Dex is HasAdmin {
     orp.failures = new uint[2][](punishLength);
 
     requireActiveMarket(orp.config);
-    requireUnlocked(ofrToken, reqToken);
 
     /* ### Pre-loop initialization */
     //+clear+
@@ -915,9 +913,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   function getBest(address ofrToken, address reqToken)
     external
     view
+    unlockedOnly(ofrToken, reqToken)
     returns (uint)
   {
-    requireUnlocked(ofrToken, reqToken);
     return bests[ofrToken][reqToken];
   }
 
@@ -939,6 +937,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   )
     external
     view
+    unlockedOnly(ofrToken, reqToken)
     returns (
       bool,
       uint,
@@ -951,7 +950,6 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     )
   {
     // TODO: Make sure `requireNoReentrancyLock` is necessary here
-    requireUnlocked(ofrToken, reqToken);
     DC.Offer memory offer = offers[ofrToken][reqToken][offerId];
     DC.OfferDetail memory offerDetail = offerDetails[offerId];
     return (
