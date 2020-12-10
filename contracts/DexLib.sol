@@ -103,7 +103,10 @@ library DexLib {
   }
 
   /* `transferToken` is adapted from [existing code](https://soliditydeveloper.com/safe-erc20) and in particular avoids the
-  "no return value" bug. It never throws and returns true iff the transfer was successful according to `tokenAddress`. */
+  "no return value" bug. It never throws and returns true iff the transfer was successful according to `tokenAddress`.
+
+    Note that any spurious exception due to an error in Dex code will be falsely blamed on `from`.
+  */
   function transferToken(
     address tokenAddress,
     address from,
