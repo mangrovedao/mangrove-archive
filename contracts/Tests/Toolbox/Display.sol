@@ -138,11 +138,11 @@ library Display {
 
   function logOfferBook(
     Dex dex,
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint size
   ) internal {
-    uint offerId = dex.bests(ofrToken, reqToken);
+    uint offerId = dex.bests(base, quote);
 
     uint[] memory wants = new uint[](size);
     uint[] memory gives = new uint[](size);
@@ -151,7 +151,7 @@ library Display {
     uint c = 0;
     while ((offerId != 0) && (c < size)) {
       (DC.Offer memory offer, DC.OfferDetail memory od) =
-        dex.getOfferInfo(ofrToken, reqToken, offerId, true);
+        dex.getOfferInfo(base, quote, offerId, true);
       wants[c] = offer.wants;
       gives[c] = offer.gives;
       makerAddr[c] = od.maker;
@@ -165,12 +165,12 @@ library Display {
 
   function printOfferBook(
     Dex dex,
-    address ofrToken,
-    address reqToken
+    address base,
+    address quote
   ) internal view {
-    uint offerId = dex.bests(ofrToken, reqToken);
-    TestToken req_tk = TestToken(reqToken);
-    TestToken ofr_tk = TestToken(ofrToken);
+    uint offerId = dex.bests(base, quote);
+    TestToken req_tk = TestToken(quote);
+    TestToken ofr_tk = TestToken(base);
 
     console.log("-----Best offer: %d-----", offerId);
     while (offerId != 0) {
@@ -188,7 +188,7 @@ library Display {
       ) =
         /* uint gasprice */
         /* address makerAddr */
-        dex.getOfferInfo(ofrToken, reqToken, offerId);
+        dex.getOfferInfo(base, quote, offerId);
       console.log(
         "[offer %d] %s/%s",
         offerId,

@@ -153,8 +153,8 @@ They have the following fields: */
 
   /* Holds data about offers in a struct, used by `newOffer` to avoid stack too deep errors. */
   struct OfferPack {
-    address ofrToken;
-    address reqToken;
+    address base;
+    address quote;
     uint wants;
     uint gives;
     uint id;
@@ -165,8 +165,8 @@ They have the following fields: */
 
   /* Holds data about orders in a struct, used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
   struct OrderPack {
-    address ofrToken;
-    address reqToken;
+    address base;
+    address quote;
     uint wants;
     uint gives;
     uint offerId;
@@ -180,7 +180,7 @@ They have the following fields: */
 /* # Events
 The events emitted for use by various bots are listed here: */
 library DexEvents {
-  /* * Emitted at the creation of the new Dex contract on the pair (`reqToken`, `ofrToken`)*/
+  /* * Emitted at the creation of the new Dex contract on the pair (`quote`, `base`)*/
   event NewDex();
 
   event TestEvent(uint);
@@ -190,11 +190,11 @@ library DexEvents {
   event Debit(address maker, uint amount);
 
   /* * Dex reconfiguration */
-  event SetActive(address ofrToken, address reqToken, bool value);
-  event SetFee(address ofrToken, address reqToken, uint value);
+  event SetActive(address base, address quote, bool value);
+  event SetFee(address base, address quote, uint value);
   event SetGasbase(uint value);
   event SetGasmax(uint value);
-  event SetDensity(address ofrToken, address reqToken, uint value);
+  event SetDensity(address base, address quote, uint value);
   event SetGasprice(uint value);
 
   /* * Offer execution */
@@ -207,8 +207,8 @@ library DexEvents {
   /* * A new offer was inserted into book.
    `maker` is the address of the contract that implements the offer. */
   event NewOffer(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     address maker,
     uint wants,
     uint gives,

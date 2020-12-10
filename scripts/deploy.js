@@ -19,12 +19,12 @@ async function main() {
 
   /* To activate for two tokens:
   const TestToken = await $e.getContractFactory("TestToken");
-  const aToken = await TestToken.deploy(owner.address, "A", "$A");
-  const bToken = await TestToken.deploy(owner.address, "B", "$B");
-  console.log("aToken", aToken.address);
-  console.log("bToken", bToken.address);
+  const base = await TestToken.deploy(owner.address, "A", "$A");
+  const quote = await TestToken.deploy(owner.address, "B", "$B");
+  console.log("base", base.address);
+  console.log("quote", quote.address);
 
-  dex.setActive(aToken.address, bToken.address, true);
+  dex.setActive(base.address, quote.address, true);
   */
 }
 

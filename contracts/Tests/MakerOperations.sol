@@ -22,25 +22,25 @@ contract MakerOperations_Test {
   Dex dex;
   TestMaker mkr;
   TestMaker mkr2;
-  TestToken atk;
-  TestToken btk;
+  TestToken base;
+  TestToken quote;
 
   receive() external payable {}
 
   function a_beforeAll() public {
-    atk = TokenSetup.setup("A", "$A");
-    btk = TokenSetup.setup("B", "$B");
-    dex = DexSetup.setup(atk, btk);
-    mkr = MakerSetup.setup(dex, address(atk), address(btk), false);
-    mkr2 = MakerSetup.setup(dex, address(atk), address(btk), false);
+    base = TokenSetup.setup("A", "$A");
+    quote = TokenSetup.setup("B", "$B");
+    dex = DexSetup.setup(base, quote);
+    mkr = MakerSetup.setup(dex, address(base), address(quote), false);
+    mkr2 = MakerSetup.setup(dex, address(base), address(quote), false);
 
     address(mkr).transfer(10 ether);
     address(mkr2).transfer(10 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "MakerOperations_Test");
-    Display.register(address(atk), "$A");
-    Display.register(address(btk), "$B");
+    Display.register(address(base), "$A");
+    Display.register(address(quote), "$B");
     Display.register(address(dex), "dex");
     Display.register(address(mkr), "maker");
     Display.register(address(mkr2), "maker2");
@@ -151,14 +151,14 @@ contract MakerOperations_Test {
     mkr.provisionDex(1 ether);
     uint density = 10**7;
     dex.setGasbase(1);
-    dex.setDensity(address(atk), address(btk), density);
+    dex.setDensity(address(base), address(quote), density);
     mkr.newOffer(1 ether, density, 0, 0);
   }
 
   function low_density_fails_newOffer_test() public {
     uint density = 10**7;
     dex.setGasbase(1);
-    dex.setDensity(address(atk), address(btk), density);
+    dex.setDensity(address(base), address(quote), density);
     try mkr.newOffer(1 ether, density - 1, 0, 0) {
       TestEvents.fail("density too low, newOffer should fail");
     } catch Error(string memory r) {
@@ -168,7 +168,7 @@ contract MakerOperations_Test {
 
   function wants_too_wide_fails_newOffer_test() public {
     dex.setGasbase(1);
-    dex.setDensity(address(atk), address(btk), 1);
+    dex.setDensity(address(base), address(quote), 1);
     mkr.provisionDex(1 ether);
 
     uint wants = type(uint96).max + uint(1);
@@ -192,7 +192,7 @@ contract MakerOperations_Test {
 
   function pivotId_too_wide_fails_newOffer_test() public {
     dex.setGasbase(1);
-    dex.setDensity(address(atk), address(btk), 1);
+    dex.setDensity(address(base), address(quote), 1);
     mkr.provisionDex(1 ether);
 
     uint pivotId = type(uint32).max + uint(1);

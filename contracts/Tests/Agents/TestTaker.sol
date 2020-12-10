@@ -7,17 +7,17 @@ import "../../Dex.sol";
 
 contract TestTaker is ITaker {
   Dex dex;
-  address atk;
-  address btk;
+  address base;
+  address quote;
 
   constructor(
     Dex _dex,
-    address _atk,
-    address _btk
+    address _base,
+    address _quote
   ) {
     dex = _dex;
-    atk = _atk;
-    btk = _btk;
+    base = _base;
+    quote = _quote;
   }
 
   receive() external payable {}
@@ -32,12 +32,12 @@ contract TestTaker is ITaker {
     returns (bool success)
   {
     //uint taken = TestEvents.min(makerGives, takerWants);
-    success = dex.snipe(atk, btk, offerId, takerWants);
+    success = dex.snipe(base, quote, offerId, takerWants);
     //return taken;
   }
 
   function marketOrder(uint wants, uint gives) external override {
-    dex.simpleMarketOrder(atk, btk, wants, gives);
+    dex.simpleMarketOrder(base, quote, wants, gives);
   }
 
   function marketOrderWithFail(
@@ -46,13 +46,13 @@ contract TestTaker is ITaker {
     uint punishLength,
     uint offerId
   ) external returns (uint[2][] memory) {
-    return (dex.marketOrder(atk, btk, wants, gives, punishLength, offerId));
+    return (dex.marketOrder(base, quote, wants, gives, punishLength, offerId));
   }
 
   function snipesAndRevert(uint[2][] calldata targets, uint punishLength)
     external
   {
-    dex.punishingSnipes(atk, btk, targets, punishLength);
+    dex.punishingSnipes(base, quote, targets, punishLength);
   }
 
   function marketOrderAndRevert(
@@ -62,8 +62,8 @@ contract TestTaker is ITaker {
     uint punishLength
   ) external {
     dex.punishingMarketOrder(
-      atk,
-      btk,
+      base,
+      quote,
       fromOfferId,
       takerWants,
       takerGives,

@@ -50,28 +50,28 @@ contract Gatekeeping_Test {
   address quote;
 
   function a_beforeAll() public {
-    TestToken atk = TokenSetup.setup("A", "$A");
-    TestToken btk = TokenSetup.setup("B", "$B");
-    base = address(atk);
-    quote = address(btk);
-    dex = DexSetup.setup(atk, btk);
-    tkr = TakerSetup.setup(dex, address(atk), address(btk));
+    TestToken baseT = TokenSetup.setup("A", "$A");
+    TestToken quoteT = TokenSetup.setup("B", "$B");
+    base = address(baseT);
+    quote = address(quoteT);
+    dex = DexSetup.setup(baseT, quoteT);
+    tkr = TakerSetup.setup(dex, base, quote);
 
     address(tkr).transfer(10 ether);
 
     bool noRevert;
     (noRevert, ) = address(dex).call{value: 10 ether}("");
 
-    atk.mint(address(this), 1 ether);
-    btk.mint(address(tkr), 1 ether);
+    baseT.mint(address(this), 1 ether);
+    quoteT.mint(address(tkr), 1 ether);
 
-    atk.approve(address(dex), 1 ether);
-    tkr.approve(btk, 1 ether);
+    baseT.approve(address(dex), 1 ether);
+    tkr.approve(quoteT, 1 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "Gatekeeping_Test/maker");
-    Display.register(address(atk), "$A");
-    Display.register(address(btk), "$B");
+    Display.register(base, "$A");
+    Display.register(quote, "$B");
     Display.register(address(dex), "dex");
     Display.register(address(tkr), "taker");
   }

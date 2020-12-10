@@ -25,11 +25,11 @@ library TestUtils {
 
   function isEmptyOB(
     Dex dex,
-    address atk,
-    address btk
+    address base,
+    address quote
   ) internal view returns (bool) {
     (DC.Offer memory offer, ) =
-      dex.getOfferInfo(atk, btk, dex.bests(atk, btk), true);
+      dex.getOfferInfo(base, quote, dex.bests(base, quote), true);
     return !DC.isOffer(offer);
   }
 
@@ -39,32 +39,32 @@ library TestUtils {
 
   function getFee(
     Dex dex,
-    address atk,
-    address btk,
+    address base,
+    address quote,
     uint price
   ) internal view returns (uint) {
-    return ((price * dex.config(atk, btk).fee) / 10000);
+    return ((price * dex.config(base, quote).fee) / 10000);
   }
 
   function getProvision(
     Dex dex,
-    address atk,
-    address btk,
+    address base,
+    address quote,
     uint gasreq
   ) internal view returns (uint) {
-    DC.Config memory config = dex.config(atk, btk);
+    DC.Config memory config = dex.config(base, quote);
     return ((gasreq + config.gasbase) * config.gasprice);
   }
 
   function getOfferInfo(
     Dex dex,
-    address atk,
-    address btk,
+    address base,
+    address quote,
     Info infKey,
     uint offerId
   ) internal view returns (uint) {
     (DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
-      dex.getOfferInfo(atk, btk, offerId, true);
+      dex.getOfferInfo(base, quote, offerId, true);
     if (infKey == Info.makerWants) {
       return offer.wants;
     }
@@ -83,20 +83,20 @@ library TestUtils {
 
   function hasOffer(
     Dex dex,
-    address atk,
-    address btk,
+    address base,
+    address quote,
     uint offerId
   ) internal view returns (bool) {
-    return (getOfferInfo(dex, atk, btk, Info.makerGives, offerId) > 0);
+    return (getOfferInfo(dex, base, quote, Info.makerGives, offerId) > 0);
   }
 
   function makerOf(
     Dex dex,
-    address atk,
-    address btk,
+    address base,
+    address quote,
     uint offerId
   ) internal view returns (address) {
-    (, DC.OfferDetail memory od) = dex.getOfferInfo(atk, btk, offerId, true);
+    (, DC.OfferDetail memory od) = dex.getOfferInfo(base, quote, offerId, true);
     return od.maker;
   }
 
@@ -200,12 +200,9 @@ library TokenSetup {
 }
 
 library DexSetup {
-  function setup(TestToken aToken, TestToken bToken)
-    external
-    returns (Dex dex)
-  {
-    TestEvents.not0x(address(aToken));
-    TestEvents.not0x(address(bToken));
+  function setup(TestToken base, TestToken quote) external returns (Dex dex) {
+    TestEvents.not0x(address(base));
+    TestEvents.not0x(address(quote));
     dex = new Dex({
       gasprice: 40 * 10**9,
       gasbase: 30_000,
@@ -213,8 +210,8 @@ library DexSetup {
       takerLends: true
     });
 
-    dex.setActive(address(aToken), address(bToken), true);
-    dex.setDensity(address(aToken), address(bToken), 100);
+    dex.setActive(address(base), address(quote), true);
+    dex.setDensity(address(base), address(quote), 100);
 
     return dex;
   }
@@ -223,32 +220,32 @@ library DexSetup {
 library MakerSetup {
   function setup(
     Dex dex,
-    address atk,
-    address btk,
+    address base,
+    address quote,
     bool shouldFail
   ) external returns (TestMaker) {
-    return new TestMaker(dex, atk, btk, shouldFail);
+    return new TestMaker(dex, base, quote, shouldFail);
   }
 }
 
 library MakerDeployerSetup {
   function setup(
     Dex dex,
-    address atk,
-    address btk
+    address base,
+    address quote
   ) external returns (MakerDeployer) {
     TestEvents.not0x(address(dex));
-    return (new MakerDeployer(dex, atk, btk));
+    return (new MakerDeployer(dex, base, quote));
   }
 }
 
 library TakerSetup {
   function setup(
     Dex dex,
-    address atk,
-    address btk
+    address base,
+    address quote
   ) external returns (TestTaker) {
     TestEvents.not0x(address(dex));
-    return new TestTaker(dex, atk, btk);
+    return new TestTaker(dex, base, quote);
   }
 }

@@ -7,19 +7,19 @@ import "../../Dex.sol";
 
 contract TestMoriartyMaker is IMaker, Passthrough {
   Dex dex;
-  address atk;
-  address btk;
+  address base;
+  address quote;
   bool succeed;
   uint dummy;
 
   constructor(
     Dex _dex,
-    address _atk,
-    address _btk
+    address _base,
+    address _quote
   ) {
     dex = _dex;
-    atk = _atk;
-    btk = _btk;
+    base = _base;
+    quote = _quote;
     succeed = true;
   }
 
@@ -45,15 +45,15 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     uint gasreq,
     uint pivotId
   ) public {
-    dex.newOffer(atk, btk, wants, gives, gasreq, pivotId);
-    dex.newOffer(atk, btk, wants, gives, gasreq, pivotId);
-    dex.newOffer(atk, btk, wants, gives, gasreq, pivotId);
-    dex.newOffer(atk, btk, wants, gives, gasreq, pivotId);
-    uint density = dex.config(atk, btk).density;
-    uint gasbase = dex.config(atk, btk).gasbase;
+    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
+    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
+    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
+    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
+    uint density = dex.config(base, quote).density;
+    uint gasbase = dex.config(base, quote).gasbase;
     dummy = dex.newOffer({
-      ofrToken: atk,
-      reqToken: btk,
+      base: base,
+      quote: quote,
       wants: 1,
       gives: density * (gasbase + 10000),
       gasreq: 10000,

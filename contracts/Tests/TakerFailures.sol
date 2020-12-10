@@ -32,9 +32,9 @@ interface CallableRecipient {
 contract BlackholeTaker is TestTaker, CallableRecipient {
   constructor(
     Dex _dex,
-    address atk,
-    address btk
-  ) TestTaker(_dex, atk, btk) {}
+    address base,
+    address quote
+  ) TestTaker(_dex, base, quote) {}
 
   bool enabled;
 
@@ -59,10 +59,10 @@ contract BlackholeTaker is TestTaker, CallableRecipient {
 library BlackholeTakerSetup {
   function setup(
     Dex dex,
-    address atk,
-    address btk
+    address base,
+    address quote
   ) external returns (BlackholeTaker) {
-    return new BlackholeTaker(dex, atk, btk);
+    return new BlackholeTaker(dex, base, quote);
   }
 }
 
@@ -96,8 +96,8 @@ library TokenWithCbSetup {
 }
 
 contract TakerFailures_Test {
-  TestToken atk;
-  TestToken btk;
+  TestToken base;
+  TestToken quote;
   Dex dex;
   BlackholeTaker tkr;
   TestMaker mkr;
@@ -105,24 +105,24 @@ contract TakerFailures_Test {
   receive() external payable {}
 
   function a_beforeAll() public {
-    atk = TokenWithCbSetup.setup(address(this), "A", "$A");
-    btk = TokenSetup.setup("B", "$B");
-    dex = DexSetup.setup(atk, btk);
-    tkr = BlackholeTakerSetup.setup(dex, address(atk), address(btk));
-    mkr = MakerSetup.setup(dex, address(atk), address(btk), false);
+    base = TokenWithCbSetup.setup(address(this), "A", "$A");
+    quote = TokenSetup.setup("B", "$B");
+    dex = DexSetup.setup(base, quote);
+    tkr = BlackholeTakerSetup.setup(dex, address(base), address(quote));
+    mkr = MakerSetup.setup(dex, address(base), address(quote), false);
 
     address(mkr).transfer(10 ether);
     address(tkr).transfer(1 ether);
 
     mkr.provisionDex(1 ether);
 
-    atk.mint(address(mkr), 1 ether);
-    btk.mint(address(tkr), 1 ether);
+    base.mint(address(mkr), 1 ether);
+    quote.mint(address(tkr), 1 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "TakerFailures_Test");
-    Display.register(address(atk), "$A");
-    Display.register(address(btk), "$B");
+    Display.register(address(base), "$A");
+    Display.register(address(quote), "$B");
     Display.register(address(dex), "dex");
     Display.register(address(mkr), "maker");
     Display.register(address(tkr), "taker");
@@ -139,7 +139,7 @@ contract TakerFailures_Test {
 
   function taker_has_no_B_fails_order_test() public {
     uint ofr = mkr.newOffer(1.1 ether, 1 ether, 10_000, 0);
-    tkr.approve(btk, 1.1 ether);
+    tkr.approve(quote, 1.1 ether);
     try tkr.take(ofr, 1.1 ether) {
       TestEvents.fail("Taker doesn't have enough B, order should fail");
     } catch Error(string memory r) {
@@ -149,15 +149,15 @@ contract TakerFailures_Test {
 
   function maker_hasnt_approved_A_fails_order_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 0, 0);
-    tkr.approve(btk, 1 ether);
+    tkr.approve(quote, 1 ether);
     bool success = tkr.take(ofr, 1 ether);
     TestEvents.check(!success, "order should fail");
   }
 
   function if_maker_has_no_A_fails_order_test() public {
     uint ofr = mkr.newOffer(1 ether, 10 ether, 0, 0);
-    tkr.approve(btk, 1 ether);
-    mkr.approve(atk, 10 ether);
+    tkr.approve(quote, 1 ether);
+    mkr.approve(base, 10 ether);
     bool success = tkr.take(ofr, 1 ether);
     TestEvents.check(!success, "order should fail");
   }
@@ -185,9 +185,9 @@ contract TakerFailures_Test {
   }
 
   function taker_hasnt_approved_A_fails_order_test() public {
-    dex.setFee(address(atk), address(btk), 300);
-    tkr.approve(btk, 1 ether);
-    mkr.approve(atk, 1 ether);
+    dex.setFee(address(base), address(quote), 300);
+    tkr.approve(quote, 1 ether);
+    mkr.approve(base, 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
     try tkr.take(ofr, 1 ether) {
       TestEvents.fail("Taker hasn't approved for A, order should fail");
@@ -198,10 +198,10 @@ contract TakerFailures_Test {
 
   function taker_has_no_A_fails_order_test() public {
     tkr.setEnabled(true);
-    dex.setFee(address(atk), address(btk), 300);
-    tkr.approve(btk, 1 ether);
-    mkr.approve(atk, 1 ether);
-    tkr.approve(atk, 1 ether);
+    dex.setFee(address(base), address(quote), 300);
+    tkr.approve(quote, 1 ether);
+    mkr.approve(base, 1 ether);
+    tkr.approve(base, 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
     try tkr.take(ofr, 1 ether) {
       TestEvents.fail("Taker doesn't have enough A, order should fail");
@@ -227,8 +227,8 @@ contract TakerFailures_Test {
   }
 
   function taking_same_offer_twice_fails_test() public {
-    tkr.approve(btk, 1 ether);
-    mkr.approve(atk, 1 ether);
+    tkr.approve(quote, 1 ether);
+    mkr.approve(base, 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
     tkr.take(ofr, 1 ether);
     try tkr.marketOrderWithFail(0, 0, 0, ofr) {
@@ -239,9 +239,9 @@ contract TakerFailures_Test {
   }
 
   function small_partial_fill_can_be_retaken_test() public {
-    tkr.approve(btk, 1 ether);
-    mkr.approve(atk, 1 ether);
-    dex.setDensity(address(atk), address(btk), 1);
+    tkr.approve(quote, 1 ether);
+    mkr.approve(base, 1 ether);
+    dex.setDensity(address(base), address(quote), 1);
     dex.setGasbase(1);
     uint ofr = mkr.newOffer(10_002, 10_002, 10_000, 0);
     tkr.take(ofr, 1);
@@ -249,9 +249,9 @@ contract TakerFailures_Test {
   }
 
   function big_partial_fill_cant_be_retaken_test() public {
-    tkr.approve(btk, 1 ether);
-    mkr.approve(atk, 1 ether);
-    dex.setDensity(address(atk), address(btk), 1);
+    tkr.approve(quote, 1 ether);
+    mkr.approve(base, 1 ether);
+    dex.setDensity(address(base), address(quote), 1);
     dex.setGasbase(1);
     uint ofr = mkr.newOffer(10_001, 10_001, 10_000, 0);
     tkr.take(ofr, 2);

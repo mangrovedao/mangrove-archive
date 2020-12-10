@@ -104,8 +104,8 @@ contract Dex is HasAdmin {
   */
 
   /* `requireNoReentrancyLock` protects modifying the book while an order is in progress. */
-  modifier unlockedOnly(address ofrToken, address reqToken) {
-    require(locks[ofrToken][reqToken] < 2, "dex/reentrancyLocked");
+  modifier unlockedOnly(address base, address quote) {
+    require(locks[base][quote] < 2, "dex/reentrancyLocked");
     _;
   }
 
@@ -144,14 +144,14 @@ contract Dex is HasAdmin {
   The [actual content of the function](#DexLib/definition/newOffer) is in `DexLib`, due to size limitations.
   */
   function newOffer(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint wants,
     uint gives,
     uint gasreq,
     uint pivotId
-  ) external unlockedOnly(ofrToken, reqToken) returns (uint) {
-    DC.Config memory _config = config(ofrToken, reqToken);
+  ) external unlockedOnly(base, quote) returns (uint) {
+    DC.Config memory _config = config(base, quote);
     requireActiveMarket(_config);
 
     uint newLastId = ++lastId;
@@ -159,8 +159,8 @@ contract Dex is HasAdmin {
 
     DC.OfferPack memory ofp =
       DC.OfferPack({
-        ofrToken: ofrToken,
-        reqToken: reqToken,
+        base: base,
+        quote: quote,
         wants: wants,
         gives: gives,
         id: newLastId,
@@ -175,19 +175,19 @@ contract Dex is HasAdmin {
   //+clear+
   /* `cancelOffer` is available in closed markets, but only outside of reentrancy. Upon successful deletion of an offer, the ETH that were provisioned are returned to the maker as `freeWei` balance. */
   function cancelOffer(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint offerId
-  ) external unlockedOnly(ofrToken, reqToken) returns (uint provision) {
-    DC.Offer memory offer = offers[ofrToken][reqToken][offerId];
+  ) external unlockedOnly(base, quote) returns (uint provision) {
+    DC.Offer memory offer = offers[base][quote][offerId];
     if (!DC.isOffer(offer)) {
       return 0; //no effect on offers absent from the offer book
     }
     DC.OfferDetail memory offerDetail = offerDetails[offerId];
     require(msg.sender == offerDetail.maker, "dex/cancelOffer/unauthorized");
 
-    dirtyDeleteOffer(ofrToken, reqToken, offerId);
-    stitchOffers(ofrToken, reqToken, offer.prev, offer.next);
+    dirtyDeleteOffer(base, quote, offerId);
+    stitchOffers(base, quote, offer.prev, offer.next);
 
     /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
     provision =
@@ -227,19 +227,12 @@ contract Dex is HasAdmin {
   //+clear+
   /*  `simpleMarketOrder` walks the book and takes offers up to a certain volume of `OFR_TOKEN` and for a maximum average price. */
   function simpleMarketOrder(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint takerWants,
     uint takerGives
   ) external {
-    marketOrder(
-      ofrToken,
-      reqToken,
-      takerWants,
-      takerGives,
-      0,
-      bests[ofrToken][reqToken]
-    );
+    marketOrder(base, quote, takerWants, takerGives, 0, bests[base][quote]);
   }
 
   /* The lower-level `marketOrder` can:
@@ -265,26 +258,26 @@ contract Dex is HasAdmin {
 
        A regular market order will have `punishLength = 0`, and `offerId = 0`. Any other `punishLength` and `offerId` are for book cleaning (see [`punishingMarketOrder`](#Dex/definition/punishingMarketOrder)).
      */
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint takerWants,
     uint takerGives,
     uint punishLength,
     uint offerId
   )
     public
-    unlockedOnly(ofrToken, reqToken)
+    unlockedOnly(base, quote)
     returns (
       /* The return value is used for book cleaning: it contains a list (of length `2 * punishLength`) of the offers that failed during the market order, along with the gas they used before failing. */
       uint[2][] memory
     )
   {
     DC.OrderPack memory orp;
-    orp.ofrToken = ofrToken;
-    orp.reqToken = reqToken;
+    orp.base = base;
+    orp.quote = quote;
     orp.offerId = offerId;
-    orp.offer = offers[ofrToken][reqToken][offerId];
-    orp.config = config(ofrToken, reqToken);
+    orp.offer = offers[base][quote][offerId];
+    orp.config = config(base, quote);
     orp.failures = new uint[2][](punishLength);
 
     /* ### Checks */
@@ -314,7 +307,7 @@ contract Dex is HasAdmin {
 
     uint minOrderSize = orp.config.density * orp.config.gasbase;
 
-    locks[orp.ofrToken][orp.reqToken] = 2;
+    locks[orp.base][orp.quote] = 2;
 
     /* ### Main loop */
     //+clear+
@@ -394,7 +387,7 @@ contract Dex is HasAdmin {
         */
         if (deleted) {
           orp.offerId = orp.offer.next;
-          orp.offer = offers[orp.ofrToken][orp.reqToken][orp.offerId];
+          orp.offer = offers[orp.base][orp.quote][orp.offerId];
         }
         /* #### Offer not taken */
         //+clear+
@@ -406,10 +399,10 @@ contract Dex is HasAdmin {
     /* ### Post-while loop */
     //+clear+
     /* `applyFee` extracts the fee from the taker, proportional to the amount purchased (which is `initialTakerWants - takerWants`). */
-    applyFee(orp.ofrToken, orp.config.fee, initialTakerWants - takerWants);
-    locks[orp.ofrToken][orp.reqToken] = 1;
+    applyFee(orp.base, orp.config.fee, initialTakerWants - takerWants);
+    locks[orp.base][orp.quote] = 1;
     /* After exiting the loop, we connect the beginning & end of the segment just consumed by the market order. */
-    stitchOffers(orp.ofrToken, orp.reqToken, pastOfferId, orp.offerId);
+    stitchOffers(orp.base, orp.quote, pastOfferId, orp.offerId);
 
     /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `numFailures` in the length field of `failures`. This also saves on the amount of memory copied in the return value.
 
@@ -427,14 +420,14 @@ contract Dex is HasAdmin {
   //+clear+
   /* `snipe` takes a single offer from the book, at whatever price is induced by the offer. */
   function snipe(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint offerId,
     uint takerWants
   ) external returns (bool) {
     uint[2][] memory targets = new uint[2][](1);
     targets[0] = [offerId, takerWants];
-    uint[2][] memory failures = internalSnipes(ofrToken, reqToken, targets, 1);
+    uint[2][] memory failures = internalSnipes(base, quote, targets, 1);
     return (failures.length == 0);
   }
 
@@ -448,17 +441,17 @@ contract Dex is HasAdmin {
     twice `punishLength` containing info on failed offers. Only existing offers can fail: if an offerId is invalid, it will just be skipped. **You should probably set `punishLength` to 1.**
       */
   function internalSnipes(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint[2][] memory targets,
     uint punishLength
-  ) public unlockedOnly(ofrToken, reqToken) returns (uint[2][] memory) {
+  ) public unlockedOnly(base, quote) returns (uint[2][] memory) {
     /* ### Pre-loop Checks */
     //+clear+
     DC.OrderPack memory orp;
-    orp.config = config(ofrToken, reqToken);
-    orp.ofrToken = ofrToken;
-    orp.reqToken = reqToken;
+    orp.config = config(base, quote);
+    orp.base = base;
+    orp.quote = quote;
     orp.failures = new uint[2][](punishLength);
 
     requireActiveMarket(orp.config);
@@ -467,7 +460,7 @@ contract Dex is HasAdmin {
     //+clear+
 
     uint takerGot;
-    locks[ofrToken][reqToken] = 2;
+    locks[base][quote] = 2;
     /* ### Main loop */
     //+clear+
 
@@ -477,7 +470,7 @@ contract Dex is HasAdmin {
       orp.offerId = targets[i][0];
 
       uint takerWants = targets[i][1];
-      orp.offer = offers[orp.ofrToken][orp.reqToken][orp.offerId];
+      orp.offer = offers[orp.base][orp.quote][orp.offerId];
 
       /* If we removed the `isOffer` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. */
       if (DC.isOffer(orp.offer)) {
@@ -506,8 +499,8 @@ contract Dex is HasAdmin {
       }
     }
     /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
-    applyFee(orp.ofrToken, orp.config.fee, takerGot);
-    locks[orp.ofrToken][orp.reqToken] = 1;
+    applyFee(orp.base, orp.config.fee, takerGot);
+    locks[orp.base][orp.quote] = 1;
     /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `numFailures` in the length field of `failures`. This also saves on the amount of memory copied in the return value.
 
        The line below is hackish though, and we may want to just return a `(uint,uint[2][])` pair.
@@ -525,30 +518,30 @@ contract Dex is HasAdmin {
   //+clear+
   /* 1. Zero out `offers[id]` and `offerDetails[id]`. Apart from setting `offers[id].gives` to 0 (which is how we detect invalid offers), the rest is just for the gas refund. */
   function dirtyDeleteOffer(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint offerId
   ) internal {
-    delete offers[ofrToken][reqToken][offerId];
+    delete offers[base][quote][offerId];
     delete offerDetails[offerId];
     emit DexEvents.DeleteOffer(offerId);
   }
 
   /* 2. Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer` */
   function stitchOffers(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint past,
     uint future
   ) internal {
     if (past != 0) {
-      offers[ofrToken][reqToken][past].next = uint32(future);
+      offers[base][quote][past].next = uint32(future);
     } else {
-      bests[ofrToken][reqToken] = future;
+      bests[base][quote] = future;
     }
 
     if (future != 0) {
-      offers[ofrToken][reqToken][future].prev = uint32(past);
+      offers[base][quote][future].prev = uint32(past);
     }
   }
 
@@ -595,23 +588,18 @@ contract Dex is HasAdmin {
       orp.offer.gives - orp.wants >=
       orp.config.density * (offerDetail.gasreq + orp.config.gasbase)
     ) {
-      offers[orp.ofrToken][orp.reqToken][orp.offerId].gives = uint96(
+      offers[orp.base][orp.quote][orp.offerId].gives = uint96(
         orp.offer.gives - orp.wants
       );
-      offers[orp.ofrToken][orp.reqToken][orp.offerId].wants = uint96(
+      offers[orp.base][orp.quote][orp.offerId].wants = uint96(
         orp.offer.wants - orp.gives
       );
       deleted = false;
       /* Otherwise, it will be deleted. */
     } else {
-      dirtyDeleteOffer(orp.ofrToken, orp.reqToken, orp.offerId);
+      dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
       if (!dirtyDelete) {
-        stitchOffers(
-          orp.ofrToken,
-          orp.reqToken,
-          orp.offer.prev,
-          orp.offer.next
-        );
+        stitchOffers(orp.base, orp.quote, orp.offer.prev, orp.offer.next);
       }
       deleted = true;
     }
@@ -647,8 +635,8 @@ contract Dex is HasAdmin {
       address(DexLib).delegatecall(
         abi.encodeWithSelector(
           SWAPPER,
-          orp.ofrToken,
-          orp.reqToken,
+          orp.base,
+          orp.quote,
           orp.offerId,
           orp.gives,
           orp.wants,
@@ -670,15 +658,14 @@ contract Dex is HasAdmin {
 
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
   function applyFee(
-    address ofrToken,
+    address base,
     uint fee,
     uint amount
   ) internal {
     if (amount > 0) {
       // amount is at most 160 bits wide and fee it at most 14 bits wide.
       uint concreteFee = (amount * fee) / 10000;
-      bool success =
-        DexLib.transferToken(ofrToken, msg.sender, admin, concreteFee);
+      bool success = DexLib.transferToken(base, msg.sender, admin, concreteFee);
       require(success, "dex/takerFailToPayDex");
     }
   }
@@ -743,8 +730,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* Run and revert a sequence of snipes so as to collect `offerId`s that are failing.
    `punishLength` is the number of failing offers one is trying to catch. */
   function punishingSnipes(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint[2][] calldata targets,
     uint punishLength
   ) external {
@@ -753,8 +740,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       address(this).delegatecall(
         abi.encodeWithSelector(
           this.internalPunishingSnipes.selector,
-          ofrToken,
-          reqToken,
+          base,
+          quote,
           targets,
           punishLength
         )
@@ -768,14 +755,14 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     if (noRevert) {
       evmRevert(abi.decode(retdata, (bytes)));
     } else {
-      punish(ofrToken, reqToken, abi.decode(retdata, (uint[2][])));
+      punish(base, quote, abi.decode(retdata, (uint[2][])));
     }
   }
 
   /* Sandwiched between `punishingSnipes` and `internalSnipes`, the function `internalPunishingSnipes` runs a sequence of snipes, reverts it, and sends up the list of failed offers. If it catches a revert inside `snipes`, it returns normally a `bytes` array with the raw revert data in it. Again, we use `delegatecall` to preseve `msg.sender`. */
   function internalPunishingSnipes(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint[2][] calldata targets,
     uint punishLength
   ) external returns (bytes memory retdata) {
@@ -783,8 +770,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     (noRevert, retdata) = address(this).delegatecall(
       abi.encodeWithSelector(
         this.internalSnipes.selector,
-        ofrToken,
-        reqToken,
+        base,
+        quote,
         targets,
         punishLength
       )
@@ -806,8 +793,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* <a id="Dex/definition/punishingMarketOrder"></a> Run and revert a market order so as to collect `offerId`s that are failing.
    `punishLength` is the number of failing offers one is trying to catch. */
   function punishingMarketOrder(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint fromOfferId,
     uint takerWants,
     uint takerGives,
@@ -818,8 +805,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       address(this).delegatecall(
         abi.encodeWithSelector(
           this.internalPunishingMarketOrder.selector,
-          ofrToken,
-          reqToken,
+          base,
+          quote,
           fromOfferId,
           takerWants,
           takerGives,
@@ -835,14 +822,14 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     if (noRevert) {
       evmRevert(abi.decode(retdata, (bytes)));
     } else {
-      punish(ofrToken, reqToken, abi.decode(retdata, (uint[2][])));
+      punish(base, quote, abi.decode(retdata, (uint[2][])));
     }
   }
 
   /* Sandwiched between `punishingMarketOrder` and `marketOrder`, the function `internalPunishingMarketOrder` runs a market order, reverts it, and sends up the list of failed offers. If it catches a revert inside `marketOrder`, it returns normally a `bytes` array with the raw revert data in it. Again, we use `delegatecall` to preserve `msg.sender`. */
   function internalPunishingMarketOrder(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint offerId,
     uint takerWants,
     uint takerGives,
@@ -852,8 +839,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     (noRevert, retdata) = address(this).delegatecall(
       abi.encodeWithSelector(
         this.marketOrder.selector,
-        ofrToken,
-        reqToken,
+        base,
+        quote,
         takerWants,
         takerGives,
         punishLength,
@@ -876,19 +863,19 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* Given a sequence of `(offerId, gasUsed)` pairs, `punish` assumes they have failed and
      executes `applyPenalty` on them.  */
   function punish(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint[2][] memory failures
   ) internal {
     uint failureIndex;
     while (failureIndex < failures.length) {
       uint id = failures[failureIndex][0];
       /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
-      DC.Offer memory offer = offers[ofrToken][reqToken][id];
+      DC.Offer memory offer = offers[base][quote][id];
       if (DC.isOffer(offer)) {
         DC.OfferDetail memory offerDetail = offerDetails[id];
-        dirtyDeleteOffer(ofrToken, reqToken, id);
-        stitchOffers(ofrToken, reqToken, offer.prev, offer.next);
+        dirtyDeleteOffer(base, quote, id);
+        stitchOffers(base, quote, offer.prev, offer.next);
         uint gasUsed = failures[failureIndex][1];
         applyPenalty(false, gasUsed, offerDetail);
       }
@@ -910,34 +897,34 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
      State getters are available for composing with other contracts & bots. */
   //+clear+
   // TODO: Make sure `getBest` is necessary.
-  function getBest(address ofrToken, address reqToken)
+  function getBest(address base, address quote)
     external
     view
-    unlockedOnly(ofrToken, reqToken)
+    unlockedOnly(base, quote)
     returns (uint)
   {
-    return bests[ofrToken][reqToken];
+    return bests[base][quote];
   }
 
   // Read a particular offer's information.
   function getOfferInfo(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint offerId,
     bool structured
   ) external view returns (DC.Offer memory, DC.OfferDetail memory) {
     structured; // silence warning about unused variable
-    return (offers[ofrToken][reqToken][offerId], offerDetails[offerId]);
+    return (offers[base][quote][offerId], offerDetails[offerId]);
   }
 
   function getOfferInfo(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint offerId
   )
     external
     view
-    unlockedOnly(ofrToken, reqToken)
+    unlockedOnly(base, quote)
     returns (
       bool,
       uint,
@@ -950,7 +937,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     )
   {
     // TODO: Make sure `requireNoReentrancyLock` is necessary here
-    DC.Offer memory offer = offers[ofrToken][reqToken][offerId];
+    DC.Offer memory offer = offers[base][quote][offerId];
     DC.OfferDetail memory offerDetail = offerDetails[offerId];
     return (
       DC.isOffer(offer),
@@ -968,13 +955,13 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   //+ignore+updateOffer(constant price)
   //+ignore+updateOffer(change price)
   /* # Configuration */
-  function config(address ofrToken, address reqToken)
+  function config(address base, address quote)
     public
     view
     returns (DC.Config memory)
   {
     Global memory _global = global;
-    Local memory local = locals[ofrToken][reqToken];
+    Local memory local = locals[base][quote];
 
     return
       DC.Config({ /* By default, fee is 0, which is fine. */
@@ -995,30 +982,30 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* ## Locals */
   /* ### `active` */
   function setActive(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     bool value
   ) public adminOnly {
-    locals[ofrToken][reqToken].active = value;
-    emit DexEvents.SetActive(ofrToken, reqToken, value);
+    locals[base][quote].active = value;
+    emit DexEvents.SetActive(base, quote, value);
   }
 
   /* ### `fee` */
   function setFee(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint value
   ) public adminOnly {
     /* `fee` is in basis points, i.e. in percents of a percent. */
     require(value <= 500, "dex/config/fee/IsBps"); // at most 5%
-    locals[ofrToken][reqToken].fee = uint16(value);
-    emit DexEvents.SetFee(ofrToken, reqToken, value);
+    locals[base][quote].fee = uint16(value);
+    emit DexEvents.SetFee(base, quote, value);
   }
 
   /* ### `density` */
   function setDensity(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint value
   ) public adminOnly {
     /* `density > 0` ensures various invariants -- this documentation explains each time how it is relevant. */
@@ -1026,8 +1013,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
     require(uint32(value) == value);
     //+clear+
-    locals[ofrToken][reqToken].density = uint32(value);
-    emit DexEvents.SetDensity(ofrToken, reqToken, value);
+    locals[base][quote].density = uint32(value);
+    emit DexEvents.SetDensity(base, quote, value);
   }
 
   /* ## Globals */

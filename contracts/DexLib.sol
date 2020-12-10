@@ -21,25 +21,25 @@ library DexLib {
     */
 
   function swapTokens(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint offerId,
     uint takerGives,
     uint takerWants,
     DC.OfferDetail memory offerDetail
   ) external returns (bool) {
-    if (transferToken(reqToken, msg.sender, offerDetail.maker, takerGives)) {
+    if (transferToken(quote, msg.sender, offerDetail.maker, takerGives)) {
       // Execute offer
       IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
-        ofrToken,
-        reqToken,
+        base,
+        quote,
         takerWants,
         takerGives,
         offerDetail.gasprice,
         offerId
       );
       require(
-        transferToken(ofrToken, offerDetail.maker, msg.sender, takerWants),
+        transferToken(base, offerDetail.maker, msg.sender, takerWants),
         "dex/makerFailToPayTaker"
       );
       return true;
@@ -58,8 +58,8 @@ library DexLib {
     */
 
   function invertedSwapTokens(
-    address ofrToken,
-    address reqToken,
+    address base,
+    address quote,
     uint offerId,
     uint takerGives,
     uint takerWants,
@@ -67,26 +67,26 @@ library DexLib {
   ) external returns (bool) {
     // Execute offer
     IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
-      ofrToken,
-      reqToken,
+      base,
+      quote,
       takerWants,
       takerGives,
       offerDetail.gasprice,
       offerId
     );
     require(
-      transferToken(ofrToken, offerDetail.maker, msg.sender, takerWants),
+      transferToken(base, offerDetail.maker, msg.sender, takerWants),
       "dex/makerFailToPayTaker"
     );
     IMaker(msg.sender).execute(
-      ofrToken,
-      reqToken,
+      base,
+      quote,
       takerWants,
       takerGives,
       offerDetail.gasprice,
       offerId
     );
-    return transferToken(reqToken, msg.sender, offerDetail.maker, takerGives);
+    return transferToken(quote, msg.sender, offerDetail.maker, takerGives);
   }
 
   /* `transferToken` is adapted from [existing code](https://soliditydeveloper.com/safe-erc20) and in particular avoids the
@@ -143,9 +143,9 @@ library DexLib {
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
     (uint prev, uint next) =
       findPosition(
-        offers[ofp.ofrToken][ofp.reqToken],
+        offers[ofp.base][ofp.quote],
         offerDetails,
-        bests[ofp.ofrToken][ofp.reqToken],
+        bests[ofp.base][ofp.quote],
         ofp.wants,
         ofp.gives,
         ofp.gasreq,
@@ -155,18 +155,18 @@ library DexLib {
 
        If the offer is not the best one, we update its predecessor; otherwise we update the `best` value. */
     if (prev != 0) {
-      offers[ofp.ofrToken][ofp.reqToken][prev].next = uint32(ofp.id);
+      offers[ofp.base][ofp.quote][prev].next = uint32(ofp.id);
     } else {
-      bests[ofp.ofrToken][ofp.reqToken] = uint32(ofp.id);
+      bests[ofp.base][ofp.quote] = uint32(ofp.id);
     }
 
     /* If the offer is not the last one, we update its successor. */
     if (next != 0) {
-      offers[ofp.ofrToken][ofp.reqToken][next].prev = uint32(ofp.id);
+      offers[ofp.base][ofp.quote][next].prev = uint32(ofp.id);
     }
 
     /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 32 bits. */
-    offers[ofp.ofrToken][ofp.reqToken][ofp.id] = DC.Offer({
+    offers[ofp.base][ofp.quote][ofp.id] = DC.Offer({
       prev: uint32(prev),
       next: uint32(next),
       wants: uint96(ofp.wants),
@@ -182,8 +182,8 @@ library DexLib {
 
     /* And finally return the newly created offer id to the caller. */
     emit DexEvents.NewOffer(
-      ofp.ofrToken,
-      ofp.reqToken,
+      ofp.base,
+      ofp.quote,
       msg.sender,
       ofp.wants,
       ofp.gives,

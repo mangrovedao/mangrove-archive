@@ -11,8 +11,8 @@ library TestCancelOffer {
     TestMaker maker,
     uint offerId,
     TestTaker, /* taker */
-    TestToken aToken,
-    TestToken bToken
+    TestToken base,
+    TestToken quote
   ) external {
     try wrongOwner.cancelOffer(dex, offerId) returns (uint) {
       TestEvents.fail("Invalid authorization to cancel order");
@@ -24,8 +24,8 @@ library TestCancelOffer {
           released,
           TestUtils.getProvision(
             dex,
-            address(aToken),
-            address(bToken),
+            address(base),
+            address(quote),
             offers[offerId][TestUtils.Info.gasreq]
           ),
           "Incorrect released amount"

@@ -13,16 +13,16 @@ contract Maker is IMaker {
   uint private execGas;
 
   constructor(
-    address tk_A,
-    address tk_B,
+    address base,
+    address quote,
     address payable dex
   ) {
-    bool success = IERC20(tk_A).approve(dex, 2**256 - 1);
+    bool success = IERC20(base).approve(dex, 2**256 - 1);
     require(success, "Failed to give allowance.");
 
     execGas = 1000;
-    A_TOKEN = tk_A;
-    B_TOKEN = tk_B;
+    A_TOKEN = base;
+    B_TOKEN = quote;
     DEX = dex;
     admin = msg.sender;
   }

@@ -10,8 +10,8 @@ library TestCollectFailingOffer {
     uint failingOfferId,
     MakerDeployer makers,
     TestTaker taker,
-    TestToken aToken,
-    TestToken bToken
+    TestToken base,
+    TestToken quote
   ) external {
     // executing failing offer
     try taker.take(failingOfferId, 0.5 ether) returns (bool success) {
@@ -19,7 +19,7 @@ library TestCollectFailingOffer {
       TestEvents.check(!success, "Failer should fail");
       // failingOffer should have been removed from Dex
       (bool exists, , , , , , , ) =
-        dex.getOfferInfo(address(aToken), address(bToken), failingOfferId);
+        dex.getOfferInfo(address(base), address(quote), failingOfferId);
       TestEvents.check(
         !exists,
         "Failing offer should have been removed from Dex"
@@ -30,8 +30,8 @@ library TestCollectFailingOffer {
       uint provision =
         TestUtils.getProvision(
           dex,
-          address(aToken),
-          address(bToken),
+          address(base),
+          address(quote),
           offers[failingOfferId][TestUtils.Info.gasreq]
         );
       TestEvents.eq(
