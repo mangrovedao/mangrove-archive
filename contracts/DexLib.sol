@@ -30,9 +30,6 @@ library DexLib {
   ) external returns (bool) {
     if (transferToken(reqToken, msg.sender, offerDetail.maker, takerGives)) {
       // Execute offer
-      //uint gr = offerDetail.gasreq;
-      //uint g = gasleft();
-      //(bool s,) =
       IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
         ofrToken,
         reqToken,
@@ -41,16 +38,6 @@ library DexLib {
         offerDetail.gasprice,
         offerId
       );
-      //) {} catch {
-      //(bool s,) = address(offerDetail.maker).call{gas:gr}(abi.encodeWithSelector(IMaker.execute.selector,
-      //takerWants,
-      //takerGives,
-      //offerDetail.gasprice,
-      //offerId));
-      //) {} catch {
-      //g = g-gasleft();
-      //console.log("gas used",g);
-      //}
       require(
         transferToken(ofrToken, offerDetail.maker, msg.sender, takerWants),
         "dex/makerFailToPayTaker"
