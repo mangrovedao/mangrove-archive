@@ -20,6 +20,22 @@ interface ITaker {
   function marketOrder(uint wants, uint gives) external;
 }
 
+/* Governance contract interface */
+interface IGovernance {
+  function recordTrade(
+    address base,
+    address quote,
+    uint takerWants,
+    uint takerGives,
+    address maker,
+    bool success,
+    uint gasUsed,
+    uint gasbase,
+    uint gasreq,
+    uint gasprice
+  ) external;
+}
+
 // IERC20 From OpenZeppelin code
 
 /**

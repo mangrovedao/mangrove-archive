@@ -47,6 +47,7 @@ contract Dex is HasAdmin {
   }
 
   Global private global;
+  address public governance = address(0);
   mapping(address => mapping(address => Local)) private locals;
 
   /* * Makers provision their possible penalties in the `freeWei` mapping.
@@ -336,8 +337,7 @@ contract Dex is HasAdmin {
           : (takerWants, makerWouldWant);
 
         /* Execute the offer after loaning money to the maker. The last argument to `executeOffer` is `true` to flag that pointers shouldn't be updated (thus saving writes). The returned values are explained below: */
-        (bool success, uint gasUsedIfFailure, bool deleted) =
-          executeOffer(orp, true);
+        (bool success, uint gasUsed, bool deleted) = executeOffer(orp, true);
 
         /* `success` means that the maker delivered `localTakerWants` `OFR_TOKEN` to the taker. We update the total amount wanted and spendable by the taker (possibly changing the remaining average price). */
         if (success) {
@@ -345,7 +345,7 @@ contract Dex is HasAdmin {
           takerWants -= orp.wants;
           takerGives -= orp.gives;
           /*
-          If `!success`, the maker failed to deliver `localTakerWants`. In that case `gasUsedIfFailure` is nonzero and will be used to apply a penalty (penalties are applied in proportion with wasted gas).
+          If `!success`, the maker failed to deliver `localTakerWants`. In that case `gasUsed` will be used to apply a penalty (penalties are applied in proportion with wasted gas).
 
           Note that partial fulfillment of the amount requested in `localTakerWants` is not taken into account. Any delivery strictly less than `localTakerWants` will trigger a rollback and be considered a failure.
           */
@@ -353,7 +353,7 @@ contract Dex is HasAdmin {
           emit DexEvents.Failure(orp.offerId, orp.wants, orp.gives);
           /* For penalty application purposes (never triggered if `punishLength = 0`), store the offer id and the gas wasted by the maker */
           if (orp.numFailures < orp.failures.length) {
-            orp.failures[orp.numFailures] = [orp.offerId, gasUsedIfFailure];
+            orp.failures[orp.numFailures] = [orp.offerId, gasUsed];
             orp.numFailures++;
           }
         }
@@ -484,7 +484,7 @@ contract Dex is HasAdmin {
         if (orp.gives == 0) orp.gives = 1;
 
         /* We execute the offer with the flag `dirtyDeleteOffer` set to `false`, so the offers before and after the selected one get stitched back together. */
-        (bool success, uint gasUsedIfFailure, ) = executeOffer(orp, false);
+        (bool success, uint gasUsed, ) = executeOffer(orp, false);
         /* For punishment purposes (never triggered if `punishLength = 0`), we store the offer id and the gas wasted by the maker */
         if (success) {
           emit DexEvents.Success(orp.offerId, orp.wants, orp.gives);
@@ -492,7 +492,7 @@ contract Dex is HasAdmin {
         } else {
           emit DexEvents.Failure(orp.offerId, orp.wants, orp.gives);
           if (orp.numFailures < orp.failures.length) {
-            orp.failures[orp.numFailures] = [orp.offerId, gasUsedIfFailure];
+            orp.failures[orp.numFailures] = [orp.offerId, gasUsed];
             orp.numFailures++;
           }
         }
@@ -568,13 +568,29 @@ contract Dex is HasAdmin {
        * (in case of failure) how much gas the maker consumed, and
        * whether the offer was deleted from the book (whether due to failure or because it has become dust). */
       bool success,
-      uint gasUsedIfFailure,
+      uint gasUsed,
       bool deleted
     )
   {
     /* `executeOffer` and `flashSwapTokens` are separated for clarity, but `flashSwapTokens` is only used by `executeOffer`. It manages the actual work of flashloaning tokens and applying penalties. */
     DC.OfferDetail memory offerDetail = offerDetails[orp.offerId];
-    (success, gasUsedIfFailure) = flashSwapTokens(orp, offerDetail);
+    (success, gasUsed) = flashSwapTokens(orp, offerDetail);
+
+    /* If a governance contract is set, we tell it about the trade that just occurred. */
+    if (governance != address(0)) {
+      IGovernance(governance).recordTrade(
+        orp.base,
+        orp.quote,
+        orp.wants,
+        orp.gives,
+        offerDetail.maker,
+        success,
+        gasUsed,
+        offerDetail.gasbase,
+        offerDetail.gasreq,
+        offerDetail.gasprice
+      );
+    }
 
     /* After execution, there are four possible outcomes, along 2 axes: the transaction was successful (or not), the offer was consumed to below the absolute dust limit (or not).
 
@@ -643,14 +659,14 @@ contract Dex is HasAdmin {
           offerDetail
         )
       );
+    uint gasUsed = oldGas - gasleft();
     /* In both cases, we call `applyPenalty`, which splits the provisioned penalty (set aside during the `newOffer` call which created the offer between the taker and maker. */
     if (noRevert) {
       bool takerPaid = abi.decode(retdata, (bool));
       require(takerPaid, "dex/takerFailToPayMaker");
-      applyPenalty(true, 0, offerDetail);
-      return (true, 0);
+      applyPenalty(true, gasUsed, offerDetail);
+      return (true, gasUsed);
     } else {
-      uint gasUsed = oldGas - gasleft();
       applyPenalty(false, gasUsed, offerDetail);
       return (false, gasUsed);
     }
@@ -1051,5 +1067,10 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     //+clear+
     global.gasmax = uint24(value);
     emit DexEvents.SetGasmax(value);
+  }
+
+  /* ## Setting governance */
+  function setGovernance(address _governance) external adminOnly {
+    governance = _governance;
   }
 }
