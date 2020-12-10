@@ -908,11 +908,6 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* ## State
      State getters are available for composing with other contracts & bots. */
   //+clear+
-  // TODO: Make sure `getLastId` is necessary.
-  function getLastId() public view returns (uint) {
-    return lastId;
-  }
-
   // TODO: Make sure `getBest` is necessary.
   function getBest(address ofrToken, address reqToken)
     external
