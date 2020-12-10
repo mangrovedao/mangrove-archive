@@ -112,8 +112,8 @@ library DexLib {
   ) internal returns (bool) {
     bytes memory cd =
       abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, value);
-    (bool success, bytes memory data) = tokenAddress.call(cd);
-    return (success && (data.length == 0 || abi.decode(data, (bool))));
+    (bool noRevert, bytes memory data) = tokenAddress.call(cd);
+    return (noRevert && (data.length == 0 || abi.decode(data, (bool))));
   }
 
   /* # New offer */
