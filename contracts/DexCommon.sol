@@ -181,7 +181,7 @@ They have the following fields: */
 The events emitted for use by various bots are listed here: */
 library DexEvents {
   /* * Emitted at the creation of the new Dex contract on the pair (`reqToken`, `ofrToken`)*/
-  event NewDex(address dex);
+  event NewDex();
 
   event TestEvent(uint);
 

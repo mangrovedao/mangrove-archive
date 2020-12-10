@@ -86,7 +86,7 @@ contract Dex is HasAdmin {
     /* determines whether the taker or maker does the flashlend */
     bool takerLends
   ) HasAdmin() {
-    emit DexEvents.NewDex(address(this));
+    emit DexEvents.NewDex();
     setGasprice(gasprice);
     setGasbase(gasbase);
     setGasmax(gasmax);
