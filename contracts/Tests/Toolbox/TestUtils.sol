@@ -127,6 +127,8 @@ library DexSetup {
 
     dex.setActive(address(base), address(quote), true);
     dex.setDensity(address(base), address(quote), 100);
+    dex.setActive(address(quote), address(base), true);
+    dex.setDensity(address(quote), address(base), 100);
 
     return dex;
   }
@@ -140,6 +142,14 @@ library MakerSetup {
     bool shouldFail
   ) external returns (TestMaker) {
     return new TestMaker(dex, base, quote, shouldFail);
+  }
+
+  function setup(
+    Dex dex,
+    address base,
+    address quote
+  ) external returns (TestMaker) {
+    return new TestMaker(dex, base, quote, false);
   }
 }
 

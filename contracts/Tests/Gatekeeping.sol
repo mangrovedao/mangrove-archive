@@ -46,6 +46,7 @@ contract Gatekeeping_Test {
 
   Dex dex;
   TestTaker tkr;
+  TestMaker mkr;
   address base;
   address quote;
 
@@ -56,24 +57,32 @@ contract Gatekeeping_Test {
     quote = address(quoteT);
     dex = DexSetup.setup(baseT, quoteT);
     tkr = TakerSetup.setup(dex, base, quote);
+    mkr = MakerSetup.setup(dex, quote, base);
 
     address(tkr).transfer(10 ether);
+    address(mkr).transfer(10 ether);
 
     bool noRevert;
     (noRevert, ) = address(dex).call{value: 10 ether}("");
 
+    mkr.provisionDex(5 ether);
+
     baseT.mint(address(this), 1 ether);
     quoteT.mint(address(tkr), 1 ether);
+    quoteT.mint(address(mkr), 1 ether);
 
     baseT.approve(address(dex), 1 ether);
     tkr.approve(quoteT, 1 ether);
+    mkr.approve(quoteT, 1 ether);
+    mkr.approve(baseT, 1 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "Gatekeeping_Test/maker");
     Display.register(base, "$A");
     Display.register(quote, "$B");
     Display.register(address(dex), "dex");
-    Display.register(address(tkr), "taker");
+    Display.register(address(tkr), "taker[$A,$B]");
+    Display.register(address(mkr), "maker[$B,$A]");
   }
 
   function admin_can_set_admin_test() public {
@@ -132,8 +141,8 @@ contract Gatekeeping_Test {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
     reentrancer = abi.encodeWithSelector(
       Dex.newOffer.selector,
-      address(base),
-      address(quote),
+      base,
+      quote,
       1 ether,
       1 ether,
       30_000,
@@ -148,8 +157,8 @@ contract Gatekeeping_Test {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 200_000, 0);
     reentrancer = abi.encodeWithSelector(
       Dex.newOffer.selector,
-      address(quote),
-      address(base),
+      quote,
+      base,
       1 ether,
       1 ether,
       30_000,
@@ -157,86 +166,147 @@ contract Gatekeeping_Test {
     );
     shouldFail = false;
     bool success = tkr.take(ofr, 1 ether);
+
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.NewOffer(
+      quote,
+      base,
+      address(this),
+      1 ether,
+      1 ether,
+      30_000,
+      2
+    );
     TestEvents.check(success, "Taker failed to take offer");
+    TestEvents.check(
+      TestUtils.hasOffer(dex, quote, base, 2),
+      "offer should have been added to Dex"
+    );
   }
 
   function cancelOffer_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 300_000, 0);
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
+    uint _ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
     reentrancer = abi.encodeWithSelector(
       Dex.cancelOffer.selector,
-      address(base),
-      address(quote),
-      ofr
-    );
-    shouldFail = true;
-    bool success = tkr.take(ofr, 1 ether);
-    TestEvents.check(success, "Taker failed to take offer");
-  }
-
-  function cancelOffer_on_reentrancy_succeeds_test() public {
-    uint ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 300_000, 0);
-    reentrancer = abi.encodeWithSelector(
-      Dex.cancelOffer.selector,
-      address(base),
-      address(quote),
-      ofr
-    );
-    shouldFail = false; // should succeed since reentrancy is on a different pair
-    bool success = tkr.take(ofr, 1 ether);
-    TestEvents.check(success, "Taker failed to take offer");
-  }
-
-  // TODO initial offer (B,A) dex should not be reentrant
-  function marketOrder_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 500_000, 0);
-    reentrancer = abi.encodeWithSelector(
-      Dex.simpleMarketOrder.selector,
-      address(base),
-      address(quote),
-      1 ether,
-      1 ether
+      base,
+      quote,
+      _ofr
     );
     shouldFail = true;
     bool success = tkr.take(ofr, 0.1 ether);
     TestEvents.check(success, "Taker failed to take offer");
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.Success(ofr, 0.1 ether, 0.1 ether);
+    TestEvents.check(
+      TestUtils.hasOffer(dex, base, quote, _ofr),
+      "offer should not be removed from Dex"
+    );
+  }
+
+  function cancelOffer_on_reentrancy_succeeds_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
+    uint _ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 10_000, 0);
+    reentrancer = abi.encodeWithSelector(
+      Dex.cancelOffer.selector,
+      quote,
+      base,
+      _ofr
+    );
+    shouldFail = false; // should succeed since reentrancy is on a different pair
+    bool success = tkr.take(ofr, 0.1 ether);
+    TestEvents.check(success, "Taker failed to take offer");
+
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.DeleteOffer(_ofr);
+    emit DexEvents.Success(ofr, 0.1 ether, 0.1 ether);
+  }
+
+  // TODO initial offer (B,A) dex should not be reentrant
+  function marketOrder_on_reentrancy_fails_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    reentrancer = abi.encodeWithSelector(
+      Dex.simpleMarketOrder.selector,
+      base,
+      quote,
+      0.2 ether,
+      0.2 ether
+    );
+    shouldFail = true;
+    bool success = tkr.take(ofr, 0.1 ether);
+    TestEvents.check(success, "Taker failed to take offer");
+
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.Success(ofr, 0.1 ether, 0.1 ether);
   }
 
   function marketOrder_on_reentrancy_fails_succeeds_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 1_000_000, 0);
-    uint _ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 20_000, 0);
-    reentrancer = abi.encodeWithSelector(
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
+    uint _ofr =
+      mkr.newOffer({ // new offer of inverse pair
+        wants: 1 ether,
+        gives: 1 ether,
+        gasreq: 30_000,
+        pivotId: 0
+      });
+    reentrancer = abi.encodeWithSelector( //market order on inverse pair should succeed
       Dex.simpleMarketOrder.selector,
-      address(quote),
-      address(base),
-      0.1 ether,
-      0.1 ether
+      quote,
+      base,
+      0.2 ether,
+      0.2 ether
     );
     shouldFail = false;
     bool success = tkr.take(ofr, 0.1 ether);
     TestEvents.check(success, "Taker failed to take offer");
 
     TestEvents.expectFrom(address(dex));
-    emit DexEvents.Success(_ofr, 0.1 ether, 0.1 ether);
+    emit DexEvents.Success(_ofr, 0.2 ether, 0.2 ether);
+    emit DexEvents.Success(ofr, 0.1 ether, 0.1 ether);
   }
 
-  //
-  // function internalSnipes_on_reentrancy_test() public {
-  //   uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
-  //   reentrancer = abi.encodeWithSelector(
-  //     Dex.snipe.selector,
-  //     address(base),
-  //     address(quote),
-  //     0,
-  //     1 ether);
-  //   _reentrancer = abi.encodeWithSelector(
-  //       Dex.snipe.selector,
-  //       address(quote),
-  //       address(base),
-  //       0,
-  //       1 ether);
-  //   bool success = tkr.take(ofr, 1 ether);
-  //   TestEvents.check(success,"Taker failed to take offer");
-  // }
+  function internalSnipes_on_reentrancy_fails_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
+    uint _ofr = dex.newOffer(base, quote, 0.1 ether, 0.1 ether, 30_000, 0);
+
+    reentrancer = abi.encodeWithSelector(
+      Dex.snipe.selector,
+      base,
+      quote,
+      _ofr,
+      1 ether
+    );
+    shouldFail = true;
+    bool success = tkr.take(ofr, 0.1 ether);
+    TestEvents.check(success, "Taker failed to take offer");
+
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.Success(ofr, 0.1 ether, 0.1 ether);
+    TestEvents.check(
+      TestUtils.hasOffer(dex, base, quote, _ofr),
+      "offer should not be removed from Dex"
+    );
+  }
+
+  function internalSnipes_on_reentrancy_succeeds_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
+    uint _ofr = mkr.newOffer(1 ether, 1 ether, 30_000, 0); //offer on different pair
+
+    reentrancer = abi.encodeWithSelector(
+      Dex.snipe.selector,
+      quote,
+      base,
+      _ofr,
+      0.5 ether
+    );
+    shouldFail = false;
+    bool success = tkr.take(ofr, 0.1 ether);
+    TestEvents.check(success, "Taker failed to take offer");
+
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.Success(_ofr, 0.5 ether, 0.5 ether);
+    emit DexEvents.Success(ofr, 0.1 ether, 0.1 ether);
+  }
 
   function newOffer_on_closed_fails_test() public {
     dex.kill();
