@@ -104,23 +104,23 @@ contract Gatekeeping_Test {
     }
   }
 
-  bytes reentrancer;
+  bytes reentrancer; // failing call
+  bool shouldFail;
 
   // maker's execute callback for the dex
   function execute(
+    address,
+    address,
     uint, /* takerWants*/ // silence warning about unused argument
     uint, /*takerGives*/ // silence warning about unused argument
     uint, /* offerGasprice*/ // silence warning about unused argument
     uint /*offerId */ // silence warning about unused argument
   ) external {
-    assert(false);
     (bool success, bytes memory retdata) = address(dex).call(reentrancer);
-    if (success) {
-      TestEvents.fail("should fail on reentrancy lock");
-    } else {
-      string memory r = string(retdata);
-      TestEvents.revertEq(r, "dex/reentrancyLocked");
-    }
+    TestEvents.check(
+      (success && !shouldFail) || (!success && shouldFail),
+      "unexpected result on Dex reentrancy"
+    );
   }
 
   function testGas_test() public {
@@ -129,46 +129,114 @@ contract Gatekeeping_Test {
   }
 
   function newOffer_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
     reentrancer = abi.encodeWithSelector(
       Dex.newOffer.selector,
+      address(base),
+      address(quote),
       1 ether,
       1 ether,
       30_000,
       0
     );
-    tkr.take(ofr, 1 ether);
+    shouldFail = true;
+    bool success = tkr.take(ofr, 1 ether);
+    TestEvents.check(success, "Taker failed to take offer");
+  }
+
+  function newOffer_on_reentrancy_succeeds_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 200_000, 0);
+    reentrancer = abi.encodeWithSelector(
+      Dex.newOffer.selector,
+      address(quote),
+      address(base),
+      1 ether,
+      1 ether,
+      30_000,
+      0
+    );
+    shouldFail = false;
+    bool success = tkr.take(ofr, 1 ether);
+    TestEvents.check(success, "Taker failed to take offer");
   }
 
   function cancelOffer_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 300_000, 0);
     reentrancer = abi.encodeWithSelector(
       Dex.cancelOffer.selector,
-      base,
-      quote,
-      1 ether,
-      1 ether,
-      30_000,
-      0
+      address(base),
+      address(quote),
+      ofr
     );
-    tkr.take(ofr, 1 ether);
+    shouldFail = true;
+    bool success = tkr.take(ofr, 1 ether);
+    TestEvents.check(success, "Taker failed to take offer");
   }
 
+  function cancelOffer_on_reentrancy_succeeds_test() public {
+    uint ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 300_000, 0);
+    reentrancer = abi.encodeWithSelector(
+      Dex.cancelOffer.selector,
+      address(base),
+      address(quote),
+      ofr
+    );
+    shouldFail = false; // should succeed since reentrancy is on a different pair
+    bool success = tkr.take(ofr, 1 ether);
+    TestEvents.check(success, "Taker failed to take offer");
+  }
+
+  // TODO initial offer (B,A) dex should not be reentrant
   function marketOrder_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 500_000, 0);
     reentrancer = abi.encodeWithSelector(
       Dex.simpleMarketOrder.selector,
+      address(base),
+      address(quote),
       1 ether,
       1 ether
     );
-    tkr.take(ofr, 1 ether);
+    shouldFail = true;
+    bool success = tkr.take(ofr, 0.1 ether);
+    TestEvents.check(success, "Taker failed to take offer");
   }
 
-  function internalSnipes_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
-    reentrancer = abi.encodeWithSelector(Dex.snipe.selector, 0, 1 ether);
-    tkr.take(ofr, 1 ether);
+  function marketOrder_on_reentrancy_fails_succeeds_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 1_000_000, 0);
+    uint _ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 20_000, 0);
+    reentrancer = abi.encodeWithSelector(
+      Dex.simpleMarketOrder.selector,
+      address(quote),
+      address(base),
+      0.1 ether,
+      0.1 ether
+    );
+    shouldFail = false;
+    bool success = tkr.take(ofr, 0.1 ether);
+    TestEvents.check(success, "Taker failed to take offer");
+
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.Success(_ofr, 0.1 ether, 0.1 ether);
   }
+
+  //
+  // function internalSnipes_on_reentrancy_test() public {
+  //   uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
+  //   reentrancer = abi.encodeWithSelector(
+  //     Dex.snipe.selector,
+  //     address(base),
+  //     address(quote),
+  //     0,
+  //     1 ether);
+  //   _reentrancer = abi.encodeWithSelector(
+  //       Dex.snipe.selector,
+  //       address(quote),
+  //       address(base),
+  //       0,
+  //       1 ether);
+  //   bool success = tkr.take(ofr, 1 ether);
+  //   TestEvents.check(success,"Taker failed to take offer");
+  // }
 
   function newOffer_on_closed_fails_test() public {
     dex.kill();
@@ -176,6 +244,26 @@ contract Gatekeeping_Test {
       TestEvents.fail("newOffer should fail on closed market");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "dex/dead");
+    }
+  }
+
+  function take_on_closed_fails_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0);
+
+    dex.kill();
+    try tkr.take(ofr, 1 ether) {
+      TestEvents.fail("take offer should fail on closed market");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/dead");
+    }
+  }
+
+  function newOffer_on_inactive_test() public {
+    dex.setActive(base, quote, false);
+    try dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0) {
+      TestEvents.fail("newOffer should fail on closed market");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/inactive");
     }
   }
 

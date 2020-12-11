@@ -15,7 +15,7 @@ library TestMarketOrder {
     uint takerWants = 1.6 ether; // of B token
     uint takerGives = 2 ether; // of A token
 
-    TestUtils.marketOrderWithGas(taker, takerWants, takerGives);
+    taker.marketOrder(takerWants, takerGives);
 
     // Checking Makers balances
     for (uint i = 2; i < 4; i++) {

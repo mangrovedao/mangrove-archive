@@ -14,30 +14,25 @@ library TestInsert {
   ) public returns (uint[] memory) {
     // each maker publishes an offer
     uint[] memory offerOf = new uint[](makers.length());
-    console.log("Test insert with %d makers", makers.length());
-    offerOf[1] = TestUtils.newOfferWithGas({
-      maker: makers.getMaker(1),
+    offerOf[1] = makers.getMaker(1).newOffer({
       wants: 1 ether,
       gives: 0.5 ether,
       gasreq: 7000,
       pivotId: 0
     });
-    offerOf[2] = TestUtils.newOfferWithGas({
-      maker: makers.getMaker(2),
+    offerOf[2] = makers.getMaker(2).newOffer({
       wants: 1 ether,
       gives: 0.8 ether,
       gasreq: 8000,
       pivotId: 1
     });
-    offerOf[3] = TestUtils.newOfferWithGas({
-      maker: makers.getMaker(3),
+    offerOf[3] = makers.getMaker(3).newOffer({
       wants: 0.5 ether,
       gives: 1 ether,
       gasreq: 9000,
       pivotId: 72
     });
-    offerOf[0] = TestUtils.newOfferWithGas({
-      maker: makers.getMaker(0), //failer
+    offerOf[0] = makers.getMaker(0).newOffer({ //failer
       wants: 20 ether,
       gives: 10 ether,
       gasreq: dex.config(address(base), address(quote)).gasmax,

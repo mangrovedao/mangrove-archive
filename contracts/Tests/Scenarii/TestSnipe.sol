@@ -19,7 +19,7 @@ library TestSnipe {
     //(uint init_mkr_wants, uint init_mkr_gives,,,,,)=dex.getOfferInfo(2);
     //---------------SNIPE------------------//
     TestEvents.check(
-      TestUtils.snipeWithGas(taker, snipedId, orderAmount),
+      taker.take(snipedId, orderAmount),
       "snipe should be a success"
     );
     TestEvents.eq(
