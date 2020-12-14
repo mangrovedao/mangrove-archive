@@ -29,7 +29,7 @@ import "./Scenarii/TestMarketOrder.sol";
 // Otherwise bytecode can be too large. See EIP 170 for more on size limit:
 // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
 
-contract Scenarii_test {
+contract Scenarii_Test {
   Dex dex;
   TestTaker taker;
   MakerDeployer makers;
@@ -140,7 +140,7 @@ contract Scenarii_test {
     }
   }
 
-  function snap_insert_and_fail_test() public {
+  function snipe_insert_and_fail_test() public {
     //TestEvents.logString("=== Insert test ===", 0);
     offerOf = TestInsert.run(balances, dex, makers, taker, base, quote);
     //Display.printOfferBook(dex);
