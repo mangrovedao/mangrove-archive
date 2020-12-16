@@ -16,77 +16,114 @@ library DexLib {
      `swapTokens` is for the 'normal' mode of operation. It:
      1. Flashloans `takerGives` `REQ_TOKEN` from the taker to the maker and returns false if the loan fails.
      2. Runs `offerDetail.maker`'s `execute` function.
-     3. Attempts to send `takerWants` `OFR_TOKEN` from the maker to the taker and reverts if it cannot.
-     4. Returns true.
-    */
-
+     3. Returns the result of the operations, with optional makerData to help the maker debug.
+   */
   function swapTokens(
-    address base,
-    address quote,
-    uint offerId,
-    uint takerGives,
-    uint takerWants,
+    DC.OrderPack memory orp,
     DC.OfferDetail memory offerDetail
-  ) external returns (bool) {
-    if (transferToken(quote, msg.sender, offerDetail.maker, takerGives)) {
-      // Execute offer
-      IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
-        base,
-        quote,
-        takerWants,
-        takerGives,
-        offerDetail.gasprice,
-        offerId
-      );
-      require(
-        transferToken(base, offerDetail.maker, msg.sender, takerWants),
-        "dex/makerFailToPayTaker"
-      );
-      return true;
+  )
+    external
+    returns (
+      DC.SwapResult result,
+      uint makerData,
+      uint gasUsed
+    )
+  {
+    if (transferToken(orp.quote, msg.sender, offerDetail.maker, orp.gives)) {
+      //bytes memory cd = abi.encodeWithSelector(IMaker.execute.selector,base,quote,takerWants,takerGives,msg.sender,offerDetail.gasprice,offerId);
+      (result, makerData, gasUsed) = makerExecute(orp, offerDetail);
     } else {
-      return false;
+      result = DC.SwapResult.TakerTransferFail;
     }
   }
 
   /*
-     `swapTokens` is for the 'arbitrage' mode of operation. It:
-     0. Calls the maker's `execute` function
-     1. Flashloans `takerWants` `OFR_TOKEN` from the maker to the taker and reverts if the loan fails.
+     `invertedSwapTokens` is for the 'arbitrage' mode of operation. It:
+     0. Calls the maker's `execute` function. If successful (tokens have been sent to taker):
      2. Runs `msg.sender`'s `execute` function.
-     3. Attempts to send `takerGives` `REQ_TOKEN` from the taker to the maker. 
-     4. Returns whether the attempt worked.
+     4. Returns the results ofthe operations, with optional makerData to help the maker debug.
     */
 
   function invertedSwapTokens(
-    address base,
-    address quote,
-    uint offerId,
-    uint takerGives,
-    uint takerWants,
+    DC.OrderPack memory orp,
     DC.OfferDetail memory offerDetail
-  ) external returns (bool) {
-    // Execute offer
-    IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
-      base,
-      quote,
-      takerWants,
-      takerGives,
-      offerDetail.gasprice,
-      offerId
-    );
-    require(
-      transferToken(base, offerDetail.maker, msg.sender, takerWants),
-      "dex/makerFailToPayTaker"
-    );
-    IMaker(msg.sender).execute(
-      base,
-      quote,
-      takerWants,
-      takerGives,
-      offerDetail.gasprice,
-      offerId
-    );
-    return transferToken(quote, msg.sender, offerDetail.maker, takerGives);
+  )
+    external
+    returns (
+      DC.SwapResult result,
+      uint makerData,
+      uint gasUsed
+    )
+  {
+    (result, makerData, gasUsed) = makerExecute(orp, offerDetail);
+
+    if (result == DC.SwapResult.OK) {
+      uint oldBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
+
+      IMaker(msg.sender).execute(
+        orp.base,
+        orp.quote,
+        orp.wants,
+        orp.gives,
+        offerDetail.maker,
+        offerDetail.gasprice,
+        orp.offerId
+      );
+
+      uint newBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
+      /* The second check (`newBalance >= oldBalance`) protects against overflow. */
+      if (newBalance >= oldBalance + orp.gives && newBalance >= oldBalance) {
+        result = DC.SwapResult.OK;
+      } else {
+        result = DC.SwapResult.TakerTransferFail;
+      }
+    }
+  }
+
+  function makerExecute(
+    DC.OrderPack memory orp,
+    //bytes memory cd, address base, uint takerWants,
+    DC.OfferDetail memory offerDetail
+  )
+    internal
+    returns (
+      DC.SwapResult result,
+      uint makerData,
+      uint gasUsed
+    )
+  {
+    bytes memory cd =
+      abi.encodeWithSelector(
+        IMaker.execute.selector,
+        orp.base,
+        orp.quote,
+        orp.wants,
+        orp.gives,
+        msg.sender,
+        offerDetail.gasprice,
+        orp.offerId
+      );
+    uint oldBalance = IERC20(orp.base).balanceOf(msg.sender);
+    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + gasbase`. This yul call only retrieves the first byte of the maker's `returndata`. */
+    uint gasreq = offerDetail.gasreq;
+    address maker = offerDetail.maker;
+    bytes memory retdata = new bytes(32);
+    bool success;
+    uint oldGas = gasleft();
+    assembly {
+      success := call(gasreq, maker, 0, add(cd, 32), cd, add(retdata, 32), 32)
+      makerData := mload(add(retdata, 32))
+    }
+    uint newBalance = IERC20(orp.base).balanceOf(msg.sender);
+    gasUsed = oldGas - gasleft();
+    /* The second check (`newBalance >= oldBalance`) protects against overflow. */
+    if (newBalance >= oldBalance + orp.wants && newBalance >= oldBalance) {
+      result = DC.SwapResult.OK;
+    } else if (!success) {
+      result = DC.SwapResult.MakerReverted;
+    } else {
+      result = DC.SwapResult.MakerTransferFail;
+    }
   }
 
   /* `transferToken` is adapted from [existing code](https://soliditydeveloper.com/safe-erc20) and in particular avoids the

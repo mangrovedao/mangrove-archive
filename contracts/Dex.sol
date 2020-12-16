@@ -341,7 +341,6 @@ contract Dex is HasAdmin {
 
         /* `success` means that the maker delivered `localTakerWants` `OFR_TOKEN` to the taker. We update the total amount wanted and spendable by the taker (possibly changing the remaining average price). */
         if (success) {
-          emit DexEvents.Success(orp.offerId, orp.wants, orp.gives);
           takerWants -= orp.wants;
           takerGives -= orp.gives;
           /*
@@ -350,7 +349,6 @@ contract Dex is HasAdmin {
           Note that partial fulfillment of the amount requested in `localTakerWants` is not taken into account. Any delivery strictly less than `localTakerWants` will trigger a rollback and be considered a failure.
           */
         } else {
-          emit DexEvents.Failure(orp.offerId, orp.wants, orp.gives);
           /* For penalty application purposes (never triggered if `punishLength = 0`), store the offer id and the gas wasted by the maker */
           if (orp.numFailures < orp.failures.length) {
             orp.failures[orp.numFailures] = [orp.offerId, gasUsed];
@@ -487,10 +485,8 @@ contract Dex is HasAdmin {
         (bool success, uint gasUsed, ) = executeOffer(orp, false);
         /* For punishment purposes (never triggered if `punishLength = 0`), we store the offer id and the gas wasted by the maker */
         if (success) {
-          emit DexEvents.Success(orp.offerId, orp.wants, orp.gives);
           takerGot += orp.wants;
         } else {
-          emit DexEvents.Failure(orp.offerId, orp.wants, orp.gives);
           if (orp.numFailures < orp.failures.length) {
             orp.failures[orp.numFailures] = [orp.offerId, gasUsed];
             orp.numFailures++;
@@ -649,26 +645,33 @@ contract Dex is HasAdmin {
     */
     (bool noRevert, bytes memory retdata) =
       address(DexLib).delegatecall(
-        abi.encodeWithSelector(
-          SWAPPER,
-          orp.base,
-          orp.quote,
-          orp.offerId,
-          orp.gives,
-          orp.wants,
-          offerDetail
-        )
+        abi.encodeWithSelector(SWAPPER, orp, offerDetail)
       );
-    uint gasUsed = oldGas - gasleft();
-    /* In both cases, we call `applyPenalty`, which splits the provisioned penalty (set aside during the `newOffer` call which created the offer between the taker and maker. */
-    if (noRevert) {
-      bool takerPaid = abi.decode(retdata, (bool));
-      require(takerPaid, "dex/takerFailToPayMaker");
-      applyPenalty(true, gasUsed, offerDetail);
-      return (true, gasUsed);
+
+    if (!noRevert) {
+      /* Revert if SWAPPER reverted. **Danger**: if a well-crafted offer/maker pair can force a revert of SWAPPER, the Dex will be stuck. */
+      revert("dex/swapError");
     } else {
-      applyPenalty(false, gasUsed, offerDetail);
-      return (false, gasUsed);
+      (DC.SwapResult result, uint makerData, uint gasUsed) =
+        abi.decode(retdata, (DC.SwapResult, uint, uint));
+      if (result == DC.SwapResult.TakerTransferFail) {
+        revert("dex/takerFailToPayMaker");
+      } else {
+        bool success = result == DC.SwapResult.OK;
+        if (success) {
+          emit DexEvents.Success(orp.offerId, orp.wants, orp.gives);
+        } else {
+          emit DexEvents.MakerFail(
+            orp.offerId,
+            orp.wants,
+            orp.gives,
+            result == DC.SwapResult.MakerReverted,
+            makerData
+          );
+        }
+        applyPenalty(success, gasUsed, offerDetail);
+        return (success, gasUsed);
+      }
     }
   }
 

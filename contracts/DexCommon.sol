@@ -175,6 +175,8 @@ They have the following fields: */
     uint numFailures;
     uint[2][] failures;
   }
+
+  enum SwapResult {OK, TakerTransferFail, MakerTransferFail, MakerReverted}
 }
 
 /* # Events
@@ -199,7 +201,13 @@ library DexEvents {
 
   /* * Offer execution */
   event Success(uint offerId, uint takerWants, uint takerGives);
-  event Failure(uint offerId, uint takerWants, uint takerGives);
+  event MakerFail(
+    uint offerId,
+    uint takerWants,
+    uint takerGives,
+    bool reverted,
+    uint makerData
+  );
 
   /* * Dex closure */
   event Kill();
