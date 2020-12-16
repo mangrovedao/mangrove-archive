@@ -19,8 +19,8 @@ library DexLib {
      3. Returns the result of the operations, with optional makerData to help the maker debug.
    */
   function swapTokens(
-    DC.OrderPack memory orp,
-    DC.OfferDetail memory offerDetail
+    DC.OrderPack calldata orp,
+    DC.OfferDetail calldata offerDetail
   )
     external
     returns (
@@ -45,8 +45,8 @@ library DexLib {
     */
 
   function invertedSwapTokens(
-    DC.OrderPack memory orp,
-    DC.OfferDetail memory offerDetail
+    DC.OrderPack calldata orp,
+    DC.OfferDetail calldata offerDetail
   )
     external
     returns (
@@ -81,9 +81,9 @@ library DexLib {
   }
 
   function makerExecute(
-    DC.OrderPack memory orp,
+    DC.OrderPack calldata orp,
     //bytes memory cd, address base, uint takerWants,
-    DC.OfferDetail memory offerDetail
+    DC.OfferDetail calldata offerDetail
   )
     internal
     returns (
