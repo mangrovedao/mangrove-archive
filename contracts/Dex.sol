@@ -306,16 +306,14 @@ contract Dex is HasAdmin {
     uint initialTakerWants = takerWants;
     uint pastOfferId = orp.offer.prev;
 
-    uint minOrderSize = orp.config.density * orp.config.gasbase;
-
     locks[orp.base][orp.quote] = 2;
 
     /* ### Main loop */
     //+clear+
     /* Offers are looped through until:
-     * the remaining amount wanted by the taker is smaller than the current minimum offer size,
+     * the remaining amount wanted by the taker is 0
      * or `offerId == 0`, which means we've gone past the end of the book. */
-    while (takerWants >= minOrderSize && orp.offerId != 0) {
+    while (takerWants >= 0 && orp.offerId != 0) {
       /* #### `makerWouldWant` */
       //+clear+
       /* The current offer has a price <code>_p_ = offer.wants/offer.gives</code>. `makerWouldWant` is the amount of `REQ_TOKEN` the offer would require at price _p_ to provide `takerWants` `OFR_TOKEN`. Computing `makeWouldWant` gives us both a test that _p_ is an acceptable price for the taker, and the amount of `REQ_TOKEN` to send to the maker.
