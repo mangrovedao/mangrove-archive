@@ -320,12 +320,16 @@ contract Dex is HasAdmin {
 
     **Note**: We never check that `offerId` is actually a `uint32`, or that `offerId` actually points to an offer: it is not possible to insert an offer with an id larger than that, and a wrong `offerId` will point to a zero-initialized offer, which will revert the call when dividing by `offer.gives`.
 
-   **Note**: Since `takerWants` fits in 160 bits and `offer.wants` fits in 96 bits, the multiplication does not overflow. Since division rounds towards 0, the maker may have to accept a price slightly worse than expected.
-       */
-      uint makerWouldWant = (takerWants * orp.offer.wants) / orp.offer.gives;
+   **Note**: Since `takerWants` fits in 160 bits and `offer.wants` fits in 96 bits, the multiplication does not overflow. 
 
-      /* We set `makerWouldWant > 0` to prevent takers from leaking money out of makers for free. */
-      if (makerWouldWant == 0) makerWouldWant = 1;
+   Prices are rounded up. Here is why: offers can be updated. A snipe which names an offer by its id also specifies its price in the form of a `(wants,gives)` pair to be compared to the offers' `(wants,gives)`. See the sniping section for more on why.However, consider an order $r$ for the offer $o$. If $o$ is partially consumed into $o'$ before $r$ is mined, we still want $r$ to succeed (as long as $o'$ has enough volume). But but $o$ wants and give are not $o's$ wants and give. Worse: their ratios are not equal, due to rounding errors.
+
+   Our solution is to make sure that the price of a partially filled offer can only improve. When a snipe can specifies a wants and a gives, it accepts any offer price better than `wants/gives`.
+
+   To do that, we round up the amount required by the maker. That amount will later be deduced from the offer's total volume.
+       */
+      uint makerWouldWant =
+        roundUpRatio(takerWants * orp.offer.wants, orp.offer.gives);
 
       /* #### Offer taken */
       if (makerWouldWant <= takerGives) {
@@ -477,10 +481,7 @@ contract Dex is HasAdmin {
         orp.wants = orp.offer.gives < takerWants ? orp.offer.gives : takerWants;
 
         /* `localTakerGives` is the amount to be paid using the price induced by the offer. */
-        orp.gives = (orp.wants * orp.offer.wants) / orp.offer.gives;
-
-        /* We set `localTakerGives > 0` to prevent takers from leaking money out of makers for free. */
-        if (orp.gives == 0) orp.gives = 1;
+        orp.gives = roundUpRatio(orp.wants * orp.offer.wants, orp.offer.gives);
 
         /* We execute the offer with the flag `dirtyDeleteOffer` set to `false`, so the offers before and after the selected one get stitched back together. */
         (bool success, uint gasUsed, ) = executeOffer(orp, _governance, false);
@@ -995,6 +996,10 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         gasbase: _global.gasbase,
         gasmax: _global.gasmax
       });
+  }
+
+  function roundUpRatio(uint num, uint den) internal pure returns (uint) {
+    return num / den + (num % den == 0 ? 0 : 1);
   }
 
   /* # Configuration access */
