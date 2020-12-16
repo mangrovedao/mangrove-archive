@@ -251,7 +251,6 @@ contract Dex is HasAdmin {
   //+ignore+ not work, you'll just be asking for a ~0 price.
 
   /* During execution, we store some values in a memory struct to avoid solc's [stack too deep errors](https://medium.com/coinmonks/stack-too-deep-error-in-solidity-608d1bd6a1ea) that can occur when too many local variables are used. */
-
   function marketOrder(
     /*   ### Arguments */
     /* A taker calling this function wants to receive `takerWants` `OFR_TOKEN` in return
@@ -280,6 +279,7 @@ contract Dex is HasAdmin {
     orp.offer = offers[base][quote][offerId];
     orp.config = config(base, quote);
     orp.failures = new uint[2][](punishLength);
+    address _governance = governance;
 
     /* ### Checks */
     //+clear+
@@ -335,7 +335,8 @@ contract Dex is HasAdmin {
           : (takerWants, makerWouldWant);
 
         /* Execute the offer after loaning money to the maker. The last argument to `executeOffer` is `true` to flag that pointers shouldn't be updated (thus saving writes). The returned values are explained below: */
-        (bool success, uint gasUsed, bool deleted) = executeOffer(orp, true);
+        (bool success, uint gasUsed, bool deleted) =
+          executeOffer(orp, _governance, true);
 
         /* `success` means that the maker delivered `localTakerWants` `OFR_TOKEN` to the taker. We update the total amount wanted and spendable by the taker (possibly changing the remaining average price). */
         if (success) {
@@ -449,6 +450,8 @@ contract Dex is HasAdmin {
     orp.base = base;
     orp.quote = quote;
     orp.failures = new uint[2][](punishLength);
+    /* Cache governance address to save gas */
+    address _governance = governance;
 
     requireActiveMarket(orp.config);
 
@@ -480,7 +483,7 @@ contract Dex is HasAdmin {
         if (orp.gives == 0) orp.gives = 1;
 
         /* We execute the offer with the flag `dirtyDeleteOffer` set to `false`, so the offers before and after the selected one get stitched back together. */
-        (bool success, uint gasUsed, ) = executeOffer(orp, false);
+        (bool success, uint gasUsed, ) = executeOffer(orp, _governance, false);
         /* For punishment purposes (never triggered if `punishLength = 0`), we store the offer id and the gas wasted by the maker */
         if (success) {
           takerGot += orp.wants;
@@ -552,6 +555,7 @@ contract Dex is HasAdmin {
   It would be nice to do those checks right here, in `executeOffer`. But market orders must make price computations necessary to those checks _before_ calling `executeOffer` anyway, so they can decide whether the offer should be executed at all or not. To save gas, we don't redo the checks here. */
   function executeOffer(
     DC.OrderPack memory orp,
+    address _governance,
     /* The last argument, `dirtyDelete`, is here for market orders: if true, `next`/`prev` pointers around the deleted offer are not reset properly. */
     bool dirtyDelete
   )
@@ -571,8 +575,8 @@ contract Dex is HasAdmin {
     (success, gasUsed) = flashSwapTokens(orp, offerDetail);
 
     /* If a governance contract is set, we tell it about the trade that just occurred. */
-    if (governance != address(0)) {
-      IGovernance(governance).recordTrade(
+    if (_governance != address(0)) {
+      IGovernance(_governance).recordTrade(
         orp.base,
         orp.quote,
         orp.wants,
