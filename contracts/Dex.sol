@@ -579,6 +579,7 @@ contract Dex is HasAdmin {
         orp.quote,
         orp.wants,
         orp.gives,
+        msg.sender,
         offerDetail.maker,
         success,
         gasUsed,

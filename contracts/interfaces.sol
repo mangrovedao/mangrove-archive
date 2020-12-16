@@ -28,6 +28,7 @@ interface IGovernance {
     address quote,
     uint takerWants,
     uint takerGives,
+    address taker,
     address maker,
     bool success,
     uint gasUsed,
