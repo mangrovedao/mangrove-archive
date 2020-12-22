@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "hardhat/console.sol";
-import "../../DexDeployer.sol";
+import "../../Dex.sol";
 import "../Agents/TestToken.sol";
 
 library Display {
@@ -133,40 +133,46 @@ library Display {
     uint[] offerIds,
     uint[] wants,
     uint[] gives,
-    address[] makerAddr,
-    uint[] gasreq
+    address[] makerAddr
   );
 
-  function logOfferBook(Dex dex, uint size) internal {
-    uint offerId = dex.best();
+  function logOfferBook(
+    Dex dex,
+    address base,
+    address quote,
+    uint size
+  ) internal {
+    uint offerId = dex.bests(base, quote);
 
     uint[] memory wants = new uint[](size);
     uint[] memory gives = new uint[](size);
     address[] memory makerAddr = new address[](size);
     uint[] memory offerIds = new uint[](size);
-    uint[] memory gasreq = new uint[](size);
     uint c = 0;
     while ((offerId != 0) && (c < size)) {
       (DC.Offer memory offer, DC.OfferDetail memory od) =
-        dex.getOfferInfo(offerId, true);
+        dex.getOfferInfo(base, quote, offerId, true);
       wants[c] = offer.wants;
       gives[c] = offer.gives;
       makerAddr[c] = od.maker;
       offerIds[c] = offerId;
-      gasreq[c] = od.gasreq;
 
       offerId = offer.next;
       c++;
     }
-    emit OBState(offerIds, wants, gives, makerAddr, gasreq);
+    emit OBState(offerIds, wants, gives, makerAddr);
   }
 
-  function printOfferBook(Dex dex) internal view {
-    uint offerId = dex.best();
-    TestToken req_tk = TestToken(dex.REQ_TOKEN());
-    TestToken ofr_tk = TestToken(dex.OFR_TOKEN());
+  function printOfferBook(
+    Dex dex,
+    address base,
+    address quote
+  ) internal view {
+    uint offerId = dex.bests(base, quote);
+    TestToken req_tk = TestToken(quote);
+    TestToken ofr_tk = TestToken(base);
 
-    console.log("-----Best offer: %d-----", dex.getBest());
+    console.log("-----Best offer: %d-----", offerId);
     while (offerId != 0) {
       (
         ,
@@ -182,7 +188,7 @@ library Display {
       ) =
         /* uint gasprice */
         /* address makerAddr */
-        dex.getOfferInfo(offerId);
+        dex.getOfferInfo(base, quote, offerId);
       console.log(
         "[offer %d] %s/%s",
         offerId,

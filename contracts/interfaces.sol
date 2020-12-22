@@ -5,41 +5,37 @@ import {DexCommon as DC} from "./DexCommon.sol";
 
 interface IMaker {
   function execute(
+    address base,
+    address quote,
     uint takerWants,
     uint takerGives,
+    address taker,
     uint offerGasprice,
     uint offerId
-  ) external;
-}
-
-/* We declare a specific ISauron interface because it is upgradeable, so there may be multiple Sauron implementations. */
-interface ISauron {
-  function config(address dex) external view returns (DC.Config memory);
-
-  function active(address dex, bool value) external;
-
-  function fee(address dex, uint value) external;
-
-  function density(address dex, uint value) external;
-
-  function kill() external;
-
-  function gasprice(uint value) external;
-
-  function gasbase(uint value) external;
-
-  function gasmax(uint value) external;
-}
-
-/* We declare a specific IDeployer interface because Deployer already depends on Dex and we can't have circular dependencies. */
-interface IDeployer {
-  function sauron() external view returns (ISauron);
+  ) external returns (uint);
 }
 
 interface ITaker {
   function take(uint offerId, uint takerWants) external returns (bool);
 
   function marketOrder(uint wants, uint gives) external;
+}
+
+/* Governance contract interface */
+interface IGovernance {
+  function recordTrade(
+    address base,
+    address quote,
+    uint takerWants,
+    uint takerGives,
+    address taker,
+    address maker,
+    bool success,
+    uint gasUsed,
+    uint gasbase,
+    uint gasreq,
+    uint gasprice
+  ) external;
 }
 
 // IERC20 From OpenZeppelin code

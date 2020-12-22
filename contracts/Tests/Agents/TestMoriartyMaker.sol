@@ -7,25 +7,40 @@ import "../../Dex.sol";
 
 contract TestMoriartyMaker is IMaker, Passthrough {
   Dex dex;
+  address base;
+  address quote;
   bool succeed;
   uint dummy;
 
-  constructor(Dex _dex) {
+  constructor(
+    Dex _dex,
+    address _base,
+    address _quote
+  ) {
     dex = _dex;
+    base = _base;
+    quote = _quote;
     succeed = true;
   }
 
   function execute(
+    address,
+    address,
+    uint takerWants,
     uint,
-    uint,
+    address taker,
     uint,
     uint offerId
-  ) public override {
-    //console.log("Executing offer %d", offerId);
-
-    assert(succeed);
+  ) public override returns (uint ret) {
+    bool _succeed = succeed;
     if (offerId == dummy) {
       succeed = false;
+    }
+    if (_succeed) {
+      bool s = IERC20(base).transfer(taker, takerWants);
+      ret = s ? 0 : 2;
+    } else {
+      assert(false);
     }
   }
 
@@ -35,16 +50,18 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     uint gasreq,
     uint pivotId
   ) public {
-    dex.newOffer(wants, gives, gasreq, pivotId);
-    dex.newOffer(wants, gives, gasreq, pivotId);
-    dex.newOffer(wants, gives, gasreq, pivotId);
-    dex.newOffer(wants, gives, gasreq, pivotId);
-    uint density = dex.config().density;
-    uint gasbase = dex.config().gasbase;
+    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
+    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
+    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
+    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
+    uint density = dex.config(base, quote).density;
+    uint gasbase = dex.config(base, quote).gasbase;
     dummy = dex.newOffer({
+      base: base,
+      quote: quote,
       wants: 1,
-      gives: density * (gasbase + 10000),
-      gasreq: 10000,
+      gives: density * (gasbase + 100000),
+      gasreq: 100000,
       pivotId: 0
     }); //dummy offer
   }

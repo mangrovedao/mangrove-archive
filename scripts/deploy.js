@@ -11,27 +11,21 @@ async function main() {
   const DexLib = await $e.getContractFactory("DexLib");
   const dexLib = await DexLib.deploy();
   console.log("dexlib", dexLib.address);
-
-  const TestToken = await $e.getContractFactory("TestToken");
-  const aToken = await TestToken.deploy(owner.address, "A", "$A");
-  const bToken = await TestToken.deploy(owner.address, "B", "$B");
-  console.log("aToken", aToken.address);
-  console.log("bToken", bToken.address);
-
-  const Sauron = await $e.getContractFactory("Sauron");
-  const sauron = await Sauron.deploy(1, 1, 1);
-  console.log("sauron", sauron.address);
-
-  const DexDeployer = await $e.getContractFactory("DexDeployer", {
+  const Dex = await $e.getContractFactory("Dex", {
     libraries: { DexLib: dexLib.address },
   });
-  const dexDeployer = await DexDeployer.deploy(sauron.address);
-  console.log("dexdeployer", dexDeployer.address);
-
-  await dexDeployer.deploy(aToken.address, bToken.address, true);
-
-  const dex = await dexDeployer.dexes(aToken.address, bToken.address);
+  const dex = await Dex.deploy(1, 1, 1, true);
   console.log("dex", dex);
+
+  /* To activate for two tokens:
+  const TestToken = await $e.getContractFactory("TestToken");
+  const base = await TestToken.deploy(owner.address, "A", "$A");
+  const quote = await TestToken.deploy(owner.address, "B", "$B");
+  console.log("base", base.address);
+  console.log("quote", quote.address);
+
+  dex.setActive(base.address, quote.address, true);
+  */
 }
 
 main()

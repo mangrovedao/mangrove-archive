@@ -7,10 +7,19 @@ import "../../Dex.sol";
 
 contract TestMaker is IMaker, Passthrough {
   Dex dex;
+  address base;
+  address quote;
   bool shouldFail;
 
-  constructor(Dex _dex, bool _failer) {
+  constructor(
+    Dex _dex,
+    address _base,
+    address _quote,
+    bool _failer
+  ) {
     dex = _dex;
+    base = _base;
+    quote = _quote;
     shouldFail = _failer;
   }
 
@@ -19,17 +28,28 @@ contract TestMaker is IMaker, Passthrough {
   receive() external payable {}
 
   function execute(
+    address _base,
+    address _quote,
     uint takerWants,
     uint takerGives,
+    address taker,
     uint gasprice,
     uint offerId
-  ) public override {
+  ) public virtual override returns (uint) {
+    _base; // silence warning
+    _quote; // silence warning
+    taker; // silence warning
     emit Execute(takerWants, takerGives, gasprice, offerId);
-    assert(!shouldFail);
+    if (!shouldFail) {
+      bool s = IERC20(base).transfer(taker, takerWants);
+      return s ? 0 : 2;
+    } else {
+      return 1;
+    }
   }
 
   function cancelOffer(Dex _dex, uint offerId) public returns (uint) {
-    return (_dex.cancelOffer(offerId));
+    return (_dex.cancelOffer(base, quote, offerId));
   }
 
   function newOffer(
@@ -38,11 +58,11 @@ contract TestMaker is IMaker, Passthrough {
     uint gasreq,
     uint pivotId
   ) public returns (uint) {
-    return (dex.newOffer(wants, gives, gasreq, pivotId));
+    return (dex.newOffer(base, quote, wants, gives, gasreq, pivotId));
   }
 
   function cancelOffer(uint offerId) public {
-    dex.cancelOffer(offerId);
+    dex.cancelOffer(base, quote, offerId);
   }
 
   function provisionDex(uint amount) public {

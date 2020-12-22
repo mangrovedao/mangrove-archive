@@ -3,7 +3,6 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "../DexDeployer.sol";
 import "../Dex.sol";
 import "../DexCommon.sol";
 import "../interfaces.sol";
@@ -31,7 +30,11 @@ interface CallableRecipient {
 }
 
 contract BlackholeTaker is TestTaker, CallableRecipient {
-  constructor(Dex _dex) TestTaker(_dex) {}
+  constructor(
+    Dex _dex,
+    address base,
+    address quote
+  ) TestTaker(_dex, base, quote) {}
 
   bool enabled;
 
@@ -48,14 +51,18 @@ contract BlackholeTaker is TestTaker, CallableRecipient {
     if (enabled) {
       // ERC20 has protection against sending to 0
       address blackhole = address(0x1);
-      token.transfer(blackhole, amount);
+      try token.transfer(blackhole, amount) {} catch {}
     }
   }
 }
 
 library BlackholeTakerSetup {
-  function setup(Dex dex) external returns (BlackholeTaker) {
-    return new BlackholeTaker(dex);
+  function setup(
+    Dex dex,
+    address base,
+    address quote
+  ) external returns (BlackholeTaker) {
+    return new BlackholeTaker(dex, base, quote);
   }
 }
 
@@ -72,9 +79,35 @@ contract TokenWithCb is TestToken {
     uint amount
   ) public virtual override returns (bool ret) {
     ret = super.transferFrom(sender, recipient, amount);
-    CallableRecipient cr = CallableRecipient(recipient);
     ERC20 that = ERC20(address(this));
-    try cr.received(that, sender, amount) {} catch {}
+    bool noRevert;
+    (noRevert, ) = recipient.call(
+      abi.encodeWithSelector(
+        CallableRecipient.received.selector,
+        that,
+        msg.sender,
+        amount
+      )
+    );
+  }
+
+  function transfer(address recipient, uint amount)
+    public
+    virtual
+    override
+    returns (bool ret)
+  {
+    ret = super.transfer(recipient, amount);
+    ERC20 that = ERC20(address(this));
+    bool noRevert;
+    (noRevert, ) = recipient.call(
+      abi.encodeWithSelector(
+        CallableRecipient.received.selector,
+        that,
+        msg.sender,
+        amount
+      )
+    );
   }
 }
 
@@ -89,35 +122,33 @@ library TokenWithCbSetup {
 }
 
 contract TakerFailures_Test {
-  TestToken atk;
-  TestToken btk;
+  TestToken base;
+  TestToken quote;
   Dex dex;
-  ISauron sauron;
   BlackholeTaker tkr;
   TestMaker mkr;
 
   receive() external payable {}
 
   function a_beforeAll() public {
-    atk = TokenWithCbSetup.setup(address(this), "A", "$A");
-    btk = TokenSetup.setup("B", "$B");
-    dex = DexSetup.setup(atk, btk);
-    sauron = dex.deployer().sauron();
-    tkr = BlackholeTakerSetup.setup(dex);
-    mkr = MakerSetup.setup(dex, false);
+    base = TokenWithCbSetup.setup(address(this), "A", "$A");
+    quote = TokenSetup.setup("B", "$B");
+    dex = DexSetup.setup(base, quote);
+    tkr = BlackholeTakerSetup.setup(dex, address(base), address(quote));
+    mkr = MakerSetup.setup(dex, address(base), address(quote), false);
 
     address(mkr).transfer(10 ether);
     address(tkr).transfer(1 ether);
 
     mkr.provisionDex(1 ether);
 
-    atk.mint(address(mkr), 1 ether);
-    btk.mint(address(tkr), 1 ether);
+    base.mint(address(mkr), 1 ether);
+    quote.mint(address(tkr), 1 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "TakerFailures_Test");
-    Display.register(address(atk), "$A");
-    Display.register(address(btk), "$B");
+    Display.register(address(base), "$A");
+    Display.register(address(quote), "$B");
     Display.register(address(dex), "dex");
     Display.register(address(mkr), "maker");
     Display.register(address(tkr), "taker");
@@ -134,7 +165,7 @@ contract TakerFailures_Test {
 
   function taker_has_no_B_fails_order_test() public {
     uint ofr = mkr.newOffer(1.1 ether, 1 ether, 10_000, 0);
-    tkr.approve(btk, 1.1 ether);
+    tkr.approve(quote, 1.1 ether);
     try tkr.take(ofr, 1.1 ether) {
       TestEvents.fail("Taker doesn't have enough B, order should fail");
     } catch Error(string memory r) {
@@ -142,18 +173,10 @@ contract TakerFailures_Test {
     }
   }
 
-  function maker_hasnt_approved_A_fails_order_test() public {
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 0, 0);
-    tkr.approve(btk, 1 ether);
-    bool success = tkr.take(ofr, 1 ether);
-    TestEvents.check(!success, "order should fail");
-  }
-
   function if_maker_has_no_A_fails_order_test() public {
-    uint ofr = mkr.newOffer(1 ether, 10 ether, 0, 0);
-    tkr.approve(btk, 1 ether);
-    mkr.approve(atk, 10 ether);
-    bool success = tkr.take(ofr, 1 ether);
+    uint ofr = mkr.newOffer(1 ether, 10 ether, 100_000, 0);
+    tkr.approve(quote, 1 ether);
+    bool success = tkr.take(ofr, 1.1 ether);
     TestEvents.check(!success, "order should fail");
   }
 
@@ -170,9 +193,9 @@ contract TakerFailures_Test {
   }
 
   function unsafe_gas_left_fails_order_test() public {
-    sauron.gasbase(1);
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
-    try tkr.take{gas: 40_000}(ofr, 1 ether) {
+    dex.setGasbase(1);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    try tkr.take{gas: 80_000}(ofr, 1 ether) {
       TestEvents.fail("unsafe gas amount, order should fail");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/unsafeGasAmount", "wrong revert reason");
@@ -180,10 +203,9 @@ contract TakerFailures_Test {
   }
 
   function taker_hasnt_approved_A_fails_order_test() public {
-    sauron.fee(address(dex), 300);
-    tkr.approve(btk, 1 ether);
-    mkr.approve(atk, 1 ether);
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
+    dex.setFee(address(base), address(quote), 300);
+    tkr.approve(quote, 1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     try tkr.take(ofr, 1 ether) {
       TestEvents.fail("Taker hasn't approved for A, order should fail");
     } catch Error(string memory r) {
@@ -191,19 +213,19 @@ contract TakerFailures_Test {
     }
   }
 
-  function taker_has_no_A_fails_order_test() public {
-    tkr.setEnabled(true);
-    sauron.fee(address(dex), 300);
-    tkr.approve(btk, 1 ether);
-    mkr.approve(atk, 1 ether);
-    tkr.approve(atk, 1 ether);
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
-    try tkr.take(ofr, 1 ether) {
-      TestEvents.fail("Taker doesn't have enough A, order should fail");
-    } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/takerFailToPayDex", "wrong revert reason");
-    }
-  }
+  /* This test uses an ERC20 with callback and an evil taker to take out `base` received as soon as they come in. It does not make sense with a non-inverted Dex and a flashloan system based on checking balanceOf, because ERC20+callback+evilTaker means there is no way for the maker to defend against a bad taker. A version of this test could be restored in the inverted dex case, because a variant of evil maker could remove base tokens *during* its `execute` call. But with a normal Dex, we're essentially testing the ERC20 which makes no sense. */
+  //function taker_has_no_A_fails_order_test() public {
+  //tkr.setEnabled(true);
+  //dex.setFee(address(base), address(quote), 300);
+  //tkr.approve(quote, 1 ether);
+  //tkr.approve(base, 1 ether);
+  //uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+  //try tkr.take(ofr, 1 ether) {
+  //TestEvents.fail("Taker doesn't have enough A, order should fail");
+  //} catch Error(string memory r) {
+  //TestEvents.eq(r, "dex/takerFailToPayDex", "wrong revert reason");
+  //}
+  //}
 
   function marketOrder_on_empty_book_fails_test() public {
     try tkr.marketOrder(1 ether, 1 ether) {
@@ -222,9 +244,8 @@ contract TakerFailures_Test {
   }
 
   function taking_same_offer_twice_fails_test() public {
-    tkr.approve(btk, 1 ether);
-    mkr.approve(atk, 1 ether);
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
+    tkr.approve(quote, 1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     tkr.take(ofr, 1 ether);
     try tkr.marketOrderWithFail(0, 0, 0, ofr) {
       TestEvents.fail("Offer should have been deleted");
@@ -234,23 +255,21 @@ contract TakerFailures_Test {
   }
 
   function small_partial_fill_can_be_retaken_test() public {
-    tkr.approve(btk, 1 ether);
-    mkr.approve(atk, 1 ether);
-    sauron.density(address(dex), 1);
-    sauron.gasbase(1);
-    uint ofr = mkr.newOffer(10_002, 10_002, 10_000, 0);
+    tkr.approve(quote, 1 ether);
+    dex.setDensity(address(base), address(quote), 1);
+    dex.setGasbase(1);
+    uint ofr = mkr.newOffer(100_002, 100_002, 100_000, 0);
     tkr.take(ofr, 1);
-    tkr.marketOrderWithFail(10_001, 10_001, 0, ofr);
+    tkr.marketOrderWithFail(100_001, 100_001, 0, ofr);
   }
 
   function big_partial_fill_cant_be_retaken_test() public {
-    tkr.approve(btk, 1 ether);
-    mkr.approve(atk, 1 ether);
-    sauron.density(address(dex), 1);
-    sauron.gasbase(1);
-    uint ofr = mkr.newOffer(10_001, 10_001, 10_000, 0);
+    tkr.approve(quote, 1 ether);
+    dex.setDensity(address(base), address(quote), 1);
+    dex.setGasbase(1);
+    uint ofr = mkr.newOffer(100_001, 100_001, 100_000, 0);
     tkr.take(ofr, 2);
-    try tkr.marketOrderWithFail(10_001, 10_001, 0, ofr) {
+    try tkr.marketOrderWithFail(100_001, 100_001, 0, ofr) {
       TestEvents.fail("Offer should have been deleted");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/marketOrder/noSuchOffer", "wrong revert reason");

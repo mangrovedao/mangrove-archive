@@ -16,88 +16,121 @@ library DexLib {
      `swapTokens` is for the 'normal' mode of operation. It:
      1. Flashloans `takerGives` `REQ_TOKEN` from the taker to the maker and returns false if the loan fails.
      2. Runs `offerDetail.maker`'s `execute` function.
-     3. Attempts to send `takerWants` `OFR_TOKEN` from the maker to the taker and reverts if it cannot.
-     4. Returns true.
-    */
-
+     3. Returns the result of the operations, with optional makerData to help the maker debug.
+   */
   function swapTokens(
-    address ofrToken,
-    address reqToken,
-    uint offerId,
-    uint takerGives,
-    uint takerWants,
-    DC.OfferDetail memory offerDetail
-  ) external returns (bool) {
-    if (transferToken(reqToken, msg.sender, offerDetail.maker, takerGives)) {
-      // Execute offer
-      //uint gr = offerDetail.gasreq;
-      //uint g = gasleft();
-      //(bool s,) =
-      IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
-        takerWants,
-        takerGives,
-        offerDetail.gasprice,
-        offerId
-      );
-      //) {} catch {
-      //(bool s,) = address(offerDetail.maker).call{gas:gr}(abi.encodeWithSelector(IMaker.execute.selector,
-      //takerWants,
-      //takerGives,
-      //offerDetail.gasprice,
-      //offerId));
-      //) {} catch {
-      //g = g-gasleft();
-      //console.log("gas used",g);
-      //}
-      require(
-        transferToken(ofrToken, offerDetail.maker, msg.sender, takerWants),
-        "dex/makerFailToPayTaker"
-      );
-      return true;
+    DC.OrderPack calldata orp,
+    DC.OfferDetail calldata offerDetail
+  )
+    external
+    returns (
+      DC.SwapResult result,
+      uint makerData,
+      uint gasUsed
+    )
+  {
+    if (transferToken(orp.quote, msg.sender, offerDetail.maker, orp.gives)) {
+      //bytes memory cd = abi.encodeWithSelector(IMaker.execute.selector,base,quote,takerWants,takerGives,msg.sender,offerDetail.gasprice,offerId);
+      (result, makerData, gasUsed) = makerExecute(orp, offerDetail);
     } else {
-      return false;
+      result = DC.SwapResult.TakerTransferFail;
     }
   }
 
   /*
-     `swapTokens` is for the 'arbitrage' mode of operation. It:
-     0. Calls the maker's `execute` function
-     1. Flashloans `takerWants` `OFR_TOKEN` from the maker to the taker and reverts if the loan fails.
+     `invertedSwapTokens` is for the 'arbitrage' mode of operation. It:
+     0. Calls the maker's `execute` function. If successful (tokens have been sent to taker):
      2. Runs `msg.sender`'s `execute` function.
-     3. Attempts to send `takerGives` `REQ_TOKEN` from the taker to the maker. 
-     4. Returns whether the attempt worked.
+     4. Returns the results ofthe operations, with optional makerData to help the maker debug.
     */
 
   function invertedSwapTokens(
-    address ofrToken,
-    address reqToken,
-    uint offerId,
-    uint takerGives,
-    uint takerWants,
-    DC.OfferDetail memory offerDetail
-  ) external returns (bool) {
-    // Execute offer
-    IMaker(offerDetail.maker).execute{gas: offerDetail.gasreq}(
-      takerWants,
-      takerGives,
-      offerDetail.gasprice,
-      offerId
-    );
-    require(
-      transferToken(ofrToken, offerDetail.maker, msg.sender, takerWants),
-      "dex/makerFailToPayTaker"
-    );
-    IMaker(msg.sender).execute(
-      takerWants,
-      takerGives,
-      offerDetail.gasprice,
-      offerId
-    );
-    return transferToken(reqToken, msg.sender, offerDetail.maker, takerGives);
+    DC.OrderPack calldata orp,
+    DC.OfferDetail calldata offerDetail
+  )
+    external
+    returns (
+      DC.SwapResult result,
+      uint makerData,
+      uint gasUsed
+    )
+  {
+    (result, makerData, gasUsed) = makerExecute(orp, offerDetail);
+
+    if (result == DC.SwapResult.OK) {
+      uint oldBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
+
+      IMaker(msg.sender).execute(
+        orp.base,
+        orp.quote,
+        orp.wants,
+        orp.gives,
+        offerDetail.maker,
+        offerDetail.gasprice,
+        orp.offerId
+      );
+
+      uint newBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
+      /* The second check (`newBalance >= oldBalance`) protects against overflow. */
+      if (newBalance >= oldBalance + orp.gives && newBalance >= oldBalance) {
+        result = DC.SwapResult.OK;
+      } else {
+        result = DC.SwapResult.TakerTransferFail;
+      }
+    }
+  }
+
+  function makerExecute(
+    DC.OrderPack calldata orp,
+    //bytes memory cd, address base, uint takerWants,
+    DC.OfferDetail calldata offerDetail
+  )
+    internal
+    returns (
+      DC.SwapResult result,
+      uint makerData,
+      uint gasUsed
+    )
+  {
+    bytes memory cd =
+      abi.encodeWithSelector(
+        IMaker.execute.selector,
+        orp.base,
+        orp.quote,
+        orp.wants,
+        orp.gives,
+        msg.sender,
+        offerDetail.gasprice,
+        orp.offerId
+      );
+    uint oldBalance = IERC20(orp.base).balanceOf(msg.sender);
+    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + gasbase`. This yul call only retrieves the first byte of the maker's `returndata`. */
+    uint gasreq = offerDetail.gasreq;
+    address maker = offerDetail.maker;
+    bytes memory retdata = new bytes(32);
+    bool success;
+    uint oldGas = gasleft();
+    assembly {
+      success := call(gasreq, maker, 0, add(cd, 32), cd, add(retdata, 32), 32)
+      makerData := mload(add(retdata, 32))
+    }
+    uint newBalance = IERC20(orp.base).balanceOf(msg.sender);
+    gasUsed = oldGas - gasleft();
+    /* The second check (`newBalance >= oldBalance`) protects against overflow. */
+    if (newBalance >= oldBalance + orp.wants && newBalance >= oldBalance) {
+      result = DC.SwapResult.OK;
+    } else if (!success) {
+      result = DC.SwapResult.MakerReverted;
+    } else {
+      result = DC.SwapResult.MakerTransferFail;
+    }
   }
 
   /* `transferToken` is adapted from [existing code](https://soliditydeveloper.com/safe-erc20) and in particular avoids the
-  "no return value" bug. It never throws and returns true iff the transfer was successful according to `tokenAddress`. */
+  "no return value" bug. It never throws and returns true iff the transfer was successful according to `tokenAddress`.
+
+    Note that any spurious exception due to an error in Dex code will be falsely blamed on `from`.
+  */
   function transferToken(
     address tokenAddress,
     address from,
@@ -106,8 +139,8 @@ library DexLib {
   ) internal returns (bool) {
     bytes memory cd =
       abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, value);
-    (bool success, bytes memory data) = tokenAddress.call(cd);
-    return (success && (data.length == 0 || abi.decode(data, (bool))));
+    (bool noRevert, bytes memory data) = tokenAddress.call(cd);
+    return (noRevert && (data.length == 0 || abi.decode(data, (bool))));
   }
 
   /* # New offer */
@@ -115,36 +148,31 @@ library DexLib {
 
   /* <a id="DexLib/definition/newOffer"></a> When a maker posts a new offer, the offer gets automatically inserted at the correct location in the book, starting from a maker-supplied `pivotId` parameter. The extra `storage` parameters are sent to `DexLib` by `Dex` so that it can write to `Dex`'s storage. */
   function newOffer(
-    /* `config`, `freeWei`, `offers`, `offerDetails`, `best` and `offerId` are trusted arguments from `Dex`, while */
-    DC.Config memory config,
+    DC.OfferPack memory ofp,
     mapping(address => uint) storage freeWei,
-    mapping(uint => DC.Offer) storage offers,
+    mapping(address => mapping(address => mapping(uint => DC.Offer)))
+      storage offers,
     mapping(uint => DC.OfferDetail) storage offerDetails,
-    DC.UintContainer storage best,
-    uint offerId,
-    /* `wants`, `gives`, `gasreq`, and `pivotId` are given by `msg.sender`. */
-    uint wants,
-    uint gives,
-    uint gasreq,
-    uint pivotId
+    /* The `bests` map is given (instead of current best value) because this function may _write_ a new best value. */
+    mapping(address => mapping(address => uint)) storage bests
   ) external returns (uint) {
     /* The following checks are first performed: */
     //+clear+
     /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `maxPenalty` (see below). */
-    require(gasreq <= config.gasmax, "dex/newOffer/gasreq/tooHigh");
+    require(ofp.gasreq <= ofp.config.gasmax, "dex/newOffer/gasreq/tooHigh");
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isOffer` method sound. */
     require(
-      gives >= (gasreq + config.gasbase) * config.density,
+      ofp.gives >= (ofp.gasreq + ofp.config.gasbase) * ofp.config.density,
       "dex/newOffer/gives/tooLow"
     );
     /* * Unnecessary for safety: check width of `wants`, `gives` and `pivotId`. They will be truncated anyway, but if they are too wide, we assume the maker has made a mistake and revert. */
-    require(uint96(wants) == wants, "dex/newOffer/wants/96bits");
-    require(uint96(gives) == gives, "dex/newOffer/gives/96bits");
-    require(uint32(pivotId) == pivotId, "dex/newOffer/pivotId/32bits");
+    require(uint96(ofp.wants) == ofp.wants, "dex/newOffer/wants/96bits");
+    require(uint96(ofp.gives) == ofp.gives, "dex/newOffer/gives/96bits");
+    require(uint32(ofp.pivotId) == ofp.pivotId, "dex/newOffer/pivotId/32bits");
 
     /* With every new offer, a maker must deduct provisions from its `freeWei` balance. The maximum penalty is incurred when an offer fails after consuming all its `gasreq`. */
 
-    uint maxPenalty = (gasreq + config.gasbase) * config.gasprice;
+    uint maxPenalty = (ofp.gasreq + ofp.config.gasbase) * ofp.config.gasprice;
     debitWei(freeWei, msg.sender, maxPenalty);
 
     /* Once provisioned, the position of the new offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
@@ -152,54 +180,61 @@ library DexLib {
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
     (uint prev, uint next) =
       findPosition(
-        offers,
+        offers[ofp.base][ofp.quote],
         offerDetails,
-        best.value,
-        wants,
-        gives,
-        gasreq,
-        pivotId
+        bests[ofp.base][ofp.quote],
+        ofp.wants,
+        ofp.gives,
+        ofp.gasreq,
+        ofp.pivotId
       );
-
     /* Then we place the offer in the book at the position found by `findPosition`.
 
        If the offer is not the best one, we update its predecessor; otherwise we update the `best` value. */
     if (prev != 0) {
-      offers[prev].next = uint32(offerId);
+      offers[ofp.base][ofp.quote][prev].next = uint32(ofp.id);
     } else {
-      best.value = uint32(offerId);
+      bests[ofp.base][ofp.quote] = uint32(ofp.id);
     }
 
     /* If the offer is not the last one, we update its successor. */
     if (next != 0) {
-      offers[next].prev = uint32(offerId);
+      offers[ofp.base][ofp.quote][next].prev = uint32(ofp.id);
     }
 
     /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 32 bits. */
-    offers[offerId] = DC.Offer({
+    offers[ofp.base][ofp.quote][ofp.id] = DC.Offer({
       prev: uint32(prev),
       next: uint32(next),
-      wants: uint96(wants),
-      gives: uint96(gives)
+      wants: uint96(ofp.wants),
+      gives: uint96(ofp.gives)
     });
 
-    offerDetails[offerId] = DC.OfferDetail({
-      gasreq: uint24(gasreq),
-      gasbase: uint24(config.gasbase),
-      gasprice: uint48(config.gasprice),
+    offerDetails[ofp.id] = DC.OfferDetail({
+      gasreq: uint24(ofp.gasreq),
+      gasbase: uint24(ofp.config.gasbase),
+      gasprice: uint48(ofp.config.gasprice),
       maker: msg.sender
     });
 
     /* And finally return the newly created offer id to the caller. */
-    emit DexEvents.NewOffer(msg.sender, wants, gives, gasreq, offerId);
-    return offerId;
+    emit DexEvents.NewOffer(
+      ofp.base,
+      ofp.quote,
+      msg.sender,
+      ofp.wants,
+      ofp.gives,
+      ofp.gasreq,
+      ofp.id
+    );
+    return ofp.id;
   }
 
   /* `findPosition` takes a price in the form of a `wants/gives` pair, an offer id (`pivotId`) and walks the book from that offer (backward or forward) until the right position for the price `wants/gives` is found. The position is returned as a `(prev,next)` pair, with `prev` or `next` at 0 to mark the beginning/end of the book (no offer ever has id 0).
 
   If prices are equal, `findPosition` will put the newest offer last. */
   function findPosition(
-    mapping(uint => DC.Offer) storage offers,
+    mapping(uint => DC.Offer) storage _offers,
     mapping(uint => DC.OfferDetail) storage offerDetails,
     /* As a backup pivot, the id of the current best offer is sent by `Dex` to `DexLib`. This is in case `pivotId` turns out to be an invalid offer id. This part of the code relies on consumed offers being deleted, otherwise we would blindly insert offers next to garbage old values. */
     uint bestValue,
@@ -208,11 +243,11 @@ library DexLib {
     uint gasreq,
     uint pivotId
   ) internal view returns (uint, uint) {
-    DC.Offer memory pivot = offers[pivotId];
+    DC.Offer memory pivot = _offers[pivotId];
 
     if (!DC.isOffer(pivot)) {
       // in case pivotId is not or no longer a valid offer
-      pivot = offers[bestValue];
+      pivot = _offers[bestValue];
       pivotId = bestValue;
     }
 
@@ -230,7 +265,7 @@ library DexLib {
     ) {
       DC.Offer memory pivotNext;
       while (pivot.next != 0) {
-        pivotNext = offers[pivot.next];
+        pivotNext = _offers[pivot.next];
         if (
           better(
             offerDetails,
@@ -255,7 +290,7 @@ library DexLib {
     } else {
       DC.Offer memory pivotPrev;
       while (pivot.prev != 0) {
-        pivotPrev = offers[pivot.prev];
+        pivotPrev = _offers[pivot.prev];
         if (
           better(
             offerDetails,

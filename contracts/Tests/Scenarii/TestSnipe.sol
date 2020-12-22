@@ -9,8 +9,8 @@ library TestSnipe {
     Dex dex,
     MakerDeployer makers,
     TestTaker taker,
-    TestToken aToken,
-    TestToken bToken
+    TestToken base,
+    TestToken quote
   ) external {
     uint orderAmount = 0.3 ether;
     uint snipedId = 2;
@@ -19,33 +19,36 @@ library TestSnipe {
     //(uint init_mkr_wants, uint init_mkr_gives,,,,,)=dex.getOfferInfo(2);
     //---------------SNIPE------------------//
     TestEvents.check(
-      TestUtils.snipeWithGas(taker, snipedId, orderAmount),
+      taker.take(snipedId, orderAmount),
       "snipe should be a success"
     );
     TestEvents.eq(
-      aToken.balanceOf(TestUtils.adminOf(dex)), //actual
-      balances.dexBalanceFees + TestUtils.getFee(dex, orderAmount), //expected
+      base.balanceOf(TestUtils.adminOf(dex)), //actual
+      balances.dexBalanceFees +
+        TestUtils.getFee(dex, address(base), address(quote), orderAmount), //expected
       "incorrect Dex A balance"
     );
     TestEvents.eq(
-      bToken.balanceOf(address(taker)),
+      quote.balanceOf(address(taker)),
       balances.takerBalanceB -
         (orderAmount * offers[snipedId][TestUtils.Info.makerWants]) /
         offers[snipedId][TestUtils.Info.makerGives],
       "incorrect taker B balance"
     );
     TestEvents.eq(
-      aToken.balanceOf(address(taker)), // actual
-      balances.takerBalanceA + orderAmount - TestUtils.getFee(dex, orderAmount), // expected
+      base.balanceOf(address(taker)), // actual
+      balances.takerBalanceA +
+        orderAmount -
+        TestUtils.getFee(dex, address(base), address(quote), orderAmount), // expected
       "incorrect taker A balance"
     );
     TestEvents.eq(
-      aToken.balanceOf(address(maker)),
+      base.balanceOf(address(maker)),
       balances.makersBalanceA[snipedId] - orderAmount,
       "incorrect maker A balance"
     );
     TestEvents.eq(
-      bToken.balanceOf(address(maker)),
+      quote.balanceOf(address(maker)),
       balances.makersBalanceB[snipedId] +
         (orderAmount * offers[snipedId][TestUtils.Info.makerWants]) /
         offers[snipedId][TestUtils.Info.makerGives],
@@ -53,7 +56,7 @@ library TestSnipe {
     );
     // Testing residual offer
     (bool exists, uint makerWants, uint makerGives, , , , , ) =
-      dex.getOfferInfo(snipedId);
+      dex.getOfferInfo(address(base), address(quote), snipedId);
     TestEvents.check(exists, "Offer should have a residual");
     TestEvents.eq(
       makerGives,

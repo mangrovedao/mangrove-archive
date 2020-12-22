@@ -11,8 +11,8 @@ library TestCancelOffer {
     TestMaker maker,
     uint offerId,
     TestTaker, /* taker */
-    TestToken, /* aToken */
-    TestToken /* bToken */ // silence warnings about unused arguments
+    TestToken base,
+    TestToken quote
   ) external {
     try wrongOwner.cancelOffer(dex, offerId) returns (uint) {
       TestEvents.fail("Invalid authorization to cancel order");
@@ -22,7 +22,12 @@ library TestCancelOffer {
         require(maker.cancelOffer(dex, 0) == 0); // should be no-op
         TestEvents.eq(
           released,
-          TestUtils.getProvision(dex, offers[offerId][TestUtils.Info.gasreq]),
+          TestUtils.getProvision(
+            dex,
+            address(base),
+            address(quote),
+            offers[offerId][TestUtils.Info.gasreq]
+          ),
           "Incorrect released amount"
         );
         TestEvents.eq(

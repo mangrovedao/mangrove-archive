@@ -123,7 +123,7 @@ They have the following fields: */
   struct Config {
     bool dead;
     bool active;
-    /* * `fee`, in basis points, of `OFR_TOKEN` given to the taker. This fee is sent to the Dex. */
+    /* * `fee`, in basis points, of `OFR_TOKEN` given to the taker. This fee is sent to the Dex. Fee is capped to 5% (see Dex.sol). */
     uint fee;
     /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
     uint gasprice;
@@ -150,13 +150,40 @@ They have the following fields: */
   function isOffer(Offer memory offer) internal pure returns (bool) {
     return offer.gives > 0;
   }
+
+  /* Holds data about offers in a struct, used by `newOffer` to avoid stack too deep errors. */
+  struct OfferPack {
+    address base;
+    address quote;
+    uint wants;
+    uint gives;
+    uint id;
+    uint gasreq;
+    uint pivotId;
+    Config config;
+  }
+
+  /* Holds data about orders in a struct, used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
+  struct OrderPack {
+    address base;
+    address quote;
+    uint wants;
+    uint gives;
+    uint offerId;
+    Offer offer;
+    Config config;
+    uint numFailures;
+    uint[2][] failures;
+  }
+
+  enum SwapResult {OK, TakerTransferFail, MakerTransferFail, MakerReverted}
 }
 
 /* # Events
 The events emitted for use by various bots are listed here: */
 library DexEvents {
-  /* * Emitted at the creation of the new Dex contract on the pair (`reqToken`, `ofrToken`)*/
-  event NewDex(address dex, address reqToken, address ofrToken);
+  /* * Emitted at the creation of the new Dex contract on the pair (`quote`, `base`)*/
+  event NewDex();
 
   event TestEvent(uint);
 
@@ -165,25 +192,31 @@ library DexEvents {
   event Debit(address maker, uint amount);
 
   /* * Dex reconfiguration */
-  event SetActive(address dex, bool value);
-  event SetFee(address dex, uint value);
+  event SetActive(address base, address quote, bool value);
+  event SetFee(address base, address quote, uint value);
   event SetGasbase(uint value);
   event SetGasmax(uint value);
-  event SetDensity(address dex, uint value);
+  event SetDensity(address base, address quote, uint value);
   event SetGasprice(uint value);
 
   /* * Offer execution */
   event Success(uint offerId, uint takerWants, uint takerGives);
-  event Failure(uint offerId, uint takerWants, uint takerGives);
+  event MakerFail(
+    uint offerId,
+    uint takerWants,
+    uint takerGives,
+    bool reverted,
+    uint makerData
+  );
 
   /* * Dex closure */
   event Kill();
 
-  event CancelOffer(uint offerId);
-
   /* * A new offer was inserted into book.
    `maker` is the address of the contract that implements the offer. */
   event NewOffer(
+    address base,
+    address quote,
     address maker,
     uint wants,
     uint gives,
