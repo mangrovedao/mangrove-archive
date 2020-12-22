@@ -144,7 +144,7 @@ contract MakerOperations_Test {
     try mkr.newOffer(1 ether, 1 ether, gasmax + 1, 0) {
       TestEvents.fail("gasreq above gasmax, newOffer should fail");
     } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/newOffer/gasreq/tooHigh", "wrong revert reason");
+      TestEvents.eq(r, "dex/writeOffer/gasreq/tooHigh", "wrong revert reason");
     }
   }
 
