@@ -139,11 +139,11 @@ library DexLib {
     require(gasreq <= config.gasmax, "dex/writeOffer/gasreq/tooHigh");
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isLive` method sound. */
     require(
-      gives >= (gasreq + config.gasbase * 1000) * config.density,
+      gives >= (gasreq + config.gasbase) * config.density,
       "dex/writeOffer/gives/tooLow"
     );
 
-    /* First, we write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `freeWei`. Since the offer version must be updated anyway, there is no way to save a SSTORE by checking if any other value has changed. */
+    /* First, we write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `freeWei`. */
     uint oldProvision;
     {
       DC.OfferDetail memory offerDetail = offerDetails[offerId];
@@ -152,28 +152,23 @@ library DexLib {
           msg.sender == offerDetail.maker,
           "dex/updateOffer/unauthorized"
         );
-        require(
-          offerDetail.version + 1 > offerDetail.version,
-          "dex/updateOffer/versionOverflow"
-        );
         oldProvision =
           offerDetail.gasprice *
-          (uint(offerDetail.gasreq) + offerDetail.gasbase * 1000);
+          (uint(offerDetail.gasreq) + offerDetail.gasbase);
       }
 
       offerDetails[offerId] = DC.OfferDetail({
         gasreq: uint24(gasreq),
-        gasbase: uint8(config.gasbase),
+        gasbase: uint24(config.gasbase),
         gasprice: uint48(config.gasprice),
-        maker: msg.sender,
-        version: update ? offerDetail.version + 1 : 0
+        maker: msg.sender
       });
     }
 
     /* With every change to an offer, a maker must deduct provisions from its `freeWei` balance, or get some back if the updated offer requires fewer provisions. */
 
     {
-      uint provision = (gasreq + config.gasbase * 1000) * config.gasprice;
+      uint provision = (gasreq + config.gasbase) * config.gasprice;
       if (provision > oldProvision) {
         debitWei(freeWei, msg.sender, provision - oldProvision);
       } else if (provision < oldProvision) {

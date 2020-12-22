@@ -329,8 +329,7 @@ contract Dex is HasAdmin {
         numFailures: 0
       });
 
-    uint minOrderSize =
-      orderData.config.density * orderData.config.gasbase * 1000;
+    uint minOrderSize = orderData.config.density * orderData.config.gasbase;
 
     uint[2][] memory failures = new uint[2][](punishLength);
 
@@ -420,11 +419,11 @@ contract Dex is HasAdmin {
            ```
            success &&
            gives - localTakerwants >=
-             density * (gasreq + gasbase*1000)
+             density * (gasreq + gasbase)
            ```
-          By the `Sauron` contract, `density * gasbase * 1000 > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have
+          By the `Sauron` contract, `density * gasbase > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have
           ```
-           takerWants == 0 < density * gasbase*1000
+           takerWants == 0 < density * gasbase
           ```
           And so the loop ends.
         */
@@ -465,11 +464,12 @@ contract Dex is HasAdmin {
   /* `snipe` takes a single offer from the book, at whatever price is induced by the offer. */
   function snipe(
     uint offerId,
-    uint version,
-    uint takerWants
+    uint takerWants,
+    uint takerGives,
+    uint gasreq
   ) external returns (bool) {
-    uint[3][] memory targets = new uint[3][](1);
-    targets[0] = [offerId, version, takerWants];
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [offerId, takerWants, takerGives, gasreq];
     uint[2][] memory failures = internalSnipes(targets, 1);
     return (failures.length == 0);
   }
@@ -490,7 +490,7 @@ contract Dex is HasAdmin {
     uint localTakerGives;
   }
 
-  function internalSnipes(uint[3][] memory targets, uint punishLength)
+  function internalSnipes(uint[4][] memory targets, uint punishLength)
     public
     returns (uint[2][] memory)
   {
@@ -517,56 +517,60 @@ contract Dex is HasAdmin {
       /* To save on the number of local variables (or memory expansion), we avoid writing the following (which would be more readable):
          ```
          uint offerId = targets[i][0];
-         uint version = targets[i][1];
-         uint takerWants = targets[i][2];
+         uint takerWants = targets[i][1];
+         uint takerGives = targets[i][2];
+         uint gasreq = targets[i][3];
          ```
-      */
+       */
       sd.offer = offers[targets[i][0]];
       sd.offerDetail = offerDetails[targets[i][0]];
-      /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. */
-      if (DC.isLive(sd.offer) && sd.offerDetail.version <= targets[i][1]) {
-        /* `localTakerWants` bounds the amount requested by the taker by the maximum amount on offer. It also obviates the need to check the size of `takerWants`: while in a market order we must compare the price a taker accepts with the offer price, here we just accept the offer's price. So if `takerWants` does not fit in 96 bits (the size of `offer.gives`), it won't be used in the line below. */
-        sd.localTakerWants = sd.offer.gives < targets[i][2]
-          ? sd.offer.gives
-          : targets[i][2];
+      /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. We also check that `gasreq` is not worse than specified. A taker who does not care about `gasreq` can specify any amount larger than $2^{24}-1$. */
+      if (DC.isLive(sd.offer) && sd.offerDetail.gasreq <= targets[i][3]) {
+        /* Amounts stored in offers are 96 bits wide. */
+        require(
+          uint96(targets[i][1]) == targets[i][1],
+          "dex/internalSnipes/takerWants/96bits"
+        );
+        uint makerWouldWant = (targets[i][1] * sd.offer.wants) / sd.offer.gives;
+        if (makerWouldWant <= targets[i][2]) {
+          (sd.localTakerWants, sd.localTakerGives) = sd.offer.gives <
+            targets[i][1]
+            ? (sd.offer.gives, sd.offer.wants)
+            : (targets[i][1], makerWouldWant);
 
-        /* `localTakerGives` is the amount to be paid using the price induced by the offer. */
-        sd.localTakerGives =
-          (sd.localTakerWants * sd.offer.wants) /
-          sd.offer.gives;
+          /* We set `localTakerGives > 0` to prevent takers from leaking money out of makers for free. */
+          if (sd.localTakerGives == 0) sd.localTakerGives = 1;
 
-        /* We set `localTakerGives > 0` to prevent takers from leaking money out of makers for free. */
-        if (sd.localTakerGives == 0) sd.localTakerGives = 1;
-
-        /* We execute the offer with the flag `dirtyDeleteOffer` set to `false`, so the offers before and after the selected one get stitched back together. */
-        (bool success, uint gasUsedIfFailure, bool deleted) =
-          executeOffer(
-            _config,
-            targets[i][0],
-            sd.offer,
-            sd.offerDetail,
-            sd.localTakerWants,
-            sd.localTakerGives,
-            false
-          );
-        /* For punishment purposes (never triggered if `punishLength = 0`), we store the offer id and the gas wasted by the maker */
-        if (success) {
-          emit DexEvents.Success(
-            targets[i][0],
-            sd.localTakerWants,
-            sd.localTakerGives,
-            deleted
-          );
-          takerGot += sd.localTakerWants;
-        } else {
-          emit DexEvents.Failure(
-            targets[i][0],
-            sd.localTakerWants,
-            sd.localTakerGives
-          );
-          if (numFailures < punishLength) {
-            failures[numFailures] = [targets[i][0], gasUsedIfFailure];
-            numFailures++;
+          /* We execute the offer with the flag `dirtyDeleteOffer` set to `false`, so the offers before and after the selected one get stitched back together. */
+          (bool success, uint gasUsedIfFailure, bool deleted) =
+            executeOffer(
+              _config,
+              targets[i][0],
+              sd.offer,
+              sd.offerDetail,
+              sd.localTakerWants,
+              sd.localTakerGives,
+              false
+            );
+          /* For punishment purposes (never triggered if `punishLength = 0`), we store the offer id and the gas wasted by the maker */
+          if (success) {
+            emit DexEvents.Success(
+              targets[i][0],
+              sd.localTakerWants,
+              sd.localTakerGives,
+              deleted
+            );
+            takerGot += sd.localTakerWants;
+          } else {
+            emit DexEvents.Failure(
+              targets[i][0],
+              sd.localTakerWants,
+              sd.localTakerGives
+            );
+            if (numFailures < punishLength) {
+              failures[numFailures] = [targets[i][0], gasUsedIfFailure];
+              numFailures++;
+            }
           }
         }
       }
@@ -576,8 +580,8 @@ contract Dex is HasAdmin {
     reentrancyLock = 1;
     /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `numFailures` in the length field of `failures`. This also saves on the amount of memory copied in the return value.
 
-       The line below is hackish though, and we may want to just return a `(uint,uint[2][])` pair.
-    */
+         The line below is hackish though, and we may want to just return a `(uint,uint[2][])` pair.
+       */
     assembly {
       mstore(failures, numFailures)
     }
@@ -657,7 +661,7 @@ contract Dex is HasAdmin {
     if (
       success &&
       offer.gives - takerWants >=
-      _config.density * (offerDetail.gasreq + _config.gasbase * 1000)
+      _config.density * (offerDetail.gasreq + _config.gasbase)
     ) {
       offers[offerId].gives = uint96(offer.gives - takerWants);
       offers[offerId].wants = uint96(offer.wants - takerGives);
@@ -692,10 +696,7 @@ contract Dex is HasAdmin {
 
     Note that we use `config.gasbase`, not `offerDetail.gasbase`. `gasbase` is cached in `offerDetail` for the purpose of applying penalties; when checking if it's worth going through with taking an offer, we look at the most up-to-date `gasbase` value.
     */
-    require(
-      oldGas >= offerDetail.gasreq + gasbase * 1000,
-      "dex/unsafeGasAmount"
-    );
+    require(oldGas >= offerDetail.gasreq + gasbase, "dex/unsafeGasAmount");
 
     /* The flashswap is executed by delegatecall to `SWAPPER`. If the call reverts, it means the maker failed to send back `takerWants` `OFR_TOKEN` to the taker. If the call succeeds, `retdata` encodes a boolean indicating whether the taker did send enough to the maker or not. */
     (bool noRevert, bytes memory retdata) =
@@ -751,9 +752,9 @@ contract Dex is HasAdmin {
 
        * If the transaction was a success, we entirely refund the maker and send nothing to the taker.
 
-       * Otherwise, the maker loses the cost of `gasDeducted + gasbase*1000` gas. The gas price is estimated by `gasprice`.
+       * Otherwise, the maker loses the cost of `gasDeducted + gasbase` gas. The gas price is estimated by `gasprice`.
 
-         Note that to create the offer, the maker had to provision for `gasreq + gasbase*1000` gas.
+         Note that to create the offer, the maker had to provision for `gasreq + gasbase` gas.
 
          Note that `offerDetail.gasbase` and `offerDetail.gasprice` are the values of the Dex parameters `config.gasbase` and `config.gasprice` when the offer was createdd. Without caching, the provision set aside could be insufficient to reimburse the maker (or to compensate the taker).
 
@@ -762,15 +763,14 @@ contract Dex is HasAdmin {
       offerDetail.gasprice *
         (
           success
-            ? offerDetail.gasreq + offerDetail.gasbase * 1000
+            ? offerDetail.gasreq + offerDetail.gasbase
             : offerDetail.gasreq - gasDeducted
         );
 
     DexLib.creditWei(freeWei, offerDetail.maker, released);
 
     if (!success) {
-      uint amount =
-        offerDetail.gasprice * (offerDetail.gasbase * 1000 + gasDeducted);
+      uint amount = offerDetail.gasprice * (offerDetail.gasbase + gasDeducted);
       emit DexEvents.Transfer(msg.sender, amount);
       bool noRevert;
       (noRevert, ) = msg.sender.call{gas: 0, value: amount}("");
