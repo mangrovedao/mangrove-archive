@@ -287,10 +287,7 @@ contract Dex is HasAdmin {
     requireActiveMarket(orp.config);
 
     /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
-    require(
-      uint160(takerWants) == takerWants,
-      "dex/marketOrder/takerWants/160bits"
-    );
+    require(uint160(takerWants) == takerWants, "dex/mOrder/takerWants/160bits");
 
     /* ### Initialization */
     /* The market order will operate as follows : it will go through offers from best to worse, starting from `offerId`, and: */
@@ -450,10 +447,12 @@ contract Dex is HasAdmin {
     /* ### Pre-loop Checks */
     //+clear+
     DC.OrderPack memory orp;
-    orp.config = config(base, quote);
     orp.base = base;
     orp.quote = quote;
+    orp.config = config(base, quote);
+    orp.numFailures = 0;
     orp.failures = new uint[2][](punishLength);
+
     /* Cache governance address to save gas */
     address _governance = governance;
 
