@@ -32,7 +32,14 @@ contract TestTaker is ITaker {
     returns (bool success)
   {
     //uint taken = TestEvents.min(makerGives, takerWants);
-    success = dex.snipe(base, quote, offerId, takerWants);
+    success = dex.snipe(
+      base,
+      quote,
+      offerId,
+      takerWants,
+      type(uint96).max,
+      type(uint48).max
+    );
     //return taken;
   }
 

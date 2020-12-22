@@ -48,8 +48,8 @@ contract TestMaker is IMaker, Passthrough {
     }
   }
 
-  function cancelOffer(Dex _dex, uint offerId) public returns (uint) {
-    return (_dex.cancelOffer(base, quote, offerId));
+  function cancelOffer(Dex _dex, uint offerId) public {
+    _dex.cancelOffer(base, quote, offerId, false);
   }
 
   function newOffer(
@@ -62,7 +62,7 @@ contract TestMaker is IMaker, Passthrough {
   }
 
   function cancelOffer(uint offerId) public {
-    dex.cancelOffer(base, quote, offerId);
+    dex.cancelOffer(base, quote, offerId, false);
   }
 
   function provisionDex(uint amount) public {

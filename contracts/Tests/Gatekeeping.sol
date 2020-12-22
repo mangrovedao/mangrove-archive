@@ -125,7 +125,7 @@ contract Gatekeeping_Test {
     uint, /* offerGasprice*/ // silence warning about unused argument
     uint /*offerId */ // silence warning about unused argument
   ) external {
-    (bool success, bytes memory retdata) = address(dex).call(reentrancer);
+    (bool success, ) = address(dex).call(reentrancer);
     TestEvents.check(
       (success && !shouldFail) || (!success && shouldFail),
       "unexpected result on Dex reentrancy"
@@ -153,55 +153,16 @@ contract Gatekeeping_Test {
     TestEvents.check(success, "Taker failed to take offer");
   }
 
-  function newOffer_on_reentrancy_succeeds_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 200_000, 0);
-    reentrancer = abi.encodeWithSelector(
-      Dex.newOffer.selector,
-      quote,
-      base,
-      1 ether,
-      1 ether,
-      30_000,
-      0
-    );
-    shouldFail = false;
-    bool success = tkr.take(ofr, 1 ether);
-
-    TestEvents.expectFrom(address(dex));
-    emit DexEvents.NewOffer(
-      quote,
-      base,
-      address(this),
-      1 ether,
-      1 ether,
-      30_000,
-      2
-    );
-    TestEvents.check(success, "Taker failed to take offer");
-    TestEvents.check(
-      TestUtils.hasOffer(dex, quote, base, 2),
-      "offer should have been added to Dex"
-    );
-  }
-
   function cancelOffer_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
-    uint _ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
     reentrancer = abi.encodeWithSelector(
       Dex.cancelOffer.selector,
       base,
       quote,
-      _ofr
+      ofr,
+      false
     );
-    shouldFail = true;
-    bool success = tkr.take(ofr, 0.1 ether);
-    TestEvents.check(success, "Taker failed to take offer");
-    TestEvents.expectFrom(address(dex));
-    emit DexEvents.Success(ofr, 0.1 ether, 0.1 ether);
-    TestEvents.check(
-      TestUtils.hasOffer(dex, base, quote, _ofr),
-      "offer should not be removed from Dex"
-    );
+    tkr.take(ofr, 1 ether);
   }
 
   function cancelOffer_on_reentrancy_succeeds_test() public {
@@ -376,6 +337,6 @@ contract Gatekeeping_Test {
   function cancelOffer_on_closed_ok_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0);
     dex.kill();
-    dex.cancelOffer(base, quote, ofr);
+    dex.cancelOffer(base, quote, ofr, false);
   }
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 
 /* # Introduction
-Due to the 24kB contract size limit, we pay some additional complexity in the form of `DexLib`, to which `Dex` will delegate some calls. It notably includes configuration getters and setters, token transfer low-level functions, as well as the `newOffer` machinery used by makers when they post new offers.
+Due to the 24kB contract size limit, we pay some additional complexity in the form of `DexLib`, to which `Dex` will delegate some calls. It notably includes configuration getters and setters, token transfer low-level functions, as well as the `writeOffer` machinery used by makers when they post new offers and update existing ones.
 */
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
@@ -146,36 +146,65 @@ library DexLib {
   /* # New offer */
   //+clear+
 
-  /* <a id="DexLib/definition/newOffer"></a> When a maker posts a new offer, the offer gets automatically inserted at the correct location in the book, starting from a maker-supplied `pivotId` parameter. The extra `storage` parameters are sent to `DexLib` by `Dex` so that it can write to `Dex`'s storage. */
-  function newOffer(
+  /* <a id="DexLib/definition/newOffer"></a> When a maker posts a new offer or updates an existing one, the offer gets automatically inserted at the correct location in the book, starting from a maker-supplied `pivotId` parameter. The extra `storage` parameters are sent to `DexLib` by `Dex` so that it can write to `Dex`'s storage. 
+
+  Code in this function is weirdly structured; this is necessary to avoid "stack too deep" errors.
+
+  */
+  function writeOffer(
     DC.OfferPack memory ofp,
     mapping(address => uint) storage freeWei,
     mapping(address => mapping(address => mapping(uint => DC.Offer)))
       storage offers,
     mapping(uint => DC.OfferDetail) storage offerDetails,
     /* The `bests` map is given (instead of current best value) because this function may _write_ a new best value. */
-    mapping(address => mapping(address => uint)) storage bests
+    mapping(address => mapping(address => uint)) storage bests,
+    bool update
   ) external returns (uint) {
     /* The following checks are first performed: */
     //+clear+
-    /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `maxPenalty` (see below). */
-    require(ofp.gasreq <= ofp.config.gasmax, "dex/newOffer/gasreq/tooHigh");
-    /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isOffer` method sound. */
+    /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `provision` (see below). */
+    require(ofp.gasreq <= ofp.config.gasmax, "dex/writeOffer/gasreq/tooHigh");
+    /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isLive` method sound. */
     require(
       ofp.gives >= (ofp.gasreq + ofp.config.gasbase) * ofp.config.density,
-      "dex/newOffer/gives/tooLow"
+      "dex/writeOffer/gives/tooLow"
     );
-    /* * Unnecessary for safety: check width of `wants`, `gives` and `pivotId`. They will be truncated anyway, but if they are too wide, we assume the maker has made a mistake and revert. */
-    require(uint96(ofp.wants) == ofp.wants, "dex/newOffer/wants/96bits");
-    require(uint96(ofp.gives) == ofp.gives, "dex/newOffer/gives/96bits");
-    require(uint32(ofp.pivotId) == ofp.pivotId, "dex/newOffer/pivotId/32bits");
 
-    /* With every new offer, a maker must deduct provisions from its `freeWei` balance. The maximum penalty is incurred when an offer fails after consuming all its `gasreq`. */
+    /* First, we write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `freeWei`. */
+    uint oldProvision;
+    {
+      DC.OfferDetail memory offerDetail = offerDetails[ofp.id];
+      if (update) {
+        require(
+          msg.sender == offerDetail.maker,
+          "dex/updateOffer/unauthorized"
+        );
+        oldProvision =
+          offerDetail.gasprice *
+          (uint(offerDetail.gasreq) + offerDetail.gasbase);
+      }
 
-    uint maxPenalty = (ofp.gasreq + ofp.config.gasbase) * ofp.config.gasprice;
-    debitWei(freeWei, msg.sender, maxPenalty);
+      offerDetails[ofp.id] = DC.OfferDetail({
+        gasreq: uint24(ofp.gasreq),
+        gasbase: uint24(ofp.config.gasbase),
+        gasprice: uint48(ofp.config.gasprice),
+        maker: msg.sender
+      });
+    }
 
-    /* Once provisioned, the position of the new offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
+    /* With every change to an offer, a maker must deduct provisions from its `freeWei` balance, or get some back if the updated offer requires fewer provisions. */
+
+    {
+      uint provision = (ofp.gasreq + ofp.config.gasbase) * ofp.config.gasprice;
+      if (provision > oldProvision) {
+        debitWei(freeWei, msg.sender, provision - oldProvision);
+      } else if (provision < oldProvision) {
+        creditWei(freeWei, msg.sender, oldProvision - provision);
+      }
+    }
+
+    /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
 
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
     (uint prev, uint next) =
@@ -183,10 +212,7 @@ library DexLib {
         offers[ofp.base][ofp.quote],
         offerDetails,
         bests[ofp.base][ofp.quote],
-        ofp.wants,
-        ofp.gives,
-        ofp.gasreq,
-        ofp.pivotId
+        ofp
       );
     /* Then we place the offer in the book at the position found by `findPosition`.
 
@@ -202,7 +228,7 @@ library DexLib {
       offers[ofp.base][ofp.quote][next].prev = uint32(ofp.id);
     }
 
-    /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 32 bits. */
+    /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 32 bits (if there is an update, `offerDetails[offerId]` must be owned by `msg.sender`, os `offerId` has the right width). */
     offers[ofp.base][ofp.quote][ofp.id] = DC.Offer({
       prev: uint32(prev),
       next: uint32(next),
@@ -210,23 +236,7 @@ library DexLib {
       gives: uint96(ofp.gives)
     });
 
-    offerDetails[ofp.id] = DC.OfferDetail({
-      gasreq: uint24(ofp.gasreq),
-      gasbase: uint24(ofp.config.gasbase),
-      gasprice: uint48(ofp.config.gasprice),
-      maker: msg.sender
-    });
-
     /* And finally return the newly created offer id to the caller. */
-    emit DexEvents.NewOffer(
-      ofp.base,
-      ofp.quote,
-      msg.sender,
-      ofp.wants,
-      ofp.gives,
-      ofp.gasreq,
-      ofp.id
-    );
     return ofp.id;
   }
 
@@ -238,14 +248,12 @@ library DexLib {
     mapping(uint => DC.OfferDetail) storage offerDetails,
     /* As a backup pivot, the id of the current best offer is sent by `Dex` to `DexLib`. This is in case `pivotId` turns out to be an invalid offer id. This part of the code relies on consumed offers being deleted, otherwise we would blindly insert offers next to garbage old values. */
     uint bestValue,
-    uint wants,
-    uint gives,
-    uint gasreq,
-    uint pivotId
+    DC.OfferPack memory ofp
   ) internal view returns (uint, uint) {
+    uint pivotId = ofp.pivotId;
     DC.Offer memory pivot = _offers[pivotId];
 
-    if (!DC.isOffer(pivot)) {
+    if (!DC.isLive(pivot)) {
       // in case pivotId is not or no longer a valid offer
       pivot = _offers[bestValue];
       pivotId = bestValue;
@@ -258,9 +266,9 @@ library DexLib {
         pivot.wants,
         pivot.gives,
         pivotId,
-        wants,
-        gives,
-        gasreq
+        ofp.wants,
+        ofp.gives,
+        ofp.gasreq
       )
     ) {
       DC.Offer memory pivotNext;
@@ -272,9 +280,9 @@ library DexLib {
             pivotNext.wants,
             pivotNext.gives,
             pivot.next,
-            wants,
-            gives,
-            gasreq
+            ofp.wants,
+            ofp.gives,
+            ofp.gasreq
           )
         ) {
           pivotId = pivot.next;
@@ -297,9 +305,9 @@ library DexLib {
             pivotPrev.wants,
             pivotPrev.gives,
             pivot.prev,
-            wants,
-            gives,
-            gasreq
+            ofp.wants,
+            ofp.gives,
+            ofp.gasreq
           )
         ) {
           break;

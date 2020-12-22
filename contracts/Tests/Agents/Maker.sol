@@ -55,8 +55,8 @@ contract Maker is IMaker {
 
   function pullOffer(uint offerId) external {
     if (msg.sender == admin) {
-      uint releasedWei = Dex(DEX).cancelOffer(A_TOKEN, B_TOKEN, offerId); // Dex will release provision of offerId
-      Dex(DEX).withdraw(releasedWei);
+      Dex(DEX).cancelOffer(A_TOKEN, B_TOKEN, offerId, false); // Dex will release provision of offerId
+      Dex(DEX).withdraw(Dex(DEX).balanceOf(address(this)));
     }
   }
 

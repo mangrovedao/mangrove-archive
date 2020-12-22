@@ -143,7 +143,7 @@ contract MakerOperations_Test {
     try mkr.newOffer(1 ether, 1 ether, gasmax + 1, 0) {
       TestEvents.fail("gasreq above gasmax, newOffer should fail");
     } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/newOffer/gasreq/tooHigh", "wrong revert reason");
+      TestEvents.eq(r, "dex/writeOffer/gasreq/tooHigh", "wrong revert reason");
     }
   }
 
@@ -163,43 +163,6 @@ contract MakerOperations_Test {
       TestEvents.fail("density too low, newOffer should fail");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/newOffer/gives/tooLow", "wrong revert reason");
-    }
-  }
-
-  function wants_too_wide_fails_newOffer_test() public {
-    dex.setGasbase(1);
-    dex.setDensity(address(base), address(quote), 1);
-    mkr.provisionDex(1 ether);
-
-    uint wants = type(uint96).max + uint(1);
-    try mkr.newOffer(wants, 1, 0, 0) {
-      TestEvents.fail("wants wider than 96bits, newOffer should fail");
-    } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/newOffer/wants/96bits", "wrong revert reason");
-    }
-  }
-
-  function gives_too_wide_fails_newOffer_test() public {
-    mkr.provisionDex(1 ether);
-
-    uint gives = type(uint96).max + uint(1);
-    try mkr.newOffer(0, gives, 0, 0) {
-      TestEvents.fail("gives wider than 96bits, newOffer should fail");
-    } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/newOffer/gives/96bits", "wrong revert reason");
-    }
-  }
-
-  function pivotId_too_wide_fails_newOffer_test() public {
-    dex.setGasbase(1);
-    dex.setDensity(address(base), address(quote), 1);
-    mkr.provisionDex(1 ether);
-
-    uint pivotId = type(uint32).max + uint(1);
-    try mkr.newOffer(0, 1, 0, pivotId) {
-      TestEvents.fail("pivotId wider than 32bits, newOffer should fail");
-    } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/newOffer/pivotId/32bits", "wrong revert reason");
     }
   }
 }

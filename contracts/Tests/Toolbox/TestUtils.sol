@@ -30,8 +30,8 @@ library TestUtils {
     address quote
   ) internal view returns (bool) {
     (DC.Offer memory offer, ) =
-      dex.getOfferInfo(base, quote, dex.bests(base, quote), true);
-    return !DC.isOffer(offer);
+      dex.getOfferInfo(base, quote, dex.getBest(base, quote), true);
+    return !DC.isLive(offer);
   }
 
   function adminOf(Dex dex) internal view returns (address) {
@@ -130,7 +130,6 @@ library DexSetup {
     dex.setDensity(address(base), address(quote), 100);
     dex.setActive(address(quote), address(base), true);
     dex.setDensity(address(quote), address(base), 100);
-
 
     return dex;
   }

@@ -68,7 +68,7 @@ They have the following fields: */
 
    */
     address maker;
-    /* * `gasreq` gas will be provided to `execute`. _24 bits wide_, 33% more than the block limit as of late 2020.
+    /* * `gasreq` gas will be provided to `execute`. _24 bits wide_, 33% more than the block limit as of late 2020. Note that if more room was needed, we could bring it down to 16 bits and have it represent 1k gas increments.
 
        Offer execution proceeds as follows:
        1. Send `wants` `REQ_TOKEN` from the taker to the maker,
@@ -104,9 +104,8 @@ They have the following fields: */
 
        and the rest is given back to the maker.
 
-       `gasprice` is _48 bits wide_, which accomodates ~280k gwei / gas.
-       `gasbase` is _24 bits wide_, it could be 16 bits wide but we are
-       leaving a margin of safety for future gas repricings.
+       `gasprice` is _48 bits wide_, which accomodates ~280k gwei / gas. Note that if more room was needed, we could bring it down to 32 bits and have it represent mwei/gas (so up to 4M gwei/gas), or mwei/kgas (so up to 400k gwei/gas).
+       `gasbase` is _24 bits wide_ -- note that if more room was needed, we could bring it down to 8 bits and have it represent 1k gas increments.
 
        Both `gasprice` and `gasbase` are also the names of global Dex
        parameters. When an offer is created, their current value is added to
@@ -129,7 +128,7 @@ They have the following fields: */
     uint gasprice;
     /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at leat `gasbase` gas. Should only be updated when opcode prices change. */
     uint gasbase;
-    /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `OFR_TOKEN` per gas requested. For instance, if `density == 10`, `gasbase == 5` an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 300050_ `OFR_TOKEN`. */
+    /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `OFR_TOKEN` per gas requested. For instance, if `density == 10`, `gasbase == 5000` an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `OFR_TOKEN`. */
     uint density;
     /*
     * An offer which asks for more gas than the block limit would live forever on
@@ -147,7 +146,8 @@ They have the following fields: */
   }
 
   /* The Dex holds a `uint => Offer` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an uninitialized struct. A common way to check for initialization is to add an `exists` field to the struct. In our case, an invariant of the Dex is: on an existing offer, `offer.gives > 0`. So we just check the `gives` field. */
-  function isOffer(Offer memory offer) internal pure returns (bool) {
+  /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). */
+  function isLive(Offer memory offer) internal pure returns (bool) {
     return offer.gives > 0;
   }
 
@@ -223,6 +223,11 @@ library DexEvents {
     uint gasreq,
     uint offerId
   );
+  /* * An offer was created/updated into book. Creation if offerId is new. */
+  event UpdateOffer(uint wants, uint gives, uint gasreq, uint offerId);
+
+  /* * An offer was canceled (and possibly erase). */
+  event CancelOffer(uint offerId, bool erase);
 
   /* * `offerId` is was present and now removed from the book. */
   event DeleteOffer(uint offerId);
