@@ -32,13 +32,20 @@ contract TestMaker is IMaker, Passthrough {
     address _quote,
     uint takerWants,
     uint takerGives,
+    address taker,
     uint gasprice,
     uint offerId
-  ) public override {
+  ) public virtual override returns (uint) {
     _base; // silence warning
     _quote; // silence warning
+    taker; // silence warning
     emit Execute(takerWants, takerGives, gasprice, offerId);
-    assert(!shouldFail);
+    if (!shouldFail) {
+      bool s = IERC20(base).transfer(taker, takerWants);
+      return s ? 0 : 2;
+    } else {
+      return 1;
+    }
   }
 
   function cancelOffer(Dex _dex, uint offerId) public returns (uint) {

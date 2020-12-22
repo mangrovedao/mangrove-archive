@@ -26,16 +26,21 @@ contract TestMoriartyMaker is IMaker, Passthrough {
   function execute(
     address,
     address,
+    uint takerWants,
     uint,
-    uint,
+    address taker,
     uint,
     uint offerId
-  ) public override {
-    //console.log("Executing offer %d", offerId);
-
-    assert(succeed);
+  ) public override returns (uint ret) {
+    bool _succeed = succeed;
     if (offerId == dummy) {
       succeed = false;
+    }
+    if (_succeed) {
+      bool s = IERC20(base).transfer(taker, takerWants);
+      ret = s ? 0 : 2;
+    } else {
+      assert(false);
     }
   }
 
@@ -55,8 +60,8 @@ contract TestMoriartyMaker is IMaker, Passthrough {
       base: base,
       quote: quote,
       wants: 1,
-      gives: density * (gasbase + 10000),
-      gasreq: 10000,
+      gives: density * (gasbase + 100000),
+      gasreq: 100000,
       pivotId: 0
     }); //dummy offer
   }

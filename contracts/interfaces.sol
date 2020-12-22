@@ -9,9 +9,10 @@ interface IMaker {
     address quote,
     uint takerWants,
     uint takerGives,
+    address taker,
     uint offerGasprice,
     uint offerId
-  ) external;
+  ) external returns (uint);
 }
 
 interface ITaker {

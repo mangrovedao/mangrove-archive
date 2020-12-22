@@ -121,7 +121,6 @@ contract Scenarii_Test {
       TestMaker maker = makers.getMaker(i);
       maker.provisionDex(10 ether);
       base.mint(address(maker), 5 ether);
-      maker.approve(base, 5 ether);
     }
 
     quote.mint(address(taker), 5 ether);
