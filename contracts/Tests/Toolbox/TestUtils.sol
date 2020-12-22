@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
+// Encode structs
 pragma experimental ABIEncoderV2;
 
 import "../Agents/TestTaker.sol";
@@ -129,6 +130,7 @@ library DexSetup {
     dex.setDensity(address(base), address(quote), 100);
     dex.setActive(address(quote), address(base), true);
     dex.setDensity(address(quote), address(base), 100);
+
 
     return dex;
   }

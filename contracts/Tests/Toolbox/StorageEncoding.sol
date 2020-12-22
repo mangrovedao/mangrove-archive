@@ -23,6 +23,59 @@ library Lib {
   }
 }
 
+contract Failer_Test {
+  receive() external payable {}
+
+  function exec() external {
+    console.log("exec");
+    require(false);
+  }
+
+  function execBig() external {
+    console.log("execBig");
+    string memory wtf = new string(100_000);
+    require(false, wtf);
+  }
+
+  function failed_yul_test() public {
+    bytes memory b = new bytes(100_000);
+    uint g0 = gasleft();
+    bytes memory cd = abi.encodeWithSelector(this.execBig.selector);
+    bytes memory retdata = new bytes(32);
+    assembly {
+      let success := delegatecall(
+        500000,
+        address(),
+        add(cd, 32),
+        4,
+        add(retdata, 32),
+        0
+      )
+    }
+    console.log("GasUsed: %d", g0 - gasleft());
+  }
+
+  function failer_small_test() public {
+    uint g0 = gasleft();
+    (bool success, bytes memory retdata) =
+      address(this).delegatecall{gas: 500_000}(
+        abi.encodeWithSelector(this.exec.selector)
+      );
+    console.log("GasUsed: %d", g0 - gasleft());
+  }
+
+  function failer_big_with_retdata_bytes_test() public {
+    bytes memory b = new bytes(100_000);
+    uint g0 = gasleft();
+    (bool success, bytes memory retdata) =
+      address(this).delegatecall{gas: 500_000}(
+        abi.encodeWithSelector(this.execBig.selector)
+      );
+
+    console.log("GasUsed: %d", g0 - gasleft());
+  }
+}
+
 contract StorageEncoding_Test {
   receive() external payable {}
 
