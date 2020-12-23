@@ -217,15 +217,32 @@ library DexLib {
     /* Then we place the offer in the book at the position found by `findPosition`.
 
        If the offer is not the best one, we update its predecessor; otherwise we update the `best` value. */
-    if (prev != 0) {
-      offers[ofp.base][ofp.quote][prev].next = uint32(ofp.id);
-    } else {
-      bests[ofp.base][ofp.quote] = uint32(ofp.id);
-    }
 
-    /* If the offer is not the last one, we update its successor. */
-    if (next != 0) {
-      offers[ofp.base][ofp.quote][next].prev = uint32(ofp.id);
+    /* tests if offer has moved in the book (or was not already there) if next == ofp.id, then the new offer parameters are strictly better than before but still worse than the old prev. if prev == ofp.id, then the new offer parameters are worse or as good as before but still better than the old next. */
+    if (!(next == ofp.id || prev == ofp.id)) {
+      if (prev != 0) {
+        offers[ofp.base][ofp.quote][prev].next = uint32(ofp.id);
+      } else {
+        bests[ofp.base][ofp.quote] = uint32(ofp.id);
+      }
+
+      /* If the offer is not the last one, we update its successor. */
+      if (next != 0) {
+        offers[ofp.base][ofp.quote][next].prev = uint32(ofp.id);
+      }
+
+      /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *move* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. A priori, if `writeOffer` is called by `newOffer`, `oldOffer` should be all zeros and thus not live. But that would be assuming a subtle implementation detail of `isLive`, so we add the (currently redundant) check on `update`).
+       */
+      if (update && DC.isLive(ofp.oldOffer)) {
+        DC.stitchOffers(
+          ofp.base,
+          ofp.quote,
+          offers,
+          bests,
+          ofp.oldOffer.prev,
+          ofp.oldOffer.next
+        );
+      }
     }
 
     /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 32 bits (if there is an update, `offerDetails[offerId]` must be owned by `msg.sender`, os `offerId` has the right width). */

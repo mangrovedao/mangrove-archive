@@ -182,6 +182,7 @@ They have the following fields: */
     uint gasreq;
     uint pivotId;
     Config config;
+    Offer oldOffer;
   }
 
   /* Holds data about orders in a struct, used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
