@@ -323,7 +323,9 @@ contract Dex is HasAdmin {
     orp.config = config(base, quote);
     orp.failures = new uint[2][](punishLength);
     orp.numFailures = 0;
-    address _governance = governance;
+    orp.totalGot = 0;
+    orp.totalGave = 0;
+    orp.governance = governance;
 
     /* ### Checks */
     //+clear+
@@ -341,7 +343,6 @@ contract Dex is HasAdmin {
      * Will maintain an array of pairs `(offerId, gasUsed)` to identify failed offers. Look at [punishment for failing offers](#dex.sol-punishment-for-failing-offers) for more information. Since there are no extensible in-memory arrays, `punishLength` should be an upper bound on the number of failed offers. */
     /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. */
     require(DC.isLive(orp.offer), "dex/marketOrder/noSuchOffer");
-    uint initialTakerWants = takerWants;
     uint pastOfferId = orp.offer.prev;
 
     locks[orp.base][orp.quote] = 2;
@@ -349,22 +350,21 @@ contract Dex is HasAdmin {
     /* ### Main loop */
     //+clear+
     /* Offers are looped through until:
-     * the remaining amount wanted by the taker is 0
-     * or `offerId == 0`, which means we've gone past the end of the book. */
-    while (takerWants >= 0 && orp.offerId != 0) {
+     * `offerId == 0`, which means we've gone past the end of the book. */
+    while (orp.offerId != 0) {
       (bool executed, bool success, bool deleted) =
-        executeOrderPack(orp, takerWants, takerGives, _governance);
+        executeOrderPack(
+          orp,
+          takerWants - orp.totalGot,
+          takerGives - orp.totalGave,
+          true
+        );
 
-      /* This branch is selected if the current offer is strictly worse than the taker can accept. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
+      /* This branch is selected if the current offer is strictly worse than the taker can accept, or takerWants was 0. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
       if (!executed) {
         break;
       }
 
-      /* `success` means that the maker delivered `localTakerWants` `OFR_TOKEN` to the taker. We update the total amount wanted and spendable by the taker (possibly changing the remaining average price). */
-      if (success) {
-        takerWants -= orp.wants;
-        takerGives -= orp.gives;
-      }
       /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
 
            Let _r~1~_, ..., _r~n~_ the successive values taken by `offer` each time the current while loop's test is executed.
@@ -401,28 +401,20 @@ contract Dex is HasAdmin {
     /* ### Post-while loop */
     //+clear+
     /* `applyFee` extracts the fee from the taker, proportional to the amount purchased (which is `initialTakerWants - takerWants`). */
-    applyFee(orp.base, orp.config.fee, initialTakerWants - takerWants);
-    locks[orp.base][orp.quote] = 1;
+    applyFee(orp);
+    restrictMemoryArrayLength(orp.failures, orp.numFailures);
     /* After exiting the loop, we connect the beginning & end of the segment just consumed by the market order. */
     stitchOffers(orp.base, orp.quote, pastOfferId, orp.offerId);
+    locks[orp.base][orp.quote] = 1;
 
-    /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `numFailures` in the length field of `failures`. This also saves on the amount of memory copied in the return value.
-
-       The line below is hackish though, and we may want to just return a `(uint,uint[2][])` pair.
-    */
-    uint numFailures = orp.numFailures;
-    uint[2][] memory failures = orp.failures;
-    assembly {
-      mstore(failures, numFailures)
-    }
-    return failures;
+    return orp.failures;
   }
 
   function executeOrderPack(
     DC.OrderPack memory orp,
     uint takerWants,
     uint takerGives,
-    address _governance
+    bool dirtyDelete
   )
     internal
     returns (
@@ -448,7 +440,7 @@ contract Dex is HasAdmin {
     uint makerWouldWant =
       roundUpRatio(takerWants * orp.offer.wants, orp.offer.gives);
     /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `orp.wants`,`orp.gives` are how much the taker will trade with the current offer. */
-    if (makerWouldWant <= takerGives) {
+    if (takerWants > 0 && makerWouldWant <= takerGives) {
       executed = true;
       (orp.wants, orp.gives) = orp.offer.gives < takerWants
         ? (orp.offer.gives, orp.offer.wants)
@@ -456,7 +448,12 @@ contract Dex is HasAdmin {
 
       /* Execute the offer after loaning money to the maker. The last argument to `executeOffer` is `true` to flag that pointers shouldn't be updated (thus saving writes). The returned values are explained below: */
       uint gasUsed;
-      (success, gasUsed, deleted) = executeOffer(orp, _governance, true);
+      (success, gasUsed, deleted) = executeOffer(orp, dirtyDelete);
+
+      if (success) {
+        orp.totalGot += orp.wants;
+        orp.totalGave += orp.gives;
+      }
 
       /*
           If `!success`, the maker failed to deliver `localTakerWants`. In that case `gasUsed` will be used to apply a penalty (penalties are applied in proportion with wasted gas).
@@ -510,16 +507,15 @@ contract Dex is HasAdmin {
     orp.config = config(base, quote);
     orp.numFailures = 0;
     orp.failures = new uint[2][](punishLength);
-
-    /* Cache governance address to save gas */
-    address _governance = governance;
+    orp.totalGot = 0;
+    orp.totalGave = 0;
+    orp.governance = governance;
 
     requireActiveMarket(orp.config);
 
     /* ### Pre-loop initialization */
     //+clear+
 
-    uint takerGot;
     locks[base][quote] = 2;
     /* ### Main loop */
     //+clear+
@@ -538,26 +534,28 @@ contract Dex is HasAdmin {
           "dex/internalSnipes/takerWants/96bits"
         );
         (, bool success, ) =
-          executeOrderPack(orp, targets[i][1], targets[i][2], _governance);
-        if (success) {
-          takerGot += orp.wants;
-        }
+          executeOrderPack(orp, targets[i][1], targets[i][2], false);
       }
     }
     /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
-    applyFee(orp.base, orp.config.fee, takerGot);
+    applyFee(orp);
+    restrictMemoryArrayLength(orp.failures, orp.numFailures);
     locks[orp.base][orp.quote] = 1;
-    /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `numFailures` in the length field of `failures`. This also saves on the amount of memory copied in the return value.
+
+    return orp.failures;
+  }
+
+  /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `numFailures` in the length field of `failures`. This also saves on the amount of memory copied in the return value.
 
        The line below is hackish though, and we may want to just return a `(uint,uint[2][])` pair.
     */
-    uint numFailures = orp.numFailures;
-    uint[2][] memory failures = orp.failures;
+  function restrictMemoryArrayLength(uint[2][] memory ary, uint length)
+    internal
+    pure
+  {
     assembly {
-      mstore(failures, numFailures)
+      mstore(ary, length)
     }
-
-    return failures;
   }
 
   /* # Low-level offer deletion */
@@ -604,7 +602,6 @@ contract Dex is HasAdmin {
   It would be nice to do those checks right here, in `executeOffer`. But market orders must make price computations necessary to those checks _before_ calling `executeOffer` anyway, so they can decide whether the offer should be executed at all or not. To save gas, we don't redo the checks here. */
   function executeOffer(
     DC.OrderPack memory orp,
-    address _governance,
     /* The last argument, `dirtyDelete`, is here for market orders: if true, `next`/`prev` pointers around the deleted offer are not reset properly. */
     bool dirtyDelete
   )
@@ -624,8 +621,8 @@ contract Dex is HasAdmin {
     (success, gasUsed) = flashSwapTokens(orp, offerDetail);
 
     /* If a governance contract is set, we tell it about the trade that just occurred. */
-    if (_governance != address(0)) {
-      IGovernance(_governance).recordTrade(
+    if (orp.governance != address(0)) {
+      IGovernance(orp.governance).recordTrade(
         orp.base,
         orp.quote,
         orp.wants,
@@ -728,15 +725,12 @@ contract Dex is HasAdmin {
   }
 
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
-  function applyFee(
-    address base,
-    uint fee,
-    uint amount
-  ) internal {
-    if (amount > 0) {
+  function applyFee(DC.OrderPack memory orp) internal {
+    if (orp.totalGot > 0) {
       // amount is at most 160 bits wide and fee it at most 14 bits wide.
-      uint concreteFee = (amount * fee) / 10000;
-      bool success = DexLib.transferToken(base, msg.sender, admin, concreteFee);
+      uint concreteFee = (orp.totalGot * orp.config.fee) / 10000;
+      bool success =
+        DexLib.transferToken(orp.base, msg.sender, admin, concreteFee);
       require(success, "dex/takerFailToPayDex");
     }
   }

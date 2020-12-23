@@ -170,8 +170,11 @@ They have the following fields: */
     uint wants;
     uint gives;
     uint offerId;
+    uint totalGot;
+    uint totalGave;
     Offer offer;
     Config config;
+    address governance;
     uint numFailures;
     uint[2][] failures;
   }
