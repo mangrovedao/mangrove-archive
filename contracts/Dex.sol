@@ -349,8 +349,9 @@ contract Dex is HasAdmin {
     /* ### Main loop */
     //+clear+
     /* Offers are looped through until:
+     * remaining amount wanted reaches 0, or
      * `offerId == 0`, which means we've gone past the end of the book. */
-    while (orp.offerId != 0) {
+    while (takerWants - orp.totalGot > 0 && orp.offerId != 0) {
       (bool executed, , bool deleted) =
         executeOrderPack(
           orp,
@@ -438,7 +439,7 @@ contract Dex is HasAdmin {
     uint makerWouldWant =
       roundUpRatio(takerWants * orp.offer.wants, orp.offer.gives);
     /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `orp.wants`,`orp.gives` are how much the taker will trade with the current offer. */
-    if (takerWants > 0 && makerWouldWant <= takerGives) {
+    if (makerWouldWant <= takerGives) {
       executed = true;
       (orp.wants, orp.gives) = orp.offer.gives < takerWants
         ? (orp.offer.gives, orp.offer.wants)
