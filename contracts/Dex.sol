@@ -352,51 +352,20 @@ contract Dex is HasAdmin {
      * the remaining amount wanted by the taker is 0
      * or `offerId == 0`, which means we've gone past the end of the book. */
     while (takerWants >= 0 && orp.offerId != 0) {
-      /* #### `makerWouldWant` */
-      //+clear+
-      /* The current offer has a price <code>_p_ = offer.wants/offer.gives</code>. `makerWouldWant` is the amount of `REQ_TOKEN` the offer would require at price _p_ to provide `takerWants` `OFR_TOKEN`. Computing `makeWouldWant` gives us both a test that _p_ is an acceptable price for the taker, and the amount of `REQ_TOKEN` to send to the maker.
+      (bool executed, bool success, bool deleted) =
+        executeOrderPack(orp, takerWants, takerGives, _governance);
 
-    **Note**: We never check that `offerId` is actually a `uint32`, or that `offerId` actually points to an offer: it is not possible to insert an offer with an id larger than that, and a wrong `offerId` will point to a zero-initialized offer, which will revert the call when dividing by `offer.gives`.
+      /* This branch is selected if the current offer is strictly worse than the taker can accept. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
+      if (!executed) {
+        break;
+      }
 
-   **Note**: Since `takerWants` fits in 160 bits and `offer.wants` fits in 96 bits, the multiplication does not overflow. 
-
-   Prices are rounded up. Here is why: offers can be updated. A snipe which names an offer by its id also specifies its price in the form of a `(wants,gives)` pair to be compared to the offers' `(wants,gives)`. See the sniping section for more on why.However, consider an order $r$ for the offer $o$. If $o$ is partially consumed into $o'$ before $r$ is mined, we still want $r$ to succeed (as long as $o'$ has enough volume). But but $o$ wants and give are not $o's$ wants and give. Worse: their ratios are not equal, due to rounding errors.
-
-   Our solution is to make sure that the price of a partially filled offer can only improve. When a snipe can specifies a wants and a gives, it accepts any offer price better than `wants/gives`.
-
-   To do that, we round up the amount required by the maker. That amount will later be deduced from the offer's total volume.
-       */
-      uint makerWouldWant =
-        roundUpRatio(takerWants * orp.offer.wants, orp.offer.gives);
-
-      /* #### Offer taken */
-      if (makerWouldWant <= takerGives) {
-        /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `orp.wants`,`orp.gives` are how much the taker will trade with the current offer. */
-        (orp.wants, orp.gives) = orp.offer.gives < takerWants
-          ? (orp.offer.gives, orp.offer.wants)
-          : (takerWants, makerWouldWant);
-
-        /* Execute the offer after loaning money to the maker. The last argument to `executeOffer` is `true` to flag that pointers shouldn't be updated (thus saving writes). The returned values are explained below: */
-        (bool success, uint gasUsed, bool deleted) =
-          executeOffer(orp, _governance, true);
-
-        /* `success` means that the maker delivered `localTakerWants` `OFR_TOKEN` to the taker. We update the total amount wanted and spendable by the taker (possibly changing the remaining average price). */
-        if (success) {
-          takerWants -= orp.wants;
-          takerGives -= orp.gives;
-          /*
-          If `!success`, the maker failed to deliver `localTakerWants`. In that case `gasUsed` will be used to apply a penalty (penalties are applied in proportion with wasted gas).
-
-          Note that partial fulfillment of the amount requested in `localTakerWants` is not taken into account. Any delivery strictly less than `localTakerWants` will trigger a rollback and be considered a failure.
-          */
-        } else {
-          /* For penalty application purposes (never triggered if `punishLength = 0`), store the offer id and the gas wasted by the maker */
-          if (orp.numFailures < orp.failures.length) {
-            orp.failures[orp.numFailures] = [orp.offerId, gasUsed];
-            orp.numFailures++;
-          }
-        }
-        /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
+      /* `success` means that the maker delivered `localTakerWants` `OFR_TOKEN` to the taker. We update the total amount wanted and spendable by the taker (possibly changing the remaining average price). */
+      if (success) {
+        takerWants -= orp.wants;
+        takerGives -= orp.gives;
+      }
+      /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
 
            Let _r~1~_, ..., _r~n~_ the successive values taken by `offer` each time the current while loop's test is executed.
            Also, let _r~0~_ = `offers[pastOfferId]` be the offer immediately better
@@ -424,15 +393,9 @@ contract Dex is HasAdmin {
           ```
           And so the loop ends.
         */
-        if (deleted) {
-          orp.offerId = orp.offer.next;
-          orp.offer = offers[orp.base][orp.quote][orp.offerId];
-        }
-        /* #### Offer not taken */
-        //+clear+
-        /* This branch is selected if the current offer is strictly worse than the taker can accept. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
-      } else {
-        break;
+      if (deleted) {
+        orp.offerId = orp.offer.next;
+        orp.offer = offers[orp.base][orp.quote][orp.offerId];
       }
     }
     /* ### Post-while loop */
@@ -453,6 +416,58 @@ contract Dex is HasAdmin {
       mstore(failures, numFailures)
     }
     return failures;
+  }
+
+  function executeOrderPack(
+    DC.OrderPack memory orp,
+    uint takerWants,
+    uint takerGives,
+    address _governance
+  )
+    internal
+    returns (
+      bool executed,
+      bool success,
+      bool deleted
+    )
+  {
+    /* #### `makerWouldWant` */
+    //+clear+
+    /* The current offer has a price <code>_p_ = offer.wants/offer.gives</code>. `makerWouldWant` is the amount of `REQ_TOKEN` the offer would require at price _p_ to provide `takerWants` `OFR_TOKEN`. Computing `makeWouldWant` gives us both a test that _p_ is an acceptable price for the taker, and the amount of `REQ_TOKEN` to send to the maker.
+
+    **Note**: We never check that `offerId` is actually a `uint32`, or that `offerId` actually points to an offer: it is not possible to insert an offer with an id larger than that, and a wrong `offerId` will point to a zero-initialized offer, which will revert the call when dividing by `offer.gives`.
+
+   **Note**: Since `takerWants` fits in 160 bits and `offer.wants` fits in 96 bits, the multiplication does not overflow. 
+
+   Prices are rounded up. Here is why: offers can be updated. A snipe which names an offer by its id also specifies its price in the form of a `(wants,gives)` pair to be compared to the offers' `(wants,gives)`. See the sniping section for more on why.However, consider an order $r$ for the offer $o$. If $o$ is partially consumed into $o'$ before $r$ is mined, we still want $r$ to succeed (as long as $o'$ has enough volume). But but $o$ wants and give are not $o's$ wants and give. Worse: their ratios are not equal, due to rounding errors.
+
+   Our solution is to make sure that the price of a partially filled offer can only improve. When a snipe can specifies a wants and a gives, it accepts any offer price better than `wants/gives`.
+
+   To do that, we round up the amount required by the maker. That amount will later be deduced from the offer's total volume.
+       */
+    uint makerWouldWant =
+      roundUpRatio(takerWants * orp.offer.wants, orp.offer.gives);
+    /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `orp.wants`,`orp.gives` are how much the taker will trade with the current offer. */
+    if (makerWouldWant <= takerGives) {
+      executed = true;
+      (orp.wants, orp.gives) = orp.offer.gives < takerWants
+        ? (orp.offer.gives, orp.offer.wants)
+        : (takerWants, makerWouldWant);
+
+      /* Execute the offer after loaning money to the maker. The last argument to `executeOffer` is `true` to flag that pointers shouldn't be updated (thus saving writes). The returned values are explained below: */
+      uint gasUsed;
+      (success, gasUsed, deleted) = executeOffer(orp, _governance, true);
+
+      /*
+          If `!success`, the maker failed to deliver `localTakerWants`. In that case `gasUsed` will be used to apply a penalty (penalties are applied in proportion with wasted gas).
+
+          Note that partial fulfillment of the amount requested in `localTakerWants` is not taken into account. Any delivery strictly less than `localTakerWants` will trigger a rollback and be considered a failure. */
+      if (!success && orp.numFailures < orp.failures.length) {
+        /* For penalty application purposes (never triggered if `punishLength = 0`), store the offer id and the gas wasted by the maker */
+        orp.failures[orp.numFailures] = [orp.offerId, gasUsed];
+        orp.numFailures++;
+      }
+    }
   }
 
   /* ## Sniping */
@@ -511,17 +526,8 @@ contract Dex is HasAdmin {
 
     for (uint i = 0; i < targets.length; i++) {
       /* ### In-loop initilization */
-      /* At each iteration, we extract the current `offerId` and `takerWants` */
-      /* To save on the number of local variables (or memory expansion), we avoid writing the following (which would be more readable):
-         ```
-         uint offerId = targets[i][0];
-         uint takerWants = targets[i][1];
-         uint takerGives = targets[i][2];
-         uint gasreq = targets[i][3];
-         ```
-       */
+      /* targets[i] is [offerId, takerWants, takerGives, gasreq] */
       orp.offerId = targets[i][0];
-
       orp.offer = offers[orp.base][orp.quote][orp.offerId];
       DC.OfferDetail memory offerDetail = offerDetails[orp.offerId];
 
@@ -531,26 +537,10 @@ contract Dex is HasAdmin {
           uint96(targets[i][1]) == targets[i][1],
           "dex/internalSnipes/takerWants/96bits"
         );
-        uint makerWouldWant =
-          roundUpRatio(targets[i][1] * orp.offer.wants, orp.offer.gives);
-
-        if (makerWouldWant <= targets[i][2]) {
-          (orp.wants, orp.gives) = orp.offer.gives < targets[i][1]
-            ? (orp.offer.gives, orp.offer.wants)
-            : (targets[i][1], makerWouldWant);
-
-          /* We execute the offer with the flag `dirtyDeleteOffer` set to `false`, so the offers before and after the selected one get stitched back together. */
-          (bool success, uint gasUsed, ) =
-            executeOffer(orp, _governance, false);
-          /* For punishment purposes (never triggered if `punishLength = 0`), we store the offer id and the gas wasted by the maker */
-          if (success) {
-            takerGot += orp.wants;
-          } else {
-            if (orp.numFailures < orp.failures.length) {
-              orp.failures[orp.numFailures] = [orp.offerId, gasUsed];
-              orp.numFailures++;
-            }
-          }
+        (, bool success, ) =
+          executeOrderPack(orp, targets[i][1], targets[i][2], _governance);
+        if (success) {
+          takerGot += orp.wants;
         }
       }
     }
