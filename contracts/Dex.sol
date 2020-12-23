@@ -158,23 +158,20 @@ contract Dex is HasAdmin {
     uint gasreq,
     uint pivotId
   ) external unlockedOnly(base, quote) returns (uint) {
-    DC.Config memory _config = config(base, quote);
-    requireActiveMarket(_config);
-
-    uint newLastId = ++lastId;
-    require(uint32(newLastId) == newLastId, "dex/offerIdOverflow");
-
     DC.OfferPack memory ofp =
       DC.OfferPack({
         base: base,
         quote: quote,
         wants: wants,
-        gives: gives,
-        id: newLastId,
+        gives: gives, // an offer id must never be 0
+        id: ++lastId,
         gasreq: gasreq,
         pivotId: pivotId,
-        config: _config
+        config: config(base, quote)
       });
+    require(uint32(ofp.id) == ofp.id, "dex/offerIdOverflow");
+
+    requireActiveMarket(ofp.config);
     return DexLib.writeOffer(ofp, freeWei, offers, offerDetails, bests, false);
   }
 
@@ -221,10 +218,6 @@ contract Dex is HasAdmin {
     uint pivotId,
     uint offerId
   ) public unlockedOnly(base, quote) returns (uint) {
-    DC.Config memory _config = config(base, quote);
-    requireActiveMarket(_config);
-    emit DexEvents.UpdateOffer(wants, gives, gasreq, offerId);
-
     DC.Offer memory offer = offers[base][quote][offerId];
     /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *move* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
     if (DC.isLive(offer)) {
@@ -240,9 +233,11 @@ contract Dex is HasAdmin {
         id: offerId,
         gasreq: gasreq,
         pivotId: pivotId,
-        config: _config
+        config: config(base, quote)
       });
 
+    requireActiveMarket(ofp.config);
+    emit DexEvents.UpdateOffer(wants, gives, gasreq, offerId);
     return DexLib.writeOffer(ofp, freeWei, offers, offerDetails, bests, true);
   }
 
