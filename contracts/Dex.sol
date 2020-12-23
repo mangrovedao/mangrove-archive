@@ -191,7 +191,7 @@ contract Dex is HasAdmin {
     require(msg.sender == offerDetail.maker, "dex/cancelOffer/unauthorized");
 
     if (DC.isLive(offer)) {
-      stitchOffers(base, quote, offer.prev, offer.next);
+      DC.stitchOffers(base, quote, offers, bests, offer.prev, offer.next);
     }
     if (erase) {
       delete offers[base][quote][offerId];
@@ -221,7 +221,7 @@ contract Dex is HasAdmin {
     DC.Offer memory offer = offers[base][quote][offerId];
     /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *move* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
     if (DC.isLive(offer)) {
-      stitchOffers(base, quote, offer.prev, offer.next);
+      DC.stitchOffers(base, quote, offers, bests, offer.prev, offer.next);
     }
 
     DC.OfferPack memory ofp =
@@ -405,7 +405,14 @@ contract Dex is HasAdmin {
     applyFee(orp);
     restrictMemoryArrayLength(orp.failures, orp.numFailures);
     /* After exiting the loop, we connect the beginning & end of the segment just consumed by the market order. */
-    stitchOffers(orp.base, orp.quote, pastOfferId, orp.offerId);
+    DC.stitchOffers(
+      orp.base,
+      orp.quote,
+      offers,
+      bests,
+      pastOfferId,
+      orp.offerId
+    );
 
     failures = orp.failures;
   }
@@ -568,9 +575,6 @@ contract Dex is HasAdmin {
   }
 
   /* # Low-level offer deletion */
-  /* Offer deletion is used when an offer has been consumed below the absolute dust limit and when an offer has failed. There are 2 steps to deleting an offer with id `id`: */
-  //+clear+
-  /* 1. Zero out `offers[id]` and `offerDetails[id]`. Apart from setting `offers[id].gives` to 0 (which is how we detect invalid offers), the rest is just for the gas refund. */
   function dirtyDeleteOffer(
     address base,
     address quote,
@@ -578,24 +582,6 @@ contract Dex is HasAdmin {
   ) internal {
     emit DexEvents.DeleteOffer(offerId);
     offers[base][quote][offerId].gives = 0;
-  }
-
-  /* 2. Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer` */
-  function stitchOffers(
-    address base,
-    address quote,
-    uint past,
-    uint future
-  ) internal {
-    if (past != 0) {
-      offers[base][quote][past].next = uint32(future);
-    } else {
-      bests[base][quote] = future;
-    }
-
-    if (future != 0) {
-      offers[base][quote][future].prev = uint32(past);
-    }
   }
 
   /* # Low-level offer execution */
@@ -669,7 +655,14 @@ contract Dex is HasAdmin {
     } else {
       dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
       if (!dirtyDelete) {
-        stitchOffers(orp.base, orp.quote, orp.offer.prev, orp.offer.next);
+        DC.stitchOffers(
+          orp.base,
+          orp.quote,
+          offers,
+          bests,
+          orp.offer.prev,
+          orp.offer.next
+        );
       }
       deleted = true;
     }
@@ -949,7 +942,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       if (DC.isLive(offer)) {
         DC.OfferDetail memory offerDetail = offerDetails[id];
         dirtyDeleteOffer(base, quote, id);
-        stitchOffers(base, quote, offer.prev, offer.next);
+        DC.stitchOffers(base, quote, offers, bests, offer.prev, offer.next);
         uint gasUsed = failures[failureIndex][1];
         applyPenalty(false, gasUsed, offerDetail);
       }

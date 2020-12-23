@@ -151,6 +151,27 @@ They have the following fields: */
     return offer.gives > 0;
   }
 
+  /* Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer` */
+  function stitchOffers(
+    address base,
+    address quote,
+    mapping(address => mapping(address => mapping(uint => Offer)))
+      storage offers,
+    mapping(address => mapping(address => uint)) storage bests,
+    uint past,
+    uint future
+  ) internal {
+    if (past != 0) {
+      offers[base][quote][past].next = uint32(future);
+    } else {
+      bests[base][quote] = future;
+    }
+
+    if (future != 0) {
+      offers[base][quote][future].prev = uint32(past);
+    }
+  }
+
   /* Holds data about offers in a struct, used by `newOffer` to avoid stack too deep errors. */
   struct OfferPack {
     address base;
