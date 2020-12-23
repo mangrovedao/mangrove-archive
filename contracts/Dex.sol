@@ -310,9 +310,10 @@ contract Dex is HasAdmin {
   )
     public
     unlockedOnly(base, quote)
+    createsLock(base, quote)
     returns (
       /* The return value is used for book cleaning: it contains a list (of length `2 * punishLength`) of the offers that failed during the market order, along with the gas they used before failing. */
-      uint[2][] memory
+      uint[2][] memory failures
     )
   {
     DC.OrderPack memory orp;
@@ -345,14 +346,12 @@ contract Dex is HasAdmin {
     require(DC.isLive(orp.offer), "dex/marketOrder/noSuchOffer");
     uint pastOfferId = orp.offer.prev;
 
-    locks[orp.base][orp.quote] = 2;
-
     /* ### Main loop */
     //+clear+
     /* Offers are looped through until:
      * `offerId == 0`, which means we've gone past the end of the book. */
     while (orp.offerId != 0) {
-      (bool executed, bool success, bool deleted) =
+      (bool executed, , bool deleted) =
         executeOrderPack(
           orp,
           takerWants - orp.totalGot,
@@ -405,9 +404,8 @@ contract Dex is HasAdmin {
     restrictMemoryArrayLength(orp.failures, orp.numFailures);
     /* After exiting the loop, we connect the beginning & end of the segment just consumed by the market order. */
     stitchOffers(orp.base, orp.quote, pastOfferId, orp.offerId);
-    locks[orp.base][orp.quote] = 1;
 
-    return orp.failures;
+    failures = orp.failures;
   }
 
   function executeOrderPack(
@@ -484,6 +482,12 @@ contract Dex is HasAdmin {
     return (failures.length == 0);
   }
 
+  modifier createsLock(address base, address quote) {
+    locks[base][quote] = 2;
+    _;
+    locks[base][quote] = 1;
+  }
+
   //+clear+
   /*
      From an array of _n_ `(offerId, takerWants)` pairs (encoded as a `uint[2][]` of size _2n_)
@@ -498,7 +502,12 @@ contract Dex is HasAdmin {
     address quote,
     uint[4][] memory targets,
     uint punishLength
-  ) public unlockedOnly(base, quote) returns (uint[2][] memory) {
+  )
+    public
+    unlockedOnly(base, quote)
+    createsLock(base, quote)
+    returns (uint[2][] memory failures)
+  {
     /* ### Pre-loop Checks */
     //+clear+
     DC.OrderPack memory orp;
@@ -513,10 +522,6 @@ contract Dex is HasAdmin {
 
     requireActiveMarket(orp.config);
 
-    /* ### Pre-loop initialization */
-    //+clear+
-
-    locks[base][quote] = 2;
     /* ### Main loop */
     //+clear+
 
@@ -533,16 +538,20 @@ contract Dex is HasAdmin {
           uint96(targets[i][1]) == targets[i][1],
           "dex/internalSnipes/takerWants/96bits"
         );
-        (, bool success, ) =
-          executeOrderPack(orp, targets[i][1], targets[i][2], false);
+        bool success;
+        (, success, ) = executeOrderPack(
+          orp,
+          targets[i][1],
+          targets[i][2],
+          false
+        );
       }
     }
     /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
     applyFee(orp);
     restrictMemoryArrayLength(orp.failures, orp.numFailures);
-    locks[orp.base][orp.quote] = 1;
 
-    return orp.failures;
+    failures = orp.failures;
   }
 
   /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `numFailures` in the length field of `failures`. This also saves on the amount of memory copied in the return value.
