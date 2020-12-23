@@ -110,6 +110,12 @@ contract Dex is HasAdmin {
     _;
   }
 
+  modifier createsLock(address base, address quote) {
+    locks[base][quote] = 2;
+    _;
+    locks[base][quote] = 1;
+  }
+
   /* * <a id="Dex/definition/requireLiveDex"></a>
      In case of emergency, the Dex can be `kill()`ed. It cannot be resurrected. When a Dex is dead, the following operations are disabled :
        * Executing an offer
@@ -441,9 +447,13 @@ contract Dex is HasAdmin {
     /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `orp.wants`,`orp.gives` are how much the taker will trade with the current offer. */
     if (makerWouldWant <= takerGives) {
       executed = true;
-      (orp.wants, orp.gives) = orp.offer.gives < takerWants
-        ? (orp.offer.gives, orp.offer.wants)
-        : (takerWants, makerWouldWant);
+      if (orp.offer.gives < takerWants) {
+        orp.wants = orp.offer.gives;
+        orp.gives = orp.offer.wants;
+      } else {
+        orp.wants = takerWants;
+        orp.gives = makerWouldWant;
+      }
 
       /* Execute the offer after loaning money to the maker. The last argument to `executeOffer` is `true` to flag that pointers shouldn't be updated (thus saving writes). The returned values are explained below: */
       uint gasUsed;
@@ -481,12 +491,6 @@ contract Dex is HasAdmin {
     targets[0] = [offerId, takerWants, takerGives, gasreq];
     uint[2][] memory failures = internalSnipes(base, quote, targets, 1);
     return (failures.length == 0);
-  }
-
-  modifier createsLock(address base, address quote) {
-    locks[base][quote] = 2;
-    _;
-    locks[base][quote] = 1;
   }
 
   //+clear+
@@ -691,7 +695,7 @@ contract Dex is HasAdmin {
 
     /* We will slightly overapproximate the gas consumed by the maker since some local operations will take place in addition to the call; the total cost must not exceed `config.gasbase`.
 
-    Note that we use `config.gasbase`, not `offerDetail.gasbase`. `gasbase` is cached in `offerDetail` for the purpose of applying penalties; when checking if it's worth going through with taking an offer, we look at the most up-to-date `gasbase` value.
+    Note that we use `config.gasbase`, not `offerDetail.gasbase`. `gasbase` is cached in `offerDetail` for the purpose of applying penalties; when checking if it's worth going through with taking an offer, we look at the most up-to-date `gasbase` value. It is a large overapproximation of the amount necessary to punish a misbehaving maker.
     */
     require(
       oldGas >= offerDetail.gasreq + orp.config.gasbase,
