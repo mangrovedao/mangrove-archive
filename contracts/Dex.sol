@@ -105,9 +105,8 @@ contract Dex is HasAdmin {
   */
 
   /* `requireNoReentrancyLock` protects modifying the book while an order is in progress. */
-  modifier unlockedOnly(address base, address quote) {
+  function unlockedOnly(address base, address quote) internal view {
     require(locks[base][quote] < 2, "dex/reentrancyLocked");
-    _;
   }
 
   modifier createsLock(address base, address quote) {
@@ -157,7 +156,8 @@ contract Dex is HasAdmin {
     uint gives,
     uint gasreq,
     uint pivotId
-  ) external unlockedOnly(base, quote) returns (uint) {
+  ) external returns (uint) {
+    unlockedOnly(base, quote);
     DC.Offer memory dummyOffer;
     DC.OfferPack memory ofp =
       DC.OfferPack({
@@ -185,7 +185,8 @@ contract Dex is HasAdmin {
     address quote,
     uint offerId,
     bool erase
-  ) external unlockedOnly(base, quote) {
+  ) external {
+    unlockedOnly(base, quote);
     emit DexEvents.CancelOffer(offerId, erase);
     DC.Offer memory offer = offers[base][quote][offerId];
     DC.OfferDetail memory offerDetail = offerDetails[offerId];
@@ -219,7 +220,8 @@ contract Dex is HasAdmin {
     uint gasreq,
     uint pivotId,
     uint offerId
-  ) public unlockedOnly(base, quote) returns (uint) {
+  ) public returns (uint) {
+    unlockedOnly(base, quote);
     DC.OfferPack memory ofp =
       DC.OfferPack({
         base: base,
@@ -306,13 +308,13 @@ contract Dex is HasAdmin {
     uint offerId
   )
     public
-    unlockedOnly(base, quote)
     createsLock(base, quote)
     returns (
       /* The return value is used for book cleaning: it contains a list (of length `2 * punishLength`) of the offers that failed during the market order, along with the gas they used before failing. */
       uint[2][] memory failures
     )
   {
+    unlockedOnly(base, quote);
     DC.OrderPack memory orp;
     orp.base = base;
     orp.quote = quote;
@@ -505,12 +507,8 @@ contract Dex is HasAdmin {
     address quote,
     uint[4][] memory targets,
     uint punishLength
-  )
-    public
-    unlockedOnly(base, quote)
-    createsLock(base, quote)
-    returns (uint[2][] memory failures)
-  {
+  ) public createsLock(base, quote) returns (uint[2][] memory failures) {
+    unlockedOnly(base, quote);
     /* ### Pre-loop Checks */
     //+clear+
     DC.OrderPack memory orp;
@@ -960,12 +958,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
      State getters are available for composing with other contracts & bots. */
   //+clear+
   // TODO: Make sure `getBest` is necessary.
-  function getBest(address base, address quote)
-    external
-    view
-    unlockedOnly(base, quote)
-    returns (uint)
-  {
+  function getBest(address base, address quote) external view returns (uint) {
+    unlockedOnly(base, quote);
     return bests[base][quote];
   }
 
@@ -987,7 +981,6 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   )
     external
     view
-    unlockedOnly(base, quote)
     returns (
       bool,
       uint,
@@ -999,6 +992,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       address
     )
   {
+    unlockedOnly(base, quote);
     // TODO: Make sure `requireNoReentrancyLock` is necessary here
     DC.Offer memory offer = offers[base][quote][offerId];
     DC.OfferDetail memory offerDetail = offerDetails[offerId];
