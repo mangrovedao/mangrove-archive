@@ -47,7 +47,6 @@ contract Dex is HasAdmin {
   }
 
   Global private global;
-  address public governance = address(0);
   mapping(address => mapping(address => Local)) private locals;
 
   /* * Makers provision their possible penalties in the `freeWei` mapping.
@@ -334,8 +333,7 @@ contract Dex is HasAdmin {
         initialWants: takerWants,
         totalGot: 0,
         initialGives: takerGives,
-        totalGave: 0,
-        governance: governance
+        totalGave: 0
       });
 
     /* For the market order to even start, the market needs to be both alive (that is, not irreversibly killed following emergency action), and not currently protected from reentrancy. */
@@ -563,7 +561,6 @@ contract Dex is HasAdmin {
     orp.failures = new uint[2][](punishLength);
     orp.totalGot = 0;
     orp.totalGave = 0;
-    orp.governance = governance;
 
     requireActiveMarket(orp.config);
 
@@ -1020,10 +1017,5 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     //+clear+
     global.gasmax = uint24(value);
     emit DexEvents.SetGasmax(value);
-  }
-
-  /* ## Setting governance */
-  function setGovernance(address _governance) external adminOnly {
-    governance = _governance;
   }
 }

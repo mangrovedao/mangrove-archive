@@ -198,7 +198,6 @@ They have the following fields: */
     uint totalGave;
     Offer offer;
     Config config;
-    address governance;
     uint numFailures;
     uint[2][] failures;
   }
