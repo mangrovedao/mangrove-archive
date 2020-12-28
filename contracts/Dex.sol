@@ -444,13 +444,13 @@ contract Dex is HasAdmin {
     uint makerWouldWant =
       roundUpRatio(wants * orp.offer.wants, orp.offer.gives);
 
-    /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `orp.wants`,`orp.gives` are how much the taker will trade with the current offer. */
     if (makerWouldWant > gives) {
       return (executed, success, toDelete);
     }
 
     executed = true;
 
+    /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `orp.wants`,`orp.gives` are how much the taker will trade with the current offer. */
     if (orp.offer.gives < wants) {
       wants = orp.offer.gives;
       gives = orp.offer.wants;
