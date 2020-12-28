@@ -191,6 +191,8 @@ They have the following fields: */
     address quote;
     uint wants;
     uint gives;
+    uint initialWants;
+    uint initialGives;
     uint offerId;
     uint totalGot;
     uint totalGave;

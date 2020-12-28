@@ -314,26 +314,32 @@ contract Dex is HasAdmin {
       uint[2][] memory failures
     )
   {
-    unlockedOnly(base, quote);
-    DC.OrderPack memory orp;
-    orp.base = base;
-    orp.quote = quote;
-    orp.offerId = offerId;
-    orp.offer = offers[base][quote][offerId];
-    orp.config = config(base, quote);
-    orp.failures = new uint[2][](punishLength);
-    orp.numFailures = 0;
-    orp.totalGot = 0;
-    orp.totalGave = 0;
-    orp.governance = governance;
-
     /* ### Checks */
     //+clear+
-    /* For the market order to even start, the market needs to be both alive (that is, not irreversibly killed following emergency action), and not currently protected from reentrancy. */
-    requireActiveMarket(orp.config);
+    unlockedOnly(base, quote);
 
     /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
     require(uint160(takerWants) == takerWants, "dex/mOrder/takerWants/160bits");
+    DC.OrderPack memory orp =
+      DC.OrderPack({
+        base: base,
+        quote: quote,
+        wants: 0,
+        gives: 0,
+        offerId: offerId,
+        offer: offers[base][quote][offerId],
+        config: config(base, quote),
+        failures: new uint[2][](punishLength),
+        numFailures: 0,
+        initialWants: takerWants,
+        totalGot: 0,
+        initialGives: takerGives,
+        totalGave: 0,
+        governance: governance
+      });
+
+    /* For the market order to even start, the market needs to be both alive (that is, not irreversibly killed following emergency action), and not currently protected from reentrancy. */
+    requireActiveMarket(orp.config);
 
     /* ### Initialization */
     /* The market order will operate as follows : it will go through offers from best to worse, starting from `offerId`, and: */
@@ -351,20 +357,16 @@ contract Dex is HasAdmin {
      * remaining amount wanted reaches 0, or
      * `offerId == 0`, which means we've gone past the end of the book. */
     while (takerWants - orp.totalGot > 0 && orp.offerId != 0) {
-      (bool executed, , bool deleted) =
+      /* `executed` is false if offer could not be executed against 2nd and 3rd argument of executeOrderPack. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
+      (, , bool toDelete) =
         executeOrderPack(
           orp,
-          takerWants - orp.totalGot,
-          takerGives - orp.totalGave,
-          true
+          orp.initialWants - orp.totalGot,
+          orp.initialGives - orp.totalGave
         );
 
-      /* This branch is selected if the current offer is strictly worse than the taker can accept, or takerWants was 0. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
-      if (!executed) {
-        break;
-      }
-
-      /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
+      if (toDelete) {
+        /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
 
            Let _r~1~_, ..., _r~n~_ the successive values taken by `offer` each time the current while loop's test is executed.
            Also, let _r~0~_ = `offers[pastOfferId]` be the offer immediately better
@@ -392,17 +394,18 @@ contract Dex is HasAdmin {
           ```
           And so the loop ends.
         */
-      if (deleted) {
+        dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
         orp.offerId = orp.offer.next;
         orp.offer = offers[orp.base][orp.quote][orp.offerId];
+      } else {
+        break;
       }
     }
-    /* ### Post-while loop */
-    //+clear+
-    /* `applyFee` extracts the fee from the taker, proportional to the amount purchased (which is `initialTakerWants - takerWants`). */
+
+    //if callback maker using recursion: ! warning ! orp now has new values
+
     applyFee(orp);
     restrictMemoryArrayLength(orp.failures, orp.numFailures);
-    /* After exiting the loop, we connect the beginning & end of the segment just consumed by the market order. */
     DC.stitchOffers(
       orp.base,
       orp.quote,
@@ -411,21 +414,19 @@ contract Dex is HasAdmin {
       pastOfferId,
       orp.offerId
     );
-
     failures = orp.failures;
   }
 
   function executeOrderPack(
     DC.OrderPack memory orp,
-    uint takerWants,
-    uint takerGives,
-    bool dirtyDelete
+    uint wants,
+    uint gives
   )
     internal
     returns (
       bool executed,
       bool success,
-      bool deleted
+      bool toDelete
     )
   {
     /* #### `makerWouldWant` */
@@ -443,42 +444,85 @@ contract Dex is HasAdmin {
    To do that, we round up the amount required by the maker. That amount will later be deduced from the offer's total volume.
        */
     uint makerWouldWant =
-      roundUpRatio(takerWants * orp.offer.wants, orp.offer.gives);
+      roundUpRatio(wants * orp.offer.wants, orp.offer.gives);
+
     /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `orp.wants`,`orp.gives` are how much the taker will trade with the current offer. */
-    if (makerWouldWant <= takerGives) {
-      executed = true;
-      if (orp.offer.gives < takerWants) {
-        orp.wants = orp.offer.gives;
-        orp.gives = orp.offer.wants;
+    if (makerWouldWant > gives) {
+      return (executed, success, toDelete);
+    }
+
+    executed = true;
+
+    if (orp.offer.gives < wants) {
+      wants = orp.offer.gives;
+      gives = orp.offer.wants;
+    } else {
+      gives = makerWouldWant;
+    }
+
+    DC.OfferDetail memory offerDetail = offerDetails[orp.offerId];
+
+    /* The flashswap is executed by delegatecall to `SWAPPER`. If the call reverts, it means the maker failed to send back `takerWants` `OFR_TOKEN` to the taker. If the call succeeds, `retdata` encodes a boolean indicating whether the taker did send enough to the maker or not. 
+
+    Note that any spurious exception due to an error in Dex code will be falsely blamed on the Maker, and its provision for the offer will be unfairly taken away.
+    */
+    (bool noRevert, bytes memory retdata) =
+      address(DexLib).delegatecall(
+        abi.encodeWithSelector(SWAPPER, orp, offerDetail, wants, gives)
+      );
+
+    /* Revert if SWAPPER reverted. **Danger**: if a well-crafted offer/maker pair can force a revert of SWAPPER, the Dex will be stuck. */
+    if (!noRevert) {
+      revert("dex/swapError");
+    }
+
+    (DC.SwapResult result, uint makerData, uint gasUsed) =
+      abi.decode(retdata, (DC.SwapResult, uint, uint));
+
+    if (result == DC.SwapResult.TakerTransferFail) {
+      revert("dex/takerFailToPayMaker");
+    }
+
+    success = result == DC.SwapResult.OK;
+    if (success) {
+      emit DexEvents.Success(orp.offerId, wants, gives);
+      orp.totalGot += wants;
+      orp.totalGave += gives;
+
+      if (
+        orp.offer.gives - wants >=
+        orp.config.density * (offerDetail.gasreq + orp.config.gasbase)
+      ) {
+        offers[orp.base][orp.quote][orp.offerId].gives = uint96(
+          orp.offer.gives - wants
+        );
+        offers[orp.base][orp.quote][orp.offerId].wants = uint96(
+          orp.offer.wants - gives
+        );
       } else {
-        orp.wants = takerWants;
-        orp.gives = makerWouldWant;
+        toDelete = true;
       }
-
-      /* Execute the offer after loaning money to the maker. The last argument to `executeOffer` is `true` to flag that pointers shouldn't be updated (thus saving writes). The returned values are explained below: */
-      uint gasUsed;
-      (success, gasUsed, deleted) = executeOffer(orp, dirtyDelete);
-
-      if (success) {
-        orp.totalGot += orp.wants;
-        orp.totalGave += orp.gives;
-      }
-
-      /*
-          If `!success`, the maker failed to deliver `localTakerWants`. In that case `gasUsed` will be used to apply a penalty (penalties are applied in proportion with wasted gas).
-
-          Note that partial fulfillment of the amount requested in `localTakerWants` is not taken into account. Any delivery strictly less than `localTakerWants` will trigger a rollback and be considered a failure. */
-      if (!success && orp.numFailures < orp.failures.length) {
-        /* For penalty application purposes (never triggered if `punishLength = 0`), store the offer id and the gas wasted by the maker */
+    } else {
+      toDelete = true;
+      emit DexEvents.MakerFail(
+        orp.offerId,
+        wants,
+        gives,
+        result == DC.SwapResult.MakerReverted,
+        makerData
+      );
+      if (orp.numFailures < orp.failures.length) {
         orp.failures[orp.numFailures] = [orp.offerId, gasUsed];
         orp.numFailures++;
       }
     }
+    applyPenalty(success, gasUsed, offerDetail);
   }
 
   /* ## Sniping */
   //+clear+
   /* `snipe` takes a single offer from the book, at whatever price is induced by the offer. */
+
   function snipe(
     address base,
     address quote,
@@ -540,11 +584,17 @@ contract Dex is HasAdmin {
           "dex/internalSnipes/takerWants/96bits"
         );
         bool success;
-        (, success, ) = executeOrderPack(
-          orp,
-          targets[i][1],
-          targets[i][2],
-          false
+        uint wants = targets[i][1];
+        uint gives = targets[i][2];
+        (, success, ) = executeOrderPack(orp, wants, gives);
+        dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
+        DC.stitchOffers(
+          orp.base,
+          orp.quote,
+          offers,
+          bests,
+          orp.offer.prev,
+          orp.offer.next
         );
       }
     }
@@ -576,148 +626,6 @@ contract Dex is HasAdmin {
   ) internal {
     emit DexEvents.DeleteOffer(offerId);
     offers[base][quote][offerId].gives = 0;
-  }
-
-  /* # Low-level offer execution */
-  //+clear+
-
-  /* Both forms of sniping and market orders use the functions below, which execute (part of) an offer and return information about the execution.
-
-     ## Offer execution
-  */
-  //+clear+
-  /* The parameters `takerWants` and `takerGives` induce a price. This is an unsafe, internal function. Most importantly, it does not check that `takerWants/takerGives == offer.gives/offer.wants`, nor that `takerWants <= offer.gives`. Callers must do both of those checks, or various terrible things might happen: market makers may be asked for a price they did not commit to, and `uint` underflow may keep the offer after execution with a _much_ bigger `gives`.
-
-  It would be nice to do those checks right here, in `executeOffer`. But market orders must make price computations necessary to those checks _before_ calling `executeOffer` anyway, so they can decide whether the offer should be executed at all or not. To save gas, we don't redo the checks here. */
-  function executeOffer(
-    DC.OrderPack memory orp,
-    /* The last argument, `dirtyDelete`, is here for market orders: if true, `next`/`prev` pointers around the deleted offer are not reset properly. */
-    bool dirtyDelete
-  )
-    internal
-    returns (
-      /* The return values indicate:
-       * whether the maker `success`fully completed the transaction (failure of the taker to pay the initial amount triggers a revert),
-       * (in case of failure) how much gas the maker consumed, and
-       * whether the offer was deleted from the book (whether due to failure or because it has become dust). */
-      bool success,
-      uint gasUsed,
-      bool deleted
-    )
-  {
-    /* `executeOffer` and `flashSwapTokens` are separated for clarity, but `flashSwapTokens` is only used by `executeOffer`. It manages the actual work of flashloaning tokens and applying penalties. */
-    DC.OfferDetail memory offerDetail = offerDetails[orp.offerId];
-    (success, gasUsed) = flashSwapTokens(orp, offerDetail);
-
-    /* If a governance contract is set, we tell it about the trade that just occurred. */
-    if (orp.governance != address(0)) {
-      IGovernance(orp.governance).recordTrade(
-        orp.base,
-        orp.quote,
-        orp.wants,
-        orp.gives,
-        msg.sender,
-        offerDetail.maker,
-        success,
-        gasUsed,
-        offerDetail.gasbase,
-        offerDetail.gasreq,
-        offerDetail.gasprice
-      );
-    }
-
-    /* After execution, there are four possible outcomes, along 2 axes: the transaction was successful (or not), the offer was consumed to below the absolute dust limit (or not).
-
-    If the transaction was successful and the offer was not consumed too much, it stays on the book with updated values.
-
-    Note how we use `config.gasbase` instead of `offerDetail.gasbase` to check dust limit. `offerDetail.gasbase` is used to correctly apply penalties; here we are making sure the offer  is still good enough according to the current configuration.
-
-    */
-    if (
-      success &&
-      orp.offer.gives - orp.wants >=
-      orp.config.density * (offerDetail.gasreq + orp.config.gasbase)
-    ) {
-      offers[orp.base][orp.quote][orp.offerId].gives = uint96(
-        orp.offer.gives - orp.wants
-      );
-      offers[orp.base][orp.quote][orp.offerId].wants = uint96(
-        orp.offer.wants - orp.gives
-      );
-      deleted = false;
-      /* Otherwise, it will be deleted. */
-    } else {
-      dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
-      if (!dirtyDelete) {
-        DC.stitchOffers(
-          orp.base,
-          orp.quote,
-          offers,
-          bests,
-          orp.offer.prev,
-          orp.offer.next
-        );
-      }
-      deleted = true;
-    }
-  }
-
-  /* ## Flash swap */
-  //+clear+
-  /*
-     We continue to drill down `executeOffer`. The function `flashSwapTokens` has 2 roles :
-  1. measure gas used by executing the offer
-  2. invoke penalty application,   */
-  function flashSwapTokens(
-    DC.OrderPack memory orp,
-    DC.OfferDetail memory offerDetail
-  ) internal returns (bool, uint) {
-    /* We start by saving the amount of gas currently available so we can measure how much we spent later. */
-    uint oldGas = gasleft();
-
-    /* We will slightly overapproximate the gas consumed by the maker since some local operations will take place in addition to the call; the total cost must not exceed `config.gasbase`.
-
-    Note that we use `config.gasbase`, not `offerDetail.gasbase`. `gasbase` is cached in `offerDetail` for the purpose of applying penalties; when checking if it's worth going through with taking an offer, we look at the most up-to-date `gasbase` value. It is a large overapproximation of the amount necessary to punish a misbehaving maker.
-    */
-    require(
-      oldGas >= offerDetail.gasreq + orp.config.gasbase,
-      "dex/unsafeGasAmount"
-    );
-
-    /* The flashswap is executed by delegatecall to `SWAPPER`. If the call reverts, it means the maker failed to send back `takerWants` `OFR_TOKEN` to the taker. If the call succeeds, `retdata` encodes a boolean indicating whether the taker did send enough to the maker or not. 
-
-    Note that any spurious exception due to an error in Dex code will be falsely blamed on the Maker, and its provision for the offer will be unfairly taken away.
-    */
-    (bool noRevert, bytes memory retdata) =
-      address(DexLib).delegatecall(
-        abi.encodeWithSelector(SWAPPER, orp, offerDetail)
-      );
-
-    if (!noRevert) {
-      /* Revert if SWAPPER reverted. **Danger**: if a well-crafted offer/maker pair can force a revert of SWAPPER, the Dex will be stuck. */
-      revert("dex/swapError");
-    } else {
-      (DC.SwapResult result, uint makerData, uint gasUsed) =
-        abi.decode(retdata, (DC.SwapResult, uint, uint));
-      if (result == DC.SwapResult.TakerTransferFail) {
-        revert("dex/takerFailToPayMaker");
-      } else {
-        bool success = result == DC.SwapResult.OK;
-        if (success) {
-          emit DexEvents.Success(orp.offerId, orp.wants, orp.gives);
-        } else {
-          emit DexEvents.MakerFail(
-            orp.offerId,
-            orp.wants,
-            orp.gives,
-            result == DC.SwapResult.MakerReverted,
-            makerData
-          );
-        }
-        applyPenalty(success, gasUsed, offerDetail);
-        return (success, gasUsed);
-      }
-    }
   }
 
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */

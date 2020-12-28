@@ -20,7 +20,9 @@ library DexLib {
    */
   function swapTokens(
     DC.OrderPack calldata orp,
-    DC.OfferDetail calldata offerDetail
+    DC.OfferDetail calldata offerDetail,
+    uint wants,
+    uint gives
   )
     external
     returns (
@@ -29,9 +31,13 @@ library DexLib {
       uint gasUsed
     )
   {
-    if (transferToken(orp.quote, msg.sender, offerDetail.maker, orp.gives)) {
-      //bytes memory cd = abi.encodeWithSelector(IMaker.execute.selector,base,quote,takerWants,takerGives,msg.sender,offerDetail.gasprice,offerId);
-      (result, makerData, gasUsed) = makerExecute(orp, offerDetail);
+    if (transferToken(orp.quote, msg.sender, offerDetail.maker, gives)) {
+      (result, makerData, gasUsed) = makerExecute(
+        orp,
+        offerDetail,
+        wants,
+        gives
+      );
     } else {
       result = DC.SwapResult.TakerTransferFail;
     }
@@ -46,7 +52,9 @@ library DexLib {
 
   function invertedSwapTokens(
     DC.OrderPack calldata orp,
-    DC.OfferDetail calldata offerDetail
+    DC.OfferDetail calldata offerDetail,
+    uint wants,
+    uint gives
   )
     external
     returns (
@@ -55,7 +63,7 @@ library DexLib {
       uint gasUsed
     )
   {
-    (result, makerData, gasUsed) = makerExecute(orp, offerDetail);
+    (result, makerData, gasUsed) = makerExecute(orp, offerDetail, wants, gives);
 
     if (result == DC.SwapResult.OK) {
       uint oldBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
@@ -63,8 +71,8 @@ library DexLib {
       IMaker(msg.sender).execute(
         orp.base,
         orp.quote,
-        orp.wants,
-        orp.gives,
+        wants,
+        gives,
         offerDetail.maker,
         offerDetail.gasprice,
         orp.offerId
@@ -72,7 +80,7 @@ library DexLib {
 
       uint newBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
       /* The second check (`newBalance >= oldBalance`) protects against overflow. */
-      if (newBalance >= oldBalance + orp.gives && newBalance >= oldBalance) {
+      if (newBalance >= oldBalance + gives && newBalance >= oldBalance) {
         result = DC.SwapResult.OK;
       } else {
         result = DC.SwapResult.TakerTransferFail;
@@ -82,8 +90,9 @@ library DexLib {
 
   function makerExecute(
     DC.OrderPack calldata orp,
-    //bytes memory cd, address base, uint takerWants,
-    DC.OfferDetail calldata offerDetail
+    DC.OfferDetail calldata offerDetail,
+    uint wants,
+    uint gives
   )
     internal
     returns (
@@ -97,8 +106,8 @@ library DexLib {
         IMaker.execute.selector,
         orp.base,
         orp.quote,
-        orp.wants,
-        orp.gives,
+        wants,
+        gives,
         msg.sender,
         offerDetail.gasprice,
         orp.offerId
@@ -117,7 +126,7 @@ library DexLib {
     uint newBalance = IERC20(orp.base).balanceOf(msg.sender);
     gasUsed = oldGas - gasleft();
     /* The second check (`newBalance >= oldBalance`) protects against overflow. */
-    if (newBalance >= oldBalance + orp.wants && newBalance >= oldBalance) {
+    if (newBalance >= oldBalance + wants && newBalance >= oldBalance) {
       result = DC.SwapResult.OK;
     } else if (!success) {
       result = DC.SwapResult.MakerReverted;
