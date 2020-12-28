@@ -26,12 +26,12 @@ library Lib {
 contract Failer_Test {
   receive() external payable {}
 
-  function exec() external {
+  function exec() external view {
     console.log("exec");
     require(false);
   }
 
-  function execBig() external {
+  function execBig() external view {
     console.log("execBig");
     string memory wtf = new string(100_000);
     require(false, wtf);
@@ -39,6 +39,7 @@ contract Failer_Test {
 
   function failed_yul_test() public {
     bytes memory b = new bytes(100_000);
+    b;
     uint g0 = gasleft();
     bytes memory cd = abi.encodeWithSelector(this.execBig.selector);
     bytes memory retdata = new bytes(32);
@@ -61,16 +62,21 @@ contract Failer_Test {
       address(this).delegatecall{gas: 500_000}(
         abi.encodeWithSelector(this.exec.selector)
       );
+    success;
+    retdata;
     console.log("GasUsed: %d", g0 - gasleft());
   }
 
   function failer_big_with_retdata_bytes_test() public {
     bytes memory b = new bytes(100_000);
+    b;
     uint g0 = gasleft();
     (bool success, bytes memory retdata) =
       address(this).delegatecall{gas: 500_000}(
         abi.encodeWithSelector(this.execBig.selector)
       );
+    success;
+    retdata;
 
     console.log("GasUsed: %d", g0 - gasleft());
   }

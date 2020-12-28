@@ -10,11 +10,11 @@ import "hardhat/console.sol";
 contract Throw_Test {
   receive() external payable {}
 
-  function throws() external {
+  function throws() external pure {
     require(false, "I threw up for some reason");
   }
 
-  function not_enough_gas_to_call_test() public {
+  function not_enough_gas_to_call_test() public view {
     try this.throws{gas: 100}() {
       console.log("Succeeded");
     } catch Error(string memory revert_reason) {
