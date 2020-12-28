@@ -48,6 +48,17 @@ library DexLib {
      0. Calls the maker's `execute` function. If successful (tokens have been sent to taker):
      2. Runs `msg.sender`'s `execute` function.
      4. Returns the results ofthe operations, with optional makerData to help the maker debug.
+
+     There are two ways to do the flashloan:
+     1. balanceOf before/after
+     2. run transferFrom ourselves.
+
+     ### balanceOf pros:
+       * maker may `transferFrom` another address they control; saves gas compared to dex's `transferFrom`
+       * maker does not need to `approve` dex
+     ### balanceOf cons
+       * if the ERC20 transfer method has a callback to receiver, the method does not work (the receiver can set its balance to 0 during the callback)
+       * costs more gas to do 2 SLOADS (checking balanceOf twice) than to run the `transfer` ourselves -- if there's only one transfer.
     */
 
   function invertedSwapTokens(
