@@ -205,12 +205,21 @@ library DexLib {
           (uint(offerDetail.gasreq) + offerDetail.gasbase);
       }
 
-      offerDetails[ofp.id] = DC.OfferDetail({
-        gasreq: uint24(ofp.gasreq),
-        gasbase: uint24(ofp.config.gasbase),
-        gasprice: uint48(ofp.config.gasprice),
-        maker: msg.sender
-      });
+      //TODO check that we're using less gas if those values haven't changed
+      if (
+        /* It is currently not possible for a new offer to fail the 3 last tests, but it may in the future, so we make sure we're semantically correct by checking for `!update`. */
+        !update ||
+        offerDetail.gasreq != ofp.gasreq ||
+        offerDetail.gasbase != ofp.config.gasbase ||
+        offerDetail.gasprice != ofp.config.gasprice
+      ) {
+        offerDetails[ofp.id] = DC.OfferDetail({
+          gasreq: uint24(ofp.gasreq),
+          gasbase: uint24(ofp.config.gasbase),
+          gasprice: uint48(ofp.config.gasprice),
+          maker: msg.sender
+        });
+      }
     }
 
     /* With every change to an offer, a maker must deduct provisions from its `freeWei` balance, or get some back if the updated offer requires fewer provisions. */
