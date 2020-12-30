@@ -271,7 +271,11 @@ contract Dex is HasAdmin {
     uint takerWants,
     uint takerGives
   ) external {
-    marketOrder(base, quote, takerWants, takerGives, 0, bests[base][quote]);
+    /* Due to the implementation of `marketOrder`, an order on an empty book throws the "noSuchOffer" error. For the sake of consistency, the `best != 0` check returns normally on an empty book. This is the same behavior as a market order that reaches the end of a book. */
+    uint best = bests[base][quote];
+    if (best != 0) {
+      marketOrder(base, quote, takerWants, takerGives, 0, bests[base][quote]);
+    }
   }
 
   /* The lower-level `marketOrder` can:
