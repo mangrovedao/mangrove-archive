@@ -733,6 +733,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   }
 
   /* Sandwiched between `punishingSnipes` and `internalSnipes`, the function `internalPunishingSnipes` runs a sequence of snipes, reverts it, and sends up the list of failed offers. If it catches a revert inside `snipes`, it returns normally a `bytes` array with the raw revert data in it. Again, we use `delegatecall` to preseve `msg.sender`. */
+  //TODO explain why it's safe to call from outside
   function internalPunishingSnipes(
     address base,
     address quote,
