@@ -701,7 +701,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   function punishingSnipes(
     address base,
     address quote,
-    uint[2][] calldata targets,
+    uint[4][] calldata targets,
     uint punishLength
   ) external {
     /* We do not directly call `snipes` because we want to revert all the offer executions before returning. So we call an intermediate function, `internalPunishingSnipes` (we don't `call` to preserve the calling context, in partiular `msg.sender`). */
@@ -732,7 +732,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   function internalPunishingSnipes(
     address base,
     address quote,
-    uint[2][] calldata targets,
+    uint[4][] calldata targets,
     uint punishLength
   ) external returns (bytes memory retdata) {
     bool noRevert;
