@@ -383,13 +383,16 @@ library DexLib {
     uint gives2,
     uint gasreq2
   ) internal view returns (bool) {
+    if (offerId1 == 0) {
+      return false;
+    } //happens on empty OB
     uint weight1 = wants1 * gives2;
     uint weight2 = wants2 * gives1;
     if (weight1 == weight2) {
       uint gasreq1 = offerDetails[offerId1].gasreq;
-      return (gives1 * gasreq2 >= gives2 * gasreq1);
+      return (gives1 * gasreq2 >= gives2 * gasreq1); //density1 is higher
     } else {
-      return weight1 < weight2;
+      return weight1 < weight2; //price1 is lower
     }
   }
 
