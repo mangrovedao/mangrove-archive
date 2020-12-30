@@ -24,6 +24,9 @@ contract Dex is HasAdmin {
   /* The signature of the low-level swapping function. */
   bytes4 immutable SWAPPER;
 
+  uint constant LOCKED = 2;
+  uint constant UNLOCKED = 1;
+
   /* * An offer `id` is defined by two structs, `Offer` and `OfferDetail`, defined in `DexCommon.sol`.
    * `offers[id]` contains pointers to the `prev`ious (better) and `next` (worse) offer in the book, as well as the price and volume of the offer (in the form of two absolute quantities, `wants` and `gives`).
    * `offerDetails[id]` contains the market maker's address (`maker`), the amount of gas required by the offer (`gasreq`) as well cached values for the global `gasbase` and `gasprice` when the offer got created (see `DexCommon` for more on `gasbase` and `gasprice`).
@@ -105,13 +108,7 @@ contract Dex is HasAdmin {
 
   /* `requireNoReentrancyLock` protects modifying the book while an order is in progress. */
   function unlockedOnly(address base, address quote) internal view {
-    require(locks[base][quote] < 2, "dex/reentrancyLocked");
-  }
-
-  modifier createsLock(address base, address quote) {
-    locks[base][quote] = 2;
-    _;
-    locks[base][quote] = 1;
+    require(locks[base][quote] < LOCKED, "dex/reentrancyLocked");
   }
 
   /* * <a id="Dex/definition/requireLiveDex"></a>
@@ -190,6 +187,7 @@ contract Dex is HasAdmin {
     DC.Offer memory offer = offers[base][quote][offerId];
     DC.OfferDetail memory offerDetail = offerDetails[offerId];
     /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *un-live* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
+    console.log(offerDetail.maker);
     require(msg.sender == offerDetail.maker, "dex/cancelOffer/unauthorized");
 
     if (DC.isLive(offer)) {
@@ -307,7 +305,6 @@ contract Dex is HasAdmin {
     uint offerId
   )
     public
-    createsLock(base, quote)
     returns (
       /* The return value is used for book cleaning: it contains a list (of length `2 * punishLength`) of the offers that failed during the market order, along with the gas they used before failing. */
       uint[2][] memory failures
@@ -316,6 +313,7 @@ contract Dex is HasAdmin {
     /* ### Checks */
     //+clear+
     unlockedOnly(base, quote);
+    locks[base][quote] = LOCKED;
 
     /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
     require(uint160(takerWants) == takerWants, "dex/mOrder/takerWants/160bits");
@@ -413,6 +411,7 @@ contract Dex is HasAdmin {
       orp.offerId
     );
     failures = orp.failures;
+    locks[base][quote] = UNLOCKED;
   }
 
   function executeOrderPack(
@@ -549,8 +548,9 @@ contract Dex is HasAdmin {
     address quote,
     uint[4][] memory targets,
     uint punishLength
-  ) public createsLock(base, quote) returns (uint[2][] memory failures) {
+  ) public returns (uint[2][] memory failures) {
     unlockedOnly(base, quote);
+    locks[base][quote] = LOCKED;
     /* ### Pre-loop Checks */
     //+clear+
     DC.OrderPack memory orp;
@@ -600,6 +600,7 @@ contract Dex is HasAdmin {
     restrictMemoryArrayLength(orp.failures, orp.numFailures);
 
     failures = orp.failures;
+    locks[base][quote] = UNLOCKED;
   }
 
   /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `numFailures` in the length field of `failures`. This also saves on the amount of memory copied in the return value.
