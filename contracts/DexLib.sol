@@ -135,8 +135,8 @@ library DexLib {
       success := call(gasreq, maker, 0, add(cd, 32), cd, add(retdata, 32), 32)
       makerData := mload(add(retdata, 32))
     }
-    uint newBalance = IERC20(orp.base).balanceOf(msg.sender);
     gasUsed = oldGas - gasleft();
+    uint newBalance = IERC20(orp.base).balanceOf(msg.sender);
     /* The second check (`newBalance >= oldBalance`) protects against overflow. */
     if (newBalance >= oldBalance + wants && newBalance >= oldBalance) {
       result = DC.SwapResult.OK;
