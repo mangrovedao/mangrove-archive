@@ -56,7 +56,7 @@ contract TestTaker is ITaker {
     return (dex.marketOrder(base, quote, wants, gives, punishLength, offerId));
   }
 
-  function snipesAndRevert(uint[2][] calldata targets, uint punishLength)
+  function snipesAndRevert(uint[4][] calldata targets, uint punishLength)
     external
   {
     dex.punishingSnipes(base, quote, targets, punishLength);

@@ -40,16 +40,17 @@ library TestFailingMarketOrder {
     TestTaker taker
   ) external {
     uint tkrBalance = address(taker).balance;
-    uint[2][] memory targetsOK = new uint[2][](5);
-    uint[2][] memory targetsWrong = new uint[2][](5);
+    uint[4][] memory targetsOK = new uint[4][](5);
+    uint[4][] memory targetsWrong = new uint[4][](5);
+    //offerId, takerWants, takerGives, gasreq
 
     uint cpt = 0;
     for (uint i = 5; i > 0; i--) {
-      targetsOK[cpt] = [i, 0.5 ether];
-      targetsWrong[cpt] = [cpt + 1, 0.5 ether];
+      targetsOK[cpt] = [i, 0.5 ether, 100 ether, 1_000_000];
+      targetsWrong[cpt] = [cpt + 1, 0.5 ether, 100 ether, 1_000_000];
       cpt++;
     }
-    // if offers are not consumed in the order given by OB
+    // if offers are not consumed starting by offer 5 (best)
     // no offer fails and the OB should be unchanged
     taker.snipesAndRevert(targetsWrong, 5);
     for (uint i = 1; i <= 5; i++) {
