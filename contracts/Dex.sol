@@ -581,18 +581,21 @@ contract Dex is HasAdmin {
           "dex/internalSnipes/takerWants/96bits"
         );
         bool success;
+        bool toDelete;
         uint wants = targets[i][1];
         uint gives = targets[i][2];
-        (, success, ) = executeOrderPack(orp, wants, gives);
-        dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
-        DC.stitchOffers(
-          orp.base,
-          orp.quote,
-          offers,
-          bests,
-          orp.offer.prev,
-          orp.offer.next
-        );
+        (, success, toDelete) = executeOrderPack(orp, wants, gives);
+        if (toDelete) {
+          dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
+          DC.stitchOffers(
+            orp.base,
+            orp.quote,
+            offers,
+            bests,
+            orp.offer.prev,
+            orp.offer.next
+          );
+        }
       }
     }
     /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
