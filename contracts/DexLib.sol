@@ -79,6 +79,7 @@ library DexLib {
     if (result == DC.SwapResult.OK) {
       uint oldBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
 
+      /* FIXME should be a different interface for taker */
       IMaker(msg.sender).execute(
         orp.base,
         orp.quote,
