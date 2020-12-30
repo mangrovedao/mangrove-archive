@@ -133,7 +133,8 @@ library Display {
     uint[] offerIds,
     uint[] wants,
     uint[] gives,
-    address[] makerAddr
+    address[] makerAddr,
+    uint[] gasreqs
   );
 
   function logOfferBook(
@@ -148,6 +149,7 @@ library Display {
     uint[] memory gives = new uint[](size);
     address[] memory makerAddr = new address[](size);
     uint[] memory offerIds = new uint[](size);
+    uint[] memory gasreqs = new uint[](size);
     uint c = 0;
     while ((offerId != 0) && (c < size)) {
       (DC.Offer memory offer, DC.OfferDetail memory od) =
@@ -156,11 +158,11 @@ library Display {
       gives[c] = offer.gives;
       makerAddr[c] = od.maker;
       offerIds[c] = offerId;
-
+      gasreqs[c] = od.gasreq;
       offerId = offer.next;
       c++;
     }
-    emit OBState(offerIds, wants, gives, makerAddr);
+    emit OBState(offerIds, wants, gives, makerAddr, gasreqs);
   }
 
   function printOfferBook(

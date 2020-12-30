@@ -77,7 +77,7 @@ module.exports = {
           wants: formatArg(log.args.wants[i]),
           gives: formatArg(log.args.gives[i]),
           maker: formatArg(log.args.makerAddr[i], "address"),
-          gas: formatArg(log.args.gasreq[i]),
+          gas: formatArg(log.args.gasreqs[i]),
         };
       });
 
