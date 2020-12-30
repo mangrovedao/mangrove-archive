@@ -14,25 +14,25 @@ library TestInsert {
   ) public returns (uint[] memory) {
     // each maker publishes an offer
     uint[] memory offerOf = new uint[](makers.length());
-    offerOf[1] = makers.getMaker(1).newOffer({
+    offerOf[1] = makers.getMaker(1).newOffer({ // offer 1
       wants: 1 ether,
       gives: 0.5 ether,
-      gasreq: 7000,
+      gasreq: 70000,
       pivotId: 0
     });
-    offerOf[2] = makers.getMaker(2).newOffer({
+    offerOf[2] = makers.getMaker(2).newOffer({ // offer 2
       wants: 1 ether,
       gives: 0.8 ether,
-      gasreq: 8000,
+      gasreq: 80000,
       pivotId: 1
     });
-    offerOf[3] = makers.getMaker(3).newOffer({
+    offerOf[3] = makers.getMaker(3).newOffer({ // offer 3
       wants: 0.5 ether,
       gives: 1 ether,
-      gasreq: 9000,
+      gasreq: 90000,
       pivotId: 72
     });
-    offerOf[0] = makers.getMaker(0).newOffer({ //failer
+    offerOf[0] = makers.getMaker(0).newOffer({ //failer offer 4
       wants: 20 ether,
       gives: 10 ether,
       gasreq: dex.config(address(base), address(quote)).gasmax,
@@ -57,7 +57,6 @@ library TestInsert {
         Display.append("Incorrect wei balance for maker ", Display.uint2str(i))
       );
     }
-    console.log("Provision OK");
     //Checking offers are correctly positioned (3 > 2 > 1 > 0)
     uint offerId = dex.bests(address(base), address(quote));
     uint expected_maker = 3;

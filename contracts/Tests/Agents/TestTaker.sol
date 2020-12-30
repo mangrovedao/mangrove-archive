@@ -37,8 +37,8 @@ contract TestTaker is ITaker {
       quote,
       offerId,
       takerWants,
-      type(uint96).max,
-      type(uint48).max
+      type(uint96).max, //takergives
+      type(uint48).max //gasreq
     );
     //return taken;
   }
