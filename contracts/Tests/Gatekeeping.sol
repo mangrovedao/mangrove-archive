@@ -67,14 +67,13 @@ contract Gatekeeping_Test {
 
     mkr.provisionDex(5 ether);
 
-    baseT.mint(address(this), 1 ether);
+    baseT.mint(address(this), 2 ether);
     quoteT.mint(address(tkr), 1 ether);
     quoteT.mint(address(mkr), 1 ether);
 
     baseT.approve(address(dex), 1 ether);
     tkr.approve(quoteT, 1 ether);
     mkr.approve(quoteT, 1 ether);
-    mkr.approve(baseT, 1 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "Gatekeeping_Test/maker");
@@ -113,23 +112,21 @@ contract Gatekeeping_Test {
     }
   }
 
-  bytes reentrancer; // failing call
-  bool shouldFail;
+  bytes callback;
 
   // maker's execute callback for the dex
   function execute(
     address,
     address,
-    uint, /* takerWants*/ // silence warning about unused argument
-    uint, /*takerGives*/ // silence warning about unused argument
-    uint, /* offerGasprice*/ // silence warning about unused argument
-    uint /*offerId */ // silence warning about unused argument
+    uint takerWants,
+    uint,
+    address taker,
+    uint,
+    uint
   ) external {
-    (bool success, ) = address(dex).call(reentrancer);
-    TestEvents.check(
-      (success && !shouldFail) || (!success && shouldFail),
-      "unexpected result on Dex reentrancy"
-    );
+    IERC20(base).transfer(taker, takerWants);
+    bool success;
+    (success, ) = address(this).call(callback);
   }
 
   function testGas_test() public {
@@ -137,136 +134,125 @@ contract Gatekeeping_Test {
     tkr.take(ofr, 1 ether);
   }
 
-  function newOffer_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    reentrancer = abi.encodeWithSelector(
-      Dex.newOffer.selector,
-      base,
-      quote,
-      1 ether,
-      1 ether,
-      30_000,
-      0
-    );
-    shouldFail = true;
-    bool success = tkr.take(ofr, 1 ether);
-    TestEvents.check(success, "Taker failed to take offer");
+  function newOfferKO() external {
+    try dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0) {
+      TestEvents.fail("newOffer on same pair should fail");
+    } catch Error(string memory reason) {
+      TestEvents.revertEq(reason, "dex/reentrancyLocked");
+    }
   }
 
-  function cancelOffer_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
-    reentrancer = abi.encodeWithSelector(
-      Dex.cancelOffer.selector,
-      base,
-      quote,
-      ofr,
-      false
-    );
+  function newOffer_on_reentrancy_fails_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    callback = abi.encodeWithSelector(this.newOfferKO.selector);
     tkr.take(ofr, 1 ether);
   }
 
-  function cancelOffer_on_reentrancy_succeeds_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
-    uint _ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 10_000, 0);
-    reentrancer = abi.encodeWithSelector(
-      Dex.cancelOffer.selector,
-      quote,
-      base,
-      _ofr
-    );
-    shouldFail = false; // should succeed since reentrancy is on a different pair
-    bool success = tkr.take(ofr, 0.1 ether);
-    TestEvents.check(success, "Taker failed to take offer");
-
-    TestEvents.expectFrom(address(dex));
-    emit DexEvents.DeleteOffer(_ofr);
-    emit DexEvents.Success(ofr, 0.1 ether, 0.1 ether);
+  function newOfferOK() external {
+    try dex.newOffer(quote, base, 1 ether, 1 ether, 30_000, 0) {
+      // all good
+    } catch {
+      TestEvents.fail("newOffer on swapped pair should work");
+    }
   }
 
-  // TODO initial offer (B,A) dex should not be reentrant
+  function newOffer_on_reentrancy_succeeds_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    callback = abi.encodeWithSelector(this.newOfferOK.selector);
+    tkr.take(ofr, 1 ether);
+  }
+
+  function cancelOfferKO(uint id) external {
+    try dex.cancelOffer(base, quote, id, false) {
+      TestEvents.fail("cancelOffer on same pair should fail");
+    } catch Error(string memory reason) {
+      TestEvents.revertEq(reason, "dex/reentrancyLocked");
+    }
+  }
+
+  function cancelOffer_on_reentrancy_fails_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    callback = abi.encodeWithSelector(this.cancelOfferKO.selector, ofr);
+    tkr.take(ofr, 1 ether);
+  }
+
+  function cancelOfferOK(uint id) external {
+    try dex.cancelOffer(quote, base, id, false) {
+      // all good
+    } catch {
+      TestEvents.fail("cancelOffer on swapped pair should work");
+    }
+  }
+
+  function cancelOffer_on_reentrancy_succeeds_test() public {
+    uint dual_ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 90_000, 0);
+    callback = abi.encodeWithSelector(this.cancelOfferOK.selector, dual_ofr);
+
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
+    tkr.take(ofr, 1 ether);
+  }
+
+  function marketOrderKO() external {
+    try dex.simpleMarketOrder(base, quote, 0.2 ether, 0.2 ether) {
+      TestEvents.fail("marketOrder on same pair should fail");
+    } catch Error(string memory reason) {
+      TestEvents.revertEq(reason, "dex/reentrancyLocked");
+    }
+  }
+
   function marketOrder_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    reentrancer = abi.encodeWithSelector(
-      Dex.simpleMarketOrder.selector,
-      base,
-      quote,
-      0.2 ether,
-      0.2 ether
-    );
-    shouldFail = true;
-    bool success = tkr.take(ofr, 0.1 ether);
-    TestEvents.check(success, "Taker failed to take offer");
-
-    TestEvents.expectFrom(address(dex));
-    emit DexEvents.Success(ofr, 0.1 ether, 0.1 ether);
+    callback = abi.encodeWithSelector(this.marketOrderKO.selector);
+    tkr.take(ofr, 0.1 ether);
   }
 
-  function marketOrder_on_reentrancy_fails_succeeds_test() public {
+  function marketOrderOK() external {
+    mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    try dex.simpleMarketOrder(quote, base, 0.2 ether, 0.2 ether) {
+      // all good
+    } catch {
+      TestEvents.fail("marketOrder on swapped pair should work");
+    }
+  }
+
+  function marketOrder_on_reentrancy_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
-    uint _ofr =
-      mkr.newOffer({ // new offer of inverse pair
-        wants: 1 ether,
-        gives: 1 ether,
-        gasreq: 30_000,
-        pivotId: 0
-      });
-    reentrancer = abi.encodeWithSelector( //market order on inverse pair should succeed
-      Dex.simpleMarketOrder.selector,
-      quote,
-      base,
-      0.2 ether,
-      0.2 ether
-    );
-    shouldFail = false;
-    bool success = tkr.take(ofr, 0.1 ether);
-    TestEvents.check(success, "Taker failed to take offer");
-
-    TestEvents.expectFrom(address(dex));
-    emit DexEvents.Success(_ofr, 0.2 ether, 0.2 ether);
-    emit DexEvents.Success(ofr, 0.1 ether, 0.1 ether);
+    callback = abi.encodeWithSelector(this.marketOrderOK.selector);
+    tkr.take(ofr, 0.1 ether);
   }
 
-  function internalSnipes_on_reentrancy_fails_test() public {
+  function snipeKO(uint id) external {
+    try
+      dex.snipe(base, quote, id, 1 ether, type(uint96).max, type(uint24).max)
+    {
+      TestEvents.fail("snipe on same pair should fail");
+    } catch Error(string memory reason) {
+      TestEvents.revertEq(reason, "dex/reentrancyLocked");
+    }
+  }
+
+  function snipe_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
-    uint _ofr = dex.newOffer(base, quote, 0.1 ether, 0.1 ether, 30_000, 0);
+    callback = abi.encodeWithSelector(this.snipeKO.selector);
+    tkr.take(ofr, 0.1 ether);
+  }
 
-    reentrancer = abi.encodeWithSelector(
-      Dex.snipe.selector,
-      base,
-      quote,
-      _ofr,
-      1 ether
-    );
-    shouldFail = true;
-    bool success = tkr.take(ofr, 0.1 ether);
-    TestEvents.check(success, "Taker failed to take offer");
-
-    TestEvents.expectFrom(address(dex));
-    emit DexEvents.Success(ofr, 0.1 ether, 0.1 ether);
-    TestEvents.check(
-      TestUtils.hasOffer(dex, base, quote, _ofr),
-      "offer should not be removed from Dex"
-    );
+  function snipeOK(uint id) external {
+    try
+      dex.snipe(quote, base, id, 1 ether, type(uint96).max, type(uint24).max)
+    {
+      // all good
+    } catch {
+      TestEvents.fail("snipe on swapped pair should work");
+    }
   }
 
   function internalSnipes_on_reentrancy_succeeds_test() public {
+    uint dual_ofr = mkr.newOffer(1 ether, 1 ether, 30_000, 0);
+    callback = abi.encodeWithSelector(this.snipeOK.selector, dual_ofr);
+
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
-    uint _ofr = mkr.newOffer(1 ether, 1 ether, 30_000, 0); //offer on different pair
-
-    reentrancer = abi.encodeWithSelector(
-      Dex.snipe.selector,
-      quote,
-      base,
-      _ofr,
-      0.5 ether
-    );
-    shouldFail = false;
-    bool success = tkr.take(ofr, 0.1 ether);
-    TestEvents.check(success, "Taker failed to take offer");
-
-    TestEvents.expectFrom(address(dex));
-    emit DexEvents.Success(_ofr, 0.5 ether, 0.5 ether);
-    emit DexEvents.Success(ofr, 0.1 ether, 0.1 ether);
+    tkr.take(ofr, 0.1 ether);
   }
 
   function newOffer_on_closed_fails_test() public {
