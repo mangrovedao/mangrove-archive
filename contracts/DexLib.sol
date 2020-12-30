@@ -358,7 +358,7 @@ library DexLib {
     uint weight2 = wants2 * gives1;
     if (weight1 == weight2) {
       uint gasreq1 = offerDetails[offerId1].gasreq;
-      return (gives1 * gasreq2 >= gives2 * gasreq1);
+      return (gives1 * gasreq2 < gives2 * gasreq1);
     } else {
       return weight1 < weight2;
     }
