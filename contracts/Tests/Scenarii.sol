@@ -143,19 +143,19 @@ contract Scenarii_Test {
     //TestEvents.logString("=== Insert test ===", 0);
     offerOf = TestInsert.run(balances, dex, makers, taker, base, quote);
     //Display.printOfferBook(dex);
-    //Display.logOfferBook(dex,4);
+    Display.logOfferBook(dex, address(base), address(quote), 4);
 
     //TestEvents.logString("=== Snipe test ===", 0);
     saveBalances();
     saveOffers();
     TestSnipe.run(balances, offers, dex, makers, taker, base, quote);
-    //Display.logOfferBook(dex, 4);
+    Display.logOfferBook(dex, address(base), address(quote), 4);
 
     //TestEvents.logString("=== Market order test ===", 0);
     saveBalances();
     saveOffers();
     TestMarketOrder.run(balances, offers, dex, makers, taker, base, quote);
-    //Display.logOfferBook(dex, 4);
+    Display.logOfferBook(dex, address(base), address(quote), 4);
 
     //TestEvents.logString("=== Failling offer test ===", 0);
     saveBalances();
@@ -170,7 +170,7 @@ contract Scenarii_Test {
       base,
       quote
     );
-    //Display.logOfferBook(dex, 4);
+    Display.logOfferBook(dex, address(base), address(quote), 4);
     saveBalances();
     saveOffers();
   }
