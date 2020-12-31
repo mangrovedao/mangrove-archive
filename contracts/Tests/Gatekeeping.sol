@@ -142,9 +142,38 @@ contract Gatekeeping_Test {
     }
   }
 
+  function updateOfferKO(uint ofr) external {
+    try dex.updateOffer(base, quote, 1 ether, 2 ether, 35_000, 0, ofr) {
+      TestEvents.fail("update offer on same pair should fail");
+    } catch Error(string memory reason) {
+      TestEvents.revertEq(reason, "dex/reentrancyLocked");
+    }
+  }
+
+  function updateOfferOK(uint ofr) external {
+    try dex.updateOffer(base, quote, 1 ether, 2 ether, 35_000, 0, ofr) {
+      TestEvents.succeed();
+    } catch {
+      TestEvents.fail("update offer on different pair should succeed");
+    }
+  }
+
   function newOffer_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
     callback = abi.encodeWithSelector(this.newOfferKO.selector);
+    tkr.take(ofr, 1 ether);
+  }
+
+  function updateOffer_on_reentrancy_fails_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    callback = abi.encodeWithSelector(this.updateOfferKO.selector, ofr);
+    tkr.take(ofr, 1 ether);
+  }
+
+  function updateOffer_on_reentrancy_succeeds_test() public {
+    uint ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 100_000, 0);
+    uint _ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    callback = abi.encodeWithSelector(this.updateOfferOK.selector, _ofr);
     tkr.take(ofr, 1 ether);
   }
 
@@ -275,7 +304,7 @@ contract Gatekeeping_Test {
     }
   }
 
-  function newOffer_on_inactive_test() public {
+  function newOffer_on_inactive_fails_test() public {
     dex.setActive(base, quote, false);
     try dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0) {
       TestEvents.fail("newOffer should fail on closed market");
@@ -324,5 +353,25 @@ contract Gatekeeping_Test {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0);
     dex.kill();
     dex.cancelOffer(base, quote, ofr, false);
+  }
+
+  function updateOffer_on_closed_fails_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0);
+    dex.kill();
+    try dex.updateOffer(base, quote, 1 ether, 1 ether, 0, 0, ofr) {
+      TestEvents.fail("update offer should fail on closed market");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/dead");
+    }
+  }
+
+  function updateOffer_on_inactive_fails_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0);
+    dex.setActive(base, quote, false);
+    try dex.updateOffer(base, quote, 1 ether, 1 ether, 0, 0, ofr) {
+      TestEvents.fail("update offer should fail on inactive market");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/inactive");
+    }
   }
 }
