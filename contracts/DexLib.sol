@@ -131,6 +131,10 @@ library DexLib {
     bytes memory retdata = new bytes(32);
     bool success;
     uint oldGas = gasleft();
+    /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of CALL) is $$h$$, the maker will receive at worst $$\textrm{gasreq} - \frac{63h}{64}$$ gas. */
+    /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether 63/64(gasleft-gasbase) > gasreq. If no, we'd know by induction that there is enough gas left to apply fees, stitch offers, etc (or could revert safely if no offer has been taken yet). */
+    require(oldGas - oldGas / 64 >= gasreq, "dex/notEnoughGasForMaker");
+
     assembly {
       success := call(gasreq, maker, 0, add(cd, 32), cd, add(retdata, 32), 32)
       makerData := mload(add(retdata, 32))
