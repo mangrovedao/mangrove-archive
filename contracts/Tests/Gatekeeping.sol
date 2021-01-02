@@ -203,37 +203,37 @@ contract Gatekeeping_Test {
     }
   }
 
-  function set_fee_ceiling() public {
+  function set_fee_ceiling_test() public {
     try dex.setFee(base, quote, 501) {} catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/config/<=500");
+      TestEvents.revertEq(r, "dex/config/fee/<=500");
     }
   }
 
-  function set_density_floor() public {
+  function set_density_floor_test() public {
     try dex.setDensity(base, quote, 0) {
       TestEvents.fail("density below floor should fail");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/config/density/>0)");
+      TestEvents.revertEq(r, "dex/config/density/>0");
     }
   }
 
-  function set_density_ceiling() public {
-    try dex.setDensity(base, quote, type(uint32).max + 1) {
+  function set_density_ceiling_test() public {
+    try dex.setDensity(base, quote, uint(type(uint32).max) + 1) {
       TestEvents.fail("density above ceiling should fail");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "dex/config/density/32bits");
     }
   }
 
-  function set_gasprice_ceiling() public {
-    try dex.setGasprice(type(uint48).max + 1) {
+  function set_gasprice_ceiling_test() public {
+    try dex.setGasprice(uint(type(uint48).max) + 1) {
       TestEvents.fail("gasprice above ceiling should fail");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "dex/config/gasprice/48bits");
     }
   }
 
-  function set_gasbase_floor() public {
+  function set_gasbase_floor_test() public {
     try dex.setGasbase(0) {
       TestEvents.fail("gasprice below floor should fail");
     } catch Error(string memory r) {
@@ -241,16 +241,16 @@ contract Gatekeeping_Test {
     }
   }
 
-  function set_gasbase_ceiling() public {
-    try dex.setGasbase(type(uint24).max + 1) {
+  function set_gasbase_ceiling_test() public {
+    try dex.setGasbase(uint(type(uint24).max) + 1) {
       TestEvents.fail("gasbase above ceiling should fail");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "dex/config/gasbase/24bits");
     }
   }
 
-  function set_gasmax_ceiling() public {
-    try dex.setGasmax(type(uint24).max + 1) {
+  function set_gasmax_ceiling_test() public {
+    try dex.setGasmax(uint(type(uint24).max) + 1) {
       TestEvents.fail("gasmax above ceiling should fail");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "dex/config/gasmax/24bits");
