@@ -155,17 +155,28 @@ contract TakerOperations_Test {
     emit DexEvents.MakerFail(ofr, 50 ether, 0.5 ether, false, 2);
   }
 
-  // function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
-  //   try tkr.marketOrder(2**160, 0) {
-  //     TestEvents.fail("TakerWants > 160bits, order should fail");
-  //   } catch Error(string memory r) {
-  //     TestEvents.eq(
-  //       r,
-  //       "dex/mOrder/takerWants/160bits",
-  //       "wrong revert reason"
-  //     );
-  //   }
-  // }
+  function special_gas_amount_can_swapError_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    quoteT.approve(address(dex), 100 ether);
+
+    bytes memory cd =
+      abi.encodeWithSelector(
+        Dex.snipe.selector,
+        base,
+        quote,
+        ofr,
+        1 ether,
+        1 ether,
+        100_000
+      );
+    (bool noRevert, bytes memory data) = address(dex).call{gas: 200000}(cd);
+    if (noRevert) {
+      TestEvents.fail("take should fail due to swapError");
+    } else {
+      TestEvents.revertEq(TestUtils.getReason(data), "dex/swapError");
+    }
+  }
+
   //
   // function unsafe_gas_left_fails_order_test() public {
   //   dex.setGasbase(1);
