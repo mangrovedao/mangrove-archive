@@ -140,6 +140,8 @@ library DexLib {
       makerData := mload(add(retdata, 32))
     }
     gasUsed = oldGas - gasleft();
+    // An example why this is not safe if ERC20 has a callback:
+    // https://peckshield.medium.com/akropolis-incident-root-cause-analysis-c11ee59e05d4
     uint newBalance = IERC20(orp.base).balanceOf(msg.sender);
     /* The second check (`newBalance >= oldBalance`) protects against overflow. */
     if (newBalance >= oldBalance + wants && newBalance >= oldBalance) {
