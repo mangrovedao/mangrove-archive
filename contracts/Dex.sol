@@ -231,7 +231,6 @@ contract Dex is HasAdmin {
         oldOffer: offers[base][quote][offerId]
       });
     requireActiveMarket(ofp.config);
-    emit DexEvents.UpdateOffer(wants, gives, gasreq, offerId);
     return DexLib.writeOffer(ofp, freeWei, offers, offerDetails, bests, true);
   }
 

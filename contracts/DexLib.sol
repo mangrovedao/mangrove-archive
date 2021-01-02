@@ -186,6 +186,17 @@ library DexLib {
     mapping(address => mapping(address => uint)) storage bests,
     bool update
   ) external returns (uint) {
+    emit DexEvents.WriteOffer(
+      ofp.base,
+      ofp.quote,
+      msg.sender,
+      ofp.wants,
+      ofp.gives,
+      ofp.gasreq,
+      ofp.id,
+      update
+    );
+
     /* The following checks are first performed: */
     //+clear+
     /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `provision` (see below). */
@@ -372,7 +383,7 @@ library DexLib {
   }
 
   /* The utility method `better`
-    returns false iff the point induced by _(`wants1`,`gives1`,`offerDetails[offerId1].gasreq`)_ is strictly worse than the point induced by _(`wants2`,`gives2`,`gasreq2`)_. It makes `findPosition` easier to read. "Worse" is defined on the lexicographic order $\textrm{price} \times_{\textrm{lex}} \textrm{density}^{-1}$. 
+    returns false iff the point induced by _(`wants1`,`gives1`,`offerDetails[offerId1].gasreq`)_ is strictly worse than the point induced by _(`wants2`,`gives2`,`gasreq2`)_. It makes `findPosition` easier to read. "Worse" is defined on the lexicographic order $\textrm{price} \times_{\textrm{lex}} \textrm{density}^{-1}$.
 
     This means that for the same price, offers that deliver more volume per gas are taken first.
 

@@ -240,17 +240,16 @@ library DexEvents {
 
   /* * A new offer was inserted into book.
    `maker` is the address of the contract that implements the offer. */
-  event NewOffer(
+  event WriteOffer(
     address base,
     address quote,
     address maker,
     uint wants,
     uint gives,
     uint gasreq,
-    uint offerId
+    uint offerId,
+    bool updated
   );
-  /* * An offer was created/updated into book. Creation if offerId is new. */
-  event UpdateOffer(uint wants, uint gives, uint gasreq, uint offerId);
 
   /* * An offer was canceled (and possibly erase). */
   event CancelOffer(uint offerId, bool erase);
