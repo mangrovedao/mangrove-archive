@@ -73,7 +73,6 @@ contract Gatekeeping_Test {
 
     baseT.approve(address(dex), 1 ether);
     tkr.approve(quoteT, 1 ether);
-    mkr.approve(quoteT, 1 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "Gatekeeping_Test/maker");

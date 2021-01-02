@@ -74,10 +74,6 @@ contract TestMaker is IMaker, Passthrough {
     return dex.withdraw(amount);
   }
 
-  function approve(IERC20 token, uint amount) public {
-    token.approve(address(dex), amount);
-  }
-
   function freeWei() public view returns (uint) {
     return dex.balanceOf(address(this));
   }
