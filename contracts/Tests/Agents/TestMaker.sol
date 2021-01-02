@@ -41,8 +41,11 @@ contract TestMaker is IMaker, Passthrough {
     taker; // silence warning
     emit Execute(takerWants, takerGives, gasprice, offerId);
     if (!shouldFail) {
-      bool s = IERC20(base).transfer(taker, takerWants);
-      return s ? 0 : 2;
+      try IERC20(base).transfer(taker, takerWants) {
+        return 0;
+      } catch {
+        return 2;
+      }
     } else {
       return 1;
     }
