@@ -978,7 +978,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* `density > 0` ensures various invariants -- this documentation explains each time how it is relevant. */
     require(value > 0, "dex/config/density/>0");
     /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
-    require(uint32(value) == value);
+    require(uint32(value) == value, "dex/config/density/32bits");
     //+clear+
     locals[base][quote].density = uint32(value);
     emit DexEvents.SetDensity(base, quote, value);
