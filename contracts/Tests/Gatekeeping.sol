@@ -77,6 +77,7 @@ contract Gatekeeping_Test {
   Dex dex;
   TestTaker tkr;
   TestMaker mkr;
+  TestMaker dual_mkr;
   address base;
   address quote;
 
@@ -87,19 +88,23 @@ contract Gatekeeping_Test {
     quote = address(quoteT);
     dex = DexSetup.setup(baseT, quoteT);
     tkr = TakerSetup.setup(dex, base, quote);
-    mkr = MakerSetup.setup(dex, quote, base);
+    mkr = MakerSetup.setup(dex, base, quote);
+    dual_mkr = MakerSetup.setup(dex, quote, base);
 
     address(tkr).transfer(10 ether);
     address(mkr).transfer(10 ether);
+    address(dual_mkr).transfer(10 ether);
 
     bool noRevert;
     (noRevert, ) = address(dex).call{value: 10 ether}("");
 
     mkr.provisionDex(5 ether);
+    dual_mkr.provisionDex(5 ether);
 
     baseT.mint(address(this), 2 ether);
     quoteT.mint(address(tkr), 1 ether);
     quoteT.mint(address(mkr), 1 ether);
+    baseT.mint(address(dual_mkr), 1 ether);
 
     baseT.approve(address(dex), 1 ether);
     tkr.approve(quoteT, 1 ether);
@@ -110,7 +115,8 @@ contract Gatekeeping_Test {
     Display.register(quote, "$B");
     Display.register(address(dex), "dex");
     Display.register(address(tkr), "taker[$A,$B]");
-    Display.register(address(mkr), "maker[$B,$A]");
+    Display.register(address(dual_mkr), "maker[$B,$A]");
+    Display.register(address(mkr), "maker[$A,$B]");
   }
 
   function admin_can_transfer_rights_test() public {
@@ -399,7 +405,7 @@ contract Gatekeeping_Test {
   }
 
   function marketOrderOK() external {
-    mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    dual_mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     try dex.simpleMarketOrder(quote, base, 0.2 ether, 0.2 ether) {
       // all good
     } catch {
@@ -440,7 +446,7 @@ contract Gatekeeping_Test {
   }
 
   function internalSnipes_on_reentrancy_succeeds_test() public {
-    uint dual_ofr = mkr.newOffer(1 ether, 1 ether, 30_000, 0);
+    uint dual_ofr = dual_mkr.newOffer(1 ether, 1 ether, 30_000, 0);
     callback = abi.encodeWithSelector(this.snipeOK.selector, dual_ofr);
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
