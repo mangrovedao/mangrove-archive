@@ -24,6 +24,27 @@ library TestUtils {
   }
   enum Info {makerWants, makerGives, nextId, gasreq, gasprice}
 
+  function getReason(bytes memory returnData)
+    internal
+    view
+    returns (string memory reason)
+  {
+    /* returnData for a revert(reason) is the result of 
+       abi.encodeWithSignature("Error(string)",reason)
+       but abi.decode assumes the first 4 bytes are padded to 32
+       so we repad them. See:
+       https://github.com/ethereum/solidity/issues/6012
+     */
+    console.logBytes(returnData);
+    bytes memory pointer = abi.encodePacked(bytes28(0), returnData);
+    uint len = returnData.length - 4;
+    assembly {
+      pointer := add(32, pointer)
+      mstore(pointer, len)
+    }
+    reason = abi.decode(pointer, (string));
+  }
+
   function isEmptyOB(
     Dex dex,
     address base,
