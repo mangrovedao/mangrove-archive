@@ -20,8 +20,6 @@ import "./Agents/TestTaker.sol";
 
 contract NotAdmin {
   Dex dex;
-  address base;
-  address quote;
 
   constructor(Dex _dex) {
     dex = _dex;
@@ -31,12 +29,44 @@ contract NotAdmin {
     dex.setGasprice(value);
   }
 
-  function setFee(uint fee) public {
+  function setFee(
+    address base,
+    address quote,
+    uint fee
+  ) public {
     dex.setFee(base, quote, fee);
   }
 
   function setAdmin(address newAdmin) public {
     dex.setAdmin(newAdmin);
+  }
+
+  function kill() public {
+    dex.kill();
+  }
+
+  function setActive(
+    address base,
+    address quote,
+    bool value
+  ) public {
+    dex.setActive(base, quote, value);
+  }
+
+  function setGasbase(uint value) public {
+    dex.setGasbase(value);
+  }
+
+  function setGasmax(uint value) public {
+    dex.setGasmax(value);
+  }
+
+  function setDensity(
+    address base,
+    address quote,
+    uint value
+  ) public {
+    dex.setDensity(base, quote, value);
   }
 }
 
@@ -83,31 +113,165 @@ contract Gatekeeping_Test {
     Display.register(address(mkr), "maker[$B,$A]");
   }
 
-  function admin_can_set_admin_test() public {
+  function admin_can_transfer_rights_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
-    try dex.setAdmin(address(notAdmin)) {
-      try notAdmin.setAdmin(address(this)) {
-        try notAdmin.setGasprice(10000) {
-          TestEvents.fail("notAdmin should no longer have admin rights");
-        } catch Error(string memory nolonger_admin) {
-          TestEvents.revertEq(nolonger_admin, "HasAdmin/adminOnly");
-        }
-      } catch {
-        TestEvents.fail("notAdmin should have been given admin rights");
-      }
-    } catch {
-      TestEvents.fail("failed to pass admin rights");
+    dex.setAdmin(address(notAdmin));
+
+    try dex.setFee(base, quote, 0) {
+      TestEvents.fail("testing contracts should no longer be admin");
+    } catch {}
+
+    try notAdmin.setFee(base, quote, 0) {} catch {
+      TestEvents.fail("notAdmin should have been given admin rights");
     }
   }
 
-  function only_admin_can_set_config_test() public {
+  function only_admin_can_set_fee_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
-    try notAdmin.setFee(0) {
-      TestEvents.fail(
-        "someone other than admin should not be able to set the configuration"
-      );
+    try notAdmin.setFee(base, quote, 0) {
+      TestEvents.fail("nonadmin cannot set fee");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "HasAdmin/adminOnly");
+    }
+  }
+
+  function only_admin_can_set_density_test() public {
+    NotAdmin notAdmin = new NotAdmin(dex);
+    try notAdmin.setDensity(base, quote, 0) {
+      TestEvents.fail("nonadmin cannot set density");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "HasAdmin/adminOnly");
+    }
+  }
+
+  function only_admin_can_kill_test() public {
+    NotAdmin notAdmin = new NotAdmin(dex);
+    try notAdmin.kill() {
+      TestEvents.fail("nonadmin cannot kill");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "HasAdmin/adminOnly");
+    }
+  }
+
+  function only_admin_can_set_active_test() public {
+    NotAdmin notAdmin = new NotAdmin(dex);
+    try notAdmin.setActive(quote, base, true) {
+      TestEvents.fail("nonadmin cannot set active");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "HasAdmin/adminOnly");
+    }
+  }
+
+  function only_admin_can_set_gasprice_test() public {
+    NotAdmin notAdmin = new NotAdmin(dex);
+    try notAdmin.setGasprice(0) {
+      TestEvents.fail("nonadmin cannot set gasprice");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "HasAdmin/adminOnly");
+    }
+  }
+
+  function only_admin_can_set_gasmax_test() public {
+    NotAdmin notAdmin = new NotAdmin(dex);
+    try notAdmin.setGasmax(0) {
+      TestEvents.fail("nonadmin cannot set gasmax");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "HasAdmin/adminOnly");
+    }
+  }
+
+  function only_admin_can_set_gasbase_test() public {
+    NotAdmin notAdmin = new NotAdmin(dex);
+    try notAdmin.setGasbase(0) {
+      TestEvents.fail("nonadmin cannot set gasbase");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "HasAdmin/adminOnly");
+    }
+  }
+
+  function empty_dex_throws_test() public {
+    try tkr.marketOrder(0, 0) {
+      TestEvents.fail("market order on empty dex should fail");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/marketOrder/noSuchOffer");
+    }
+  }
+
+  function set_fee_ceiling() public {
+    try dex.setFee(base, quote, 501) {} catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/config/<=500");
+    }
+  }
+
+  function set_density_floor() public {
+    try dex.setDensity(base, quote, 0) {
+      TestEvents.fail("density below floor should fail");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/config/density/>0)");
+    }
+  }
+
+  function set_density_ceiling() public {
+    try dex.setDensity(base, quote, type(uint32).max + 1) {
+      TestEvents.fail("density above ceiling should fail");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/config/density/32bits");
+    }
+  }
+
+  function set_gasprice_ceiling() public {
+    try dex.setGasprice(type(uint48).max + 1) {
+      TestEvents.fail("gasprice above ceiling should fail");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/config/gasprice/48bits");
+    }
+  }
+
+  function set_gasbase_floor() public {
+    try dex.setGasbase(0) {
+      TestEvents.fail("gasprice below floor should fail");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/config/gasbase/>0");
+    }
+  }
+
+  function set_gasbase_ceiling() public {
+    try dex.setGasbase(type(uint24).max + 1) {
+      TestEvents.fail("gasbase above ceiling should fail");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/config/gasbase/24bits");
+    }
+  }
+
+  function set_gasmax_ceiling() public {
+    try dex.setGasmax(type(uint24).max + 1) {
+      TestEvents.fail("gasmax above ceiling should fail");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/config/gasmax/24bits");
+    }
+  }
+
+  function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
+    try tkr.marketOrder(2**160, 0) {
+      TestEvents.fail("takerWants > 160bits, order should fail");
+    } catch Error(string memory r) {
+      TestEvents.eq(r, "dex/mOrder/takerWants/160bits", "wrong revert reason");
+    }
+  }
+
+  function takerWants_above_96bits_fails_internalSnipes_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [
+      ofr,
+      uint(type(uint96).max) + 1,
+      type(uint96).max,
+      type(uint).max
+    ];
+    try dex.internalSnipes(base, quote, targets, 0) {
+      TestEvents.fail("Snipes with takerWants > 96bits should fail");
+    } catch Error(string memory reason) {
+      TestEvents.revertEq(reason, "dex/internalSnipes/takerWants/96bits");
     }
   }
 
