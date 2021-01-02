@@ -129,7 +129,7 @@ contract Gatekeeping_Test {
   }
 
   function testGas_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0);
     tkr.take(ofr, 1 ether);
   }
 
