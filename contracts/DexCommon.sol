@@ -189,8 +189,6 @@ They have the following fields: */
   struct OrderPack {
     address base;
     address quote;
-    uint wants;
-    uint gives;
     uint initialWants;
     uint initialGives;
     uint offerId;

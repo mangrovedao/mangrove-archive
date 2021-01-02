@@ -319,8 +319,6 @@ contract Dex is HasAdmin {
       DC.OrderPack({
         base: base,
         quote: quote,
-        wants: 0,
-        gives: 0,
         offerId: offerId,
         offer: offers[base][quote][offerId],
         config: config(base, quote),
