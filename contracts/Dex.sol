@@ -532,7 +532,7 @@ contract Dex is HasAdmin {
 
   //+clear+
   /*
-     From an array of _n_ `(offerId, takerWants)` pairs (encoded as a `uint[2][]` of size _2n_)
+     From an array of _n_ `(offerId, takerWants,takerGives,gasreq)` pairs (encoded as a `uint[2][]` of size _2n_)
      execute each snipe in sequence.
 
      Also accepts an optional `punishLength` (as in
