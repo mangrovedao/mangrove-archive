@@ -158,31 +158,21 @@ contract TakerOperations_Test {
   function snipe_on_higher_price_fails_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     quoteT.approve(address(dex), 0.5 ether);
-    try dex.snipe(base, quote, ofr, 1 ether, 0.5 ether, 100_000) returns (
-      bool success
-    ) {
-      TestEvents.check(
-        !success,
-        "Order should fail when order price is higher than offer"
-      );
-    } catch Error(string memory msg) {
-      TestEvents.eq(msg, "dex/offerTooLow", "wrong revert reason");
-    }
+    bool success = dex.snipe(base, quote, ofr, 1 ether, 0.5 ether, 100_000);
+    TestEvents.check(
+      !success,
+      "Order should fail when order price is higher than offer"
+    );
   }
 
   function snipe_on_higher_gas_fails_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     quoteT.approve(address(dex), 1 ether);
-    try dex.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000) returns (
-      bool success
-    ) {
-      TestEvents.check(
-        !success,
-        "Order should fail when order price is higher than offer"
-      );
-    } catch Error(string memory msg) {
-      TestEvents.eq(msg, "dex/gasTooLow", "wrong revert reason");
-    }
+    bool success = dex.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000);
+    TestEvents.check(
+      !success,
+      "Order should fail when order gas is higher than offer"
+    );
   }
 
   function snipe_on_lower_price_succeeds_test() public {
