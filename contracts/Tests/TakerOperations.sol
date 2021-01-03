@@ -175,6 +175,29 @@ contract TakerOperations_Test {
     );
   }
 
+  function special_gas_amount_can_swapError_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    quoteT.approve(address(dex), 100 ether);
+
+    bytes memory cd =
+      abi.encodeWithSelector(
+        Dex.snipe.selector,
+        base,
+        quote,
+        ofr,
+        1 ether,
+        1 ether,
+        100_000
+      );
+
+    (bool noRevert, bytes memory data) = address(dex).call{gas: 200000}(cd);
+    if (noRevert) {
+      TestEvents.fail("take should fail due to swapError");
+    } else {
+      TestEvents.revertEq(TestUtils.getReason(data), "dex/swapError");
+    }
+  }
+
   function snipe_on_lower_price_succeeds_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     quoteT.approve(address(dex), 2 ether);
