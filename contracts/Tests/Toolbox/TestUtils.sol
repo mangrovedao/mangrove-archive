@@ -35,7 +35,6 @@ library TestUtils {
        so we repad them. See:
        https://github.com/ethereum/solidity/issues/6012
      */
-    console.logBytes(returnData);
     bytes memory pointer = abi.encodePacked(bytes28(0), returnData);
     uint len = returnData.length - 4;
     assembly {
