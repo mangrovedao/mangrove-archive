@@ -305,7 +305,7 @@ contract Dex is HasAdmin {
     public
     returns (
       /* The return value is used for book cleaning: it contains a list (of length `2 * punishLength`) of the offers that failed during the market order, along with the gas they used before failing. */
-      uint[2][] memory failures
+      uint[2][] memory toPunish
     )
   {
     /* ### Checks */
@@ -322,8 +322,8 @@ contract Dex is HasAdmin {
         offerId: offerId,
         offer: offers[base][quote][offerId],
         config: config(base, quote),
-        failures: new uint[2][](punishLength),
-        numFailures: 0,
+        toPunish: new uint[2][](punishLength),
+        numToPunish: 0,
         initialWants: takerWants,
         totalGot: 0,
         initialGives: takerGives,
@@ -397,7 +397,7 @@ contract Dex is HasAdmin {
     //if callback maker using recursion: ! warning ! orp now has new values
 
     applyFee(orp);
-    restrictMemoryArrayLength(orp.failures, orp.numFailures);
+    restrictMemoryArrayLength(orp.toPunish, orp.numToPunish);
     DC.stitchOffers(
       orp.base,
       orp.quote,
@@ -406,7 +406,7 @@ contract Dex is HasAdmin {
       pastOfferId,
       orp.offerId
     );
-    failures = orp.failures;
+    toPunish = orp.toPunish;
     locks[base][quote] = UNLOCKED;
   }
 
@@ -504,9 +504,9 @@ contract Dex is HasAdmin {
         result == DC.SwapResult.MakerReverted,
         makerData
       );
-      if (orp.numFailures < orp.failures.length) {
-        orp.failures[orp.numFailures] = [orp.offerId, gasUsed];
-        orp.numFailures++;
+      if (orp.numToPunish < orp.toPunish.length) {
+        orp.toPunish[orp.numToPunish] = [orp.offerId, gasUsed];
+        orp.numToPunish++;
       }
     }
     applyPenalty(success, gasUsed, offerDetail);
@@ -526,8 +526,8 @@ contract Dex is HasAdmin {
   ) external returns (bool) {
     uint[4][] memory targets = new uint[4][](1);
     targets[0] = [offerId, takerWants, takerGives, gasreq];
-    uint[2][] memory failures = internalSnipes(base, quote, targets, 1);
-    return (failures.length == 0);
+    (uint successes, ) = internalSnipes(base, quote, targets, 1);
+    return (successes == 1);
   }
 
   //+clear+
@@ -544,7 +544,7 @@ contract Dex is HasAdmin {
     address quote,
     uint[4][] memory targets,
     uint punishLength
-  ) public returns (uint[2][] memory failures) {
+  ) public returns (uint successes, uint[2][] memory toPunish) {
     unlockedOnly(base, quote);
     locks[base][quote] = LOCKED;
     /* ### Pre-loop Checks */
@@ -553,8 +553,8 @@ contract Dex is HasAdmin {
     orp.base = base;
     orp.quote = quote;
     orp.config = config(base, quote);
-    orp.numFailures = 0;
-    orp.failures = new uint[2][](punishLength);
+    orp.numToPunish = 0;
+    orp.toPunish = new uint[2][](punishLength);
     orp.totalGot = 0;
     orp.totalGave = 0;
 
@@ -581,6 +581,9 @@ contract Dex is HasAdmin {
         uint wants = targets[i][1];
         uint gives = targets[i][2];
         (, success, toDelete) = executeOrderPack(orp, wants, gives);
+        if (success) {
+          successes += 1;
+        }
         if (toDelete) {
           dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
           DC.stitchOffers(
@@ -596,13 +599,13 @@ contract Dex is HasAdmin {
     }
     /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
     applyFee(orp);
-    restrictMemoryArrayLength(orp.failures, orp.numFailures);
+    restrictMemoryArrayLength(orp.toPunish, orp.numToPunish);
 
-    failures = orp.failures;
+    toPunish = orp.toPunish;
     locks[base][quote] = UNLOCKED;
   }
 
-  /* The `failures` array initially has size `punishLength`. To remember the number of failures actually stored in `failures` (which can be strictly less than `punishLength`), we store `numFailures` in the length field of `failures`. This also saves on the amount of memory copied in the return value.
+  /* The `toPunish` array initially has size `punishLength`. To remember the number of failures actually stored in `toPunish` (which can be strictly less than `punishLength`), we store `numToPunish` in the length field of `toPunish`. This also saves on the amount of memory copied in the return value.
 
        The line below is hackish though, and we may want to just return a `(uint,uint[2][])` pair.
     */
@@ -721,7 +724,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     if (noRevert) {
       evmRevert(abi.decode(retdata, (bytes)));
     } else {
-      punish(base, quote, abi.decode(retdata, (uint[2][])));
+      (, uint[2][] memory toPunish) = abi.decode(retdata, (uint, uint[2][]));
+      punish(base, quote, toPunish);
     }
   }
 
@@ -832,21 +836,21 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   function punish(
     address base,
     address quote,
-    uint[2][] memory failures
+    uint[2][] memory toPunish
   ) internal {
-    uint failureIndex;
-    while (failureIndex < failures.length) {
-      uint id = failures[failureIndex][0];
+    uint punishIndex;
+    while (punishIndex < toPunish.length) {
+      uint id = toPunish[punishIndex][0];
       /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
       DC.Offer memory offer = offers[base][quote][id];
       if (DC.isLive(offer)) {
         DC.OfferDetail memory offerDetail = offerDetails[id];
         dirtyDeleteOffer(base, quote, id);
         DC.stitchOffers(base, quote, offers, bests, offer.prev, offer.next);
-        uint gasUsed = failures[failureIndex][1];
+        uint gasUsed = toPunish[punishIndex][1];
         applyPenalty(false, gasUsed, offerDetail);
       }
-      failureIndex++;
+      punishIndex++;
     }
   }
 

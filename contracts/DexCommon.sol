@@ -196,8 +196,8 @@ They have the following fields: */
     uint totalGave;
     Offer offer;
     Config config;
-    uint numFailures;
-    uint[2][] failures;
+    uint numToPunish;
+    uint[2][] toPunish;
   }
 
   enum SwapResult {OK, TakerTransferFail, MakerTransferFail, MakerReverted}
