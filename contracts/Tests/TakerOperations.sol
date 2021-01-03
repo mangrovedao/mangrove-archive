@@ -155,28 +155,69 @@ contract TakerOperations_Test {
     emit DexEvents.MakerFail(ofr, 50 ether, 0.5 ether, false, 2);
   }
 
-  function special_gas_amount_can_swapError_test() public {
+  function snipe_on_higher_price_fails_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
-    quoteT.approve(address(dex), 100 ether);
-
-    bytes memory cd =
-      abi.encodeWithSelector(
-        Dex.snipe.selector,
-        base,
-        quote,
-        ofr,
-        1 ether,
-        1 ether,
-        100_000
+    quoteT.approve(address(dex), 0.5 ether);
+    try dex.snipe(base, quote, ofr, 1 ether, 0.5 ether, 100_000) returns (
+      bool success
+    ) {
+      TestEvents.check(
+        !success,
+        "Order should fail when order price is higher than offer"
       );
-    (bool noRevert, bytes memory data) = address(dex).call{gas: 200000}(cd);
-    if (noRevert) {
-      TestEvents.fail("take should fail due to swapError");
-    } else {
-      TestEvents.revertEq(TestUtils.getReason(data), "dex/swapError");
+    } catch Error(string memory msg) {
+      TestEvents.eq(msg, "dex/offerTooLow", "wrong revert reason");
     }
   }
 
+  function snipe_on_higher_gas_fails_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    quoteT.approve(address(dex), 1 ether);
+    try dex.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000) returns (
+      bool success
+    ) {
+      TestEvents.check(
+        !success,
+        "Order should fail when order price is higher than offer"
+      );
+    } catch Error(string memory msg) {
+      TestEvents.eq(msg, "dex/gasTooLow", "wrong revert reason");
+    }
+  }
+
+  function snipe_on_lower_price_succeeds_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    quoteT.approve(address(dex), 2 ether);
+    uint balTaker = baseT.balanceOf(address(this));
+    uint balMaker = quoteT.balanceOf(address(mkr));
+    bool success = dex.snipe(base, quote, ofr, 1 ether, 2 ether, 100_000);
+    TestEvents.check(
+      success,
+      "Order should succeed when order price is lower than offer"
+    );
+    // checking order was executed at Maker's price
+    TestEvents.eq(
+      baseT.balanceOf(address(this)) - balTaker,
+      1 ether,
+      "Incorrect delivered amount (taker)"
+    );
+    TestEvents.eq(
+      quoteT.balanceOf(address(mkr)) - balMaker,
+      1 ether,
+      "Incorrect delivered amount (maker)"
+    );
+  }
+  // function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
+  //   try tkr.marketOrder(2**160, 0) {
+  //     TestEvents.fail("TakerWants > 160bits, order should fail");
+  //   } catch Error(string memory r) {
+  //     TestEvents.eq(
+  //       r,
+  //       "dex/mOrder/takerWants/160bits",
+  //       "wrong revert reason"
+  //     );
+  //   }
+  // }
   //
   // function unsafe_gas_left_fails_order_test() public {
   //   dex.setGasbase(1);
