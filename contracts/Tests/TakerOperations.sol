@@ -112,7 +112,7 @@ contract TakerOperations_Test {
   }
 
   function simple_marketOrder_test() public {
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    mkr.newOffer(1 ether, 1 ether, 50_000, 0);
     baseT.approve(address(dex), 1 ether);
     quoteT.approve(address(dex), 1 ether);
     uint balTaker = baseT.balanceOf(address(this));
