@@ -23,23 +23,13 @@ library DexLib {
     DC.OfferDetail calldata offerDetail,
     uint wants,
     uint gives
-  )
-    external
-    returns (
-      DC.SwapResult result,
-      uint makerData,
-      uint gasUsed
-    )
-  {
+  ) external returns (uint gasUsed) {
+    /* the transfer from taker to maker must be in this function
+       so that any issue with the maker also reverts the flashloan */
     if (transferToken(orp.quote, msg.sender, offerDetail.maker, gives)) {
-      (result, makerData, gasUsed) = makerExecute(
-        orp,
-        offerDetail,
-        wants,
-        gives
-      );
+      gasUsed = makerExecute(orp, offerDetail, wants, gives);
     } else {
-      result = DC.SwapResult.TakerTransferFail;
+      innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
     }
   }
 
@@ -66,37 +56,28 @@ library DexLib {
     DC.OfferDetail calldata offerDetail,
     uint wants,
     uint gives
-  )
-    external
-    returns (
-      DC.SwapResult result,
-      uint makerData,
-      uint gasUsed
-    )
-  {
-    (result, makerData, gasUsed) = makerExecute(orp, offerDetail, wants, gives);
+  ) external returns (uint gasUsed) {
+    gasUsed = makerExecute(orp, offerDetail, wants, gives);
 
-    if (result == DC.SwapResult.OK) {
-      uint oldBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
+    uint oldBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
 
-      /* FIXME should be a different interface for taker */
-      IMaker(msg.sender).execute(
-        orp.base,
-        orp.quote,
-        wants,
-        gives,
-        offerDetail.maker,
-        offerDetail.gasprice,
-        orp.offerId
-      );
+    /* FIXME should be a different interface for taker */
+    IMaker(msg.sender).execute(
+      orp.base,
+      orp.quote,
+      wants,
+      gives,
+      offerDetail.maker,
+      offerDetail.gasprice,
+      orp.offerId
+    );
 
-      uint newBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
-      /* The second check (`newBalance >= oldBalance`) protects against overflow. */
-      if (newBalance >= oldBalance + gives && newBalance >= oldBalance) {
-        result = DC.SwapResult.OK;
-      } else {
-        result = DC.SwapResult.TakerTransferFail;
-      }
+    uint newBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
+    /* The second check (`newBalance >= oldBalance`) protects against overflow. */
+    if (newBalance >= oldBalance + gives && newBalance >= oldBalance) {
+      // ok
+    } else {
+      innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
     }
   }
 
@@ -105,14 +86,7 @@ library DexLib {
     DC.OfferDetail calldata offerDetail,
     uint wants,
     uint gives
-  )
-    internal
-    returns (
-      DC.SwapResult result,
-      uint makerData,
-      uint gasUsed
-    )
-  {
+  ) internal returns (uint gasUsed) {
     bytes memory cd =
       abi.encodeWithSelector(
         IMaker.execute.selector,
@@ -130,10 +104,13 @@ library DexLib {
     address maker = offerDetail.maker;
     bytes memory retdata = new bytes(32);
     bool success;
+    uint makerData;
     uint oldGas = gasleft();
     /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of CALL) is $$h$$, the maker will receive at worst $$\textrm{gasreq} - \frac{63h}{64}$$ gas. */
     /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether 63/64(gasleft-gasbase) > gasreq. If no, we'd know by induction that there is enough gas left to apply fees, stitch offers, etc (or could revert safely if no offer has been taken yet). */
-    require(oldGas - oldGas / 64 >= gasreq, "dex/notEnoughGasForMaker");
+    if (!(oldGas - oldGas / 64 >= gasreq)) {
+      innerRevert([bytes32("dex/notEnoughGasForMaker"), "", ""]);
+    }
 
     assembly {
       success := call(gasreq, maker, 0, add(cd, 32), cd, add(retdata, 32), 32)
@@ -145,11 +122,21 @@ library DexLib {
     uint newBalance = IERC20(orp.base).balanceOf(msg.sender);
     /* The second check (`newBalance >= oldBalance`) protects against overflow. */
     if (newBalance >= oldBalance + wants && newBalance >= oldBalance) {
-      result = DC.SwapResult.OK;
+      // ok
     } else if (!success) {
-      result = DC.SwapResult.MakerReverted;
+      innerRevert(
+        [bytes32("dex/makerRevert"), bytes32(gasUsed), bytes32(makerData)]
+      );
     } else {
-      result = DC.SwapResult.MakerTransferFail;
+      innerRevert(
+        [bytes32("dex/makerTransferFail"), bytes32(gasUsed), bytes32(makerData)]
+      );
+    }
+  }
+
+  function innerRevert(bytes32[3] memory data) internal pure {
+    assembly {
+      revert(data, 96)
     }
   }
 

@@ -10,6 +10,7 @@ contract TestMaker is IMaker, Passthrough {
   address base;
   address quote;
   bool shouldFail;
+  bool _shouldRevert;
 
   constructor(
     Dex _dex,
@@ -27,6 +28,10 @@ contract TestMaker is IMaker, Passthrough {
 
   receive() external payable {}
 
+  function shouldRevert(bool should) external {
+    _shouldRevert = should;
+  }
+
   function execute(
     address _base,
     address _quote,
@@ -40,6 +45,12 @@ contract TestMaker is IMaker, Passthrough {
     _quote; // silence warning
     taker; // silence warning
     emit Execute(takerWants, takerGives, gasprice, offerId);
+    if (_shouldRevert) {
+      bytes32[1] memory three = [bytes32(uint(3))];
+      assembly {
+        revert(three, 32)
+      }
+    }
     if (!shouldFail) {
       try IERC20(base).transfer(taker, takerWants) {
         return 0;

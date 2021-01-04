@@ -72,6 +72,18 @@ contract TakerOperations_Test {
     );
   }
 
+  function taker_reimbursed_if_maker_reverts_test() public {
+    quoteT.approve(address(dex), 1 ether);
+    uint ofr = badmkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    badmkr.shouldRevert(true);
+    uint before = quoteT.balanceOf(address(this));
+    dex.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000);
+    TestEvents.check(
+      before <= quoteT.balanceOf(address(this)),
+      "taker balance should not be lower if maker doesn't pay back"
+    );
+  }
+
   function taker_hasnt_approved_base_fails_order_with_fee_test() public {
     dex.setFee(base, quote, 3);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
@@ -174,6 +186,15 @@ contract TakerOperations_Test {
     emit DexEvents.MakerFail(ofr, 50 ether, 0.5 ether, false, 2);
   }
 
+  function maker_revert_is_logged_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    mkr.shouldRevert(true);
+    quoteT.approve(address(dex), 1 ether);
+    dex.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000);
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.MakerFail(ofr, 1 ether, 1 ether, true, 3);
+  }
+
   function snipe_on_higher_price_fails_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     quoteT.approve(address(dex), 0.5 ether);
@@ -194,7 +215,7 @@ contract TakerOperations_Test {
     );
   }
 
-  function special_gas_amount_can_swapError_test() public {
+  function detect_lowgas_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     quoteT.approve(address(dex), 100 ether);
 
@@ -211,9 +232,12 @@ contract TakerOperations_Test {
 
     (bool noRevert, bytes memory data) = address(dex).call{gas: 200000}(cd);
     if (noRevert) {
-      TestEvents.fail("take should fail due to swapError");
+      TestEvents.fail("take should fail due to low gas");
     } else {
-      TestEvents.revertEq(TestUtils.getReason(data), "dex/swapError");
+      TestEvents.revertEq(
+        TestUtils.getReason(data),
+        "dex/notEnoughGasForMaker"
+      );
     }
   }
 

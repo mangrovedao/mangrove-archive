@@ -459,25 +459,17 @@ contract Dex is HasAdmin {
 
     Note that any spurious exception due to an error in Dex code will be falsely blamed on the Maker, and its provision for the offer will be unfairly taken away.
     */
-    (bool noRevert, bytes memory retdata) =
-      address(DexLib).delegatecall(
-        abi.encodeWithSelector(SWAPPER, orp, offerDetail, wants, gives)
-      );
+    bytes memory retdata;
+    (success, retdata) = address(DexLib).delegatecall(
+      abi.encodeWithSelector(SWAPPER, orp, offerDetail, wants, gives)
+    );
+
+    uint gasUsed;
 
     /* Revert if SWAPPER reverted. **Danger**: if a well-crafted offer/maker pair can force a revert of SWAPPER, the Dex will be stuck. */
-    if (!noRevert) {
-      revert("dex/swapError");
-    }
-
-    (DC.SwapResult result, uint makerData, uint gasUsed) =
-      abi.decode(retdata, (DC.SwapResult, uint, uint));
-
-    if (result == DC.SwapResult.TakerTransferFail) {
-      revert("dex/takerFailToPayMaker");
-    }
-
-    success = result == DC.SwapResult.OK;
     if (success) {
+      gasUsed = abi.decode(retdata, (uint));
+
       emit DexEvents.Success(orp.offerId, wants, gives);
       orp.totalGot += wants;
       orp.totalGave += gives;
@@ -496,20 +488,51 @@ contract Dex is HasAdmin {
         toDelete = true;
       }
     } else {
-      toDelete = true;
-      emit DexEvents.MakerFail(
-        orp.offerId,
-        wants,
-        gives,
-        result == DC.SwapResult.MakerReverted,
-        makerData
-      );
-      if (orp.numToPunish < orp.toPunish.length) {
-        orp.toPunish[orp.numToPunish] = [orp.offerId, gasUsed];
-        orp.numToPunish++;
+      /* This short reason string should not be exploitable by maker/taker! */
+      bytes32 errorCode;
+      uint makerData;
+      (errorCode, gasUsed, makerData) = innerDecode(retdata);
+      if (
+        errorCode == "dex/makerRevert" || errorCode == "dex/makerTransferFail"
+      ) {
+        toDelete = true;
+        emit DexEvents.MakerFail(
+          orp.offerId,
+          wants,
+          gives,
+          errorCode == "dex/makerRevert",
+          makerData
+        );
+        if (orp.numToPunish < orp.toPunish.length) {
+          orp.toPunish[orp.numToPunish] = [orp.offerId, gasUsed];
+          orp.numToPunish++;
+        }
+      } else if (errorCode == "dex/notEnoughGasForMaker") {
+        revert("dex/notEnoughGasForMaker");
+      } else if (errorCode == "dex/takerFailToPayMaker") {
+        revert("dex/takerFailToPayMaker");
+      } else {
+        revert("dex/swapError");
       }
     }
+
     applyPenalty(success, gasUsed, offerDetail);
+  }
+
+  function innerDecode(bytes memory data)
+    internal
+    pure
+    returns (
+      bytes32 errorCode,
+      uint gasUsed,
+      uint makerData
+    )
+  {
+    assembly {
+      errorCode := mload(add(data, 32))
+      gasUsed := mload(add(data, 64))
+      makerData := mload(add(data, 96))
+    }
   }
 
   /* ## Sniping */
