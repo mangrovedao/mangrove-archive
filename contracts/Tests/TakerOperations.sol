@@ -28,6 +28,7 @@ contract TakerOperations_Test {
   address quote;
   Dex dex;
   TestMaker mkr;
+  TestMaker badmkr;
 
   receive() external payable {}
 
@@ -39,10 +40,16 @@ contract TakerOperations_Test {
     dex = DexSetup.setup(baseT, quoteT);
     mkr = MakerSetup.setup(dex, base, quote);
 
+    badmkr = MakerSetup.setup(dex, base, quote, true);
+
     address(mkr).transfer(10 ether);
+    address(badmkr).transfer(10 ether);
     mkr.provisionDex(1 ether);
+    badmkr.provisionDex(1 ether);
 
     baseT.mint(address(mkr), 5 ether);
+    baseT.mint(address(badmkr), 5 ether);
+    quoteT.mint(address(this), 5 ether);
     quoteT.mint(address(this), 5 ether);
 
     Display.register(msg.sender, "Test Runner");
@@ -51,6 +58,18 @@ contract TakerOperations_Test {
     Display.register(quote, "$B");
     Display.register(address(dex), "dex");
     Display.register(address(mkr), "maker");
+    Display.register(address(badmkr), "bad maker");
+  }
+
+  function taker_reimbursed_if_maker_doesnt_pay_test() public {
+    quoteT.approve(address(dex), 1 ether);
+    uint ofr = badmkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    uint before = quoteT.balanceOf(address(this));
+    dex.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000);
+    TestEvents.check(
+      before <= quoteT.balanceOf(address(this)),
+      "taker balance should not be lower if maker doesn't pay back"
+    );
   }
 
   function taker_hasnt_approved_base_fails_order_with_fee_test() public {
