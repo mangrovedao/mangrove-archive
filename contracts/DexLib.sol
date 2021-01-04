@@ -104,7 +104,7 @@ library DexLib {
     address maker = offerDetail.maker;
     bytes memory retdata = new bytes(32);
     bool success;
-    uint makerData;
+    bytes32 makerData;
     uint oldGas = gasleft();
     /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of CALL) is $$h$$, the maker will receive at worst $$\textrm{gasreq} - \frac{63h}{64}$$ gas. */
     /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether 63/64(gasleft-gasbase) > gasreq. If no, we'd know by induction that there is enough gas left to apply fees, stitch offers, etc (or could revert safely if no offer has been taken yet). */
@@ -124,12 +124,10 @@ library DexLib {
     if (newBalance >= oldBalance + wants && newBalance >= oldBalance) {
       // ok
     } else if (!success) {
-      innerRevert(
-        [bytes32("dex/makerRevert"), bytes32(gasUsed), bytes32(makerData)]
-      );
+      innerRevert([bytes32("dex/makerRevert"), bytes32(gasUsed), makerData]);
     } else {
       innerRevert(
-        [bytes32("dex/makerTransferFail"), bytes32(gasUsed), bytes32(makerData)]
+        [bytes32("dex/makerTransferFail"), bytes32(gasUsed), makerData]
       );
     }
   }

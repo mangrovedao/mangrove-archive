@@ -40,25 +40,25 @@ contract TestMaker is IMaker, Passthrough {
     address taker,
     uint gaspriceEstimate,
     uint offerId
-  ) public virtual override returns (uint) {
+  ) public virtual override returns (bytes32) {
     _base; // silence warning
     _quote; // silence warning
     taker; // silence warning
     emit Execute(takerWants, takerGives, gaspriceEstimate, offerId);
     if (_shouldRevert) {
-      bytes32[1] memory three = [bytes32(uint(3))];
+      bytes32[1] memory three = [bytes32("testMaker/revert")];
       assembly {
         revert(three, 32)
       }
     }
     if (!shouldFail) {
       try IERC20(base).transfer(taker, takerWants) {
-        return 0;
+        return "testMaker/ok";
       } catch {
-        return 2;
+        return "testMaker/transferFail";
       }
     } else {
-      return 1;
+      return "testMaker/fail";
     }
   }
 

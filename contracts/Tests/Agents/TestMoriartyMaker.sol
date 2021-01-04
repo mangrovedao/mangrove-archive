@@ -31,14 +31,14 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     address taker,
     uint,
     uint offerId
-  ) public override returns (uint ret) {
+  ) public override returns (bytes32 ret) {
     bool _succeed = succeed;
     if (offerId == dummy) {
       succeed = false;
     }
     if (_succeed) {
       bool s = IERC20(base).transfer(taker, takerWants);
-      ret = s ? 0 : 2;
+      ret = s ? bytes32(0) : bytes32(uint(2));
     } else {
       assert(false);
     }

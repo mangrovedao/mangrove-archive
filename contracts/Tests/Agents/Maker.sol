@@ -89,9 +89,9 @@ contract Maker is IMaker {
     address,
     uint,
     uint
-  ) external view override returns (uint) {
+  ) external view override returns (bytes32) {
     //making sure execution is sent by the corresponding dex
     require(msg.sender == DEX);
-    return 0;
+    return bytes32(0);
   }
 }

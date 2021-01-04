@@ -230,7 +230,7 @@ library DexEvents {
     uint takerWants,
     uint takerGives,
     bool reverted,
-    uint makerData
+    bytes32 makerData
   );
 
   /* * Dex closure */

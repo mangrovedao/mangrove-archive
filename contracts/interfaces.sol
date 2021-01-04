@@ -12,7 +12,7 @@ interface IMaker {
     address taker,
     uint offerGasprice,
     uint offerId
-  ) external returns (uint);
+  ) external returns (bytes32);
 }
 
 interface ITaker {

@@ -183,7 +183,13 @@ contract TakerOperations_Test {
     bool success = dex.snipe(base, quote, ofr, 50 ether, 0.5 ether, 100_000);
     TestEvents.check(!success, "order should fail");
     TestEvents.expectFrom(address(dex));
-    emit DexEvents.MakerFail(ofr, 50 ether, 0.5 ether, false, 2);
+    emit DexEvents.MakerFail(
+      ofr,
+      50 ether,
+      0.5 ether,
+      false,
+      "testMaker/transferFail"
+    );
   }
 
   function maker_revert_is_logged_test() public {
@@ -192,7 +198,7 @@ contract TakerOperations_Test {
     quoteT.approve(address(dex), 1 ether);
     dex.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000);
     TestEvents.expectFrom(address(dex));
-    emit DexEvents.MakerFail(ofr, 1 ether, 1 ether, true, 3);
+    emit DexEvents.MakerFail(ofr, 1 ether, 1 ether, true, "testMaker/revert");
   }
 
   function snipe_on_higher_price_fails_test() public {

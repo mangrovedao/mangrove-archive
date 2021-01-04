@@ -490,7 +490,7 @@ contract Dex is HasAdmin {
     } else {
       /* This short reason string should not be exploitable by maker/taker! */
       bytes32 errorCode;
-      uint makerData;
+      bytes32 makerData;
       (errorCode, gasUsed, makerData) = innerDecode(retdata);
       if (
         errorCode == "dex/makerRevert" || errorCode == "dex/makerTransferFail"
@@ -525,7 +525,7 @@ contract Dex is HasAdmin {
     returns (
       bytes32 errorCode,
       uint gasUsed,
-      uint makerData
+      bytes32 makerData
     )
   {
     assembly {
