@@ -26,7 +26,7 @@ library TestUtils {
 
   function getReason(bytes memory returnData)
     internal
-    view
+    pure
     returns (string memory reason)
   {
     /* returnData for a revert(reason) is the result of 
