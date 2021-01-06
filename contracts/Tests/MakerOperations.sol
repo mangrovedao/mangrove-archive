@@ -22,6 +22,7 @@ contract MakerOperations_Test {
   Dex dex;
   TestMaker mkr;
   TestMaker mkr2;
+  TestTaker tkr;
   TestToken base;
   TestToken quote;
 
@@ -33,9 +34,15 @@ contract MakerOperations_Test {
     dex = DexSetup.setup(base, quote);
     mkr = MakerSetup.setup(dex, address(base), address(quote), false);
     mkr2 = MakerSetup.setup(dex, address(base), address(quote), false);
+    tkr = TakerSetup.setup(dex, address(base), address(quote));
 
     address(mkr).transfer(10 ether);
     address(mkr2).transfer(10 ether);
+
+    address(tkr).transfer(10 ether);
+
+    quote.mint(address(tkr), 1 ether);
+    tkr.approve(quote, 1 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "MakerOperations_Test");
@@ -44,6 +51,7 @@ contract MakerOperations_Test {
     Display.register(address(dex), "dex");
     Display.register(address(mkr), "maker");
     Display.register(address(mkr2), "maker2");
+    Display.register(address(tkr), "taker");
   }
 
   function provision_adds_freeWei_and_ethers_test() public {
@@ -71,6 +79,53 @@ contract MakerOperations_Test {
       address(dex).balance,
       dex_bal + amt1 + amt2,
       "incorrect dex ETH balance (2)"
+    );
+  }
+
+  // since we check calldata, execute must be internal
+  function execute(
+    address _base,
+    address _quote,
+    uint takerWants,
+    uint takerGives,
+    address taker,
+    uint gaspriceEstimate,
+    uint offerId
+  ) external {
+    IERC20(base).transfer(taker, takerWants);
+    uint num_args = 7;
+    uint selector_bytes = 4;
+    uint length = selector_bytes + num_args * 32;
+    TestEvents.eq(
+      msg.data.length,
+      length,
+      "calldata length in execute is incorrect"
+    );
+
+    TestEvents.eq(_base, address(base), "wrong base");
+    TestEvents.eq(_quote, address(quote), "wrong quote");
+    TestEvents.eq(takerWants, 0.05 ether, "wrong takerWants");
+    TestEvents.eq(takerGives, 0.05 ether, "wrong takerGives");
+    TestEvents.eq(taker, address(tkr), "wrong taker");
+    TestEvents.eq(offerId, 1, "wrong offerId");
+  }
+
+  function calldata_in_execute_is_correct_test() public {
+    (bool funded, ) = address(dex).call{value: 1 ether}("");
+    base.mint(address(this), 1 ether);
+    uint ofr =
+      dex.newOffer(
+        address(base),
+        address(quote),
+        0.05 ether,
+        0.05 ether,
+        100_000,
+        0
+      );
+    bool ok = tkr.take(ofr, 0.05 ether);
+    TestEvents.check(
+      ok,
+      "snipe must succeed or calldata check will be reverted"
     );
   }
 

@@ -113,7 +113,15 @@ library DexLib {
     }
 
     assembly {
-      success := call(gasreq, maker, 0, add(cd, 32), cd, add(retdata, 32), 32)
+      success := call(
+        gasreq,
+        maker,
+        0,
+        add(cd, 32),
+        mload(cd),
+        add(retdata, 32),
+        32
+      )
       makerData := mload(add(retdata, 32))
     }
     gasUsed = oldGas - gasleft();
