@@ -89,7 +89,7 @@ contract MakerOperations_Test {
     uint takerWants,
     uint takerGives,
     address taker,
-    uint gaspriceEstimate,
+    uint,
     uint offerId
   ) external {
     IERC20(base).transfer(taker, takerWants);
@@ -111,7 +111,8 @@ contract MakerOperations_Test {
   }
 
   function calldata_in_execute_is_correct_test() public {
-    (bool funded, ) = address(dex).call{value: 1 ether}("");
+    bool funded;
+    (funded, ) = address(dex).call{value: 1 ether}("");
     base.mint(address(this), 1 ether);
     uint ofr =
       dex.newOffer(
