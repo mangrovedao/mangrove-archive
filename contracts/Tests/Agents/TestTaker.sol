@@ -22,7 +22,7 @@ contract TestTaker is ITaker {
 
   receive() external payable {}
 
-  function approve(IERC20 token, uint amount) external {
+  function approveDex(IERC20 token, uint amount) external {
     token.approve(address(dex), amount);
   }
 

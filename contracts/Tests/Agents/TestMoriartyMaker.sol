@@ -71,7 +71,7 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     require(success);
   }
 
-  function approve(IERC20 token, uint amount) public {
+  function approveDex(IERC20 token, uint amount) public {
     token.approve(address(dex), amount);
   }
 

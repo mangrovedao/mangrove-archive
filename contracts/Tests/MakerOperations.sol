@@ -42,7 +42,7 @@ contract MakerOperations_Test {
     address(tkr).transfer(10 ether);
 
     quote.mint(address(tkr), 1 ether);
-    tkr.approve(quote, 1 ether);
+    tkr.approveDex(quote, 1 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "MakerOperations_Test");

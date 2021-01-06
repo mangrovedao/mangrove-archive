@@ -124,8 +124,8 @@ contract Scenarii_Test {
     }
 
     quote.mint(address(taker), 5 ether);
-    taker.approve(quote, 5 ether);
-    taker.approve(base, 50 ether);
+    taker.approveDex(quote, 5 ether);
+    taker.approveDex(base, 50 ether);
     saveBalances();
   }
 
@@ -199,8 +199,8 @@ contract DeepCollect_Test {
     Display.register(address(tkr), "taker");
 
     quote.mint(address(tkr), 5 ether);
-    tkr.approve(quote, 20 ether);
-    tkr.approve(base, 20 ether);
+    tkr.approveDex(quote, 20 ether);
+    tkr.approveDex(base, 20 ether);
 
     evil = new TestMoriartyMaker(dex, address(base), address(quote));
     Display.register(address(evil), "Moriarty");
@@ -209,7 +209,7 @@ contract DeepCollect_Test {
     require(success, "maker transfer");
     evil.provisionDex(10 ether);
     base.mint(address(evil), 5 ether);
-    evil.approve(base, 5 ether);
+    evil.approveDex(base, 5 ether);
 
     evil.newOffer({
       wants: 1 ether,
