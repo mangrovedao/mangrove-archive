@@ -139,11 +139,29 @@ library DexSetup {
   function setup(TestToken base, TestToken quote) external returns (Dex dex) {
     TestEvents.not0x(address(base));
     TestEvents.not0x(address(quote));
-    dex = new Dex({
+    dex = new NormalDex({
       gasprice: 40 * 10**9,
       gasbase: 30_000,
-      gasmax: 1_000_000,
-      takerLends: true
+      gasmax: 1_000_000
+    });
+
+    dex.setActive(address(base), address(quote), true);
+    dex.setDensity(address(base), address(quote), 100);
+    dex.setActive(address(quote), address(base), true);
+    dex.setDensity(address(quote), address(base), 100);
+
+    return dex;
+  }
+}
+
+library InvertedDexSetup {
+  function setup(TestToken base, TestToken quote) external returns (Dex dex) {
+    TestEvents.not0x(address(base));
+    TestEvents.not0x(address(quote));
+    dex = new InvertedDex({
+      gasprice: 40 * 10**9,
+      gasbase: 30_000,
+      gasmax: 1_000_000
     });
 
     dex.setActive(address(base), address(quote), true);

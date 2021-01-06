@@ -13,28 +13,28 @@ library DexLib {
   /* # Token transfer */
   //+clear+
   /*
-     `swapTokens` is for the 'normal' mode of operation. It:
+     `flashloan` is for the 'normal' mode of operation. It:
      1. Flashloans `takerGives` `REQ_TOKEN` from the taker to the maker and returns false if the loan fails.
      2. Runs `offerDetail.maker`'s `execute` function.
      3. Returns the result of the operations, with optional makerData to help the maker debug.
    */
-  function swapTokens(
-    DC.OrderPack calldata orp,
-    DC.OfferDetail calldata offerDetail,
-    uint wants,
-    uint gives
-  ) external returns (uint gasUsed) {
+  function flashloan(DC.OrderPack calldata orp)
+    external
+    returns (uint gasUsed)
+  {
     /* the transfer from taker to maker must be in this function
        so that any issue with the maker also reverts the flashloan */
-    if (transferToken(orp.quote, msg.sender, offerDetail.maker, gives)) {
-      gasUsed = makerExecute(orp, offerDetail, wants, gives);
+    if (
+      transferToken(orp.quote, msg.sender, orp.offerDetail.maker, orp.gives)
+    ) {
+      gasUsed = makerExecute(orp);
     } else {
       innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
     }
   }
 
   /*
-     `invertedSwapTokens` is for the 'arbitrage' mode of operation. It:
+     `invertedFlashloan` is for the 'arbitrage' mode of operation. It:
      0. Calls the maker's `execute` function. If successful (tokens have been sent to taker):
      2. Runs `msg.sender`'s `execute` function.
      4. Returns the results ofthe operations, with optional makerData to help the maker debug.
@@ -51,57 +51,53 @@ library DexLib {
        * costs more gas to do 2 SLOADS (checking balanceOf twice) than to run the `transfer` ourselves -- if there's only one transfer.
     */
 
-  function invertedSwapTokens(
-    DC.OrderPack calldata orp,
-    DC.OfferDetail calldata offerDetail,
-    uint wants,
-    uint gives
-  ) external returns (uint gasUsed) {
-    gasUsed = makerExecute(orp, offerDetail, wants, gives);
+  function invertedFlashloan(DC.OrderPack calldata orp)
+    external
+    returns (uint gasUsed)
+  {
+    gasUsed = makerExecute(orp);
 
-    uint oldBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
+    //uint oldBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
 
-    /* FIXME should be a different interface for taker */
-    IMaker(msg.sender).execute(
-      orp.base,
-      orp.quote,
-      wants,
-      gives,
-      offerDetail.maker,
-      offerDetail.gasprice,
-      orp.offerId
-    );
+    ///* FIXME should be a different interface for taker */
+    //IMaker(msg.sender).execute(
+    //orp.base,
+    //orp.quote,
+    //wants,
+    //gives,
+    //offerDetail.maker,
+    //offerDetail.gasprice,
+    //orp.offerId
+    //);
 
-    uint newBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
-    /* The second check (`newBalance >= oldBalance`) protects against overflow. */
-    if (newBalance >= oldBalance + gives && newBalance >= oldBalance) {
-      // ok
-    } else {
-      innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
-    }
+    //uint newBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
+    ///* The second check (`newBalance >= oldBalance`) protects against overflow. */
+    //if (newBalance >= oldBalance + gives && newBalance >= oldBalance) {
+    //// ok
+    //} else {
+    //innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
+    //}
   }
 
-  function makerExecute(
-    DC.OrderPack calldata orp,
-    DC.OfferDetail calldata offerDetail,
-    uint wants,
-    uint gives
-  ) internal returns (uint gasUsed) {
+  function makerExecute(DC.OrderPack calldata orp)
+    internal
+    returns (uint gasUsed)
+  {
     bytes memory cd =
       abi.encodeWithSelector(
         IMaker.execute.selector,
         orp.base,
         orp.quote,
-        wants,
-        gives,
+        orp.wants,
+        orp.gives,
         msg.sender,
-        offerDetail.gasprice,
+        orp.offerDetail.gasprice,
         orp.offerId
       );
     uint oldBalance = IERC20(orp.base).balanceOf(msg.sender);
     /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + gasbase`. This yul call only retrieves the first byte of the maker's `returndata`. */
-    uint gasreq = offerDetail.gasreq;
-    address maker = offerDetail.maker;
+    uint gasreq = orp.offerDetail.gasreq;
+    address maker = orp.offerDetail.maker;
     bytes memory retdata = new bytes(32);
     bool success;
     bytes32 makerData;
@@ -129,7 +125,7 @@ library DexLib {
     // https://peckshield.medium.com/akropolis-incident-root-cause-analysis-c11ee59e05d4
     uint newBalance = IERC20(orp.base).balanceOf(msg.sender);
     /* The second check (`newBalance >= oldBalance`) protects against overflow. */
-    if (newBalance >= oldBalance + wants && newBalance >= oldBalance) {
+    if (newBalance >= oldBalance + orp.wants && newBalance >= oldBalance) {
       // ok
     } else if (!success) {
       innerRevert([bytes32("dex/makerRevert"), bytes32(gasUsed), makerData]);

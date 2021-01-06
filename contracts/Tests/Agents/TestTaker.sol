@@ -26,11 +26,7 @@ contract TestTaker is ITaker {
     token.approve(address(dex), amount);
   }
 
-  function take(uint offerId, uint takerWants)
-    external
-    override
-    returns (bool success)
-  {
+  function take(uint offerId, uint takerWants) external returns (bool success) {
     //uint taken = TestEvents.min(makerGives, takerWants);
     success = dex.snipe(
       base,
@@ -43,7 +39,14 @@ contract TestTaker is ITaker {
     //return taken;
   }
 
-  function marketOrder(uint wants, uint gives) external override {
+  function execute(
+    address,
+    address,
+    uint,
+    uint
+  ) external pure override {}
+
+  function marketOrder(uint wants, uint gives) external {
     dex.simpleMarketOrder(base, quote, wants, gives);
   }
 

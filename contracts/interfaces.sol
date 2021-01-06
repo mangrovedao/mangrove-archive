@@ -16,9 +16,12 @@ interface IMaker {
 }
 
 interface ITaker {
-  function take(uint offerId, uint takerWants) external returns (bool);
-
-  function marketOrder(uint wants, uint gives) external;
+  function execute(
+    address base,
+    address quote,
+    uint totalGot,
+    uint totalGives
+  ) external;
 }
 
 /* Governance contract interface */

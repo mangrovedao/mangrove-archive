@@ -236,7 +236,7 @@ contract TakerOperations_Test {
         100_000
       );
 
-    (bool noRevert, bytes memory data) = address(dex).call{gas: 200000}(cd);
+    (bool noRevert, bytes memory data) = address(dex).call{gas: 130000}(cd);
     if (noRevert) {
       TestEvents.fail("take should fail due to low gas");
     } else {
@@ -268,6 +268,18 @@ contract TakerOperations_Test {
       1 ether,
       "Incorrect delivered amount (maker)"
     );
+  }
+
+  /* Note as for jan 5 2020: by locally pushing the block gas limit to 38M, you can go up to 162 levels of recursion before hitting "revert for an unknown reason" -- I'm assuming that's the stack limit. */
+  function recursion_depth_is_acceptable_test() public {
+    for (uint i = 0; i < 50; i++) {
+      mkr.newOffer(0.001 ether, 0.001 ether, 50_000, i);
+    }
+    quoteT.approve(address(dex), 10 ether);
+    // 6/1/20 : ~50k/offer with optims
+    //uint g = gasleft();
+    dex.simpleMarketOrder(base, quote, 1 ether, 1 ether);
+    //console.log("gas used per offer: ",(g-gasleft())/50);
   }
   // function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
   //   try tkr.marketOrder(2**160, 0) {

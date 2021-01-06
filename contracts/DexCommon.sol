@@ -198,6 +198,12 @@ They have the following fields: */
     Config config;
     uint numToPunish;
     uint[2][] toPunish;
+    /* will evolve over time, initially the wants/gives from the taker's pov,
+       then actual wants/give depending on how much the offer is ready */
+    uint wants;
+    uint gives;
+    /* only populated when necessary */
+    OfferDetail offerDetail;
   }
 
   enum SwapResult {OK, TakerTransferFail, MakerTransferFail, MakerReverted}

@@ -274,10 +274,10 @@ contract Gatekeeping_Test {
       type(uint96).max,
       type(uint).max
     ];
-    try dex.internalSnipes(base, quote, targets, 0) {
+    try dex.snipes(base, quote, targets, 0) {
       TestEvents.fail("Snipes with takerWants > 96bits should fail");
     } catch Error(string memory reason) {
-      TestEvents.revertEq(reason, "dex/internalSnipes/takerWants/96bits");
+      TestEvents.revertEq(reason, "dex/snipes/takerWants/96bits");
     }
   }
 
