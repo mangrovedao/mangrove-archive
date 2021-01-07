@@ -56,27 +56,6 @@ library DexLib {
     returns (uint gasUsed)
   {
     gasUsed = makerExecute(orp);
-
-    //uint oldBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
-
-    ///* FIXME should be a different interface for taker */
-    //IMaker(msg.sender).execute(
-    //orp.base,
-    //orp.quote,
-    //wants,
-    //gives,
-    //offerDetail.maker,
-    //offerDetail.gasprice,
-    //orp.offerId
-    //);
-
-    //uint newBalance = IERC20(orp.quote).balanceOf(offerDetail.maker);
-    ///* The second check (`newBalance >= oldBalance`) protects against overflow. */
-    //if (newBalance >= oldBalance + gives && newBalance >= oldBalance) {
-    //// ok
-    //} else {
-    //innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
-    //}
   }
 
   function makerExecute(DC.OrderPack calldata orp)
