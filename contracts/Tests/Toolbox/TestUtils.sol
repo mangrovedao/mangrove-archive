@@ -145,10 +145,8 @@ library DexSetup {
       gasmax: 1_000_000
     });
 
-    dex.setActive(address(base), address(quote), true);
-    dex.setDensity(address(base), address(quote), 100);
-    dex.setActive(address(quote), address(base), true);
-    dex.setDensity(address(quote), address(base), 100);
+    dex.activate(address(base), address(quote), 0, 100);
+    dex.activate(address(quote), address(base), 0, 100);
 
     return dex;
   }
@@ -164,10 +162,8 @@ library InvertedDexSetup {
       gasmax: 1_000_000
     });
 
-    dex.setActive(address(base), address(quote), true);
-    dex.setDensity(address(base), address(quote), 100);
-    dex.setActive(address(quote), address(base), true);
-    dex.setDensity(address(quote), address(base), 100);
+    dex.activate(address(base), address(quote), 0, 100);
+    dex.activate(address(quote), address(base), 0, 100);
 
     return dex;
   }

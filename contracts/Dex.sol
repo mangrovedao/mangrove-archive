@@ -1059,13 +1059,21 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
   /* ## Locals */
   /* ### `active` */
-  function setActive(
+  function activate(
     address base,
     address quote,
-    bool value
+    uint fee,
+    uint density
   ) public adminOnly {
-    locals[base][quote].active = value;
-    emit DexEvents.SetActive(base, quote, value);
+    locals[base][quote].active = true;
+    setFee(base, quote, fee);
+    setDensity(base, quote, density);
+    emit DexEvents.SetActive(base, quote, true);
+  }
+
+  function deactivate(address base, address quote) public adminOnly {
+    locals[base][quote].active = false;
+    emit DexEvents.SetActive(base, quote, true);
   }
 
   /* ### `fee` */

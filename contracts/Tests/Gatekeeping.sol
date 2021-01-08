@@ -45,12 +45,13 @@ contract NotAdmin {
     dex.kill();
   }
 
-  function setActive(
+  function activate(
     address base,
     address quote,
-    bool value
+    uint fee,
+    uint density
   ) public {
-    dex.setActive(base, quote, value);
+    dex.activate(base, quote, fee, density);
   }
 
   function setGasbase(uint value) public {
@@ -163,7 +164,7 @@ contract Gatekeeping_Test is IMaker {
 
   function only_admin_can_set_active_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
-    try notAdmin.setActive(quote, base, true) {
+    try notAdmin.activate(quote, base, 0, 100) {
       TestEvents.fail("nonadmin cannot set active");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "HasAdmin/adminOnly");
@@ -633,7 +634,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function newOffer_on_inactive_fails_test() public {
-    dex.setActive(base, quote, false);
+    dex.deactivate(base, quote);
     try dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0) {
       TestEvents.fail("newOffer should fail on closed market");
     } catch Error(string memory r) {
@@ -695,7 +696,7 @@ contract Gatekeeping_Test is IMaker {
 
   function updateOffer_on_inactive_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0);
-    dex.setActive(base, quote, false);
+    dex.deactivate(base, quote);
     try dex.updateOffer(base, quote, 1 ether, 1 ether, 0, 0, ofr) {
       TestEvents.fail("update offer should fail on inactive market");
     } catch Error(string memory r) {
