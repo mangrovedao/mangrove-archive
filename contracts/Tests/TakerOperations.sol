@@ -281,6 +281,54 @@ contract TakerOperations_Test {
     dex.simpleMarketOrder(base, quote, 1 ether, 1 ether);
     //console.log("gas used per offer: ",(g-gasleft())/50);
   }
+
+  function partial_fill_test() public {
+    quoteT.approve(address(dex), 1 ether);
+    mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 0);
+    mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 1);
+    dex.simpleMarketOrder(base, quote, 0.15 ether, 0.15 ether);
+    TestEvents.eq(
+      baseT.balanceOf(address(this)),
+      0.15 ether,
+      "incorrect partial fill"
+    );
+  }
+
+  // ! unreliable test, depends on gas use
+  function market_order_stops_for_high_price_test() public {
+    quoteT.approve(address(dex), 1 ether);
+    for (uint i = 0; i < 10; i++) {
+      mkr.newOffer((i + 1) * (0.1 ether), 0.1 ether, 50_000, i);
+    }
+    // first two offers are at right price
+    uint takerWants = 2 * (0.1 ether + 0.1 ether);
+    uint takerGives = 2 * (0.1 ether + 0.2 ether);
+    dex.simpleMarketOrder{gas: 350_000}(base, quote, takerWants, takerGives);
+  }
+
+  // ! unreliable test, depends on gas use
+  function market_order_stops_for_filled_mid_offer_test() public {
+    quoteT.approve(address(dex), 1 ether);
+    for (uint i = 0; i < 10; i++) {
+      mkr.newOffer(i * (0.1 ether), 0.1 ether, 50_000, i);
+    }
+    // first two offers are at right price
+    uint takerWants = 0.1 ether + 0.05 ether;
+    uint takerGives = 0.1 ether + 0.1 ether;
+    dex.simpleMarketOrder{gas: 350_000}(base, quote, takerWants, takerGives);
+  }
+
+  function market_order_stops_for_filled_after_offer_test() public {
+    quoteT.approve(address(dex), 1 ether);
+    for (uint i = 0; i < 10; i++) {
+      mkr.newOffer(i * (0.1 ether), 0.1 ether, 50_000, i);
+    }
+    // first two offers are at right price
+    uint takerWants = 0.1 ether + 0.1 ether;
+    uint takerGives = 0.1 ether + 0.2 ether;
+    dex.simpleMarketOrder{gas: 350_000}(base, quote, takerWants, takerGives);
+  }
+
   // function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
   //   try tkr.marketOrder(2**160, 0) {
   //     TestEvents.fail("TakerWants > 160bits, order should fail");
