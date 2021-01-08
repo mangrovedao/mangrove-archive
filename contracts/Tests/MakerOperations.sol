@@ -109,6 +109,12 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(takerGives, 0.05 ether, "wrong takerGives");
     TestEvents.eq(taker, address(tkr), "wrong taker");
     TestEvents.eq(offerId, 1, "wrong offerId");
+    // test flashloan
+    TestEvents.eq(
+      quote.balanceOf(address(this)),
+      0.05 ether,
+      "wrong quote balance"
+    );
   }
 
   function makerHandoff(
@@ -119,7 +125,7 @@ contract MakerOperations_Test is IMaker {
     uint
   ) external pure override {}
 
-  function calldata_in_execute_is_correct_test() public {
+  function calldata_and_balance_in_makerTrade_are_correct_test() public {
     bool funded;
     (funded, ) = address(dex).call{value: 1 ether}("");
     base.mint(address(this), 1 ether);
