@@ -119,6 +119,8 @@ contract Gatekeeping_Test is IMaker {
     Display.register(address(mkr), "maker[$A,$B]");
   }
 
+  /* # Test Config */
+
   function admin_can_transfer_rights_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
     dex.setAdmin(address(notAdmin));
@@ -281,6 +283,8 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
+  /* # Internal IMaker setup */
+
   bytes _trade;
   bytes _handoff;
 
@@ -315,10 +319,9 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
-  function testGas_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0);
-    tkr.take(ofr, 1 ether);
-  }
+  /* # Reentrancy */
+
+  /* New Offer failure */
 
   function newOfferKO() external {
     try dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0) {
@@ -328,65 +331,13 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
-  function updateOfferKO(uint ofr) external {
-    try dex.updateOffer(base, quote, 1 ether, 2 ether, 35_000, 0, ofr) {
-      TestEvents.fail("update offer on same pair should fail");
-    } catch Error(string memory reason) {
-      TestEvents.revertEq(reason, "dex/reentrancyLocked");
-    }
-  }
-
-  // ! may be called with inverted _base and _quote
-  function updateOfferOK(
-    address _base,
-    address _quote,
-    uint ofr,
-    string memory err
-  ) external {
-    try dex.updateOffer(_base, _quote, 1 ether, 2 ether, 35_000, 0, ofr) {
-      TestEvents.succeed();
-    } catch {
-      TestEvents.fail(err);
-    }
-  }
-
   function newOffer_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
     _trade = abi.encodeWithSelector(this.newOfferKO.selector);
     tkr.take(ofr, 1 ether);
   }
 
-  function updateOffer_on_reentrancy_fails_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    _trade = abi.encodeWithSelector(this.updateOfferKO.selector, ofr);
-    tkr.take(ofr, 1 ether);
-  }
-
-  function updateOffer_on_reentrancy_succeeds_test() public {
-    uint ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 100_000, 0);
-    uint _ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    _trade = abi.encodeWithSelector(
-      this.updateOfferOK.selector,
-      quote,
-      base,
-      _ofr,
-      "updateOffer on swapped pair should work"
-    );
-    tkr.take(ofr, 1 ether);
-  }
-
-  function updateOffer_on_handoff_succeeds_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    uint _ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    _handoff = abi.encodeWithSelector(
-      this.updateOfferOK.selector,
-      base,
-      quote,
-      _ofr,
-      "updateOffer on handoff should work"
-    );
-    tkr.take(ofr, 1 ether);
-  }
+  /* New Offer success */
 
   // ! may be called with inverted _base and _quote
   function newOfferOK(
@@ -423,6 +374,66 @@ contract Gatekeeping_Test is IMaker {
     tkr.take(ofr, 1 ether);
   }
 
+  /* Update offer failure */
+
+  function updateOfferKO(uint ofr) external {
+    try dex.updateOffer(base, quote, 1 ether, 2 ether, 35_000, 0, ofr) {
+      TestEvents.fail("update offer on same pair should fail");
+    } catch Error(string memory reason) {
+      TestEvents.revertEq(reason, "dex/reentrancyLocked");
+    }
+  }
+
+  function updateOffer_on_reentrancy_fails_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    _trade = abi.encodeWithSelector(this.updateOfferKO.selector, ofr);
+    tkr.take(ofr, 1 ether);
+  }
+
+  /* Update offer success */
+
+  // ! may be called with inverted _base and _quote
+  function updateOfferOK(
+    address _base,
+    address _quote,
+    uint ofr,
+    string memory err
+  ) external {
+    try dex.updateOffer(_base, _quote, 1 ether, 2 ether, 35_000, 0, ofr) {
+      TestEvents.succeed();
+    } catch {
+      TestEvents.fail(err);
+    }
+  }
+
+  function updateOffer_on_reentrancy_succeeds_test() public {
+    uint ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 100_000, 0);
+    uint _ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    _trade = abi.encodeWithSelector(
+      this.updateOfferOK.selector,
+      quote,
+      base,
+      _ofr,
+      "updateOffer on swapped pair should work"
+    );
+    tkr.take(ofr, 1 ether);
+  }
+
+  function updateOffer_on_handoff_succeeds_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    uint _ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    _handoff = abi.encodeWithSelector(
+      this.updateOfferOK.selector,
+      base,
+      quote,
+      _ofr,
+      "updateOffer on handoff should work"
+    );
+    tkr.take(ofr, 1 ether);
+  }
+
+  /* Cancel Offer failure */
+
   function cancelOfferKO(uint id) external {
     try dex.cancelOffer(base, quote, id, false) {
       TestEvents.fail("cancelOffer on same pair should fail");
@@ -436,6 +447,8 @@ contract Gatekeeping_Test is IMaker {
     _trade = abi.encodeWithSelector(this.cancelOfferKO.selector, ofr);
     tkr.take(ofr, 1 ether);
   }
+
+  /* Cancel Offer success */
 
   function cancelOfferOK(
     address _base,
@@ -478,6 +491,8 @@ contract Gatekeeping_Test is IMaker {
     tkr.take(ofr, 1 ether);
   }
 
+  /* Market Order failure */
+
   function marketOrderKO() external {
     try dex.simpleMarketOrder(base, quote, 0.2 ether, 0.2 ether) {
       TestEvents.fail("marketOrder on same pair should fail");
@@ -491,6 +506,8 @@ contract Gatekeeping_Test is IMaker {
     _trade = abi.encodeWithSelector(this.marketOrderKO.selector);
     tkr.take(ofr, 0.1 ether);
   }
+
+  /* Market Order Success */
 
   function marketOrderOK(
     address _base,
@@ -527,6 +544,8 @@ contract Gatekeeping_Test is IMaker {
     tkr.take(ofr, 0.1 ether);
   }
 
+  /* Snipe failure */
+
   function snipeKO(uint id) external {
     try
       dex.snipe(base, quote, id, 1 ether, type(uint96).max, type(uint24).max)
@@ -542,6 +561,8 @@ contract Gatekeeping_Test is IMaker {
     _trade = abi.encodeWithSelector(this.snipeKO.selector);
     tkr.take(ofr, 0.1 ether);
   }
+
+  /* Snipe success */
 
   function snipeOK(
     address _base,
@@ -594,6 +615,8 @@ contract Gatekeeping_Test is IMaker {
       TestEvents.revertEq(r, "dex/dead");
     }
   }
+
+  /* # Dex closed/inactive */
 
   function take_on_closed_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0);
