@@ -83,18 +83,14 @@ contract MakerOperations_Test is IMaker {
   }
 
   // since we check calldata, execute must be internal
-  function makerTrade(
-    address _base,
-    address _quote,
-    uint takerWants,
-    uint takerGives,
-    address taker,
-    uint,
-    uint offerId
-  ) external override returns (bytes32 ret) {
+  function makerTrade(IMaker.Trade calldata trade)
+    external
+    override
+    returns (bytes32 ret)
+  {
     ret; // silence unused function parameter warning
-    IERC20(base).transfer(taker, takerWants);
-    uint num_args = 7;
+    IERC20(base).transfer(trade.taker, trade.takerWants);
+    uint num_args = 11;
     uint selector_bytes = 4;
     uint length = selector_bytes + num_args * 32;
     TestEvents.eq(
@@ -103,12 +99,21 @@ contract MakerOperations_Test is IMaker {
       "calldata length in execute is incorrect"
     );
 
-    TestEvents.eq(_base, address(base), "wrong base");
-    TestEvents.eq(_quote, address(quote), "wrong quote");
-    TestEvents.eq(takerWants, 0.05 ether, "wrong takerWants");
-    TestEvents.eq(takerGives, 0.05 ether, "wrong takerGives");
-    TestEvents.eq(taker, address(tkr), "wrong taker");
-    TestEvents.eq(offerId, 1, "wrong offerId");
+    TestEvents.eq(trade.base, address(base), "wrong base");
+    TestEvents.eq(trade.quote, address(quote), "wrong quote");
+    TestEvents.eq(trade.takerWants, 0.05 ether, "wrong takerWants");
+    TestEvents.eq(trade.takerGives, 0.05 ether, "wrong takerGives");
+    TestEvents.eq(trade.taker, address(tkr), "wrong taker");
+    TestEvents.eq(
+      trade.offerGasprice,
+      dex.config(trade.base, trade.quote).gasprice,
+      "wrong gasprice"
+    );
+    TestEvents.eq(trade.offerGasreq, 200_000, "wrong gasreq");
+    TestEvents.eq(trade.offerId, 1, "wrong offerId");
+    TestEvents.eq(trade.offerWants, 0.05 ether, "wrong offerWants");
+    TestEvents.eq(trade.offerGives, 0.05 ether, "wrong offerGives");
+    TestEvents.check(trade.offerWillDelete, "offerWillDelete should be true");
     // test flashloan
     TestEvents.eq(
       quote.balanceOf(address(this)),
@@ -117,13 +122,11 @@ contract MakerOperations_Test is IMaker {
     );
   }
 
-  function makerHandoff(
-    address,
-    address,
-    uint,
-    uint,
-    uint
-  ) external pure override {}
+  function makerHandoff(IMaker.Handoff calldata handoff)
+    external
+    pure
+    override
+  {}
 
   function calldata_and_balance_in_makerTrade_are_correct_test() public {
     bool funded;

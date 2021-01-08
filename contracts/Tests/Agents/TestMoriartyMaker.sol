@@ -23,34 +23,28 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     succeed = true;
   }
 
-  function makerTrade(
-    address,
-    address,
-    uint takerWants,
-    uint,
-    address taker,
-    uint,
-    uint offerId
-  ) public override returns (bytes32 ret) {
+  function makerTrade(IMaker.Trade calldata trade)
+    public
+    override
+    returns (bytes32 ret)
+  {
     bool _succeed = succeed;
-    if (offerId == dummy) {
+    if (trade.offerId == dummy) {
       succeed = false;
     }
     if (_succeed) {
-      bool s = IERC20(base).transfer(taker, takerWants);
+      bool s = IERC20(trade.base).transfer(trade.taker, trade.takerWants);
       ret = s ? bytes32(0) : bytes32(uint(2));
     } else {
       assert(false);
     }
   }
 
-  function makerHandoff(
-    address,
-    address,
-    uint,
-    uint,
-    uint
-  ) external pure override {}
+  function makerHandoff(IMaker.Handoff calldata handoff)
+    external
+    pure
+    override
+  {}
 
   function newOffer(
     uint wants,

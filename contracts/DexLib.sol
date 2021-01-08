@@ -18,7 +18,7 @@ library DexLib {
      2. Runs `offerDetail.maker`'s `execute` function.
      3. Returns the result of the operations, with optional makerData to help the maker debug.
    */
-  function flashloan(DC.OrderPack calldata orp)
+  function flashloan(DC.OrderPack calldata orp, bool residualBelowDust)
     external
     returns (uint gasUsed)
   {
@@ -27,7 +27,7 @@ library DexLib {
     if (
       transferToken(orp.quote, msg.sender, orp.offerDetail.maker, orp.gives)
     ) {
-      gasUsed = makerExecute(orp);
+      gasUsed = makerExecute(orp, residualBelowDust);
     } else {
       innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
     }
@@ -51,28 +51,33 @@ library DexLib {
        * costs more gas to do 2 SLOADS (checking balanceOf twice) than to run the `transfer` ourselves -- if there's only one transfer.
     */
 
-  function invertedFlashloan(DC.OrderPack calldata orp)
+  function invertedFlashloan(DC.OrderPack calldata orp, bool residualBelowDust)
     external
     returns (uint gasUsed)
   {
-    gasUsed = makerExecute(orp);
+    gasUsed = makerExecute(orp, residualBelowDust);
   }
 
-  function makerExecute(DC.OrderPack calldata orp)
+  function makerExecute(DC.OrderPack calldata orp, bool residualBelowDust)
     internal
     returns (uint gasUsed)
   {
-    bytes memory cd =
-      abi.encodeWithSelector(
-        IMaker.makerTrade.selector,
-        orp.base,
-        orp.quote,
-        orp.wants,
-        orp.gives,
-        msg.sender,
-        orp.offerDetail.gasprice,
-        orp.offerId
-      );
+    IMaker.Trade memory trade =
+      IMaker.Trade({
+        base: orp.base,
+        quote: orp.quote,
+        takerWants: orp.wants,
+        takerGives: orp.gives,
+        taker: msg.sender,
+        offerGasprice: orp.offerDetail.gasprice,
+        offerGasreq: orp.offerDetail.gasreq,
+        offerId: orp.offerId,
+        offerWants: orp.offer.wants,
+        offerGives: orp.offer.gives,
+        offerWillDelete: residualBelowDust
+      });
+
+    bytes memory cd = abi.encodeWithSelector(IMaker.makerTrade.selector, trade);
     uint oldBalance = IERC20(orp.base).balanceOf(msg.sender);
     /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + gasbase`. This yul call only retrieves the first byte of the maker's `returndata`. */
     uint gasreq = orp.offerDetail.gasreq;

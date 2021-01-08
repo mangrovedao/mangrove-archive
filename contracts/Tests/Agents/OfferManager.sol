@@ -18,34 +18,28 @@ contract OfferManager is IMaker {
     dex = _dex;
   }
 
-  function makerHandoff(
-    address,
-    address,
-    uint,
-    uint,
-    uint
-  ) external pure override {}
+  function makerHandoff(IMaker.Handoff calldata handoff)
+    external
+    pure
+    override
+  {}
 
   // Maker side execute for residual offer
 
-  function makerTrade(
-    address base,
-    address quote,
-    uint takerWants,
-    uint takerGives,
-    address taker,
-    uint offerGasprice,
-    uint offerId
-  ) external override returns (bytes32) {
+  function makerTrade(IMaker.Trade calldata trade)
+    external
+    override
+    returns (bytes32)
+  {
     require(msg.sender == address(dex));
 
-    emit Execute(takerWants, takerGives, offerId);
+    emit Execute(trade.takerWants, trade.takerGives, trade.offerId);
 
     // if residual of offerId is < dust, offer will be removed and dust lost
     // also freeWeil[this] will increase, offerManager may chose to give it back to owner
-    try IERC20(base).transfer(taker, takerWants) {
-      address owner = owners[offerId];
-      try IERC20(quote).transfer(owner, takerGives) {
+    try IERC20(trade.base).transfer(trade.taker, trade.takerWants) {
+      address owner = owners[trade.offerId];
+      try IERC20(trade.quote).transfer(owner, trade.takerGives) {
         return "OfferManager/transferOK";
       } catch {
         return "transferToOwnerFail";

@@ -425,7 +425,15 @@ abstract contract Dex is HasAdmin {
       // reentrancy is allowed here
       if (success) {
         executeCallback(orp, maker, takerGives); // noop in Classical dex
-        makerHandoff(orp, takerWants, takerGives, offerId, maker, gasLeft); // maker callback
+        makerHandoff(
+          orp,
+          takerWants,
+          takerGives,
+          offerId,
+          maker,
+          toDelete,
+          gasLeft
+        ); // maker callback
       }
     } else {
       restrictMemoryArrayLength(orp.toPunish, orp.numToPunish);
@@ -449,17 +457,20 @@ abstract contract Dex is HasAdmin {
     uint takerGives,
     uint offerId,
     address maker,
+    bool toDelete,
     uint gasLeft
   ) internal {
+    IMaker.Handoff memory handoff =
+      IMaker.Handoff({
+        base: orp.base,
+        quote: orp.quote,
+        takerWants: takerWants,
+        takerGives: takerGives,
+        offerId: offerId,
+        offerDeleted: toDelete
+      });
     bytes memory cd =
-      abi.encodeWithSelector(
-        IMaker.makerHandoff.selector,
-        orp.base,
-        orp.quote,
-        takerWants,
-        takerGives,
-        offerId
-      );
+      abi.encodeWithSelector(IMaker.makerHandoff.selector, handoff);
 
     uint oldGas = gasleft();
     if (!(oldGas - oldGas / 64 >= gasLeft)) {
@@ -515,13 +526,21 @@ abstract contract Dex is HasAdmin {
       orp.gives = makerWouldWant;
     }
 
+    bool residualBelowDust;
+    if (
+      orp.offer.gives - orp.wants <
+      orp.config.density * (orp.offerDetail.gasreq + orp.config.gasbase)
+    ) {
+      residualBelowDust = true;
+    }
+
     /* The flashswap is executed by delegatecall to `FLASHLOANER`. If the call reverts, it means the maker failed to send back `takerWants` `OFR_TOKEN` to the taker. If the call succeeds, `retdata` encodes a boolean indicating whether the taker did send enough to the maker or not.
 
     Note that any spurious exception due to an error in Dex code will be falsely blamed on the Maker, and its provision for the offer will be unfairly taken away.
     */
     bytes memory retdata;
     (success, retdata) = address(DexLib).delegatecall(
-      abi.encodeWithSelector(FLASHLOANER, orp)
+      abi.encodeWithSelector(FLASHLOANER, orp, residualBelowDust)
     );
 
     uint gasUsed;
@@ -534,18 +553,15 @@ abstract contract Dex is HasAdmin {
       orp.totalGot += orp.wants;
       orp.totalGave += orp.gives;
 
-      if (
-        orp.offer.gives - orp.wants >=
-        orp.config.density * (orp.offerDetail.gasreq + orp.config.gasbase)
-      ) {
+      if (residualBelowDust) {
+        toDelete = true;
+      } else {
         offers[orp.base][orp.quote][orp.offerId].gives = uint96(
           orp.offer.gives - orp.wants
         );
         offers[orp.base][orp.quote][orp.offerId].wants = uint96(
           orp.offer.wants - orp.gives
         );
-      } else {
-        toDelete = true;
       }
     } else {
       /* This short reason string should not be exploitable by maker/taker! */
@@ -665,6 +681,7 @@ abstract contract Dex is HasAdmin {
 
       bool success;
       uint gasLeft;
+      bool toDelete;
 
       /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. We also check that `gasreq` is not worse than specified. A taker who does not care about `gasreq` can specify any amount larger than $2^{24}-1$. */
       if (DC.isLive(orp.offer) && orp.offerDetail.gasreq <= targets[i][3]) {
@@ -674,7 +691,6 @@ abstract contract Dex is HasAdmin {
         );
         orp.wants = targets[i][1];
         orp.gives = targets[i][2];
-        bool toDelete;
         (success, toDelete, gasLeft) = execute(orp);
         if (success) {
           successes += 1;
@@ -700,7 +716,15 @@ abstract contract Dex is HasAdmin {
 
       if (success) {
         executeCallback(orp, maker, takerGives);
-        makerHandoff(orp, takerWants, takerGives, offerId, maker, gasLeft);
+        makerHandoff(
+          orp,
+          takerWants,
+          takerGives,
+          offerId,
+          maker,
+          toDelete,
+          gasLeft
+        );
       }
     } else {
       /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */

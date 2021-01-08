@@ -286,38 +286,28 @@ contract Gatekeeping_Test is IMaker {
 
   /* # Internal IMaker setup */
 
-  bytes _trade;
-  bytes _handoff;
+  bytes trade_cb;
+  bytes handoff_cb;
 
   // maker's trade fn for the dex
-  function makerTrade(
-    address,
-    address,
-    uint takerWants,
-    uint,
-    address taker,
-    uint,
-    uint
-  ) external override returns (bytes32 ret) {
+  function makerTrade(IMaker.Trade calldata trade)
+    external
+    override
+    returns (bytes32 ret)
+  {
     ret; // silence unused function parameter
-    IERC20(base).transfer(taker, takerWants);
+    IERC20(trade.base).transfer(trade.taker, trade.takerWants);
     bool success;
-    if (_trade.length > 0) {
-      (success, ) = address(this).call(_trade);
+    if (trade_cb.length > 0) {
+      (success, ) = address(this).call(trade_cb);
       require(success, "makerTrade callback must work");
     }
   }
 
-  function makerHandoff(
-    address,
-    address,
-    uint,
-    uint,
-    uint
-  ) external override {
+  function makerHandoff(IMaker.Handoff calldata handoff) external override {
     bool success;
-    if (_handoff.length > 0) {
-      (success, ) = address(this).call(_handoff);
+    if (handoff_cb.length > 0) {
+      (success, ) = address(this).call(handoff_cb);
       require(success, "makerHandoff callback must work");
     }
   }
@@ -336,7 +326,7 @@ contract Gatekeeping_Test is IMaker {
 
   function newOffer_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    _trade = abi.encodeWithSelector(this.newOfferKO.selector);
+    trade_cb = abi.encodeWithSelector(this.newOfferKO.selector);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
   }
 
@@ -357,7 +347,7 @@ contract Gatekeeping_Test is IMaker {
 
   function newOffer_on_reentrancy_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 200_000, 0);
-    _trade = abi.encodeWithSelector(
+    trade_cb = abi.encodeWithSelector(
       this.newOfferOK.selector,
       quote,
       base,
@@ -368,7 +358,7 @@ contract Gatekeeping_Test is IMaker {
 
   function newOffer_on_handoff_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    _handoff = abi.encodeWithSelector(
+    handoff_cb = abi.encodeWithSelector(
       this.newOfferOK.selector,
       base,
       quote,
@@ -389,7 +379,7 @@ contract Gatekeeping_Test is IMaker {
 
   function updateOffer_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    _trade = abi.encodeWithSelector(this.updateOfferKO.selector, ofr);
+    trade_cb = abi.encodeWithSelector(this.updateOfferKO.selector, ofr);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
   }
 
@@ -413,7 +403,7 @@ contract Gatekeeping_Test is IMaker {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 400_000, 0);
     uint other_ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 100_000, 0);
 
-    _trade = abi.encodeWithSelector(
+    trade_cb = abi.encodeWithSelector(
       this.updateOfferOK.selector,
       quote,
       base,
@@ -426,7 +416,7 @@ contract Gatekeeping_Test is IMaker {
   function updateOffer_on_handoff_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
     uint other_ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    _handoff = abi.encodeWithSelector(
+    handoff_cb = abi.encodeWithSelector(
       this.updateOfferOK.selector,
       base,
       quote,
@@ -448,7 +438,7 @@ contract Gatekeeping_Test is IMaker {
 
   function cancelOffer_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    _trade = abi.encodeWithSelector(this.cancelOfferKO.selector, ofr);
+    trade_cb = abi.encodeWithSelector(this.cancelOfferKO.selector, ofr);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
   }
 
@@ -469,7 +459,7 @@ contract Gatekeeping_Test is IMaker {
 
   function cancelOffer_on_reentrancy_succeeds_test() public {
     uint other_ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 90_000, 0);
-    _trade = abi.encodeWithSelector(
+    trade_cb = abi.encodeWithSelector(
       this.cancelOfferOK.selector,
       quote,
       base,
@@ -483,7 +473,7 @@ contract Gatekeeping_Test is IMaker {
 
   function cancelOffer_on_handoff_succeeds_test() public {
     uint other_ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
-    _handoff = abi.encodeWithSelector(
+    handoff_cb = abi.encodeWithSelector(
       this.cancelOfferOK.selector,
       base,
       quote,
@@ -507,7 +497,7 @@ contract Gatekeeping_Test is IMaker {
 
   function marketOrder_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    _trade = abi.encodeWithSelector(this.marketOrderKO.selector);
+    trade_cb = abi.encodeWithSelector(this.marketOrderKO.selector);
     require(tkr.take(ofr, 0.1 ether), "take must succeed or test is void");
   }
 
@@ -528,7 +518,7 @@ contract Gatekeeping_Test is IMaker {
 
   function marketOrder_on_reentrancy_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 390_000, 0);
-    _trade = abi.encodeWithSelector(
+    trade_cb = abi.encodeWithSelector(
       this.marketOrderOK.selector,
       quote,
       base,
@@ -539,7 +529,7 @@ contract Gatekeeping_Test is IMaker {
 
   function marketOrder_on_handoff_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
-    _handoff = abi.encodeWithSelector(
+    handoff_cb = abi.encodeWithSelector(
       this.marketOrderOK.selector,
       base,
       quote,
@@ -562,7 +552,7 @@ contract Gatekeeping_Test is IMaker {
 
   function snipe_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 60_000, 0);
-    _trade = abi.encodeWithSelector(this.snipeKO.selector, ofr);
+    trade_cb = abi.encodeWithSelector(this.snipeKO.selector, ofr);
     require(tkr.take(ofr, 0.1 ether), "take must succeed or test is void");
   }
 
@@ -585,7 +575,7 @@ contract Gatekeeping_Test is IMaker {
 
   function snipes_on_reentrancy_succeeds_test() public {
     uint other_ofr = dual_mkr.newOffer(1 ether, 1 ether, 30_000, 0);
-    _trade = abi.encodeWithSelector(
+    trade_cb = abi.encodeWithSelector(
       this.snipeOK.selector,
       quote,
       base,
@@ -599,7 +589,7 @@ contract Gatekeeping_Test is IMaker {
 
   function snipes_on_handoff_succeeds_test() public {
     uint other_ofr = dual_mkr.newOffer(1 ether, 1 ether, 30_000, 0);
-    _handoff = abi.encodeWithSelector(
+    handoff_cb = abi.encodeWithSelector(
       this.snipeOK.selector,
       base,
       quote,

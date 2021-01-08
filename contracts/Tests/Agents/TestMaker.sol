@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
+pragma experimental ABIEncoderV2;
 
 import "./Passthrough.sol";
 import "../../interfaces.sol";
@@ -32,19 +33,18 @@ contract TestMaker is IMaker, Passthrough {
     _shouldRevert = should;
   }
 
-  function makerTrade(
-    address _base,
-    address _quote,
-    uint takerWants,
-    uint takerGives,
-    address taker,
-    uint gaspriceEstimate,
-    uint offerId
-  ) public virtual override returns (bytes32) {
-    _base; // silence warning
-    _quote; // silence warning
-    taker; // silence warning
-    emit Execute(takerWants, takerGives, gaspriceEstimate, offerId);
+  function makerTrade(IMaker.Trade calldata trade)
+    public
+    virtual
+    override
+    returns (bytes32)
+  {
+    emit Execute(
+      trade.takerWants,
+      trade.takerGives,
+      trade.offerGasprice,
+      trade.offerId
+    );
     if (_shouldRevert) {
       bytes32[1] memory three = [bytes32("testMaker/revert")];
       assembly {
@@ -52,7 +52,7 @@ contract TestMaker is IMaker, Passthrough {
       }
     }
     if (!shouldFail) {
-      try IERC20(base).transfer(taker, takerWants) {
+      try IERC20(trade.base).transfer(trade.taker, trade.takerWants) {
         return "testMaker/ok";
       } catch {
         return "testMaker/transferFail";
@@ -62,13 +62,11 @@ contract TestMaker is IMaker, Passthrough {
     }
   }
 
-  function makerHandoff(
-    address,
-    address,
-    uint,
-    uint,
-    uint
-  ) external pure override {}
+  function makerHandoff(IMaker.Handoff calldata handoff)
+    external
+    pure
+    override
+  {}
 
   function cancelOffer(Dex _dex, uint offerId) public {
     _dex.cancelOffer(base, quote, offerId, false);

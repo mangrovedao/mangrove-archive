@@ -81,25 +81,16 @@ contract Maker is IMaker {
     }
   }
 
-  function makerTrade(
-    address,
-    address,
-    uint,
-    uint,
-    address,
-    uint,
-    uint
-  ) external view override returns (bytes32) {
+  function makerTrade(IMaker.Trade calldata trade)
+    external
+    view
+    override
+    returns (bytes32)
+  {
     //making sure execution is sent by the corresponding dex
     require(msg.sender == DEX);
     return bytes32(0);
   }
 
-  function makerHandoff(
-    address,
-    address,
-    uint,
-    uint,
-    uint
-  ) external override {}
+  function makerHandoff(IMaker.Handoff calldata handoff) external override {}
 }

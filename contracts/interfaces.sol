@@ -4,27 +4,36 @@ pragma experimental ABIEncoderV2;
 import {DexCommon as DC} from "./DexCommon.sol";
 
 interface IMaker {
+  struct Trade {
+    address base;
+    address quote;
+    uint takerWants;
+    uint takerGives;
+    address taker;
+    uint offerGasprice;
+    uint offerGasreq;
+    uint offerId;
+    uint offerWants;
+    uint offerGives;
+    bool offerWillDelete;
+  }
+
   // Maker sends quote to taker
   // In normal dex, they already received base
   // In inverted dex, they did not
-  function makerTrade(
-    address base,
-    address quote,
-    uint takerWants,
-    uint takerGives,
-    address taker,
-    uint offerGasprice,
-    uint offerId
-  ) external returns (bytes32);
+  function makerTrade(Trade calldata trade) external returns (bytes32);
+
+  struct Handoff {
+    address base;
+    address quote;
+    uint takerWants;
+    uint takerGives;
+    uint offerId;
+    bool offerDeleted;
+  }
 
   // Maker callback after trade
-  function makerHandoff(
-    address base,
-    address quote,
-    uint takerWants,
-    uint takerGives,
-    uint offerId
-  ) external;
+  function makerHandoff(Handoff calldata handoff) external;
 
   event Execute(uint takerWants, uint takerGives, uint offerId);
 }
