@@ -410,13 +410,13 @@ contract Gatekeeping_Test is IMaker {
 
   function updateOffer_on_reentrancy_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 400_000, 0);
-    uint _ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 100_000, 0);
+    uint other_ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 100_000, 0);
 
     _trade = abi.encodeWithSelector(
       this.updateOfferOK.selector,
       quote,
       base,
-      _ofr,
+      other_ofr,
       "updateOffer on swapped pair should work"
     );
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
@@ -424,12 +424,12 @@ contract Gatekeeping_Test is IMaker {
 
   function updateOffer_on_handoff_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    uint _ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    uint other_ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
     _handoff = abi.encodeWithSelector(
       this.updateOfferOK.selector,
       base,
       quote,
-      _ofr,
+      other_ofr,
       "updateOffer on handoff should work"
     );
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
@@ -467,12 +467,12 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function cancelOffer_on_reentrancy_succeeds_test() public {
-    uint dual_ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 90_000, 0);
+    uint other_ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 90_000, 0);
     _trade = abi.encodeWithSelector(
       this.cancelOfferOK.selector,
       quote,
       base,
-      dual_ofr,
+      other_ofr,
       "cancelOffer on swapped pair should work"
     );
 
@@ -481,12 +481,12 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function cancelOffer_on_handoff_succeeds_test() public {
-    uint dual_ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
+    uint other_ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
     _handoff = abi.encodeWithSelector(
       this.cancelOfferOK.selector,
       base,
       quote,
-      dual_ofr,
+      other_ofr,
       "cancelOffer on handoff should work"
     );
 
@@ -583,12 +583,12 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function internalSnipes_on_reentrancy_succeeds_test() public {
-    uint dual_ofr = dual_mkr.newOffer(1 ether, 1 ether, 30_000, 0);
+    uint other_ofr = dual_mkr.newOffer(1 ether, 1 ether, 30_000, 0);
     _trade = abi.encodeWithSelector(
       this.snipeOK.selector,
       quote,
       base,
-      dual_ofr,
+      other_ofr,
       "internalSnipes on swapped pair should work"
     );
 
@@ -597,12 +597,12 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function internalSnipes_on_handoff_succeeds_test() public {
-    uint dual_ofr = dual_mkr.newOffer(1 ether, 1 ether, 30_000, 0);
+    uint other_ofr = dual_mkr.newOffer(1 ether, 1 ether, 30_000, 0);
     _handoff = abi.encodeWithSelector(
       this.snipeOK.selector,
       base,
       quote,
-      dual_ofr,
+      other_ofr,
       "internalSnipes on handoff should work"
     );
 
