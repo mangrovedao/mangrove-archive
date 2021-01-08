@@ -405,6 +405,7 @@ abstract contract Dex is HasAdmin {
       */
       if (toDelete) {
         dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
+        // note that internalMarketOrder may be called twice with same offerId, but in that case proceed will be false!
         orp.offerId = orp.offer.next;
         orp.offer = offers[orp.base][orp.quote][orp.offerId];
       }
