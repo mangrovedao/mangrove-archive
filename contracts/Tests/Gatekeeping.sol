@@ -267,7 +267,7 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
-  function takerWants_above_96bits_fails_internalSnipes_test() public {
+  function takerWants_above_96bits_fails_snipes_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     uint[4][] memory targets = new uint[4][](1);
     targets[0] = [
@@ -582,28 +582,28 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
-  function internalSnipes_on_reentrancy_succeeds_test() public {
+  function snipes_on_reentrancy_succeeds_test() public {
     uint other_ofr = dual_mkr.newOffer(1 ether, 1 ether, 30_000, 0);
     _trade = abi.encodeWithSelector(
       this.snipeOK.selector,
       quote,
       base,
       other_ofr,
-      "internalSnipes on swapped pair should work"
+      "snipes on swapped pair should work"
     );
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
     require(tkr.take(ofr, 0.1 ether), "take must succeed or test is void");
   }
 
-  function internalSnipes_on_handoff_succeeds_test() public {
+  function snipes_on_handoff_succeeds_test() public {
     uint other_ofr = dual_mkr.newOffer(1 ether, 1 ether, 30_000, 0);
     _handoff = abi.encodeWithSelector(
       this.snipeOK.selector,
       base,
       quote,
       other_ofr,
-      "internalSnipes on handoff should work"
+      "snipes on handoff should work"
     );
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
