@@ -64,7 +64,7 @@ library DexLib {
   {
     bytes memory cd =
       abi.encodeWithSelector(
-        IMaker.execute.selector,
+        IMaker.makerTrade.selector,
         orp.base,
         orp.quote,
         orp.wants,
@@ -84,7 +84,7 @@ library DexLib {
     /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of CALL) is $$h$$, the maker will receive at worst $$\textrm{gasreq} - \frac{63h}{64}$$ gas. */
     /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether 63/64(gasleft-gasbase) > gasreq. If no, we'd know by induction that there is enough gas left to apply fees, stitch offers, etc (or could revert safely if no offer has been taken yet). */
     if (!(oldGas - oldGas / 64 >= gasreq)) {
-      innerRevert([bytes32("dex/notEnoughGasForMaker"), "", ""]);
+      innerRevert([bytes32("dex/notEnoughGasForMakerTrade"), "", ""]);
     }
 
     assembly {

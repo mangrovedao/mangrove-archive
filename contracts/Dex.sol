@@ -358,6 +358,7 @@ abstract contract Dex is HasAdmin {
   {
     if (orp.initialWants - orp.totalGot > 0 && orp.offerId != 0) {
       bool success;
+      uint gasLeft;
       /* `executed` is false if offer could not be executed against 2nd and 3rd argument of executeOrderPack. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
       // reduce stack size for recursion
       {
@@ -366,7 +367,7 @@ abstract contract Dex is HasAdmin {
         orp.gives = orp.initialGives - orp.totalGave;
         orp.offerDetail = offerDetails[orp.offerId];
 
-        (success, toDelete) = executeOrderPack(orp);
+        (success, toDelete, gasLeft) = executeOrderPack(orp);
 
         /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
 
@@ -403,15 +404,18 @@ abstract contract Dex is HasAdmin {
         }
       }
 
+      // those may have been updated by executeOrderPack, we keep them in stack
       address maker = orp.offerDetail.maker;
-      // gives may have been updated by executeOrderPack
-      uint gives = orp.gives;
+      uint offerId = orp.offerId;
+      uint takerWants = orp.wants;
+      uint takerGives = orp.gives;
 
       internalMarketOrder(orp, pastOfferId);
 
       // reentrancy is allowed here
       if (success) {
-        executeOrderPackCallback(orp, maker, gives);
+        executeOrderPackCallback(orp, maker, takerGives);
+        makerHandoff(orp, takerWants, takerGives, offerId, maker, gasLeft);
       }
     } else {
       restrictMemoryArrayLength(orp.toPunish, orp.numToPunish);
@@ -429,6 +433,32 @@ abstract contract Dex is HasAdmin {
     }
   }
 
+  function makerHandoff(
+    DC.OrderPack memory orp,
+    uint takerWants,
+    uint takerGives,
+    uint offerId,
+    address maker,
+    uint gasLeft
+  ) internal {
+    bytes memory cd =
+      abi.encodeWithSelector(
+        IMaker.makerHandoff.selector,
+        orp.base,
+        orp.quote,
+        takerWants,
+        takerGives,
+        offerId
+      );
+
+    uint oldGas = gasleft();
+    if (!(oldGas - oldGas / 64 >= gasLeft)) {
+      revert("dex/notEnoughGasForMakerHandoff");
+    }
+    bool noRevert;
+    (noRevert, ) = maker.call{gas: gasLeft}(cd);
+  }
+
   function executeOrderPackEnd(DC.OrderPack memory orp) internal virtual;
 
   function executeOrderPackCallback(
@@ -437,9 +467,14 @@ abstract contract Dex is HasAdmin {
     uint gives
   ) internal virtual;
 
+  /* We could make `executeOrderPack` part of DexLib to reduce Dex contract size, but we make heavy use of the memory struct `orp` to modify data that will then be used by the caller (`internalSnipes` or `internalMarketOrder`). */
   function executeOrderPack(DC.OrderPack memory orp)
     internal
-    returns (bool success, bool toDelete)
+    returns (
+      bool success,
+      bool toDelete,
+      uint gasLeft
+    )
   {
     /* #### `makerWouldWant` */
     //+clear+
@@ -459,7 +494,7 @@ abstract contract Dex is HasAdmin {
       roundUpRatio(orp.wants * orp.offer.wants, orp.offer.gives);
 
     if (makerWouldWant > orp.gives) {
-      return (success, toDelete);
+      return (success, toDelete, orp.offerDetail.gasreq);
     }
 
     /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `orp.wants`,`orp.gives` are how much the taker will trade with the current offer. */
@@ -522,8 +557,8 @@ abstract contract Dex is HasAdmin {
           orp.toPunish[orp.numToPunish] = [orp.offerId, gasUsed];
           orp.numToPunish++;
         }
-      } else if (errorCode == "dex/notEnoughGasForMaker") {
-        revert("dex/notEnoughGasForMaker");
+      } else if (errorCode == "dex/notEnoughGasForMakerTrade") {
+        revert("dex/notEnoughGasForMakerTrade");
       } else if (errorCode == "dex/takerFailToPayMaker") {
         revert("dex/takerFailToPayMaker");
       } else {
@@ -531,6 +566,7 @@ abstract contract Dex is HasAdmin {
       }
     }
 
+    gasLeft = orp.offerDetail.gasreq - gasUsed;
     applyPenalty(success, gasUsed, orp.offerDetail);
   }
 
@@ -618,6 +654,7 @@ abstract contract Dex is HasAdmin {
       orp.offerDetail = offerDetails[orp.offerId];
 
       bool success;
+      uint gasLeft;
 
       /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. We also check that `gasreq` is not worse than specified. A taker who does not care about `gasreq` can specify any amount larger than $2^{24}-1$. */
       if (DC.isLive(orp.offer) && orp.offerDetail.gasreq <= targets[i][3]) {
@@ -628,7 +665,7 @@ abstract contract Dex is HasAdmin {
         orp.wants = targets[i][1];
         orp.gives = targets[i][2];
         bool toDelete;
-        (success, toDelete) = executeOrderPack(orp);
+        (success, toDelete, gasLeft) = executeOrderPack(orp);
         if (success) {
           successes += 1;
         }
@@ -646,11 +683,14 @@ abstract contract Dex is HasAdmin {
       }
 
       address maker = orp.offerDetail.maker;
-      uint gives = orp.gives;
+      uint offerId = orp.offerId;
+      uint takerWants = orp.wants;
+      uint takerGives = orp.gives;
       successes = internalSnipes(orp, targets, i + 1, successes);
 
       if (success) {
-        executeOrderPackCallback(orp, maker, gives);
+        executeOrderPackCallback(orp, maker, takerGives);
+        makerHandoff(orp, takerWants, takerGives, offerId, maker, gasLeft);
       }
     } else {
       /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
@@ -1094,7 +1134,7 @@ contract NormalDex is Dex {
   function executeOrderPackCallback(
     DC.OrderPack memory orp,
     address maker,
-    uint gives
+    uint takerGives
   ) internal override {}
 }
 
@@ -1105,9 +1145,9 @@ contract InvertedDex is Dex {
     uint gasmax
   ) Dex(gasprice, gasbase, gasmax, false) {}
 
-  // execute taker callback
+  // execute taker trade
   function executeOrderPackEnd(DC.OrderPack memory orp) internal override {
-    ITaker(msg.sender).execute(
+    ITaker(msg.sender).takerTrade(
       orp.base,
       orp.quote,
       orp.totalGot,
@@ -1115,12 +1155,23 @@ contract InvertedDex is Dex {
     );
   }
 
+  /* we use `transferFrom` with takers (instead of `balanceOf` technique) for the following reason :
+     * we want the taker to be awaken after all loans have been made
+     * 1) so either the taker gets a list of all makers and loops through them to pay back, or
+     * 2) we call a new taker method "payback" after returning from each maker call, or
+     * 3) we call transferFrom after returning from each maker call
+     So :
+     1) would mean accumulating a list of all makers, which would make the market order code too complex
+     2) is OK, but has an extra CALL cost on top of the token transfer, one for each maker. This is unavoidable anyway when calling makerTrade (since the maker must be able to execute arbitrary code at that moment), but we can skip it here.
+     3) is the cheapest, but it has the drawbacks of `transferFrom`: money must end up owned by the taker, and taker needs to `approve` Dex
+   */
   function executeOrderPackCallback(
     DC.OrderPack memory orp,
     address maker,
-    uint gives
+    uint takerGives
   ) internal override {
-    bool success = DexLib.transferToken(orp.quote, msg.sender, maker, gives);
+    bool success =
+      DexLib.transferToken(orp.quote, msg.sender, maker, takerGives);
     require(success, "dex/takerFailToPayMaker");
   }
 }

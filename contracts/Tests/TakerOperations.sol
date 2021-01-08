@@ -242,7 +242,7 @@ contract TakerOperations_Test {
     } else {
       TestEvents.revertEq(
         TestUtils.getReason(data),
-        "dex/notEnoughGasForMaker"
+        "dex/notEnoughGasForMakerTrade"
       );
     }
   }

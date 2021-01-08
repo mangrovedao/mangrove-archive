@@ -18,7 +18,7 @@ import "./Agents/TestMoriartyMaker.sol";
 import "./Agents/MakerDeployer.sol";
 import "./Agents/TestTaker.sol";
 
-contract MakerOperations_Test {
+contract MakerOperations_Test is IMaker {
   Dex dex;
   TestMaker mkr;
   TestMaker mkr2;
@@ -83,7 +83,7 @@ contract MakerOperations_Test {
   }
 
   // since we check calldata, execute must be internal
-  function execute(
+  function makerTrade(
     address _base,
     address _quote,
     uint takerWants,
@@ -91,7 +91,8 @@ contract MakerOperations_Test {
     address taker,
     uint,
     uint offerId
-  ) external {
+  ) external override returns (bytes32 ret) {
+    ret; // silence unused function parameter warning
     IERC20(base).transfer(taker, takerWants);
     uint num_args = 7;
     uint selector_bytes = 4;
@@ -110,6 +111,14 @@ contract MakerOperations_Test {
     TestEvents.eq(offerId, 1, "wrong offerId");
   }
 
+  function makerHandoff(
+    address,
+    address,
+    uint,
+    uint,
+    uint
+  ) external pure override {}
+
   function calldata_in_execute_is_correct_test() public {
     bool funded;
     (funded, ) = address(dex).call{value: 1 ether}("");
@@ -120,7 +129,7 @@ contract MakerOperations_Test {
         address(quote),
         0.05 ether,
         0.05 ether,
-        100_000,
+        200_000,
         0
       );
     bool ok = tkr.take(ofr, 0.05 ether);

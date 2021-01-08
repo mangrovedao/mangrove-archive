@@ -23,7 +23,7 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     succeed = true;
   }
 
-  function execute(
+  function makerTrade(
     address,
     address,
     uint takerWants,
@@ -43,6 +43,14 @@ contract TestMoriartyMaker is IMaker, Passthrough {
       assert(false);
     }
   }
+
+  function makerHandoff(
+    address,
+    address,
+    uint,
+    uint,
+    uint
+  ) external pure override {}
 
   function newOffer(
     uint wants,

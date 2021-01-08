@@ -81,7 +81,7 @@ contract Maker is IMaker {
     }
   }
 
-  function execute(
+  function makerTrade(
     address,
     address,
     uint,
@@ -94,4 +94,12 @@ contract Maker is IMaker {
     require(msg.sender == DEX);
     return bytes32(0);
   }
+
+  function makerHandoff(
+    address,
+    address,
+    uint,
+    uint,
+    uint
+  ) external override {}
 }

@@ -4,7 +4,10 @@ pragma experimental ABIEncoderV2;
 import {DexCommon as DC} from "./DexCommon.sol";
 
 interface IMaker {
-  function execute(
+  // Maker sends quote to taker
+  // In normal dex, they already received base
+  // In inverted dex, they did not
+  function makerTrade(
     address base,
     address quote,
     uint takerWants,
@@ -13,10 +16,20 @@ interface IMaker {
     uint offerGasprice,
     uint offerId
   ) external returns (bytes32);
+
+  // Maker callback after trade
+  function makerHandoff(
+    address base,
+    address quote,
+    uint takerWants,
+    uint takerGives,
+    uint offerId
+  ) external;
 }
 
 interface ITaker {
-  function execute(
+  // Inverted dex only: taker acquires enough base to pay back quote loan
+  function takerTrade(
     address base,
     address quote,
     uint totalGot,

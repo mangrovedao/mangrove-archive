@@ -32,7 +32,7 @@ contract TestMaker is IMaker, Passthrough {
     _shouldRevert = should;
   }
 
-  function execute(
+  function makerTrade(
     address _base,
     address _quote,
     uint takerWants,
@@ -61,6 +61,14 @@ contract TestMaker is IMaker, Passthrough {
       return "testMaker/fail";
     }
   }
+
+  function makerHandoff(
+    address,
+    address,
+    uint,
+    uint,
+    uint
+  ) external pure override {}
 
   function cancelOffer(Dex _dex, uint offerId) public {
     _dex.cancelOffer(base, quote, offerId, false);

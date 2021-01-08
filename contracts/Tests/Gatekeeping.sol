@@ -71,7 +71,7 @@ contract NotAdmin {
 }
 
 // In these tests, the testing contract is the market maker.
-contract Gatekeeping_Test {
+contract Gatekeeping_Test is IMaker {
   receive() external payable {}
 
   Dex dex;
@@ -281,10 +281,11 @@ contract Gatekeeping_Test {
     }
   }
 
-  bytes callback;
+  bytes _trade;
+  bytes _handoff;
 
-  // maker's execute callback for the dex
-  function execute(
+  // maker's trade fn for the dex
+  function makerTrade(
     address,
     address,
     uint takerWants,
@@ -292,10 +293,26 @@ contract Gatekeeping_Test {
     address taker,
     uint,
     uint
-  ) external {
+  ) external override returns (bytes32 ret) {
+    ret; // silence unused function parameter
     IERC20(base).transfer(taker, takerWants);
     bool success;
-    (success, ) = address(this).call(callback);
+    if (_trade.length > 0) {
+      (success, ) = address(this).call(_trade);
+    }
+  }
+
+  function makerHandoff(
+    address,
+    address,
+    uint,
+    uint,
+    uint
+  ) external override {
+    bool success;
+    if (_handoff.length > 0) {
+      (success, ) = address(this).call(_handoff);
+    }
   }
 
   function testGas_test() public {
@@ -319,44 +336,90 @@ contract Gatekeeping_Test {
     }
   }
 
-  function updateOfferOK(uint ofr) external {
-    try dex.updateOffer(base, quote, 1 ether, 2 ether, 35_000, 0, ofr) {
+  // ! may be called with inverted _base and _quote
+  function updateOfferOK(
+    address _base,
+    address _quote,
+    uint ofr,
+    string memory err
+  ) external {
+    try dex.updateOffer(_base, _quote, 1 ether, 2 ether, 35_000, 0, ofr) {
       TestEvents.succeed();
     } catch {
-      TestEvents.fail("update offer on different pair should succeed");
+      TestEvents.fail(err);
     }
   }
 
   function newOffer_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    callback = abi.encodeWithSelector(this.newOfferKO.selector);
+    _trade = abi.encodeWithSelector(this.newOfferKO.selector);
     tkr.take(ofr, 1 ether);
   }
 
   function updateOffer_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    callback = abi.encodeWithSelector(this.updateOfferKO.selector, ofr);
+    _trade = abi.encodeWithSelector(this.updateOfferKO.selector, ofr);
     tkr.take(ofr, 1 ether);
   }
 
   function updateOffer_on_reentrancy_succeeds_test() public {
     uint ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 100_000, 0);
     uint _ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    callback = abi.encodeWithSelector(this.updateOfferOK.selector, _ofr);
+    _trade = abi.encodeWithSelector(
+      this.updateOfferOK.selector,
+      quote,
+      base,
+      _ofr,
+      "updateOffer on swapped pair should work"
+    );
     tkr.take(ofr, 1 ether);
   }
 
-  function newOfferOK() external {
-    try dex.newOffer(quote, base, 1 ether, 1 ether, 30_000, 0) {
+  function updateOffer_on_handoff_succeeds_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    uint _ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
+    _handoff = abi.encodeWithSelector(
+      this.updateOfferOK.selector,
+      base,
+      quote,
+      _ofr,
+      "updateOffer on handoff should work"
+    );
+    tkr.take(ofr, 1 ether);
+  }
+
+  // ! may be called with inverted _base and _quote
+  function newOfferOK(
+    address _base,
+    address _quote,
+    string memory err
+  ) external {
+    try dex.newOffer(_base, _quote, 1 ether, 1 ether, 30_000, 0) {
       // all good
     } catch {
-      TestEvents.fail("newOffer on swapped pair should work");
+      TestEvents.fail(err);
     }
   }
 
   function newOffer_on_reentrancy_succeeds_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 200_000, 0);
+    _trade = abi.encodeWithSelector(
+      this.newOfferOK.selector,
+      quote,
+      base,
+      "newOffer on swapped pair should work"
+    );
+    tkr.take(ofr, 1 ether);
+  }
+
+  function newOffer_on_handoff_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    callback = abi.encodeWithSelector(this.newOfferOK.selector);
+    _handoff = abi.encodeWithSelector(
+      this.newOfferOK.selector,
+      base,
+      quote,
+      "newOffer on handoff should work"
+    );
     tkr.take(ofr, 1 ether);
   }
 
@@ -370,21 +433,46 @@ contract Gatekeeping_Test {
 
   function cancelOffer_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    callback = abi.encodeWithSelector(this.cancelOfferKO.selector, ofr);
+    _trade = abi.encodeWithSelector(this.cancelOfferKO.selector, ofr);
     tkr.take(ofr, 1 ether);
   }
 
-  function cancelOfferOK(uint id) external {
-    try dex.cancelOffer(quote, base, id, false) {
+  function cancelOfferOK(
+    address _base,
+    address _quote,
+    uint id,
+    string memory err
+  ) external {
+    try dex.cancelOffer(_base, _quote, id, false) {
       // all good
     } catch {
-      TestEvents.fail("cancelOffer on swapped pair should work");
+      TestEvents.fail(err);
     }
   }
 
   function cancelOffer_on_reentrancy_succeeds_test() public {
     uint dual_ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 90_000, 0);
-    callback = abi.encodeWithSelector(this.cancelOfferOK.selector, dual_ofr);
+    _trade = abi.encodeWithSelector(
+      this.cancelOfferOK.selector,
+      quote,
+      base,
+      dual_ofr,
+      "cancelOffer on swapped pair should work"
+    );
+
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
+    tkr.take(ofr, 1 ether);
+  }
+
+  function cancelOffer_on_handoff_succeeds_test() public {
+    uint dual_ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
+    _handoff = abi.encodeWithSelector(
+      this.cancelOfferOK.selector,
+      base,
+      quote,
+      dual_ofr,
+      "cancelOffer on handoff should work"
+    );
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
     tkr.take(ofr, 1 ether);
@@ -400,22 +488,42 @@ contract Gatekeeping_Test {
 
   function marketOrder_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    callback = abi.encodeWithSelector(this.marketOrderKO.selector);
+    _trade = abi.encodeWithSelector(this.marketOrderKO.selector);
     tkr.take(ofr, 0.1 ether);
   }
 
-  function marketOrderOK() external {
+  function marketOrderOK(
+    address _base,
+    address _quote,
+    string memory err
+  ) external {
     dual_mkr.newOffer(1 ether, 1 ether, 100_000, 0);
-    try dex.simpleMarketOrder(quote, base, 0.2 ether, 0.2 ether) {
+    try dex.simpleMarketOrder(_base, _quote, 0.2 ether, 0.2 ether) {
       // all good
     } catch {
-      TestEvents.fail("marketOrder on swapped pair should work");
+      TestEvents.fail(err);
     }
   }
 
   function marketOrder_on_reentrancy_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
-    callback = abi.encodeWithSelector(this.marketOrderOK.selector);
+    _trade = abi.encodeWithSelector(
+      this.marketOrderOK.selector,
+      quote,
+      base,
+      "marketOrder on swapped pair should work"
+    );
+    tkr.take(ofr, 0.1 ether);
+  }
+
+  function marketOrder_on_handoff_succeeds_test() public {
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
+    _handoff = abi.encodeWithSelector(
+      this.marketOrderOK.selector,
+      base,
+      quote,
+      "marketOrder on handoff should work"
+    );
     tkr.take(ofr, 0.1 ether);
   }
 
@@ -431,23 +539,48 @@ contract Gatekeeping_Test {
 
   function snipe_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0);
-    callback = abi.encodeWithSelector(this.snipeKO.selector);
+    _trade = abi.encodeWithSelector(this.snipeKO.selector);
     tkr.take(ofr, 0.1 ether);
   }
 
-  function snipeOK(uint id) external {
+  function snipeOK(
+    address _base,
+    address _quote,
+    uint id,
+    string memory err
+  ) external {
     try
-      dex.snipe(quote, base, id, 1 ether, type(uint96).max, type(uint24).max)
+      dex.snipe(_base, _quote, id, 1 ether, type(uint96).max, type(uint24).max)
     {
       // all good
     } catch {
-      TestEvents.fail("snipe on swapped pair should work");
+      TestEvents.fail(err);
     }
   }
 
   function internalSnipes_on_reentrancy_succeeds_test() public {
     uint dual_ofr = dual_mkr.newOffer(1 ether, 1 ether, 30_000, 0);
-    callback = abi.encodeWithSelector(this.snipeOK.selector, dual_ofr);
+    _trade = abi.encodeWithSelector(
+      this.snipeOK.selector,
+      quote,
+      base,
+      dual_ofr,
+      "internalSnipes on swapped pair should work"
+    );
+
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
+    tkr.take(ofr, 0.1 ether);
+  }
+
+  function internalSnipes_on_handoff_succeeds_test() public {
+    uint dual_ofr = dual_mkr.newOffer(1 ether, 1 ether, 30_000, 0);
+    _handoff = abi.encodeWithSelector(
+      this.snipeOK.selector,
+      base,
+      quote,
+      dual_ofr,
+      "internalSnipes on handoff should work"
+    );
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
     tkr.take(ofr, 0.1 ether);

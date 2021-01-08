@@ -21,7 +21,7 @@ import "./Agents/TestTaker.sol";
    and a TestTaker which throws away any funds received upon getting
    a callback.
 */
-contract InvertedTakerOperations_Test {
+contract InvertedTakerOperations_Test is ITaker {
   TestToken baseT;
   TestToken quoteT;
   address base;
@@ -53,12 +53,12 @@ contract InvertedTakerOperations_Test {
     Display.register(address(mkr), "maker");
   }
 
-  function execute(
+  function takerTrade(
     address,
     address,
     uint totalGot,
     uint
-  ) public {
+  ) public override {
     TestEvents.eq(totalGot, 0.2 ether, "totalGot should be sum of flashloans");
     TestEvents.eq(
       IERC20(base).balanceOf(address(this)),

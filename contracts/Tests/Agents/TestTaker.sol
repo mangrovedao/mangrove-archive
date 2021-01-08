@@ -39,7 +39,7 @@ contract TestTaker is ITaker {
     //return taken;
   }
 
-  function execute(
+  function takerTrade(
     address,
     address,
     uint,
