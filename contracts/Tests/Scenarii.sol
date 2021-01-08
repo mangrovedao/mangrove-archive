@@ -17,6 +17,7 @@ import "./Agents/TestMaker.sol";
 import "./Agents/TestMoriartyMaker.sol";
 import "./Agents/MakerDeployer.sol";
 import "./Agents/TestTaker.sol";
+import "./Agents/OfferManager.sol";
 
 import "./Scenarii/TestCancelOffer.sol";
 import "./Scenarii/TestCollectFailingOffer.sol";
@@ -173,6 +174,18 @@ contract Scenarii_Test {
     Display.logOfferBook(dex, address(base), address(quote), 4);
     saveBalances();
     saveOffers();
+  }
+
+  function offer_manager_test() public {
+    OfferManager mgr = new OfferManager(dex);
+    offerOf = TestInsert.run(balances, dex, makers, taker, base, quote); //creating non empty OB on pair (base,quote)
+    Display.logOfferBook(dex, address(base), address(quote), 5);
+    Display.register(address(mgr), "offer manager");
+    taker.delegateOrder(mgr, 3 ether, 3 ether);
+    Display.logOfferBook(dex, address(base), address(quote), 5);
+    Display.logOfferBook(dex, address(quote), address(base), 5);
+
+    //mgr.order(address(base), address(quote), 1 ether, 1 ether);
   }
 }
 

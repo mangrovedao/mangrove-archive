@@ -4,6 +4,7 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 import "../../interfaces.sol";
 import "../../Dex.sol";
+import "./OfferManager.sol";
 
 contract TestTaker is ITaker {
   Dex dex;
@@ -79,5 +80,20 @@ contract TestTaker is ITaker {
       takerGives,
       punishLength
     );
+  }
+
+  function delegateOrder(
+    OfferManager mgr,
+    uint wants,
+    uint gives
+  ) public {
+    try IERC20(quote).approve(address(mgr), gives) {
+      console.log("Delegate order");
+      address(mgr).call{value: 0.01 ether}(
+        abi.encodeWithSelector(mgr.order.selector, base, quote, wants, gives)
+      );
+    } catch {
+      require(false, "failed to approve mgr");
+    }
   }
 }

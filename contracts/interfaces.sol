@@ -25,6 +25,8 @@ interface IMaker {
     uint takerGives,
     uint offerId
   ) external;
+
+  event Execute(uint takerWants, uint takerGives, uint offerId);
 }
 
 interface ITaker {
