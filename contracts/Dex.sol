@@ -343,7 +343,11 @@ abstract contract Dex is HasAdmin {
     /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. */
     require(DC.isLive(orp.offer), "dex/marketOrder/noSuchOffer");
 
-    internalMarketOrder(orp, orp.offer.prev);
+    internalMarketOrder(
+      orp,
+      orp.offer.prev,
+      orp.initialWants != 0 && orp.offerId != 0
+    );
 
     return orp.toPunish;
   }
@@ -353,55 +357,56 @@ abstract contract Dex is HasAdmin {
   /* Offers are looped through until:
    * remaining amount wanted reaches 0, or
    * `offerId == 0`, which means we've gone past the end of the book. */
-  function internalMarketOrder(DC.OrderPack memory orp, uint pastOfferId)
-    internal
-  {
-    if (orp.initialWants - orp.totalGot > 0 && orp.offerId != 0) {
+  function internalMarketOrder(
+    DC.OrderPack memory orp,
+    uint pastOfferId,
+    bool proceed
+  ) internal {
+    if (proceed) {
       bool success;
       uint gasLeft;
       /* `executed` is false if offer could not be executed against 2nd and 3rd argument of executeOrderPack. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
       // reduce stack size for recursion
-      {
-        bool toDelete;
-        orp.wants = orp.initialWants - orp.totalGot;
-        orp.gives = orp.initialGives - orp.totalGave;
-        orp.offerDetail = offerDetails[orp.offerId];
 
-        (success, toDelete, gasLeft) = executeOrderPack(orp);
+      bool toDelete;
+      orp.wants = orp.initialWants - orp.totalGot;
+      orp.gives = orp.initialGives - orp.totalGave;
+      orp.offerDetail = offerDetails[orp.offerId];
 
-        /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
+      (success, toDelete, gasLeft) = executeOrderPack(orp);
 
-           Let _r~1~_, ..., _r~n~_ the successive values taken by `offer` each time the current while loop's test is executed.
-           Also, let _r~0~_ = `offers[pastOfferId]` be the offer immediately better
-           than _r~1~_.
-           After the market order loop ends, we will restore the doubly linked
-           list by connecting _r~0~_ to _r~n~_ through their `prev`/`next`
-           pointers. Assume that currently, `offer` is _r~i~_. Should
-        we update `offer` to some _r~i+1~_ or is _i_ = _n_?
+      /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
 
-         * If _r~i~_ was `deleted`, we may or may not be at the last loop iteration, but we will stitch _r~0~_ to some _r~j~_, _j > i_, so we update `offer` to _r~i+1~_ regardless.
-          * if _r~i~_ was not `deleted`, we are at the last loop iteration (see why below). So we will stitch _r~0~_ to _r~i~_ = _r~n~_. In that case, we must not update `offer`.
+         Let _r~1~_, ..., _r~n~_ the successive values taken by `offer` each time the current while loop's test is executed.
+         Also, let _r~0~_ = `offers[pastOfferId]` be the offer immediately better
+         than _r~1~_.
+         After the market order loop ends, we will restore the doubly linked
+         list by connecting _r~0~_ to _r~n~_ through their `prev`/`next`
+         pointers. Assume that currently, `offer` is _r~i~_. Should
+      we update `offer` to some _r~i+1~_ or is _i_ = _n_?
 
-          Note that if the invariant _"not `deleted` → end of `while` loop"_ does not hold, the market order is completely broken.
+       * If _r~i~_ was `deleted`, we may or may not be at the last loop iteration, but we will stitch _r~0~_ to some _r~j~_, _j > i_, so we update `offer` to _r~i+1~_ regardless.
+        * if _r~i~_ was not `deleted`, we are at the last loop iteration (see why below). So we will stitch _r~0~_ to _r~i~_ = _r~n~_. In that case, we must not update `offer`.
+
+        Note that if the invariant _"not `deleted` → end of `while` loop"_ does not hold, the market order is completely broken.
 
 
-            Proof that we are at the last iteration of the while loop: if what's left in the offer after a successful execution is above the minimum size offer, we update the offer and keep it in the book: in `executeOffer`, the offer is not deleted iff the test below passes (variables renamed for clarity):
-           ```
-           success &&
-           gives - localTakerwants >=
-             density * (gasreq + gasbase)
-           ```
-          By the `Config`, `density * gasbase > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have
-          ```
-           takerWants == 0 < density * gasbase
-          ```
-          And so the loop ends.
-        */
-        if (toDelete) {
-          dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
-          orp.offerId = orp.offer.next;
-          orp.offer = offers[orp.base][orp.quote][orp.offerId];
-        }
+          Proof that we are at the last iteration of the while loop: if what's left in the offer after a successful execution is above the minimum size offer, we update the offer and keep it in the book: in `executeOffer`, the offer is not deleted iff the test below passes (variables renamed for clarity):
+         ```
+         success &&
+         gives - localTakerwants >=
+           density * (gasreq + gasbase)
+         ```
+        By the `Config`, `density * gasbase > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have
+        ```
+         takerWants == 0 < density * gasbase
+        ```
+        And so the loop ends.
+      */
+      if (toDelete) {
+        dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
+        orp.offerId = orp.offer.next;
+        orp.offer = offers[orp.base][orp.quote][orp.offerId];
       }
 
       // those may have been updated by executeOrderPack, we keep them in stack
@@ -410,12 +415,16 @@ abstract contract Dex is HasAdmin {
       uint takerWants = orp.wants;
       uint takerGives = orp.gives;
 
-      internalMarketOrder(orp, pastOfferId);
+      internalMarketOrder(
+        orp,
+        pastOfferId,
+        orp.initialWants - orp.totalGot > 0 && orp.offerId != 0 && toDelete
+      );
 
       // reentrancy is allowed here
       if (success) {
-        executeOrderPackCallback(orp, maker, takerGives);
-        makerHandoff(orp, takerWants, takerGives, offerId, maker, gasLeft);
+        executeOrderPackCallback(orp, maker, takerGives); // noop in Classical dex
+        makerHandoff(orp, takerWants, takerGives, offerId, maker, gasLeft); // maker callback
       }
     } else {
       restrictMemoryArrayLength(orp.toPunish, orp.numToPunish);
@@ -428,7 +437,7 @@ abstract contract Dex is HasAdmin {
         orp.offerId
       );
       locks[orp.base][orp.quote] = UNLOCKED;
-      executeOrderPackEnd(orp);
+      executeOrderPackEnd(orp); //noop if classical Dex
       applyFee(orp);
     }
   }
