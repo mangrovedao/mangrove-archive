@@ -138,11 +138,7 @@ contract MakerOperations_Test is IMaker {
         200_000,
         0
       );
-    bool ok = tkr.take(ofr, 0.05 ether);
-    TestEvents.check(
-      ok,
-      "snipe must succeed or calldata check will be reverted"
-    );
+    require(tkr.take(ofr, 0.05 ether), "take must work of test is void");
   }
 
   function withdraw_removes_freeWei_and_ethers_test() public {
