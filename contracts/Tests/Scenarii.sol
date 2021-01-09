@@ -178,6 +178,7 @@ contract Scenarii_Test {
 
   function offer_manager_test() public {
     OfferManager mgr = new OfferManager(dex);
+    address(taker).call{value: 1 ether}("");
     offerOf = TestInsert.run(balances, dex, makers, taker, base, quote); //creating non empty OB on pair (base,quote)
     Display.logOfferBook(dex, address(base), address(quote), 5);
     Display.register(address(mgr), "offer manager");

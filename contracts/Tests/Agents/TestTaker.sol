@@ -89,9 +89,7 @@ contract TestTaker is ITaker {
   ) public {
     try IERC20(quote).approve(address(mgr), gives) {
       console.log("Delegate order");
-      address(mgr).call{value: 0.01 ether}(
-        abi.encodeWithSelector(mgr.order.selector, base, quote, wants, gives)
-      );
+      mgr.order{value: 0.01 ether}(base, quote, wants, gives);
     } catch {
       require(false, "failed to approve mgr");
     }

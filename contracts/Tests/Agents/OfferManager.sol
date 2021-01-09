@@ -60,6 +60,8 @@ contract OfferManager is IMaker {
     DC.Config memory config = dex.config(base, quote);
 
     IERC20(quote).transferFrom(msg.sender, address(this), gives); // OfferManager must be approved by sender
+    IERC20(quote).approve(address(dex), 100 ether); // to pay maker
+    IERC20(base).approve(address(dex), 100 ether); // takerfee
 
     console.log("Manager has received quote funds");
 
