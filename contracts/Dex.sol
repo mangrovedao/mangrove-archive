@@ -407,18 +407,19 @@ abstract contract Dex is HasAdmin {
         ```
         And so the loop ends.
       */
-      if (toDelete) {
-        dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
-        // note that internalMarketOrder may be called twice with same offerId, but in that case proceed will be false!
-        orp.offerId = orp.offer.next;
-        orp.offer = offers[orp.base][orp.quote][orp.offerId];
-      }
 
       // those may have been updated by execute, we keep them in stack
       address maker = orp.offerDetail.maker;
       uint offerId = orp.offerId;
       uint takerWants = orp.wants;
       uint takerGives = orp.gives;
+
+      if (toDelete) {
+        dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
+        // note that internalMarketOrder may be called twice with same offerId, but in that case proceed will be false!
+        orp.offerId = orp.offer.next;
+        orp.offer = offers[orp.base][orp.quote][orp.offerId];
+      }
 
       internalMarketOrder(
         orp,
