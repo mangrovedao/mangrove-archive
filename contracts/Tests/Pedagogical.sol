@@ -29,53 +29,8 @@ contract Pedagogical_Test {
   TestMaker mkr;
   Compound compound;
 
-  function _beforeAll() public {
-    bat = new TestToken({
-      admin: address(this),
-      name: "Basic attention token",
-      symbol: "BAT"
-    });
-
-    dai = new TestToken({admin: address(this), name: "Dai", symbol: "DAI"});
-
-    dex = new NormalDex({
-      gasprice: 40 * 10**9,
-      gasbase: 30_000,
-      gasmax: 1_000_000
-    });
-
-    // activate a market where taker buys BAT using DAI
-    dex.activate({
-      base: address(bat),
-      quote: address(dai),
-      fee: 0,
-      density: 100
-    });
-
-    tkr = new TestTaker({dex: dex, base: bat, quote: dai});
-
-    dex.fund{value: 10 ether}();
-
-    dai.mint({amount: 10 ether, to: address(tkr)});
-    tkr.approveDex({amount: 10 ether, token: dai});
-
-    Display.register({addr: msg.sender, name: "Test Runner"});
-    Display.register({addr: address(this), name: "Testing Contract"});
-    Display.register({addr: address(bat), name: "BAT"});
-    Display.register({addr: address(dai), name: "DAI"});
-    Display.register({addr: address(dex), name: "dex"});
-    Display.register({addr: address(tkr), name: "taker"});
-  }
-
   function example_1_offerbook_test() public {
-    mkr = new Maker_basic({dex: dex, base: bat, quote: dai});
-
-    Display.register({addr: address(mkr), name: "maker basic"});
-
-    // testing contract starts with 1000 ETH
-    address(mkr).transfer(10 ether);
-    mkr.provisionDex({amount: 5 ether});
-    bat.mint({amount: 10 ether, to: address(mkr)});
+    setupMakerBasic();
 
     mkr.newOffer({wants: 1 ether, gives: 1 ether, gasreq: 300_000, pivotId: 0});
 
@@ -121,18 +76,31 @@ contract Pedagogical_Test {
   }
 
   function example_3_redeem_test() public {
-    // we create a fake Compound
-    (mkr, compound) = createMakerCompound();
+    setupMakerCompound();
 
-    Display.register({addr: address(mkr), name: "maker compound"});
+    uint ofr =
+      mkr.newOffer({
+        wants: 1 ether,
+        gives: 1 ether,
+        gasreq: 600_000,
+        pivotId: 0
+      });
 
-    // testing contract starts with 1000 ETH
-    address(mkr).transfer(10 ether);
-    mkr.provisionDex({amount: 5 ether});
+    console.log("Before trade,");
+    console.log("BAT balances_______________");
+    console.log("Taker", bat.balanceOf(address(tkr)));
+    console.log("Maker", bat.balanceOf(address(mkr)));
+    console.log("Compound", bat.balanceOf(address(compound)));
+    console.log("DAI balances_______________");
+    console.log("Taker DAI", dai.balanceOf(address(tkr)));
+    console.log("Maker DAI", dai.balanceOf(address(mkr)));
+    console.log("Compound", dai.balanceOf(address(compound)));
+    console.log("cBAT balances_______________");
+    console.log("Maker", compound.c(bat).balanceOf(address(mkr)));
+    console.log("cDAI balances_______________");
+    console.log("Maker", compound.c(dai).balanceOf(address(mkr)));
 
-    mkr.newOffer({wants: 1 ether, gives: 1 ether, gasreq: 100_000, pivotId: 0});
-
-    tkr.marketOrder({wants: 0.3 ether, gives: 0.4 ether});
+    tkr.take(ofr, 0.3 ether);
 
     Display.logOfferBook(dex, address(bat), address(dai), 1);
 
@@ -152,15 +120,9 @@ contract Pedagogical_Test {
   }
 
   function example_4_callback_test() public {
-    mkr = new Maker_callback({dex: dex, base: bat, quote: dai});
+    setupMakerCallback();
 
-    Display.register({addr: address(mkr), name: "maker callback"});
-
-    // testing contract starts with 1000 ETH
-    address(mkr).transfer(10 ether);
-    mkr.provisionDex({amount: 5 ether});
-
-    mkr.newOffer({wants: 1 ether, gives: 1 ether, gasreq: 100_000, pivotId: 0});
+    mkr.newOffer({wants: 1 ether, gives: 1 ether, gasreq: 400_000, pivotId: 0});
 
     tkr.marketOrder({wants: 1 ether, gives: 1 ether});
 
@@ -175,22 +137,85 @@ contract Pedagogical_Test {
     console.log("Maker DAI", dai.balanceOf(address(mkr)));
   }
 
-  function createMakerCompound() internal returns (TestMaker, Compound) {
-    Compound _compound = new Compound();
-    _compound.c(bat);
-    _compound.c(dai);
+  function _beforeAll() public {
+    bat = new TestToken({
+      admin: address(this),
+      name: "Basic attention token",
+      symbol: "BAT"
+    });
+
+    dai = new TestToken({admin: address(this), name: "Dai", symbol: "DAI"});
+
+    dex = new NormalDex({
+      gasprice: 40 * 10**9,
+      gasbase: 30_000,
+      gasmax: 1_000_000
+    });
+
+    // activate a market where taker buys BAT using DAI
+    dex.activate({
+      base: address(bat),
+      quote: address(dai),
+      fee: 0,
+      density: 100
+    });
+
+    tkr = new TestTaker({dex: dex, base: bat, quote: dai});
+
+    dex.fund{value: 10 ether}();
+
+    dai.mint({amount: 10 ether, to: address(tkr)});
+    tkr.approveDex({amount: 10 ether, token: dai});
+
+    Display.register({addr: msg.sender, name: "Test Runner"});
+    Display.register({addr: address(this), name: "Testing Contract"});
+    Display.register({addr: address(bat), name: "BAT"});
+    Display.register({addr: address(dai), name: "DAI"});
+    Display.register({addr: address(dex), name: "dex"});
+    Display.register({addr: address(tkr), name: "taker"});
+  }
+
+  function setupMakerBasic() internal {
+    mkr = new Maker_basic({dex: dex, base: bat, quote: dai});
+
+    Display.register({addr: address(mkr), name: "maker basic"});
+
+    // testing contract starts with 1000 ETH
+    address(mkr).transfer(10 ether);
+    mkr.provisionDex({amount: 5 ether});
+    bat.mint({amount: 10 ether, to: address(mkr)});
+  }
+
+  function setupMakerCompound() internal {
+    compound = new Compound();
+    compound.c(bat);
+    compound.c(dai);
 
     Maker_compound _mkr =
-      new Maker_compound({
-        dex: dex,
-        base: bat,
-        quote: dai,
-        compound: _compound
-      });
+      new Maker_compound({dex: dex, base: bat, quote: dai, compound: compound});
 
-    bat.mint({amount: 10 ether, to: address(_mkr)});
+    mkr = _mkr;
+
+    bat.mint({amount: 10 ether, to: address(mkr)});
     _mkr.useCompound();
-    return (_mkr, _compound);
+
+    Display.register({addr: address(mkr), name: "maker compound"});
+
+    // testing contract starts with 1000 ETH
+    address(mkr).transfer(10 ether);
+    mkr.provisionDex({amount: 5 ether});
+  }
+
+  function setupMakerCallback() internal {
+    mkr = new Maker_callback({dex: dex, base: bat, quote: dai});
+
+    Display.register({addr: address(mkr), name: "maker callback"});
+
+    // testing contract starts with 1000 ETH
+    address(mkr).transfer(10 ether);
+    mkr.provisionDex({amount: 5 ether});
+
+    bat.mint({amount: 10 ether, to: address(mkr)});
   }
 }
 
@@ -233,7 +258,7 @@ contract Maker_compound is TestMaker {
   }
 
   function useCompound() external {
-    _compound.mint(ERC20(_base), 3 ether);
+    _compound.mint(ERC20(_base), 4 ether);
   }
 
   function makerTrade(IMaker.Trade calldata trade)
@@ -243,11 +268,11 @@ contract Maker_compound is TestMaker {
   {
     ret; // silence compiler warning
     _compound.redeem({
-      token: ERC20(trade.quote),
+      token: ERC20(trade.base),
       amount: trade.takerWants,
       to: trade.taker
     });
-    _compound.mint({token: ERC20(trade.base), amount: trade.takerGives});
+    _compound.mint({token: ERC20(trade.quote), amount: trade.takerGives});
   }
 }
 
