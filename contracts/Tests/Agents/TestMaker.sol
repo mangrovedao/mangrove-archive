@@ -5,24 +5,23 @@ pragma experimental ABIEncoderV2;
 import "./Passthrough.sol";
 import "../../interfaces.sol";
 import "../../Dex.sol";
+import "hardhat/console.sol";
 
 contract TestMaker is IMaker, Passthrough {
-  Dex dex;
-  address base;
-  address quote;
-  bool shouldFail;
+  Dex _dex;
+  address _base;
+  address _quote;
+  bool _shouldFail;
   bool _shouldRevert;
 
   constructor(
-    Dex _dex,
-    address _base,
-    address _quote,
-    bool _failer
+    Dex dex,
+    IERC20 base,
+    IERC20 quote
   ) {
-    dex = _dex;
-    base = _base;
-    quote = _quote;
-    shouldFail = _failer;
+    _dex = dex;
+    _base = address(base);
+    _quote = address(quote);
   }
 
   event Execute(uint takerWants, uint takerGives, uint gasprice, uint offerId);
@@ -31,6 +30,10 @@ contract TestMaker is IMaker, Passthrough {
 
   function shouldRevert(bool should) external {
     _shouldRevert = should;
+  }
+
+  function shouldFail(bool should) external {
+    _shouldFail = should;
   }
 
   function makerTrade(IMaker.Trade calldata trade)
@@ -51,7 +54,7 @@ contract TestMaker is IMaker, Passthrough {
         revert(three, 32)
       }
     }
-    if (!shouldFail) {
+    if (!_shouldFail) {
       try IERC20(trade.base).transfer(trade.taker, trade.takerWants) {
         return "testMaker/ok";
       } catch {
@@ -64,12 +67,12 @@ contract TestMaker is IMaker, Passthrough {
 
   function makerHandoff(IMaker.Handoff calldata handoff)
     external
-    pure
+    virtual
     override
   {}
 
-  function cancelOffer(Dex _dex, uint offerId) public {
-    _dex.cancelOffer(base, quote, offerId, false);
+  function cancelOffer(Dex dex, uint offerId) public {
+    dex.cancelOffer(_base, _quote, offerId, false);
   }
 
   function newOffer(
@@ -78,23 +81,22 @@ contract TestMaker is IMaker, Passthrough {
     uint gasreq,
     uint pivotId
   ) public returns (uint) {
-    return (dex.newOffer(base, quote, wants, gives, gasreq, pivotId));
+    return (_dex.newOffer(_base, _quote, wants, gives, gasreq, pivotId));
   }
 
   function cancelOffer(uint offerId) public {
-    dex.cancelOffer(base, quote, offerId, false);
+    _dex.cancelOffer(_base, _quote, offerId, false);
   }
 
   function provisionDex(uint amount) public {
-    (bool success, ) = address(dex).call{value: amount}("");
-    require(success, "provision dex failed");
+    _dex.fund{value: amount}();
   }
 
   function withdrawDex(uint amount) public returns (bool) {
-    return dex.withdraw(amount);
+    return _dex.withdraw(amount);
   }
 
   function freeWei() public view returns (uint) {
-    return dex.balanceOf(address(this));
+    return _dex.balanceOf(address(this));
   }
 }

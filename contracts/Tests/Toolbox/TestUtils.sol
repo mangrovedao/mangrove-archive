@@ -176,7 +176,9 @@ library MakerSetup {
     address quote,
     bool shouldFail
   ) external returns (TestMaker) {
-    return new TestMaker(dex, base, quote, shouldFail);
+    TestMaker tm = new TestMaker(dex, IERC20(base), IERC20(quote));
+    tm.shouldFail(shouldFail);
+    return tm;
   }
 
   function setup(
@@ -184,7 +186,7 @@ library MakerSetup {
     address base,
     address quote
   ) external returns (TestMaker) {
-    return new TestMaker(dex, base, quote, false);
+    return new TestMaker(dex, ERC20(base), ERC20(quote));
   }
 }
 
@@ -206,6 +208,6 @@ library TakerSetup {
     address quote
   ) external returns (TestTaker) {
     TestEvents.not0x(address(dex));
-    return new TestTaker(dex, base, quote);
+    return new TestTaker(dex, ERC20(base), ERC20(quote));
   }
 }

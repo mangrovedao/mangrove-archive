@@ -87,6 +87,7 @@ contract Maker is IMaker {
     override
     returns (bytes32)
   {
+    trade; // silence compiler warning
     //making sure execution is sent by the corresponding dex
     require(msg.sender == DEX);
     return bytes32(0);

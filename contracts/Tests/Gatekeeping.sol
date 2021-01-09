@@ -306,6 +306,7 @@ contract Gatekeeping_Test is IMaker {
 
   function makerHandoff(IMaker.Handoff calldata handoff) external override {
     bool success;
+    handoff; // silence compiler warning
     if (handoff_cb.length > 0) {
       (success, ) = address(this).call(handoff_cb);
       require(success, "makerHandoff callback must work");

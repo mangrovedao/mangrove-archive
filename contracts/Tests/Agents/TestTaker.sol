@@ -7,31 +7,31 @@ import "../../Dex.sol";
 import "./OfferManager.sol";
 
 contract TestTaker is ITaker {
-  Dex dex;
-  address base;
-  address quote;
+  Dex _dex;
+  address _base;
+  address _quote;
 
   constructor(
-    Dex _dex,
-    address _base,
-    address _quote
+    Dex dex,
+    IERC20 base,
+    IERC20 quote
   ) {
-    dex = _dex;
-    base = _base;
-    quote = _quote;
+    _dex = dex;
+    _base = address(base);
+    _quote = address(quote);
   }
 
   receive() external payable {}
 
   function approveDex(IERC20 token, uint amount) external {
-    token.approve(address(dex), amount);
+    token.approve(address(_dex), amount);
   }
 
   function take(uint offerId, uint takerWants) external returns (bool success) {
     //uint taken = TestEvents.min(makerGives, takerWants);
-    success = dex.snipe(
-      base,
-      quote,
+    success = _dex.snipe(
+      _base,
+      _quote,
       offerId,
       takerWants,
       type(uint96).max,
@@ -48,7 +48,7 @@ contract TestTaker is ITaker {
   ) external pure override {}
 
   function marketOrder(uint wants, uint gives) external {
-    dex.simpleMarketOrder(base, quote, wants, gives);
+    _dex.simpleMarketOrder(_base, _quote, wants, gives);
   }
 
   function marketOrderWithFail(
@@ -57,13 +57,15 @@ contract TestTaker is ITaker {
     uint punishLength,
     uint offerId
   ) external returns (uint[2][] memory) {
-    return (dex.marketOrder(base, quote, wants, gives, punishLength, offerId));
+    return (
+      _dex.marketOrder(_base, _quote, wants, gives, punishLength, offerId)
+    );
   }
 
   function snipesAndRevert(uint[4][] calldata targets, uint punishLength)
     external
   {
-    dex.punishingSnipes(base, quote, targets, punishLength);
+    _dex.punishingSnipes(_base, _quote, targets, punishLength);
   }
 
   function marketOrderAndRevert(
@@ -72,9 +74,9 @@ contract TestTaker is ITaker {
     uint takerGives,
     uint punishLength
   ) external {
-    dex.punishingMarketOrder(
-      base,
-      quote,
+    _dex.punishingMarketOrder(
+      _base,
+      _quote,
       fromOfferId,
       takerWants,
       takerGives,
@@ -87,9 +89,11 @@ contract TestTaker is ITaker {
     uint wants,
     uint gives
   ) public {
-    try IERC20(quote).approve(address(mgr), gives) {
+    try IERC20(_quote).approve(address(mgr), gives) {
       console.log("Delegate order");
-      mgr.order{value: 0.01 ether}(base, quote, wants, gives);
+      address(mgr).call{value: 0.01 ether}(
+        abi.encodeWithSelector(mgr.order.selector, _base, _quote, wants, gives)
+      );
     } catch {
       require(false, "failed to approve mgr");
     }

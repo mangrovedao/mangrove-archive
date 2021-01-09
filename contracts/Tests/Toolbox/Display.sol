@@ -36,12 +36,12 @@ library Display {
     return regs;
   }
 
-  function register(address addr, string memory _name) internal {
-    registers().map[addr] = _name;
-    emit Register(addr, _name);
+  function register(address addr, string memory name) internal {
+    registers().map[addr] = name;
+    emit Register(addr, name);
   }
 
-  function name(address addr) internal view returns (string memory) {
+  function nameOf(address addr) internal view returns (string memory) {
     string memory s = registers().map[addr];
     if (keccak256(bytes(s)) != keccak256(bytes(""))) {
       return s;
