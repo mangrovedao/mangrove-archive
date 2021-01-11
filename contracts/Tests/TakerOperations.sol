@@ -180,7 +180,8 @@ contract TakerOperations_Test {
   function maker_has_no_base_fails_order_test() public {
     uint ofr = mkr.newOffer(1 ether, 100 ether, 100_000, 0);
     quoteT.approve(address(dex), 0.5 ether);
-    bool success = dex.snipe(base, quote, ofr, 50 ether, 0.5 ether, 100_000);
+    (bool success, , ) =
+      dex.snipe(base, quote, ofr, 50 ether, 0.5 ether, 100_000);
     TestEvents.check(!success, "order should fail");
     TestEvents.expectFrom(address(dex));
     emit DexEvents.MakerFail(
@@ -204,7 +205,8 @@ contract TakerOperations_Test {
   function snipe_on_higher_price_fails_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     quoteT.approve(address(dex), 0.5 ether);
-    bool success = dex.snipe(base, quote, ofr, 1 ether, 0.5 ether, 100_000);
+    (bool success, , ) =
+      dex.snipe(base, quote, ofr, 1 ether, 0.5 ether, 100_000);
     TestEvents.check(
       !success,
       "Order should fail when order price is higher than offer"
@@ -214,7 +216,7 @@ contract TakerOperations_Test {
   function snipe_on_higher_gas_fails_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     quoteT.approve(address(dex), 1 ether);
-    bool success = dex.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000);
+    (bool success, , ) = dex.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000);
     TestEvents.check(
       !success,
       "Order should fail when order gas is higher than offer"
@@ -252,7 +254,7 @@ contract TakerOperations_Test {
     quoteT.approve(address(dex), 2 ether);
     uint balTaker = baseT.balanceOf(address(this));
     uint balMaker = quoteT.balanceOf(address(mkr));
-    bool success = dex.snipe(base, quote, ofr, 1 ether, 2 ether, 100_000);
+    (bool success, , ) = dex.snipe(base, quote, ofr, 1 ether, 2 ether, 100_000);
     TestEvents.check(
       success,
       "Order should succeed when order price is lower than offer"

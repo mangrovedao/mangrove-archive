@@ -273,8 +273,15 @@ abstract contract Dex is HasAdmin {
     address quote,
     uint takerWants,
     uint takerGives
-  ) external {
-    marketOrder(base, quote, takerWants, takerGives, 0, bests[base][quote]);
+  ) external returns (uint takerGot, uint takerGave) {
+    (takerGot, takerGave, ) = marketOrder(
+      base,
+      quote,
+      takerWants,
+      takerGives,
+      0,
+      bests[base][quote]
+    );
   }
 
   /* The lower-level `marketOrder` can:
@@ -309,6 +316,8 @@ abstract contract Dex is HasAdmin {
     public
     returns (
       /* The return value is used for book cleaning: it contains a list (of length `2 * punishLength`) of the offers that failed during the market order, along with the gas they used before failing. */
+      uint,
+      uint,
       uint[2][] memory
     )
   {
@@ -353,7 +362,7 @@ abstract contract Dex is HasAdmin {
       orp.initialWants != 0 && orp.offerId != 0
     );
 
-    return orp.toPunish;
+    return (orp.totalGot, orp.totalGave, orp.toPunish);
   }
 
   /* ### Main loop */
@@ -588,6 +597,8 @@ abstract contract Dex is HasAdmin {
           orp.toPunish[orp.numToPunish] = [orp.offerId, gasUsed];
           orp.numToPunish++;
         }
+      } else if (errorCode == "dex/tradeOverflow") {
+        revert("dex/tradeOverflow");
       } else if (errorCode == "dex/notEnoughGasForMakerTrade") {
         revert("dex/notEnoughGasForMakerTrade");
       } else if (errorCode == "dex/takerFailToPayMaker") {
@@ -628,11 +639,19 @@ abstract contract Dex is HasAdmin {
     uint takerWants,
     uint takerGives,
     uint gasreq
-  ) external returns (bool) {
+  )
+    external
+    returns (
+      bool,
+      uint,
+      uint
+    )
+  {
     uint[4][] memory targets = new uint[4][](1);
     targets[0] = [offerId, takerWants, takerGives, gasreq];
-    (uint successes, ) = snipes(base, quote, targets, 1);
-    return (successes == 1);
+    (uint successes, uint takerGot, uint takerGave, ) =
+      snipes(base, quote, targets, 1);
+    return (successes == 1, takerGot, takerGave);
   }
 
   //+clear+
@@ -649,7 +668,15 @@ abstract contract Dex is HasAdmin {
     address quote,
     uint[4][] memory targets,
     uint punishLength
-  ) public returns (uint successes, uint[2][] memory toPunish) {
+  )
+    public
+    returns (
+      uint,
+      uint,
+      uint,
+      uint[2][] memory
+    )
+  {
     unlockedOnly(base, quote);
     locks[base][quote] = LOCKED;
     /* ### Pre-loop Checks */
@@ -670,7 +697,12 @@ abstract contract Dex is HasAdmin {
     /* ### Main loop */
     //+clear+
 
-    return (internalSnipes(orp, targets, 0, 0), orp.toPunish);
+    return (
+      internalSnipes(orp, targets, 0, 0),
+      orp.totalGot,
+      orp.totalGave,
+      orp.toPunish
+    );
   }
 
   function internalSnipes(
@@ -860,7 +892,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     if (noRevert) {
       evmRevert(abi.decode(retdata, (bytes)));
     } else {
-      (, uint[2][] memory toPunish) = abi.decode(retdata, (uint, uint[2][]));
+      (, , , uint[2][] memory toPunish) =
+        abi.decode(retdata, (uint, uint, uint, uint[2][]));
       punish(base, quote, toPunish);
     }
   }
@@ -929,7 +962,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     if (noRevert) {
       evmRevert(abi.decode(retdata, (bytes)));
     } else {
-      punish(base, quote, abi.decode(retdata, (uint[2][])));
+      (, , uint[2][] memory toPunish) =
+        abi.decode(retdata, (uint, uint, uint[2][]));
+      punish(base, quote, toPunish);
     }
   }
 
