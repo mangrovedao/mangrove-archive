@@ -59,6 +59,57 @@ module.exports = {
     artifacts: "./build",
   },
   logFormatters: {
+    Success: (log, rawLog, originator, formatArg) => {
+      console.log("  ┅┅┅┅");
+      console.log(`┇ Offer ${formatArg(log.args.offerId)} consumed`);
+      console.log(`┇ takerWants ${formatArg(log.args.takerWants)}`);
+      console.log(`┇ takerGives ${formatArg(log.args.takerGives)}`);
+      console.log("  ┅┅┅┅");
+    },
+    ERC20Balances: (log, rawLog, originator, formatArg) => {
+      /* Reminder:
+
+      event ERC20Balances(
+      address[] tokens,
+      address[] accounts,
+      uint[] balances,
+    );
+
+      */
+
+      const tokens = {};
+
+      log.args.tokens.forEach((token, i) => {
+        tokens[token] = [];
+      });
+
+      log.args.tokens.forEach((token, i) => {
+        const pad = i * log.args.accounts.length;
+        log.args.accounts.forEach((account, j) => {
+          if (!tokens[token]) tokens[token] = [];
+          tokens[token].push({
+            account: formatArg(account, "address"),
+            balance: formatArg(log.args.balances[pad + j]),
+          });
+        });
+      });
+
+      const lineA = ({ account, balance }) => {
+        const p = (s, n) =>
+          (s.length > n ? s.slice(0, n - 1) + "…" : s).padEnd(n);
+        const ps = (s, n) =>
+          (s.length > n ? s.slice(0, n - 1) + "…" : s).padStart(n);
+        return ` ${ps(account, 15)} │ ${p(balance, 10)}`;
+      };
+
+      Object.entries(tokens).forEach(([token, balances]) => {
+        console.log(formatArg(token, "address").padStart(19));
+        console.log("─".repeat(17) + "┬" + "─".repeat(14));
+        balances.forEach((info) => {
+          console.log(lineA(info));
+        });
+      });
+    },
     OBState: (log, rawLog, originator, formatArg) => {
       /* Reminder:
 

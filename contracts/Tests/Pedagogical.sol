@@ -49,30 +49,16 @@ contract Pedagogical_Test {
     });
 
     Display.logOfferBook(dex, address(bat), address(dai), 3);
+    Display.logBalances(bat, dai, address(mkr), address(tkr));
   }
 
   function example_2_markerOrder_test() public {
     example_1_offerbook_test();
 
-    console.log("Before trade,");
-    console.log("BAT balances_______________");
-    console.log("Taker", bat.balanceOf(address(tkr)));
-    console.log("Maker", bat.balanceOf(address(mkr)));
-    console.log("DAI balances_______________");
-    console.log("Taker DAI", dai.balanceOf(address(tkr)));
-    console.log("Maker DAI", dai.balanceOf(address(mkr)));
-
     tkr.marketOrder({wants: 2.7 ether, gives: 3.5 ether});
 
     Display.logOfferBook(dex, address(bat), address(dai), 1);
-
-    console.log("After trade,");
-    console.log("BAT balances_______________");
-    console.log("Taker", bat.balanceOf(address(tkr)));
-    console.log("Maker", bat.balanceOf(address(mkr)));
-    console.log("DAI balances_______________");
-    console.log("Taker DAI", dai.balanceOf(address(tkr)));
-    console.log("Maker DAI", dai.balanceOf(address(mkr)));
+    Display.logBalances(bat, dai, address(mkr), address(tkr));
   }
 
   function example_3_redeem_test() public {
@@ -86,37 +72,30 @@ contract Pedagogical_Test {
         pivotId: 0
       });
 
-    console.log("Before trade,");
-    console.log("BAT balances_______________");
-    console.log("Taker", bat.balanceOf(address(tkr)));
-    console.log("Maker", bat.balanceOf(address(mkr)));
-    console.log("Compound", bat.balanceOf(address(compound)));
-    console.log("DAI balances_______________");
-    console.log("Taker DAI", dai.balanceOf(address(tkr)));
-    console.log("Maker DAI", dai.balanceOf(address(mkr)));
-    console.log("Compound", dai.balanceOf(address(compound)));
-    console.log("cBAT balances_______________");
-    console.log("Maker", compound.c(bat).balanceOf(address(mkr)));
-    console.log("cDAI balances_______________");
-    console.log("Maker", compound.c(dai).balanceOf(address(mkr)));
+    Display.logOfferBook(dex, address(bat), address(dai), 1);
+    Display.logBalances(
+      bat,
+      dai,
+      address(mkr),
+      address(tkr),
+      address(compound)
+    );
+    Display.logBalances(
+      ERC20(compound.c(bat)),
+      ERC20(compound.c(dai)),
+      address(mkr)
+    );
 
     tkr.take(ofr, 0.3 ether);
 
     Display.logOfferBook(dex, address(bat), address(dai), 1);
-
-    console.log("After trade,");
-    console.log("BAT balances_______________");
-    console.log("Taker", bat.balanceOf(address(tkr)));
-    console.log("Maker", bat.balanceOf(address(mkr)));
-    console.log("Compound", bat.balanceOf(address(compound)));
-    console.log("DAI balances_______________");
-    console.log("Taker DAI", dai.balanceOf(address(tkr)));
-    console.log("Maker DAI", dai.balanceOf(address(mkr)));
-    console.log("Compound", dai.balanceOf(address(compound)));
-    console.log("cBAT balances_______________");
-    console.log("Maker", compound.c(bat).balanceOf(address(mkr)));
-    console.log("cDAI balances_______________");
-    console.log("Maker", compound.c(dai).balanceOf(address(mkr)));
+    Display.logBalances(
+      bat,
+      dai,
+      address(mkr),
+      address(tkr),
+      address(compound)
+    );
   }
 
   function example_4_callback_test() public {
@@ -124,17 +103,13 @@ contract Pedagogical_Test {
 
     mkr.newOffer({wants: 1 ether, gives: 1 ether, gasreq: 400_000, pivotId: 0});
 
+    Display.logOfferBook(dex, address(bat), address(dai), 1);
+    Display.logBalances(bat, dai, address(mkr), address(tkr));
+
     tkr.marketOrder({wants: 1 ether, gives: 1 ether});
 
     Display.logOfferBook(dex, address(bat), address(dai), 1);
-
-    console.log("After trade,");
-    console.log("BAT balances_______________");
-    console.log("Taker", bat.balanceOf(address(tkr)));
-    console.log("Maker", bat.balanceOf(address(mkr)));
-    console.log("DAI balances_______________");
-    console.log("Taker DAI", dai.balanceOf(address(tkr)));
-    console.log("Maker DAI", dai.balanceOf(address(mkr)));
+    Display.logBalances(bat, dai, address(mkr), address(tkr));
   }
 
   function _beforeAll() public {
@@ -178,7 +153,7 @@ contract Pedagogical_Test {
   function setupMakerBasic() internal {
     mkr = new Maker_basic({dex: dex, base: bat, quote: dai});
 
-    Display.register({addr: address(mkr), name: "maker basic"});
+    Display.register({addr: address(mkr), name: "maker-basic"});
 
     // testing contract starts with 1000 ETH
     address(mkr).transfer(10 ether);
@@ -188,8 +163,9 @@ contract Pedagogical_Test {
 
   function setupMakerCompound() internal {
     compound = new Compound();
-    compound.c(bat);
-    compound.c(dai);
+    Display.register(address(compound), "compound");
+    Display.register(address(compound.c(bat)), "cBAT");
+    Display.register(address(compound.c(dai)), "cDAI");
 
     Maker_compound _mkr =
       new Maker_compound({dex: dex, base: bat, quote: dai, compound: compound});
@@ -199,7 +175,7 @@ contract Pedagogical_Test {
     bat.mint({amount: 10 ether, to: address(mkr)});
     _mkr.useCompound();
 
-    Display.register({addr: address(mkr), name: "maker compound"});
+    Display.register({addr: address(mkr), name: "maker-compound"});
 
     // testing contract starts with 1000 ETH
     address(mkr).transfer(10 ether);
@@ -209,7 +185,7 @@ contract Pedagogical_Test {
   function setupMakerCallback() internal {
     mkr = new Maker_callback({dex: dex, base: bat, quote: dai});
 
-    Display.register({addr: address(mkr), name: "maker callback"});
+    Display.register({addr: address(mkr), name: "maker-callback"});
 
     // testing contract starts with 1000 ETH
     address(mkr).transfer(10 ether);

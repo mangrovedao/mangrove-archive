@@ -129,6 +129,106 @@ library Display {
     }
   }
 
+  event ERC20Balances(ERC20[] tokens, address[] accounts, uint[] balances);
+
+  function logBalances(ERC20 t1, address a1) internal {
+    ERC20[] memory tokens = new ERC20[](1);
+    tokens[0] = t1;
+    address[] memory accounts = new address[](1);
+    accounts[0] = a1;
+    logBalances(tokens, accounts);
+  }
+
+  function logBalances(
+    ERC20 t1,
+    address a1,
+    address a2
+  ) internal {
+    ERC20[] memory tokens = new ERC20[](1);
+    tokens[0] = t1;
+    address[] memory accounts = new address[](2);
+    accounts[0] = a1;
+    accounts[1] = a2;
+    logBalances(tokens, accounts);
+  }
+
+  function logBalances(
+    ERC20 t1,
+    address a1,
+    address a2,
+    address a3
+  ) internal {
+    ERC20[] memory tokens = new ERC20[](1);
+    tokens[0] = t1;
+    address[] memory accounts = new address[](3);
+    accounts[0] = a1;
+    accounts[1] = a2;
+    accounts[2] = a3;
+    logBalances(tokens, accounts);
+  }
+
+  function logBalances(
+    ERC20 t1,
+    ERC20 t2,
+    address a1
+  ) internal {
+    console.log("bad");
+    ERC20[] memory tokens = new ERC20[](2);
+    tokens[0] = t1;
+    tokens[1] = t2;
+    address[] memory accounts = new address[](1);
+    accounts[0] = a1;
+    logBalances(tokens, accounts);
+  }
+
+  function logBalances(
+    ERC20 t1,
+    ERC20 t2,
+    address a1,
+    address a2
+  ) internal {
+    ERC20[] memory tokens = new ERC20[](2);
+    tokens[0] = t1;
+    tokens[1] = t2;
+    address[] memory accounts = new address[](2);
+    accounts[0] = a1;
+    accounts[1] = a2;
+    logBalances(tokens, accounts);
+  }
+
+  function logBalances(
+    ERC20 t1,
+    ERC20 t2,
+    address a1,
+    address a2,
+    address a3
+  ) internal {
+    ERC20[] memory tokens = new ERC20[](2);
+    tokens[0] = t1;
+    tokens[1] = t2;
+    address[] memory accounts = new address[](3);
+    accounts[0] = a1;
+    accounts[1] = a2;
+    accounts[2] = a3;
+    logBalances(tokens, accounts);
+  }
+
+  /* takes [t1,...,tM], [a1,...,aN]
+       logs also [...b(t1,aj) ... b(tM,aj) ...] */
+  function logBalances(ERC20[] memory tokens, address[] memory accounts)
+    internal
+  {
+    uint[] memory balances = new uint[](tokens.length * accounts.length);
+    for (uint i = 0; i < tokens.length; i++) {
+      for (uint j = 0; j < accounts.length; j++) {
+        uint bal = tokens[i].balanceOf(accounts[j]);
+        balances[i * accounts.length + j] = bal;
+      }
+    }
+
+    emit ERC20Balances(tokens, accounts, balances);
+  }
+
   event OBState(
     uint[] offerIds,
     uint[] wants,
