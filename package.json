@@ -14,7 +14,7 @@
   },
   "scripts": {
     "doc": "solcco -f DexDoc.html contracts/DexCommon.sol contracts/Dex.sol contracts/DexLib.sol",
-    "test": "hardhat test-solidity Dex Gatekeeping MakerOperations TakerFailures"
+    "test": "hardhat test-solidity Gatekeeping MakerOperations TakerOperations DeepCollect Scenarii"
   },
   "devDependencies": {
     "chai": "^4.2.0",

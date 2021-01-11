@@ -25,7 +25,7 @@ console.log("Message %s number %d",s,d);
 - Run test for a specific contract and show all events of non-reverted transactions. Example:
 
 ```
-npx hardhat test-solidity Dex --show-events
+npx hardhat test-solidity --show-events
 ```
 
 - See a Solidity stack trace on reverts
