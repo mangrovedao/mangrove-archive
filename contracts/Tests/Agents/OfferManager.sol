@@ -65,12 +65,13 @@ contract OfferManager is IMaker {
 
     console.log("Manager has received quote funds");
 
-    uint balBase = IERC20(base).balanceOf(address(this));
-    dex.simpleMarketOrder(base, quote, wants, gives); // OfferManager might collect provisions of failing offers
-
+    //uint balBase = IERC20(base).balanceOf(address(this));
+    (uint totalGot, uint totalGave) =
+      dex.simpleMarketOrder(base, quote, wants, gives); // OfferManager might collect provisions of failing offers
+    IERC20(base).transfer(msg.sender, totalGot);
     console.log("Manager has finished market Order to DEX(A,B)");
 
-    uint residual_w = wants - (IERC20(base).balanceOf(address(this)) - balBase);
+    uint residual_w = wants - totalGot;
     uint residual_g = (gives * residual_w) / wants;
 
     require(
