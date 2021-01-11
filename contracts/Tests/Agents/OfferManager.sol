@@ -92,6 +92,7 @@ contract OfferManager is IMaker, ITaker {
     }
   }
 
+  //marketOrder (base,quote) + NewOffer(quote,base)
   function order(
     address base,
     address quote,
