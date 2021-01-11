@@ -79,6 +79,9 @@ library DexLib {
 
     bytes memory cd = abi.encodeWithSelector(IMaker.makerTrade.selector, trade);
     uint oldBalance = IERC20(orp.base).balanceOf(msg.sender);
+    if (oldBalance + orp.wants <= oldBalance) {
+      innerRevert([bytes32("dex/tradeOverflow"), "", ""]);
+    }
     /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + gasbase`. This yul call only retrieves the first byte of the maker's `returndata`. */
     uint gasreq = orp.offerDetail.gasreq;
     address maker = orp.offerDetail.maker;
@@ -108,11 +111,14 @@ library DexLib {
     // An example why this is not safe if ERC20 has a callback:
     // https://peckshield.medium.com/akropolis-incident-root-cause-analysis-c11ee59e05d4
     uint newBalance = IERC20(orp.base).balanceOf(msg.sender);
-    /* The second check (`newBalance >= oldBalance`) protects against overflow. */
-    if (newBalance >= oldBalance + orp.wants && newBalance >= oldBalance) {
-      // ok
-    } else if (!success) {
+    /* oldBalance + orp.wants cannot overflow thanks to earlier check */
+    /* `msg.sender == maker` balance might be invariant*/
+    if (!success) {
       innerRevert([bytes32("dex/makerRevert"), bytes32(gasUsed), makerData]);
+    } else if (
+      (newBalance >= oldBalance + orp.wants) || (msg.sender == maker)
+    ) {
+      // ok
     } else {
       innerRevert(
         [bytes32("dex/makerTransferFail"), bytes32(gasUsed), makerData]
