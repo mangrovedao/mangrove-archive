@@ -154,6 +154,14 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
+  function zero_density_fails_test() public {
+    try dex.setDensity(base, quote, 0) {
+      TestEvents.fail("zero density should revert");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/config/density/>0");
+    }
+  }
+
   function only_admin_can_kill_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
     try notAdmin.kill() {

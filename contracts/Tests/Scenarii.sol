@@ -137,17 +137,7 @@ contract Scenarii_Test {
     saveBalances();
   }
 
-  function zeroDust_test() public {
-    try dex.setDensity(address(base), address(quote), 0) {
-      TestEvents.fail("zero density should revert");
-    } catch Error(
-      string memory /*reason*/
-    ) {
-      TestEvents.succeed();
-    }
-  }
-
-  function snipe_insert_and_fail_test() public {
+  function snipe_insert_and_fail() public {
     //TestEvents.logString("=== Insert test ===", 0);
     offerOf = TestInsert.run(balances, dex, makers, taker, base, quote);
     //Display.printOfferBook(dex);
