@@ -14,7 +14,6 @@ library Display {
 
   // Disgusting hack so a library can manipulate storage refs.
   bytes32 constant NAMES_POS = keccak256("Display.NAMES_POS");
-
   // Store mapping in library caller's storage.
   // That's quite fragile.
   struct Registers {
@@ -214,6 +213,7 @@ library Display {
 
   /* takes [t1,...,tM], [a1,...,aN]
        logs also [...b(t1,aj) ... b(tM,aj) ...] */
+
   function logBalances(ERC20[] memory tokens, address[] memory accounts)
     internal
   {
@@ -222,9 +222,9 @@ library Display {
       for (uint j = 0; j < accounts.length; j++) {
         uint bal = tokens[i].balanceOf(accounts[j]);
         balances[i * accounts.length + j] = bal;
+        //console.log(tokens[i].symbol(),nameOf(accounts[j]),bal);
       }
     }
-
     emit ERC20Balances(tokens, accounts, balances);
   }
 

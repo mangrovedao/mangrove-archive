@@ -56,37 +56,31 @@ contract OfferManager is IMaker {
     uint wants,
     uint gives
   ) external payable {
-    console.log("In Offer Manager");
-
     DC.Config memory config = dex.config(base, quote);
 
     IERC20(quote).transferFrom(msg.sender, address(this), gives); // OfferManager must be approved by sender
     IERC20(quote).approve(address(dex), 100 ether); // to pay maker
     IERC20(base).approve(address(dex), 100 ether); // takerfee
 
-    console.log("Manager has received quote funds");
-    Display.logBalances(ERC20(base), ERC20(quote), address(this));
-
-    //uint balBase = IERC20(base).balanceOf(address(this));
-    (uint totalGot, uint totalGave) =
+    (uint brutGot, uint totalGave) =
       dex.simpleMarketOrder(base, quote, wants, gives); // OfferManager might collect provisions of failing offers
-    console.log("Manager has finished market Order to DEX and got ", totalGot);
 
-    bool _success = IERC20(base).transfer(msg.sender, totalGot);
-    require(_success, "Failed to send market order money to owner");
+    uint fee = (brutGot * config.fee) / 10_000;
+    try IERC20(base).transfer(msg.sender, brutGot - fee) {
+      uint residual_w = wants - (brutGot - fee);
+      uint residual_g = (gives * residual_w) / wants;
+      require(
+        msg.value >= gas_to_execute * config.gasprice,
+        "Insufficent funds to delegate order"
+      ); //TODO overflow issues
+      (bool success, ) = address(dex).call{value: msg.value}("");
 
-    uint residual_w = wants - totalGot;
-    uint residual_g = (gives * residual_w) / wants;
-
-    require(
-      msg.value >= gas_to_execute * config.gasprice,
-      "Insufficent funds to delegate order"
-    ); //TODO overflow issues
-    (bool success, ) = address(dex).call{value: msg.value}("");
-
-    require(success, "provision dex failed");
-    uint residual_ofr =
-      dex.newOffer(quote, base, residual_w, residual_g, gas_to_execute, 0);
-    owners[residual_ofr] = msg.sender;
+      require(success, "provision dex failed");
+      uint residual_ofr =
+        dex.newOffer(quote, base, residual_w, residual_g, gas_to_execute, 0);
+      owners[residual_ofr] = msg.sender;
+    } catch {
+      require(false, "Failed to send market order money to owner");
+    }
   }
 }

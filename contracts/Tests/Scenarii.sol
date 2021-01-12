@@ -178,30 +178,27 @@ contract Scenarii_Test {
 
   function offer_manager_test() public {
     OfferManager mgr = new OfferManager(dex);
-
-    address(taker).call{value: 1 ether}("");
-    offerOf = TestInsert.run(balances, dex, makers, taker, base, quote); //creating non empty OB on pair (base,quote)
-
-    Display.logOfferBook(dex, address(base), address(quote), 5);
-    Display.register(address(mgr), "offer manager");
-
-    //Display.logBalances(base, quote, address(taker));
-    taker.delegateOrder(mgr, 3 ether, 3 ether); // (A,B) order
-
-    Display.logOfferBook(dex, address(base), address(quote), 5); // taker has more A
-    Display.logOfferBook(dex, address(quote), address(base), 2);
-    //Display.logBalances(base, quote, address(taker));
-
+    Display.register(address(mgr), "OfrMgr");
+    Display.register(address(taker), "Taker (A,B)");
     TestTaker _taker = TakerSetup.setup(dex, address(quote), address(base));
     Display.register(address(_taker), "Taker (B,A)");
     base.mint(address(_taker), 5 ether);
     address(_taker).call{value: 1 ether}("");
 
-    _taker.delegateOrder(mgr, 1.8 ether, 1.8 ether); // (B,A) order
-    // _taker.approveDex(base, 10 ether);
-    // _taker.approveDex(quote, 10 ether);
+    address(taker).call{value: 1 ether}("");
+    offerOf = TestInsert.run(balances, dex, makers, taker, base, quote); //creating non empty OB on pair (base,quote)
 
-    // _taker.marketOrder(1.8 ether, 1.8 ether);
+    Display.logOfferBook(dex, address(base), address(quote), 5);
+    Display.logBalances(base, quote, address(taker), address(_taker));
+
+    taker.delegateOrder(mgr, 3 ether, 3 ether); // (A,B) order
+
+    Display.logBalances(base, quote, address(taker));
+    Display.logOfferBook(dex, address(base), address(quote), 5); // taker has more A
+    Display.logOfferBook(dex, address(quote), address(base), 2);
+
+    _taker.delegateOrder(mgr, 1.8 ether, 1.8 ether); // (B,A) order
+    Display.logBalances(base, quote, address(taker), address(_taker));
     Display.logOfferBook(dex, address(base), address(quote), 5);
     Display.logOfferBook(dex, address(quote), address(base), 2);
   }
