@@ -62,12 +62,11 @@ contract OfferManager is IMaker {
     IERC20(quote).approve(address(dex), 100 ether); // to pay maker
     IERC20(base).approve(address(dex), 100 ether); // takerfee
 
-    (uint brutGot, uint totalGave) =
+    (uint netReceived, uint totalGave) =
       dex.simpleMarketOrder(base, quote, wants, gives); // OfferManager might collect provisions of failing offers
 
-    uint fee = (brutGot * config.fee) / 10_000;
-    try IERC20(base).transfer(msg.sender, brutGot - fee) {
-      uint residual_w = wants - (brutGot - fee);
+    try IERC20(base).transfer(msg.sender, netReceived) {
+      uint residual_w = wants - netReceived;
       uint residual_g = (gives * residual_w) / wants;
       require(
         msg.value >= gas_to_execute * config.gasprice,
