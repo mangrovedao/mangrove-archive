@@ -198,11 +198,9 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
-  function empty_dex_throws_test() public {
-    try tkr.marketOrder(0, 0) {
-      TestEvents.fail("market order on empty dex should fail");
-    } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/marketOrder/noSuchOffer");
+  function empty_dex_ok_test() public {
+    try tkr.marketOrder(0, 0) {} catch {
+      TestEvents.fail("market order on empty dex should not fail");
     }
   }
 
