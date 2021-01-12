@@ -49,7 +49,7 @@ contract Maker is IMaker {
       uint gasprice = Dex(DEX).config(A_TOKEN, B_TOKEN).gasprice; //current price per gas spent in offer fails
       uint available = Dex(DEX).balanceOf(address(this)) - (gasprice * execGas); //enabling delegatecall
       require(available >= 0, "Insufficient funds to push offer."); //better fail early
-      Dex(DEX).newOffer(A_TOKEN, B_TOKEN, wants, gives, execGas, position); // discards offerId
+      Dex(DEX).newOffer(A_TOKEN, B_TOKEN, wants, gives, execGas, 0, position); // discards offerId
     }
   }
 

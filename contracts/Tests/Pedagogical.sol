@@ -286,6 +286,7 @@ contract Maker_callback is TestMaker {
         wants: (price * volume) / 100,
         gives: volume,
         gasreq: gasreq,
+        gasprice: 0,
         pivotId: 0,
         offerId: handoff.offerId
       });

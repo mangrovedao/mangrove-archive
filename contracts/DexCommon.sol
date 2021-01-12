@@ -180,6 +180,7 @@ They have the following fields: */
     uint gives;
     uint id;
     uint gasreq;
+    uint gasprice;
     uint pivotId;
     Config config;
     Offer oldOffer;
@@ -251,6 +252,7 @@ library DexEvents {
     uint wants,
     uint gives,
     uint gasreq,
+    uint gasprice,
     uint offerId,
     bool updated
   );

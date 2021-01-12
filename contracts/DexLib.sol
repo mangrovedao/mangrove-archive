@@ -168,6 +168,11 @@ library DexLib {
     mapping(address => mapping(address => uint)) storage bests,
     bool update
   ) external returns (uint) {
+    /* gasprice given by maker will be bounded below by internal gasprice estimate at offer write time. with a large enough overapproximation of the gasprice, the maker can regularly update their offer without updating it */
+    if (ofp.gasprice < ofp.config.gasprice) {
+      ofp.gasprice = ofp.config.gasprice;
+    }
+
     emit DexEvents.WriteOffer(
       ofp.base,
       ofp.quote,
@@ -175,6 +180,7 @@ library DexLib {
       ofp.wants,
       ofp.gives,
       ofp.gasreq,
+      ofp.gasprice,
       ofp.id,
       update
     );

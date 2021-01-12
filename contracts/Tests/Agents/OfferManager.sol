@@ -76,7 +76,7 @@ contract OfferManager is IMaker {
 
       require(success, "provision dex failed");
       uint residual_ofr =
-        dex.newOffer(quote, base, residual_w, residual_g, gas_to_execute, 0);
+        dex.newOffer(quote, base, residual_w, residual_g, gas_to_execute, 0, 0);
       owners[residual_ofr] = msg.sender;
     } catch {
       require(false, "Failed to send market order money to owner");

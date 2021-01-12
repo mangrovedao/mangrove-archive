@@ -151,6 +151,7 @@ abstract contract Dex is HasAdmin {
     uint wants,
     uint gives,
     uint gasreq,
+    uint gasprice,
     uint pivotId
   ) external returns (uint) {
     unlockedOnly(base, quote);
@@ -163,6 +164,7 @@ abstract contract Dex is HasAdmin {
         gives: gives, // an offer id must never be 0
         id: ++lastId,
         gasreq: gasreq,
+        gasprice: gasprice,
         pivotId: pivotId,
         config: config(base, quote),
         oldOffer: dummyOffer
@@ -214,6 +216,7 @@ abstract contract Dex is HasAdmin {
     uint wants,
     uint gives,
     uint gasreq,
+    uint gasprice,
     uint pivotId,
     uint offerId
   ) public returns (uint) {
@@ -226,6 +229,7 @@ abstract contract Dex is HasAdmin {
         gives: gives,
         id: offerId,
         gasreq: gasreq,
+        gasprice: gasprice,
         pivotId: pivotId,
         config: config(base, quote),
         oldOffer: offers[base][quote][offerId]
@@ -605,7 +609,7 @@ abstract contract Dex is HasAdmin {
     }
 
     gasLeft = orp.offerDetail.gasreq - gasUsed;
-    applyPenalty(success, gasUsed, orp.offerDetail);
+    applyPenalty(success, orp.config.gasprice, gasUsed, orp.offerDetail);
   }
 
   function innerDecode(bytes memory data)
@@ -809,9 +813,14 @@ abstract contract Dex is HasAdmin {
   /* After any offer executes, or after calling a punishment function, `applyPenalty` sends part of the provisioned penalty to the maker, and part to the taker. */
   function applyPenalty(
     bool success,
+    uint gasprice,
     uint gasUsed,
     DC.OfferDetail memory offerDetail
   ) internal {
+    /* If offer has not provisioned for a high enough gas price, we take their gasprice as given. */
+    if (offerDetail.gasprice < gasprice) {
+      gasprice = offerDetail.gasprice;
+    }
     /* We set `gasDeducted = min(gasUsed,gasreq)` since `gasreq < gasUsed` is possible (e.g. with `gasreq = 0`). */
     uint gasDeducted =
       gasUsed < offerDetail.gasreq ? gasUsed : offerDetail.gasreq;
@@ -891,7 +900,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     } else {
       (, , , uint[2][] memory toPunish) =
         abi.decode(retdata, (uint, uint, uint, uint[2][]));
-      punish(base, quote, toPunish);
+      punish(base, quote, toPunish, config(base, quote).gasprice);
     }
   }
 
@@ -961,7 +970,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     } else {
       (, , uint[2][] memory toPunish) =
         abi.decode(retdata, (uint, uint, uint[2][]));
-      punish(base, quote, toPunish);
+      punish(base, quote, toPunish, config(base, quote).gasprice);
     }
   }
 
@@ -1004,7 +1013,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   function punish(
     address base,
     address quote,
-    uint[2][] memory toPunish
+    uint[2][] memory toPunish,
+    uint gasprice
   ) internal {
     uint punishIndex;
     while (punishIndex < toPunish.length) {
@@ -1016,7 +1026,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         dirtyDeleteOffer(base, quote, id);
         DC.stitchOffers(base, quote, offers, bests, offer.prev, offer.next);
         uint gasUsed = toPunish[punishIndex][1];
-        applyPenalty(false, gasUsed, offerDetail);
+        applyPenalty(false, gasprice, gasUsed, offerDetail);
       }
       punishIndex++;
     }

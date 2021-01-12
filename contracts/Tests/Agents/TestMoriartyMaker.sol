@@ -52,10 +52,10 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     uint gasreq,
     uint pivotId
   ) public {
-    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
-    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
-    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
-    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
+    dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
+    dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
+    dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
+    dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
     uint density = dex.config(base, quote).density;
     uint gasbase = dex.config(base, quote).gasbase;
     dummy = dex.newOffer({
@@ -64,6 +64,7 @@ contract TestMoriartyMaker is IMaker, Passthrough {
       wants: 1,
       gives: density * (gasbase + 100000),
       gasreq: 100000,
+      gasprice: 0,
       pivotId: 0
     }); //dummy offer
   }
