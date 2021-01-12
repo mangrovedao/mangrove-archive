@@ -99,7 +99,7 @@ They have the following fields: */
        ```
         When an offer fails, the following amount is given to the taker as compensation:
        ```
-       (gasUsed + gasbase) * gasprice
+       (gasused + gasbase) * gasprice
        ```
 
        and the rest is given back to the maker.

@@ -355,7 +355,7 @@ abstract contract Dex is HasAdmin {
     /* * will maintain remaining `takerWants` and `takerGives` values. Their initial ratio is the average price the taker will accept. Better prices may be found early in the book, and worse ones later.
      * will not set `prev`/`next` pointers to their correct locations at each offer taken (this is an optimization enabled by forbidding reentrancy).
      * after consuming a segment of offers, will connect the `prev` and `next` neighbors of the segment's ends.
-     * Will maintain an array of pairs `(offerId, gasUsed)` to identify failed offers. Look at [punishment for failing offers](#dex.sol-punishment-for-failing-offers) for more information. Since there are no extensible in-memory arrays, `punishLength` should be an upper bound on the number of failed offers. */
+     * Will maintain an array of pairs `(offerId, gasused)` to identify failed offers. Look at [punishment for failing offers](#dex.sol-punishment-for-failing-offers) for more information. Since there are no extensible in-memory arrays, `punishLength` should be an upper bound on the number of failed offers. */
 
     /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. The check is an `if` instead of a `require` so we don't throw on an empty market -- but it also means we treat a bad offer id as a take on an empty market. */
     if (DC.isLive(orp.offer)) {
@@ -557,11 +557,11 @@ abstract contract Dex is HasAdmin {
       abi.encodeWithSelector(FLASHLOANER, orp, residualBelowDust)
     );
 
-    uint gasUsed;
+    uint gasused;
 
     /* Revert if FLASHLOANER reverted. **Danger**: if a well-crafted offer/maker pair can force a revert of FLASHLOANER, the Dex will be stuck. */
     if (success) {
-      gasUsed = abi.decode(retdata, (uint));
+      gasused = abi.decode(retdata, (uint));
 
       emit DexEvents.Success(orp.offerId, orp.wants, orp.gives);
       orp.totalGot += orp.wants;
@@ -581,7 +581,7 @@ abstract contract Dex is HasAdmin {
       /* This short reason string should not be exploitable by maker/taker! */
       bytes32 errorCode;
       bytes32 makerData;
-      (errorCode, gasUsed, makerData) = innerDecode(retdata);
+      (errorCode, gasused, makerData) = innerDecode(retdata);
       if (
         errorCode == "dex/makerRevert" || errorCode == "dex/makerTransferFail"
       ) {
@@ -594,7 +594,7 @@ abstract contract Dex is HasAdmin {
           makerData
         );
         if (orp.numToPunish < orp.toPunish.length) {
-          orp.toPunish[orp.numToPunish] = [orp.offerId, gasUsed];
+          orp.toPunish[orp.numToPunish] = [orp.offerId, gasused];
           orp.numToPunish++;
         }
       } else if (errorCode == "dex/tradeOverflow") {
@@ -608,8 +608,8 @@ abstract contract Dex is HasAdmin {
       }
     }
 
-    gasLeft = orp.offerDetail.gasreq - gasUsed;
-    applyPenalty(success, orp.config.gasprice, gasUsed, orp.offerDetail);
+    gasLeft = orp.offerDetail.gasreq - gasused;
+    applyPenalty(success, orp.config.gasprice, gasused, orp.offerDetail);
   }
 
   function innerDecode(bytes memory data)
@@ -617,13 +617,13 @@ abstract contract Dex is HasAdmin {
     pure
     returns (
       bytes32 errorCode,
-      uint gasUsed,
+      uint gasused,
       bytes32 makerData
     )
   {
     assembly {
       errorCode := mload(add(data, 32))
-      gasUsed := mload(add(data, 64))
+      gasused := mload(add(data, 64))
       makerData := mload(add(data, 96))
     }
   }
@@ -814,23 +814,24 @@ abstract contract Dex is HasAdmin {
   function applyPenalty(
     bool success,
     uint gasprice,
-    uint gasUsed,
+    uint gasused,
     DC.OfferDetail memory offerDetail
   ) internal {
     /* If offer has not provisioned for a high enough gas price, we take their gasprice as given. */
     if (offerDetail.gasprice < gasprice) {
       gasprice = offerDetail.gasprice;
     }
-    /* We set `gasDeducted = min(gasUsed,gasreq)` since `gasreq < gasUsed` is possible (e.g. with `gasreq = 0`). */
-    uint gasDeducted =
-      gasUsed < offerDetail.gasreq ? gasUsed : offerDetail.gasreq;
+    /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible (e.g. with `gasreq = 0`). */
+    if (offerDetail.gasreq < gasused) {
+      gasused = offerDetail.gasreq;
+    }
 
     /*
        Then we apply penalties:
 
        * If the transaction was a success, we entirely refund the maker and send nothing to the taker.
 
-       * Otherwise, the maker loses the cost of `gasDeducted + gasbase` gas. The gas price is estimated by `gasprice`.
+       * Otherwise, the maker loses the cost of `gasused + gasbase` gas. The gas price is estimated by `gasprice`.
 
          Note that to create the offer, the maker had to provision for `gasreq + gasbase` gas.
 
@@ -842,13 +843,13 @@ abstract contract Dex is HasAdmin {
         (
           success
             ? offerDetail.gasreq + offerDetail.gasbase
-            : offerDetail.gasreq - gasDeducted
+            : offerDetail.gasreq - gasused
         );
 
     DexLib.creditWei(freeWei, offerDetail.maker, released);
 
     if (!success) {
-      uint amount = offerDetail.gasprice * (offerDetail.gasbase + gasDeducted);
+      uint amount = offerDetail.gasprice * (offerDetail.gasbase + gasused);
       bool noRevert;
       (noRevert, ) = msg.sender.call{gas: 0, value: amount}("");
     }
@@ -1008,7 +1009,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
   /* ## Low-level punish */
   //+clear+
-  /* Given a sequence of `(offerId, gasUsed)` pairs, `punish` assumes they have failed and
+  /* Given a sequence of `(offerId, gasused)` pairs, `punish` assumes they have failed and
      executes `applyPenalty` on them.  */
   function punish(
     address base,
@@ -1025,8 +1026,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         DC.OfferDetail memory offerDetail = offerDetails[id];
         dirtyDeleteOffer(base, quote, id);
         DC.stitchOffers(base, quote, offers, bests, offer.prev, offer.next);
-        uint gasUsed = toPunish[punishIndex][1];
-        applyPenalty(false, gasprice, gasUsed, offerDetail);
+        uint gasused = toPunish[punishIndex][1];
+        applyPenalty(false, gasprice, gasused, offerDetail);
       }
       punishIndex++;
     }

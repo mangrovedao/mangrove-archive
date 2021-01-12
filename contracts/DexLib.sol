@@ -20,14 +20,14 @@ library DexLib {
    */
   function flashloan(DC.OrderPack calldata orp, bool residualBelowDust)
     external
-    returns (uint gasUsed)
+    returns (uint gasused)
   {
     /* the transfer from taker to maker must be in this function
        so that any issue with the maker also reverts the flashloan */
     if (
       transferToken(orp.quote, msg.sender, orp.offerDetail.maker, orp.gives)
     ) {
-      gasUsed = makerExecute(orp, residualBelowDust);
+      gasused = makerExecute(orp, residualBelowDust);
     } else {
       innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
     }
@@ -53,14 +53,14 @@ library DexLib {
 
   function invertedFlashloan(DC.OrderPack calldata orp, bool residualBelowDust)
     external
-    returns (uint gasUsed)
+    returns (uint gasused)
   {
-    gasUsed = makerExecute(orp, residualBelowDust);
+    gasused = makerExecute(orp, residualBelowDust);
   }
 
   function makerExecute(DC.OrderPack calldata orp, bool residualBelowDust)
     internal
-    returns (uint gasUsed)
+    returns (uint gasused)
   {
     IMaker.Trade memory trade =
       IMaker.Trade({
@@ -108,21 +108,21 @@ library DexLib {
       )
       makerData := mload(add(retdata, 32))
     }
-    gasUsed = oldGas - gasleft();
+    gasused = oldGas - gasleft();
     // An example why this is not safe if ERC20 has a callback:
     // https://peckshield.medium.com/akropolis-incident-root-cause-analysis-c11ee59e05d4
     uint newBalance = IERC20(orp.base).balanceOf(msg.sender);
     /* oldBalance + orp.wants cannot overflow thanks to earlier check */
     /* `msg.sender == maker` balance might be invariant*/
     if (!success) {
-      innerRevert([bytes32("dex/makerRevert"), bytes32(gasUsed), makerData]);
+      innerRevert([bytes32("dex/makerRevert"), bytes32(gasused), makerData]);
     } else if (
       (newBalance >= oldBalance + orp.wants) || (msg.sender == maker)
     ) {
       // ok
     } else {
       innerRevert(
-        [bytes32("dex/makerTransferFail"), bytes32(gasUsed), makerData]
+        [bytes32("dex/makerTransferFail"), bytes32(gasused), makerData]
       );
     }
   }

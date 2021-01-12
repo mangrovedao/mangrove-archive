@@ -58,7 +58,7 @@ interface IGovernance {
     address taker,
     address maker,
     bool success,
-    uint gasUsed,
+    uint gasused,
     uint gasbase,
     uint gasreq,
     uint gasprice
