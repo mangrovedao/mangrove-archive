@@ -10,6 +10,10 @@ task(
 )
   .addFlag("showEvents", "Show all non-test events during tests")
   .addFlag("showTestEvents", "Show all test events during tests")
+  .addFlag(
+    "details",
+    "Log events interpreted by the logFormatters hardhat.config parameter for additional details on the tests"
+  )
   .addOptionalParam(
     "prefix",
     "Match test function names for prefix. Javascript regex. Remember to escape backslash and surround with single quotes if necessary.",
