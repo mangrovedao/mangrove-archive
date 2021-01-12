@@ -79,6 +79,7 @@ library DexLib {
 
     bytes memory cd = abi.encodeWithSelector(IMaker.makerTrade.selector, trade);
     uint oldBalance = IERC20(orp.base).balanceOf(msg.sender);
+    /* If the transfer would trigger an overflow, we blame the taker. Since orp.wants is `min(takerWants,offer.gives)`, the taker cannot be tricked into overflow by a maker. This check must be done before the callto maker because an overflow-trggering ERC20 transfer could throw and result in an unjust maker failure. */
     if (oldBalance + orp.wants < oldBalance) {
       innerRevert([bytes32("dex/tradeOverflow"), "", ""]);
     }
