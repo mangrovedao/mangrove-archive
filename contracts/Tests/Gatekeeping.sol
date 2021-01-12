@@ -333,38 +333,22 @@ contract Gatekeeping_Test is IMaker {
   /* New Offer success */
 
   // ! may be called with inverted _base and _quote
-  function newOfferOK(
-    address _base,
-    address _quote,
-    string memory err
-  ) external {
-    try dex.newOffer(_base, _quote, 1 ether, 1 ether, 30_000, 0) {
-      // all good
-    } catch {
-      TestEvents.fail(err);
-    }
+  function newOfferOK(address _base, address _quote) external {
+    dex.newOffer(_base, _quote, 1 ether, 1 ether, 30_000, 0);
   }
 
   function newOffer_on_reentrancy_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 200_000, 0);
-    trade_cb = abi.encodeWithSelector(
-      this.newOfferOK.selector,
-      quote,
-      base,
-      "newOffer on swapped pair should work"
-    );
+    trade_cb = abi.encodeWithSelector(this.newOfferOK.selector, quote, base);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
+    require(dex.bests(quote, base) == 2, "newOffer on swapped pair must work");
   }
 
   function newOffer_on_handoff_succeeds_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
-    handoff_cb = abi.encodeWithSelector(
-      this.newOfferOK.selector,
-      base,
-      quote,
-      "newOffer on handoff should work"
-    );
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 200_000, 0);
+    handoff_cb = abi.encodeWithSelector(this.newOfferOK.selector, base, quote);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
+    require(dex.bests(base, quote) == 2, "newOffer on handoff must work");
   }
 
   /* Update offer failure */
@@ -389,41 +373,40 @@ contract Gatekeeping_Test is IMaker {
   function updateOfferOK(
     address _base,
     address _quote,
-    uint ofr,
-    string memory err
+    uint ofr
   ) external {
-    try dex.updateOffer(_base, _quote, 1 ether, 2 ether, 35_000, 0, ofr) {
-      // all good
-    } catch {
-      TestEvents.fail(err);
-    }
+    dex.updateOffer(_base, _quote, 1 ether, 2 ether, 35_000, 0, ofr);
   }
 
   function updateOffer_on_reentrancy_succeeds_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 400_000, 0);
     uint other_ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 100_000, 0);
 
     trade_cb = abi.encodeWithSelector(
       this.updateOfferOK.selector,
       quote,
       base,
-      other_ofr,
-      "updateOffer on swapped pair should work"
+      other_ofr
     );
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 400_000, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
+    (, DC.OfferDetail memory od) =
+      dex.getOfferInfo(quote, base, other_ofr, true);
+    require(od.gasreq == 35_000, "updateOffer on swapped pair must work");
   }
 
   function updateOffer_on_handoff_succeeds_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
     uint other_ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0);
     handoff_cb = abi.encodeWithSelector(
       this.updateOfferOK.selector,
       base,
       quote,
-      other_ofr,
-      "updateOffer on handoff should work"
+      other_ofr
     );
+    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 300_000, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
+    (, DC.OfferDetail memory od) =
+      dex.getOfferInfo(base, quote, other_ofr, true);
+    require(od.gasreq == 35_000, "updateOffer on handoff must work");
   }
 
   /* Cancel Offer failure */
@@ -447,14 +430,9 @@ contract Gatekeeping_Test is IMaker {
   function cancelOfferOK(
     address _base,
     address _quote,
-    uint id,
-    string memory err
+    uint id
   ) external {
-    try dex.cancelOffer(_base, _quote, id, false) {
-      // all good
-    } catch {
-      TestEvents.fail(err);
-    }
+    dex.cancelOffer(_base, _quote, id, false);
   }
 
   function cancelOffer_on_reentrancy_succeeds_test() public {
@@ -463,26 +441,29 @@ contract Gatekeeping_Test is IMaker {
       this.cancelOfferOK.selector,
       quote,
       base,
-      other_ofr,
-      "cancelOffer on swapped pair should work"
+      other_ofr
     );
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
+    require(
+      dex.bests(quote, base) == 0,
+      "cancelOffer on swapped pair must work"
+    );
   }
 
   function cancelOffer_on_handoff_succeeds_test() public {
-    uint other_ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
+    uint other_ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
     handoff_cb = abi.encodeWithSelector(
       this.cancelOfferOK.selector,
       base,
       quote,
-      other_ofr,
-      "cancelOffer on handoff should work"
+      other_ofr
     );
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
+    require(dex.bests(base, quote) == 0, "cancelOffer on handoff must work");
   }
 
   /* Market Order failure */
@@ -503,27 +484,14 @@ contract Gatekeeping_Test is IMaker {
 
   /* Market Order Success */
 
-  function marketOrderOK(
-    address _base,
-    address _quote,
-    string memory err
-  ) external {
-    try dex.simpleMarketOrder(_base, _quote, 0.5 ether, 0.5 ether) {
-      // all good
-    } catch {
-      TestEvents.fail(err);
-    }
+  function marketOrderOK(address _base, address _quote) external {
+    dex.simpleMarketOrder(_base, _quote, 0.5 ether, 0.5 ether);
   }
 
   function marketOrder_on_reentrancy_succeeds_test() public {
     dual_mkr.newOffer(0.5 ether, 0.5 ether, 30_000, 0);
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 390_000, 0);
-    trade_cb = abi.encodeWithSelector(
-      this.marketOrderOK.selector,
-      quote,
-      base,
-      "marketOrder on swapped pair should work"
-    );
+    trade_cb = abi.encodeWithSelector(this.marketOrderOK.selector, quote, base);
     require(tkr.take(ofr, 0.1 ether), "take must succeed or test is void");
     require(
       dex.bests(quote, base) == 0,
@@ -537,8 +505,7 @@ contract Gatekeeping_Test is IMaker {
     handoff_cb = abi.encodeWithSelector(
       this.marketOrderOK.selector,
       base,
-      quote,
-      "marketOrder on handoff should work"
+      quote
     );
     require(tkr.take(ofr, 0.6 ether), "take must succeed or test is void");
     require(
@@ -570,16 +537,9 @@ contract Gatekeeping_Test is IMaker {
   function snipeOK(
     address _base,
     address _quote,
-    uint id,
-    string memory err
+    uint id
   ) external {
-    try
-      dex.snipe(_base, _quote, id, 1 ether, type(uint96).max, type(uint24).max)
-    {
-      // all good
-    } catch {
-      TestEvents.fail(err);
-    }
+    dex.snipe(_base, _quote, id, 1 ether, type(uint96).max, type(uint24).max);
   }
 
   function snipes_on_reentrancy_succeeds_test() public {
@@ -588,26 +548,26 @@ contract Gatekeeping_Test is IMaker {
       this.snipeOK.selector,
       quote,
       base,
-      other_ofr,
-      "snipes on swapped pair should work"
+      other_ofr
     );
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
     require(tkr.take(ofr, 0.1 ether), "take must succeed or test is void");
+    require(dex.bests(quote, base) == 0, "snipe in swapped pair must work");
   }
 
   function snipes_on_handoff_succeeds_test() public {
-    uint other_ofr = dual_mkr.newOffer(1 ether, 1 ether, 30_000, 0);
+    uint other_ofr = mkr.newOffer(1 ether, 1 ether, 30_000, 0);
     handoff_cb = abi.encodeWithSelector(
       this.snipeOK.selector,
       base,
       quote,
-      other_ofr,
-      "snipes on handoff should work"
+      other_ofr
     );
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
-    require(tkr.take(ofr, 0.1 ether), "take must succeed or test is void");
+    require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
+    require(dex.bests(base, quote) == 0, "snipe in handoff must work");
   }
 
   function newOffer_on_closed_fails_test() public {
