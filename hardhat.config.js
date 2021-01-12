@@ -28,6 +28,7 @@ task(
     await test_solidity(
       {
         argTestContractNames: params.contracts || [],
+        details: params.details,
         showEvents: params.showEvents,
         showTestEvents: params.showTestEvents,
         prefix: params.prefix,
