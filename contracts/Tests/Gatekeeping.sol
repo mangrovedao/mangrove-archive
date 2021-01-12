@@ -108,6 +108,7 @@ contract Gatekeeping_Test is IMaker {
     baseT.mint(address(dual_mkr), 1 ether);
 
     baseT.approve(address(dex), 1 ether);
+    quoteT.approve(address(dex), 1 ether);
     tkr.approveDex(quoteT, 1 ether);
 
     Display.register(msg.sender, "Test Runner");
@@ -507,8 +508,7 @@ contract Gatekeeping_Test is IMaker {
     address _quote,
     string memory err
   ) external {
-    dual_mkr.newOffer(1 ether, 1 ether, 100_000, 0);
-    try dex.simpleMarketOrder(_base, _quote, 0.2 ether, 0.2 ether) {
+    try dex.simpleMarketOrder(_base, _quote, 0.5 ether, 0.5 ether) {
       // all good
     } catch {
       TestEvents.fail(err);
@@ -516,6 +516,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function marketOrder_on_reentrancy_succeeds_test() public {
+    dual_mkr.newOffer(0.5 ether, 0.5 ether, 30_000, 0);
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 390_000, 0);
     trade_cb = abi.encodeWithSelector(
       this.marketOrderOK.selector,
@@ -524,17 +525,26 @@ contract Gatekeeping_Test is IMaker {
       "marketOrder on swapped pair should work"
     );
     require(tkr.take(ofr, 0.1 ether), "take must succeed or test is void");
+    require(
+      dex.bests(quote, base) == 0,
+      "2nd market order must have emptied dex"
+    );
   }
 
   function marketOrder_on_handoff_succeeds_test() public {
-    uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0);
+    uint ofr = dex.newOffer(base, quote, 0.5 ether, 0.5 ether, 500_000, 0);
+    dex.newOffer(base, quote, 0.5 ether, 0.5 ether, 200_000, 0);
     handoff_cb = abi.encodeWithSelector(
       this.marketOrderOK.selector,
       base,
       quote,
       "marketOrder on handoff should work"
     );
-    require(tkr.take(ofr, 0.1 ether), "take must succeed or test is void");
+    require(tkr.take(ofr, 0.6 ether), "take must succeed or test is void");
+    require(
+      dex.bests(base, quote) == 0,
+      "2nd market order must have emptied dex"
+    );
   }
 
   /* Snipe failure */
