@@ -460,8 +460,8 @@ abstract contract Dex is HasAdmin {
         orp.offerId
       );
       locks[orp.base][orp.quote] = UNLOCKED;
-      executeEnd(orp); //noop if classical Dex
       applyFee(orp);
+      executeEnd(orp); //noop if classical Dex
     }
   }
 
@@ -767,8 +767,8 @@ abstract contract Dex is HasAdmin {
       /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
       restrictMemoryArrayLength(orp.toPunish, orp.numToPunish);
       locks[orp.base][orp.quote] = UNLOCKED;
-      executeEnd(orp);
       applyFee(orp);
+      executeEnd(orp);
     }
 
     return successes;
@@ -801,6 +801,7 @@ abstract contract Dex is HasAdmin {
   function applyFee(DC.OrderPack memory orp) internal {
     if (orp.totalGot > 0) {
       uint concreteFee = (orp.totalGot * orp.config.fee) / 10_000;
+      orp.totalGot -= concreteFee;
       bool success =
         DexLib.transferToken(orp.base, msg.sender, admin, concreteFee);
       require(success, "dex/takerFailToPayDex");
