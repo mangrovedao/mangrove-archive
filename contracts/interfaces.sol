@@ -23,7 +23,7 @@ interface IMaker {
   // In inverted dex, they did not
   function makerTrade(Trade calldata trade) external returns (bytes32);
 
-  struct Handoff {
+  struct Posthook {
     address base;
     address quote;
     uint takerWants;
@@ -33,7 +33,7 @@ interface IMaker {
   }
 
   // Maker callback after trade
-  function makerHandoff(Handoff calldata handoff) external;
+  function makerPosthook(Posthook calldata posthook) external;
 
   event Execute(uint takerWants, uint takerGives, uint offerId);
 }

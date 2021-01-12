@@ -40,7 +40,7 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     }
   }
 
-  function makerHandoff(IMaker.Handoff calldata handoff)
+  function makerPosthook(IMaker.Posthook calldata posthook)
     external
     pure
     override

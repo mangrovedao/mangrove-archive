@@ -286,7 +286,7 @@ contract Gatekeeping_Test is IMaker {
   /* # Internal IMaker setup */
 
   bytes trade_cb;
-  bytes handoff_cb;
+  bytes posthook_cb;
 
   // maker's trade fn for the dex
   function makerTrade(IMaker.Trade calldata trade)
@@ -303,12 +303,12 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
-  function makerHandoff(IMaker.Handoff calldata handoff) external override {
+  function makerPosthook(IMaker.Posthook calldata posthook) external override {
     bool success;
-    handoff; // silence compiler warning
-    if (handoff_cb.length > 0) {
-      (success, ) = address(this).call(handoff_cb);
-      require(success, "makerHandoff callback must work");
+    posthook; // silence compiler warning
+    if (posthook_cb.length > 0) {
+      (success, ) = address(this).call(posthook_cb);
+      require(success, "makerPosthook callback must work");
     }
   }
 
@@ -344,11 +344,11 @@ contract Gatekeeping_Test is IMaker {
     require(dex.bests(quote, base) == 2, "newOffer on swapped pair must work");
   }
 
-  function newOffer_on_handoff_succeeds_test() public {
+  function newOffer_on_posthook_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 200_000, 0, 0);
-    handoff_cb = abi.encodeWithSelector(this.newOfferOK.selector, base, quote);
+    posthook_cb = abi.encodeWithSelector(this.newOfferOK.selector, base, quote);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    require(dex.bests(base, quote) == 2, "newOffer on handoff must work");
+    require(dex.bests(base, quote) == 2, "newOffer on posthook must work");
   }
 
   /* Update offer failure */
@@ -394,9 +394,9 @@ contract Gatekeeping_Test is IMaker {
     require(od.gasreq == 35_000, "updateOffer on swapped pair must work");
   }
 
-  function updateOffer_on_handoff_succeeds_test() public {
+  function updateOffer_on_posthook_succeeds_test() public {
     uint other_ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0, 0);
-    handoff_cb = abi.encodeWithSelector(
+    posthook_cb = abi.encodeWithSelector(
       this.updateOfferOK.selector,
       base,
       quote,
@@ -406,7 +406,7 @@ contract Gatekeeping_Test is IMaker {
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
     (, DC.OfferDetail memory od) =
       dex.getOfferInfo(base, quote, other_ofr, true);
-    require(od.gasreq == 35_000, "updateOffer on handoff must work");
+    require(od.gasreq == 35_000, "updateOffer on posthook must work");
   }
 
   /* Cancel Offer failure */
@@ -452,9 +452,9 @@ contract Gatekeeping_Test is IMaker {
     );
   }
 
-  function cancelOffer_on_handoff_succeeds_test() public {
+  function cancelOffer_on_posthook_succeeds_test() public {
     uint other_ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0, 0);
-    handoff_cb = abi.encodeWithSelector(
+    posthook_cb = abi.encodeWithSelector(
       this.cancelOfferOK.selector,
       base,
       quote,
@@ -463,7 +463,7 @@ contract Gatekeeping_Test is IMaker {
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    require(dex.bests(base, quote) == 0, "cancelOffer on handoff must work");
+    require(dex.bests(base, quote) == 0, "cancelOffer on posthook must work");
   }
 
   /* Market Order failure */
@@ -499,10 +499,10 @@ contract Gatekeeping_Test is IMaker {
     );
   }
 
-  function marketOrder_on_handoff_succeeds_test() public {
+  function marketOrder_on_posthook_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 0.5 ether, 0.5 ether, 500_000, 0, 0);
     dex.newOffer(base, quote, 0.5 ether, 0.5 ether, 200_000, 0, 0);
-    handoff_cb = abi.encodeWithSelector(
+    posthook_cb = abi.encodeWithSelector(
       this.marketOrderOK.selector,
       base,
       quote
@@ -556,9 +556,9 @@ contract Gatekeeping_Test is IMaker {
     require(dex.bests(quote, base) == 0, "snipe in swapped pair must work");
   }
 
-  function snipes_on_handoff_succeeds_test() public {
+  function snipes_on_posthook_succeeds_test() public {
     uint other_ofr = mkr.newOffer(1 ether, 1 ether, 30_000, 0);
-    handoff_cb = abi.encodeWithSelector(
+    posthook_cb = abi.encodeWithSelector(
       this.snipeOK.selector,
       base,
       quote,
@@ -567,7 +567,7 @@ contract Gatekeeping_Test is IMaker {
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    require(dex.bests(base, quote) == 0, "snipe in handoff must work");
+    require(dex.bests(base, quote) == 0, "snipe in posthook must work");
   }
 
   function newOffer_on_closed_fails_test() public {

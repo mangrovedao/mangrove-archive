@@ -65,7 +65,7 @@ contract TestMaker is IMaker, Passthrough {
     }
   }
 
-  function makerHandoff(IMaker.Handoff calldata handoff)
+  function makerPosthook(IMaker.Posthook calldata posthook)
     external
     virtual
     override

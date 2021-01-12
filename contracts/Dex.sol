@@ -439,7 +439,7 @@ abstract contract Dex is HasAdmin {
       // reentrancy is allowed here
       if (success) {
         executeCallback(orp, maker, takerGives); // noop in Classical dex
-        makerHandoff(
+        makerPosthook(
           orp,
           takerWants,
           takerGives,
@@ -465,7 +465,7 @@ abstract contract Dex is HasAdmin {
     }
   }
 
-  function makerHandoff(
+  function makerPosthook(
     DC.OrderPack memory orp,
     uint takerWants,
     uint takerGives,
@@ -474,8 +474,8 @@ abstract contract Dex is HasAdmin {
     bool toDelete,
     uint gasLeft
   ) internal {
-    IMaker.Handoff memory handoff =
-      IMaker.Handoff({
+    IMaker.Posthook memory posthook =
+      IMaker.Posthook({
         base: orp.base,
         quote: orp.quote,
         takerWants: takerWants,
@@ -484,11 +484,11 @@ abstract contract Dex is HasAdmin {
         offerDeleted: toDelete
       });
     bytes memory cd =
-      abi.encodeWithSelector(IMaker.makerHandoff.selector, handoff);
+      abi.encodeWithSelector(IMaker.makerPosthook.selector, posthook);
 
     uint oldGas = gasleft();
     if (!(oldGas - oldGas / 64 >= gasLeft)) {
-      revert("dex/notEnoughGasForMakerHandoff");
+      revert("dex/notEnoughGasForMakerPosthook");
     }
     bool noRevert;
     (noRevert, ) = maker.call{gas: gasLeft}(cd);
@@ -753,7 +753,7 @@ abstract contract Dex is HasAdmin {
 
       if (success) {
         executeCallback(orp, maker, takerGives);
-        makerHandoff(
+        makerPosthook(
           orp,
           takerWants,
           takerGives,

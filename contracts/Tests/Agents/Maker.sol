@@ -93,5 +93,5 @@ contract Maker is IMaker {
     return bytes32(0);
   }
 
-  function makerHandoff(IMaker.Handoff calldata handoff) external override {}
+  function makerPosthook(IMaker.Posthook calldata posthook) external override {}
 }
