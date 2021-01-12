@@ -183,7 +183,8 @@ contract Scenarii_Test {
     TestTaker _taker = TakerSetup.setup(dex, address(quote), address(base));
     Display.register(address(_taker), "Taker (B,A)");
     base.mint(address(_taker), 5 ether);
-    address(_taker).call{value: 1 ether}("");
+    bool noRevert0;
+    (noRevert0, ) = address(_taker).call{value: 1 ether}("");
 
     bool noRevert;
     (noRevert, ) = address(taker).call{value: 1 ether}("");
