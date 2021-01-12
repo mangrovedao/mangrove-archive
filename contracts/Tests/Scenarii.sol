@@ -185,7 +185,8 @@ contract Scenarii_Test {
     base.mint(address(_taker), 5 ether);
     address(_taker).call{value: 1 ether}("");
 
-    address(taker).call{value: 1 ether}("");
+    bool noRevert;
+    (noRevert, ) = address(taker).call{value: 1 ether}("");
     offerOf = TestInsert.run(balances, dex, makers, taker, base, quote); //creating non empty OB on pair (base,quote)
 
     Display.logOfferBook(dex, address(base), address(quote), 5);
@@ -196,6 +197,13 @@ contract Scenarii_Test {
     Display.logBalances(base, quote, address(taker));
     Display.logOfferBook(dex, address(base), address(quote), 5); // taker has more A
     Display.logOfferBook(dex, address(quote), address(base), 2);
+    //Display.logBalances(base, quote, address(taker));
+
+    TestTaker _taker = TakerSetup.setup(dex, address(quote), address(base));
+    Display.register(address(_taker), "Taker (B,A)");
+    base.mint(address(_taker), 5 ether);
+    bool noRevert2;
+    (noRevert2, ) = address(_taker).call{value: 1 ether}("");
 
     _taker.delegateOrder(mgr, 1.8 ether, 1.8 ether); // (B,A) order
     Display.logBalances(base, quote, address(taker), address(_taker));
