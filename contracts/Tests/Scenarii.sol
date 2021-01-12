@@ -140,7 +140,7 @@ contract Scenarii_Test {
     }
   }
 
-  function snipe_insert_and_fail_t() public {
+  function snipe_insert_and_fail_test() public {
     //TestEvents.logString("=== Insert test ===", 0);
     offerOf = TestInsert.run(balances, dex, makers, taker, base, quote);
     //Display.printOfferBook(dex);
@@ -185,12 +185,12 @@ contract Scenarii_Test {
     Display.logOfferBook(dex, address(base), address(quote), 5);
     Display.register(address(mgr), "offer manager");
 
-    Display.logBalances(base, quote, address(taker));
+    //Display.logBalances(base, quote, address(taker));
     taker.delegateOrder(mgr, 3 ether, 3 ether); // (A,B) order
 
     Display.logOfferBook(dex, address(base), address(quote), 5); // taker has more A
     Display.logOfferBook(dex, address(quote), address(base), 2);
-    Display.logBalances(base, quote, address(taker));
+    //Display.logBalances(base, quote, address(taker));
 
     TestTaker _taker = TakerSetup.setup(dex, address(quote), address(base));
     Display.register(address(_taker), "Taker (B,A)");

@@ -6,6 +6,7 @@ import "../../Dex.sol";
 import "../../interfaces.sol";
 import "../../DexCommon.sol";
 import "hardhat/console.sol";
+import "../Toolbox/Display.sol";
 import {DexCommon as DC} from "../Toolbox/Display.sol";
 
 contract OfferManager is IMaker {
@@ -64,12 +65,15 @@ contract OfferManager is IMaker {
     IERC20(base).approve(address(dex), 100 ether); // takerfee
 
     console.log("Manager has received quote funds");
+    Display.logBalances(ERC20(base), ERC20(quote), address(this));
 
     //uint balBase = IERC20(base).balanceOf(address(this));
     (uint totalGot, uint totalGave) =
       dex.simpleMarketOrder(base, quote, wants, gives); // OfferManager might collect provisions of failing offers
-    IERC20(base).transfer(msg.sender, totalGot);
-    console.log("Manager has finished market Order to DEX(A,B)");
+    console.log("Manager has finished market Order to DEX and got ", totalGot);
+
+    bool _success = IERC20(base).transfer(msg.sender, totalGot);
+    require(_success, "Failed to send market order money to owner");
 
     uint residual_w = wants - totalGot;
     uint residual_g = (gives * residual_w) / wants;

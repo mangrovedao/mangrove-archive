@@ -172,7 +172,6 @@ library Display {
     ERC20 t2,
     address a1
   ) internal {
-    console.log("bad");
     ERC20[] memory tokens = new ERC20[](2);
     tokens[0] = t1;
     tokens[1] = t2;
