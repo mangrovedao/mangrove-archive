@@ -822,10 +822,6 @@ abstract contract Dex is HasAdmin {
     DC.Offer memory offer,
     DC.OfferDetail memory offerDetail
   ) internal {
-    /* If offer has not provisioned for a high enough gas price, we take their gasprice as given. */
-    if (offer.gasprice < gasprice) {
-      gasprice = offer.gasprice;
-    }
     /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible (e.g. with `gasreq = 0`). */
     if (offerDetail.gasreq < gasused) {
       gasused = offerDetail.gasreq;
@@ -838,19 +834,20 @@ abstract contract Dex is HasAdmin {
 
        * Otherwise, the maker loses the cost of `gasused + gasbase` gas. The gas price is estimated by `gasprice`.
 
-         Note that to create the offer, the maker had to provision for `gasreq + gasbase` gas.
+         Note that to create the offer, the maker had to provision for `gasreq + gasbase` gas at a price of `offer.gasprice`. So consider their entire provision and take as much as possible given the current gasprice.
+
+         Note that we do not consider the tx.gasprice.
 
          Note that `offerDetail.gasbase` and `offer.gasprice` are the values of the Dex parameters `config.gasbase` and `config.gasprice` when the offer was createdd. Without caching, the provision set aside could be insufficient to reimburse the maker (or to compensate the taker).
 
      */
     uint released =
-      10**9 *
-        uint(offer.gasprice) *
-        (
-          success
-            ? offerDetail.gasreq + offerDetail.gasbase
-            : offerDetail.gasreq - gasused
-        );
+      10**9 * uint(offer.gasprice) * (offerDetail.gasreq + offerDetail.gasbase);
+
+    if (!success) {
+      uint toPay = 10**9 * gasprice * (gasused + offerDetail.gasbase);
+      released = toPay < released ? released - toPay : 0;
+    }
 
     creditWei(offerDetail.maker, released);
 
