@@ -68,7 +68,7 @@ contract OfferManager is IMaker {
       uint residual_w = wants - netReceived;
       uint residual_g = (gives * residual_w) / wants;
       require(
-        msg.value >= gas_to_execute * uint(config.gasprice) * 10**9,
+        msg.value >= gas_to_execute * uint(config.global.gasprice) * 10**9,
         "Insufficent funds to delegate order"
       ); //TODO overflow issues
       (bool success, ) = address(dex).call{value: msg.value}("");

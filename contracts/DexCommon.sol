@@ -123,22 +123,30 @@ They have the following fields: */
   /* # Configuration
    All configuration information of the Dex is in a `Config` struct. Configuration fields are:
 */
-  struct Config {
-    bool dead;
-    bool active;
-    /* * `fee`, in basis points, of `OFR_TOKEN` given to the taker. This fee is sent to the Dex. Fee is capped to 5% (see Dex.sol). */
-    uint fee;
+  /* Configuration. See DexLib for more information. */
+  struct Global {
     /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
-    uint gasprice;
+    uint16 gasprice;
     /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at leat `gasbase` gas. Should only be updated when opcode prices change. */
-    uint gasbase;
-    /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `OFR_TOKEN` per gas requested. For instance, if `density == 10`, `gasbase == 5000` an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `OFR_TOKEN`. */
-    uint density;
-    /*
-    * An offer which asks for more gas than the block limit would live forever on
+    uint24 gasbase;
+    /* An offer which asks for more gas than the block limit would live forever on
     the book. Nobody could take it or remove it, except its creator (who could cancel it). In practice, we will set this parameter to a reasonable limit taking into account both practical transaction sizes and the complexity of maker contracts.
   */
-    uint gasmax;
+    uint24 gasmax;
+    bool dead;
+  }
+
+  struct Local {
+    bool active;
+    /* * `fee`, in basis points, of `OFR_TOKEN` given to the taker. This fee is sent to the Dex. Fee is capped to 5% (see Dex.sol). */
+    uint16 fee;
+    /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `OFR_TOKEN` per gas requested. For instance, if `density == 10`, `gasbase == 5000` an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `OFR_TOKEN`. */
+    uint32 density;
+  }
+
+  struct Config {
+    Global global;
+    Local local;
   }
 
   /* # Misc.

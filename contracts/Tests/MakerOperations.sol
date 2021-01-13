@@ -106,7 +106,7 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(trade.taker, address(tkr), "wrong taker");
     TestEvents.eq(
       trade.offerGasprice,
-      dex.config(trade.base, trade.quote).gasprice,
+      dex.config(trade.base, trade.quote).global.gasprice,
       "wrong gasprice"
     );
     TestEvents.eq(trade.offerGasreq, 200_000, "wrong gasreq");

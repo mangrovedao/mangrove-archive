@@ -35,7 +35,7 @@ library TestInsert {
     offerOf[0] = makers.getMaker(0).newOffer({ //failer
       wants: 20 ether,
       gives: 10 ether,
-      gasreq: dex.config(address(base), address(quote)).gasmax,
+      gasreq: dex.config(address(base), address(quote)).global.gasmax,
       pivotId: 0
     });
     //Display.printOfferBook(dex);

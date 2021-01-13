@@ -10,6 +10,7 @@ import {DexCommon as DC, DexEvents} from "./DexCommon.sol";
 // The purpose of DexLib is to keep Dex under the [Spurious Dragon](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md) 24kb limit.
 import "./DexLib.sol";
 import "./lib/HasAdmin.sol";
+import "hardhat/console.sol";
 
 /* # State variables
    This contract describes an orderbook-based exchange ("Dex") where market makers *do not have to provision their offer*. See `DexCommon.sol` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. The Dex transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
@@ -36,22 +37,8 @@ abstract contract Dex is HasAdmin {
   mapping(address => mapping(address => mapping(uint => DC.OfferDetail)))
     private offerDetails;
 
-  /* Configuration. See DexLib for more information. */
-  struct Global {
-    uint16 gasprice;
-    uint24 gasbase;
-    uint24 gasmax;
-    bool dead;
-  }
-
-  struct Local {
-    bool active;
-    uint16 fee;
-    uint32 density;
-  }
-
-  Global private global;
-  mapping(address => mapping(address => Local)) private locals;
+  DC.Global private global;
+  mapping(address => mapping(address => DC.Local)) private locals;
 
   /* * Makers provision their possible penalties in the `freeWei` mapping.
 
@@ -119,13 +106,13 @@ abstract contract Dex is HasAdmin {
        * Creating a new offerX
    */
   function requireLiveDex(DC.Config memory _config) internal pure {
-    require(!_config.dead, "dex/dead");
+    require(!_config.global.dead, "dex/dead");
   }
 
   /* TODO documentation */
   function requireActiveMarket(DC.Config memory _config) internal pure {
     requireLiveDex(_config);
-    require(_config.active, "dex/inactive");
+    require(_config.local.active, "dex/inactive");
   }
 
   /* # Maker operations
@@ -541,7 +528,8 @@ abstract contract Dex is HasAdmin {
     bool residualBelowDust;
     if (
       orp.offer.gives - orp.wants <
-      orp.config.density * (orp.offerDetail.gasreq + orp.config.gasbase)
+      uint(orp.config.local.density) *
+        (orp.offerDetail.gasreq + uint(orp.config.global.gasbase))
     ) {
       residualBelowDust = true;
     }
@@ -609,7 +597,7 @@ abstract contract Dex is HasAdmin {
     gasLeft = orp.offerDetail.gasreq - gasused;
     applyPenalty(
       success,
-      orp.config.gasprice,
+      orp.config.global.gasprice,
       gasused,
       orp.offer,
       orp.offerDetail
@@ -804,7 +792,7 @@ abstract contract Dex is HasAdmin {
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
   function applyFee(DC.OrderPack memory orp) internal {
     if (orp.totalGot > 0) {
-      uint concreteFee = (orp.totalGot * orp.config.fee) / 10_000;
+      uint concreteFee = (orp.totalGot * uint(orp.config.local.fee)) / 10_000;
       orp.totalGot -= concreteFee;
       bool success =
         DexLib.transferToken(orp.base, msg.sender, admin, concreteFee);
@@ -905,7 +893,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     } else {
       (, , , uint[2][] memory toPunish) =
         abi.decode(retdata, (uint, uint, uint, uint[2][]));
-      punish(base, quote, toPunish, config(base, quote).gasprice);
+      punish(base, quote, toPunish, config(base, quote).global.gasprice);
     }
   }
 
@@ -975,7 +963,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     } else {
       (, , uint[2][] memory toPunish) =
         abi.decode(retdata, (uint, uint, uint[2][]));
-      punish(base, quote, toPunish, config(base, quote).gasprice);
+      punish(base, quote, toPunish, config(base, quote).global.gasprice);
     }
   }
 
@@ -1108,21 +1096,13 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   function config(address base, address quote)
     public
     view
-    returns (DC.Config memory)
+    returns (DC.Config memory ret)
   {
-    Global memory _global = global;
-    Local memory local = locals[base][quote];
-
-    return
-      DC.Config({ /* By default, fee is 0, which is fine. */
-        dead: _global.dead,
-        active: local.active,
-        fee: local.fee, /* A density of 0 breaks a Dex, and without a call to `density(value)`, density will be 0. So we return a density of 1 by default. */
-        density: local.density == 0 ? 1 : local.density,
-        gasprice: _global.gasprice,
-        gasbase: _global.gasbase,
-        gasmax: _global.gasmax
-      });
+    ret.global = global;
+    ret.local = locals[base][quote];
+    if (ret.local.density == 0) {
+      ret.local.density = 1;
+    }
   }
 
   function roundUpRatio(uint num, uint den) internal pure returns (uint) {
@@ -1228,8 +1208,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     returns (uint)
   {
     /* gasprice given by maker will be bounded below by internal gasprice estimate at offer write time. with a large enough overapproximation of the gasprice, the maker can regularly update their offer without updating it */
-    if (ofp.gasprice < ofp.config.gasprice) {
-      ofp.gasprice = ofp.config.gasprice;
+    if (ofp.gasprice < ofp.config.global.gasprice) {
+      ofp.gasprice = ofp.config.global.gasprice;
     }
 
     emit DexEvents.WriteOffer(
@@ -1247,10 +1227,15 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* The following checks are first performed: */
     //+clear+
     /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `provision` (see below). */
-    require(ofp.gasreq <= ofp.config.gasmax, "dex/writeOffer/gasreq/tooHigh");
+    require(
+      ofp.gasreq <= ofp.config.global.gasmax,
+      "dex/writeOffer/gasreq/tooHigh"
+    );
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isLive` method sound. */
     require(
-      ofp.gives >= (ofp.gasreq + ofp.config.gasbase) * ofp.config.density,
+      ofp.gives >=
+        (ofp.gasreq + uint(ofp.config.global.gasbase)) *
+          uint(ofp.config.local.density),
       "dex/writeOffer/gives/tooLow"
     );
 
@@ -1275,11 +1260,11 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         /* It is currently not possible for a new offer to fail the 3 last tests, but it may in the future, so we make sure we're semantically correct by checking for `!update`. */
         !update ||
         offerDetail.gasreq != ofp.gasreq ||
-        offerDetail.gasbase != ofp.config.gasbase
+        offerDetail.gasbase != ofp.config.global.gasbase
       ) {
         offerDetails[ofp.base][ofp.quote][ofp.id] = DC.OfferDetail({
           gasreq: uint24(ofp.gasreq),
-          gasbase: uint24(ofp.config.gasbase),
+          gasbase: uint24(ofp.config.global.gasbase),
           maker: msg.sender
         });
       }
@@ -1289,7 +1274,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
     {
       uint provision =
-        (ofp.gasreq + ofp.config.gasbase) * uint(ofp.config.gasprice) * 10**9;
+        (ofp.gasreq + uint(ofp.config.global.gasbase)) *
+          uint(ofp.config.global.gasprice) *
+          10**9;
       if (provision > oldProvision) {
         debitWei(msg.sender, provision - oldProvision);
       } else if (provision < oldProvision) {

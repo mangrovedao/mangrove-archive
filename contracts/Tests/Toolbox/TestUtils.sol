@@ -64,7 +64,7 @@ library TestUtils {
     address quote,
     uint price
   ) internal view returns (uint) {
-    return ((price * dex.config(base, quote).fee) / 10000);
+    return ((price * dex.config(base, quote).local.fee) / 10000);
   }
 
   function getProvision(
@@ -74,7 +74,9 @@ library TestUtils {
     uint gasreq
   ) internal view returns (uint) {
     DC.Config memory config = dex.config(base, quote);
-    return ((gasreq + config.gasbase) * uint(config.gasprice) * 10**9);
+    return ((gasreq + config.global.gasbase) *
+      uint(config.global.gasprice) *
+      10**9);
   }
 
   function getOfferInfo(
