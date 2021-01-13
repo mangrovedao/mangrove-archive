@@ -21,7 +21,7 @@ contract HasAdmin {
     emit SetAdmin(admin);
   }
 
-  function adminOnly() internal {
+  function adminOnly() internal view {
     require(isAdmin(msg.sender), "HasAdmin/adminOnly");
   }
 }
