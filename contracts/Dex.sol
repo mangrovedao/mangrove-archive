@@ -10,7 +10,6 @@ import {DexCommon as DC, DexEvents} from "./DexCommon.sol";
 // The purpose of DexLib is to keep Dex under the [Spurious Dragon](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md) 24kb limit.
 import "./DexLib.sol";
 import "./lib/HasAdmin.sol";
-import "hardhat/console.sol";
 
 /* # State variables
    This contract describes an orderbook-based exchange ("Dex") where market makers *do not have to provision their offer*. See `DexCommon.sol` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. The Dex transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
@@ -209,8 +208,6 @@ abstract contract Dex is HasAdmin {
   ) public returns (uint) {
     unlockedOnly(base, quote);
     DC.OfferPack memory ofp;
-    uint g = gasleft();
-    uint h;
     ofp.base = base;
     ofp.quote = quote;
     ofp.wants = wants;
@@ -222,8 +219,6 @@ abstract contract Dex is HasAdmin {
     ofp.config.global = global;
     ofp.config.local = locals[base][quote];
     ofp.oldOffer = offers[base][quote][offerId];
-    h = gasleft();
-    console.log("GAS USED", g - h);
     requireActiveMarket(ofp.config);
     return writeOffer(ofp, true);
   }
