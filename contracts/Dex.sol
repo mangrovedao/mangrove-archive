@@ -598,6 +598,7 @@ abstract contract Dex is HasAdmin {
     applyPenalty(
       success,
       orp.config.global.gasprice,
+      orp.config.global.gasbase,
       gasused,
       orp.offer,
       orp.offerDetail
@@ -807,6 +808,7 @@ abstract contract Dex is HasAdmin {
   function applyPenalty(
     bool success,
     uint gasprice,
+    uint gasbase,
     uint gasused,
     DC.Offer memory offer,
     DC.OfferDetail memory offerDetail
@@ -834,7 +836,7 @@ abstract contract Dex is HasAdmin {
       10**9 * uint(offer.gasprice) * (offerDetail.gasreq + offerDetail.gasbase);
 
     if (!success) {
-      uint toPay = 10**9 * gasprice * (gasused + offerDetail.gasbase);
+      uint toPay = 10**9 * gasprice * (gasused + gasbase);
       if (toPay > released) {
         toPay = released;
       }
@@ -892,7 +894,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     } else {
       (, , , uint[2][] memory toPunish) =
         abi.decode(retdata, (uint, uint, uint, uint[2][]));
-      punish(base, quote, toPunish, global.gasprice);
+      DC.Global memory _global = global;
+      punish(base, quote, toPunish, _global.gasprice, _global.gasbase);
     }
   }
 
@@ -962,7 +965,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     } else {
       (, , uint[2][] memory toPunish) =
         abi.decode(retdata, (uint, uint, uint[2][]));
-      punish(base, quote, toPunish, global.gasprice);
+      DC.Global memory _global = global;
+      punish(base, quote, toPunish, _global.gasprice, _global.gasbase);
     }
   }
 
@@ -1006,7 +1010,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     address base,
     address quote,
     uint[2][] memory toPunish,
-    uint gasprice
+    uint gasprice,
+    uint gasbase
   ) internal {
     uint punishIndex;
     while (punishIndex < toPunish.length) {
@@ -1018,7 +1023,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         dirtyDeleteOffer(base, quote, id);
         DC.stitchOffers(base, quote, offers, bests, offer.prev, offer.next);
         uint gasused = toPunish[punishIndex][1];
-        applyPenalty(false, gasprice, gasused, offer, offerDetail);
+        applyPenalty(false, gasprice, gasbase, gasused, offer, offerDetail);
       }
       punishIndex++;
     }
