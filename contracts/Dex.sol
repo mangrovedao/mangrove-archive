@@ -33,7 +33,8 @@ abstract contract Dex is HasAdmin {
    */
   mapping(address => mapping(address => mapping(uint => DC.Offer)))
     private offers;
-  mapping(uint => DC.OfferDetail) private offerDetails;
+  mapping(address => mapping(address => mapping(uint => DC.OfferDetail)))
+    private offerDetails;
 
   /* Configuration. See DexLib for more information. */
   struct Global {
@@ -61,7 +62,7 @@ abstract contract Dex is HasAdmin {
   mapping(address => uint) private freeWei;
 
   /* * `lastId` is a counter for offer ids, incremented every time a new offer is created. It can't go above 2^24-1. */
-  uint private lastId;
+  mapping(address => mapping(address => uint)) private lastId;
 
   /* * If `reentrancyLock` is > 1, orders may not be added nor executed.
 
@@ -160,7 +161,7 @@ abstract contract Dex is HasAdmin {
     ofp.quote = quote;
     ofp.wants = wants;
     ofp.gives = gives; // an offer id must never be 0
-    ofp.id = ++lastId;
+    ofp.id = ++lastId[base][quote];
     ofp.gasreq = gasreq;
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
@@ -183,7 +184,7 @@ abstract contract Dex is HasAdmin {
     unlockedOnly(base, quote);
     emit DexEvents.CancelOffer(offerId, erase);
     DC.Offer memory offer = offers[base][quote][offerId];
-    DC.OfferDetail memory offerDetail = offerDetails[offerId];
+    DC.OfferDetail memory offerDetail = offerDetails[base][quote][offerId];
     /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *un-live* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
     require(msg.sender == offerDetail.maker, "dex/cancelOffer/unauthorized");
 
@@ -192,7 +193,7 @@ abstract contract Dex is HasAdmin {
     }
     if (erase) {
       delete offers[base][quote][offerId];
-      delete offerDetails[offerId];
+      delete offerDetails[base][quote][offerId];
     } else {
       dirtyDeleteOffer(base, quote, offerId);
     }
@@ -381,7 +382,7 @@ abstract contract Dex is HasAdmin {
       bool toDelete;
       orp.wants = orp.initialWants - orp.totalGot;
       orp.gives = orp.initialGives - orp.totalGave;
-      orp.offerDetail = offerDetails[orp.offerId];
+      orp.offerDetail = offerDetails[orp.base][orp.quote][orp.offerId];
 
       (success, toDelete, gasLeft) = execute(orp);
 
@@ -717,7 +718,7 @@ abstract contract Dex is HasAdmin {
     if (i < targets.length) {
       orp.offerId = targets[i][0];
       orp.offer = offers[orp.base][orp.quote][orp.offerId];
-      orp.offerDetail = offerDetails[orp.offerId];
+      orp.offerDetail = offerDetails[orp.base][orp.quote][orp.offerId];
 
       bool success;
       uint gasLeft;
@@ -1029,7 +1030,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
       DC.Offer memory offer = offers[base][quote][id];
       if (DC.isLive(offer)) {
-        DC.OfferDetail memory offerDetail = offerDetails[id];
+        DC.OfferDetail memory offerDetail = offerDetails[base][quote][id];
         dirtyDeleteOffer(base, quote, id);
         DC.stitchOffers(base, quote, offers, bests, offer.prev, offer.next);
         uint gasused = toPunish[punishIndex][1];
@@ -1066,7 +1067,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     bool structured
   ) external view returns (DC.Offer memory, DC.OfferDetail memory) {
     structured; // silence warning about unused variable
-    return (offers[base][quote][offerId], offerDetails[offerId]);
+    return (offers[base][quote][offerId], offerDetails[base][quote][offerId]);
   }
 
   function getOfferInfo(
@@ -1090,7 +1091,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     unlockedOnly(base, quote);
     // TODO: Make sure `requireNoReentrancyLock` is necessary here
     DC.Offer memory offer = offers[base][quote][offerId];
-    DC.OfferDetail memory offerDetail = offerDetails[offerId];
+    DC.OfferDetail memory offerDetail = offerDetails[base][quote][offerId];
     return (
       DC.isLive(offer),
       offer.wants,
@@ -1259,7 +1260,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* First, we write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `freeWei`. */
     uint oldProvision;
     {
-      DC.OfferDetail memory offerDetail = offerDetails[ofp.id];
+      DC.OfferDetail memory offerDetail =
+        offerDetails[ofp.base][ofp.quote][ofp.id];
       if (update) {
         require(
           msg.sender == offerDetail.maker,
@@ -1278,7 +1280,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         offerDetail.gasreq != ofp.gasreq ||
         offerDetail.gasbase != ofp.config.gasbase
       ) {
-        offerDetails[ofp.id] = DC.OfferDetail({
+        offerDetails[ofp.base][ofp.quote][ofp.id] = DC.OfferDetail({
           gasreq: uint24(ofp.gasreq),
           gasbase: uint24(ofp.config.gasbase),
           maker: msg.sender
@@ -1364,29 +1366,11 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     }
 
     // pivot better than `wants/gives`, we follow next
-    if (
-      better(
-        pivot.wants,
-        pivot.gives,
-        pivotId,
-        ofp.wants,
-        ofp.gives,
-        ofp.gasreq
-      )
-    ) {
+    if (better(ofp, pivot.wants, pivot.gives, pivotId)) {
       DC.Offer memory pivotNext;
       while (pivot.next != 0) {
         pivotNext = offers[ofp.base][ofp.quote][pivot.next];
-        if (
-          better(
-            pivotNext.wants,
-            pivotNext.gives,
-            pivot.next,
-            ofp.wants,
-            ofp.gives,
-            ofp.gasreq
-          )
-        ) {
+        if (better(ofp, pivotNext.wants, pivotNext.gives, pivot.next)) {
           pivotId = pivot.next;
           pivot = pivotNext;
         } else {
@@ -1401,16 +1385,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       DC.Offer memory pivotPrev;
       while (pivot.prev != 0) {
         pivotPrev = offers[ofp.base][ofp.quote][pivot.prev];
-        if (
-          better(
-            pivotPrev.wants,
-            pivotPrev.gives,
-            pivot.prev,
-            ofp.wants,
-            ofp.gives,
-            ofp.gasreq
-          )
-        ) {
+        if (better(ofp, pivotPrev.wants, pivotPrev.gives, pivot.prev)) {
           break;
         } else {
           pivotId = pivot.prev;
@@ -1430,20 +1405,21 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
   */
   function better(
+    DC.OfferPack memory ofp,
     uint wants1,
     uint gives1,
-    uint offerId1,
-    uint wants2,
-    uint gives2,
-    uint gasreq2
+    uint offerId1
   ) internal view returns (bool) {
     if (offerId1 == 0) {
       return false;
     } //happens on empty OB
+    uint wants2 = ofp.wants;
+    uint gives2 = ofp.gives;
     uint weight1 = wants1 * gives2;
     uint weight2 = wants2 * gives1;
     if (weight1 == weight2) {
-      uint gasreq1 = offerDetails[offerId1].gasreq;
+      uint gasreq1 = offerDetails[ofp.base][ofp.quote][offerId1].gasreq;
+      uint gasreq2 = ofp.gasreq;
       return (gives1 * gasreq2 >= gives2 * gasreq1); //density1 is higher
     } else {
       return weight1 < weight2; //price1 is lower
