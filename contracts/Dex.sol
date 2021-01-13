@@ -155,20 +155,16 @@ abstract contract Dex is HasAdmin {
     uint pivotId
   ) external returns (uint) {
     unlockedOnly(base, quote);
-    DC.Offer memory dummyOffer;
-    DC.OfferPack memory ofp =
-      DC.OfferPack({
-        base: base,
-        quote: quote,
-        wants: wants,
-        gives: gives, // an offer id must never be 0
-        id: ++lastId,
-        gasreq: gasreq,
-        gasprice: gasprice,
-        pivotId: pivotId,
-        config: config(base, quote),
-        oldOffer: dummyOffer
-      });
+    DC.OfferPack memory ofp;
+    ofp.base = base;
+    ofp.quote = quote;
+    ofp.wants = wants;
+    ofp.gives = gives; // an offer id must never be 0
+    ofp.id = ++lastId;
+    ofp.gasreq = gasreq;
+    ofp.gasprice = gasprice;
+    ofp.pivotId = pivotId;
+    ofp.config = config(base, quote);
     require(uint32(ofp.id) == ofp.id, "dex/offerIdOverflow");
 
     requireActiveMarket(ofp.config);
