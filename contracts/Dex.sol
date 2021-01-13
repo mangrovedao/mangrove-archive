@@ -840,17 +840,15 @@ abstract contract Dex is HasAdmin {
 
     if (!success) {
       uint toPay = 10**9 * gasprice * (gasused + offerDetail.gasbase);
-      released = toPay < released ? released - toPay : 0;
+      if (toPay > released) {
+        toPay = released;
+      }
+      released = released - toPay;
+      bool noRevert;
+      (noRevert, ) = msg.sender.call{gas: 0, value: toPay}("");
     }
 
     creditWei(offerDetail.maker, released);
-
-    if (!success) {
-      uint amount =
-        10**9 * uint(offer.gasprice) * (offerDetail.gasbase + gasused);
-      bool noRevert;
-      (noRevert, ) = msg.sender.call{gas: 0, value: amount}("");
-    }
   }
 
   /* # Punishment for failing offers */
