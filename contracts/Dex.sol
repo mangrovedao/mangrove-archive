@@ -172,7 +172,7 @@ abstract contract Dex is HasAdmin {
     require(uint32(ofp.id) == ofp.id, "dex/offerIdOverflow");
 
     requireActiveMarket(ofp.config);
-    return DexLib.writeOffer(ofp, freeWei, offers, offerDetails, bests, false);
+    return writeOffer(ofp, false);
   }
 
   /* ## Cancel Offer */
@@ -204,7 +204,7 @@ abstract contract Dex is HasAdmin {
     /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
     uint provision =
       offerDetail.gasprice * (uint(offerDetail.gasreq) + offerDetail.gasbase);
-    DexLib.creditWei(freeWei, msg.sender, provision);
+    creditWei(msg.sender, provision);
   }
 
   /* ## Update Offer */
@@ -235,7 +235,7 @@ abstract contract Dex is HasAdmin {
         oldOffer: offers[base][quote][offerId]
       });
     requireActiveMarket(ofp.config);
-    return DexLib.writeOffer(ofp, freeWei, offers, offerDetails, bests, true);
+    return writeOffer(ofp, true);
   }
 
   /* ## Provisioning
@@ -245,7 +245,7 @@ abstract contract Dex is HasAdmin {
   /* A transfer with enough gas to the Dex will increase the caller's available `freeWei` balance. _You should send enough gas to execute this function when sending money to the Dex._  */
   function fund() public payable {
     requireLiveDex(config(address(0), address(0)));
-    DexLib.creditWei(freeWei, msg.sender, msg.value);
+    creditWei(msg.sender, msg.value);
   }
 
   receive() external payable {
@@ -262,7 +262,7 @@ abstract contract Dex is HasAdmin {
     /* Since we only ever send money to the caller, we do not need to provide any particular amount of gas, the caller can manage that themselves. Still, as nonzero value calls provide a 2300 gas stipend, a `withdraw(0)` would trigger a call with actual 0 gas. */
     //if (amount == 0) return;
     //+clear+
-    DexLib.debitWei(freeWei, msg.sender, amount);
+    debitWei(msg.sender, amount);
     (noRevert, ) = msg.sender.call{gas: 0, value: amount}("");
   }
 
@@ -846,7 +846,7 @@ abstract contract Dex is HasAdmin {
             : offerDetail.gasreq - gasused
         );
 
-    DexLib.creditWei(freeWei, offerDetail.maker, released);
+    creditWei(offerDetail.maker, released);
 
     if (!success) {
       uint amount = offerDetail.gasprice * (offerDetail.gasbase + gasused);
@@ -1136,14 +1136,16 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     address quote,
     uint fee,
     uint density
-  ) public adminOnly {
+  ) public {
+    adminOnly();
     locals[base][quote].active = true;
     setFee(base, quote, fee);
     setDensity(base, quote, density);
     emit DexEvents.SetActive(base, quote, true);
   }
 
-  function deactivate(address base, address quote) public adminOnly {
+  function deactivate(address base, address quote) public {
+    adminOnly();
     locals[base][quote].active = false;
     emit DexEvents.SetActive(base, quote, true);
   }
@@ -1153,7 +1155,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     address base,
     address quote,
     uint value
-  ) public adminOnly {
+  ) public {
+    adminOnly();
     /* `fee` is in basis points, i.e. in percents of a percent. */
     require(value <= 500, "dex/config/fee/<=500"); // at most 5%
     locals[base][quote].fee = uint16(value);
@@ -1165,7 +1168,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     address base,
     address quote,
     uint value
-  ) public adminOnly {
+  ) public {
+    adminOnly();
     /* `density > 0` ensures various invariants -- this documentation explains each time how it is relevant. */
     require(value > 0, "dex/config/density/>0");
     /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
@@ -1177,13 +1181,15 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
   /* ## Globals */
   /* ### `kill` */
-  function kill() public adminOnly {
+  function kill() public {
+    adminOnly();
     global.dead = true;
     emit DexEvents.Kill();
   }
 
   /* ### `gasprice` */
-  function setGasprice(uint value) public adminOnly {
+  function setGasprice(uint value) public {
+    adminOnly();
     /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */
     require(uint48(value) == value, "dex/config/gasprice/48bits");
     //+clear+
@@ -1192,7 +1198,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   }
 
   /* ### `gasbase` */
-  function setGasbase(uint value) public adminOnly {
+  function setGasbase(uint value) public {
+    adminOnly();
     /* `gasbase > 0` ensures various invariants -- this documentation explains how each time it is relevant */
     require(value > 0, "dex/config/gasbase/>0");
     /* Checking the size of `gasbase` is necessary to prevent a) data loss when `gasbase` is copied to an `OfferDetail` struct, and b) overflow when `gasbase` is used in calculations. */
@@ -1203,12 +1210,250 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   }
 
   /* ### `gasmax` */
-  function setGasmax(uint value) public adminOnly {
+  function setGasmax(uint value) public {
+    adminOnly();
     /* Since any new `gasreq` is bounded above by `config.gasmax`, this check implies that all offers' `gasreq` is 24 bits wide at most. */
     require(uint24(value) == value, "dex/config/gasmax/24bits");
     //+clear+
     global.gasmax = uint24(value);
     emit DexEvents.SetGasmax(value);
+  }
+
+  function writeOffer(DC.OfferPack memory ofp, bool update)
+    internal
+    returns (uint)
+  {
+    /* gasprice given by maker will be bounded below by internal gasprice estimate at offer write time. with a large enough overapproximation of the gasprice, the maker can regularly update their offer without updating it */
+    if (ofp.gasprice < ofp.config.gasprice) {
+      ofp.gasprice = ofp.config.gasprice;
+    }
+
+    emit DexEvents.WriteOffer(
+      ofp.base,
+      ofp.quote,
+      msg.sender,
+      ofp.wants,
+      ofp.gives,
+      ofp.gasreq,
+      ofp.gasprice,
+      ofp.id,
+      update
+    );
+
+    /* The following checks are first performed: */
+    //+clear+
+    /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `provision` (see below). */
+    require(ofp.gasreq <= ofp.config.gasmax, "dex/writeOffer/gasreq/tooHigh");
+    /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isLive` method sound. */
+    require(
+      ofp.gives >= (ofp.gasreq + ofp.config.gasbase) * ofp.config.density,
+      "dex/writeOffer/gives/tooLow"
+    );
+
+    /* First, we write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `freeWei`. */
+    uint oldProvision;
+    {
+      DC.OfferDetail memory offerDetail = offerDetails[ofp.id];
+      if (update) {
+        require(
+          msg.sender == offerDetail.maker,
+          "dex/updateOffer/unauthorized"
+        );
+        oldProvision =
+          offerDetail.gasprice *
+          (uint(offerDetail.gasreq) + offerDetail.gasbase);
+      }
+
+      //TODO check that we're using less gas if those values haven't changed
+      if (
+        /* It is currently not possible for a new offer to fail the 3 last tests, but it may in the future, so we make sure we're semantically correct by checking for `!update`. */
+        !update ||
+        offerDetail.gasreq != ofp.gasreq ||
+        offerDetail.gasbase != ofp.config.gasbase ||
+        offerDetail.gasprice != ofp.config.gasprice
+      ) {
+        offerDetails[ofp.id] = DC.OfferDetail({
+          gasreq: uint24(ofp.gasreq),
+          gasbase: uint24(ofp.config.gasbase),
+          gasprice: uint48(ofp.config.gasprice),
+          maker: msg.sender
+        });
+      }
+    }
+
+    /* With every change to an offer, a maker must deduct provisions from its `freeWei` balance, or get some back if the updated offer requires fewer provisions. */
+
+    {
+      uint provision = (ofp.gasreq + ofp.config.gasbase) * ofp.config.gasprice;
+      if (provision > oldProvision) {
+        debitWei(msg.sender, provision - oldProvision);
+      } else if (provision < oldProvision) {
+        creditWei(msg.sender, oldProvision - provision);
+      }
+    }
+
+    /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
+
+       `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
+    (uint prev, uint next) = findPosition(bests[ofp.base][ofp.quote], ofp);
+    /* Then we place the offer in the book at the position found by `findPosition`.
+
+       If the offer is not the best one, we update its predecessor; otherwise we update the `best` value. */
+
+    /* tests if offer has moved in the book (or was not already there) if next == ofp.id, then the new offer parameters are strictly better than before but still worse than the old prev. if prev == ofp.id, then the new offer parameters are worse or as good as before but still better than the old next. */
+    if (!(next == ofp.id || prev == ofp.id)) {
+      if (prev != 0) {
+        offers[ofp.base][ofp.quote][prev].next = uint32(ofp.id);
+      } else {
+        bests[ofp.base][ofp.quote] = uint32(ofp.id);
+      }
+
+      /* If the offer is not the last one, we update its successor. */
+      if (next != 0) {
+        offers[ofp.base][ofp.quote][next].prev = uint32(ofp.id);
+      }
+
+      /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *move* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. A priori, if `writeOffer` is called by `newOffer`, `oldOffer` should be all zeros and thus not live. But that would be assuming a subtle implementation detail of `isLive`, so we add the (currently redundant) check on `update`).
+       */
+      if (update && DC.isLive(ofp.oldOffer)) {
+        DC.stitchOffers(
+          ofp.base,
+          ofp.quote,
+          offers,
+          bests,
+          ofp.oldOffer.prev,
+          ofp.oldOffer.next
+        );
+      }
+    }
+
+    /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 32 bits (if there is an update, `offerDetails[offerId]` must be owned by `msg.sender`, os `offerId` has the right width). */
+    offers[ofp.base][ofp.quote][ofp.id] = DC.Offer({
+      prev: uint32(prev),
+      next: uint32(next),
+      wants: uint96(ofp.wants),
+      gives: uint96(ofp.gives)
+    });
+
+    /* And finally return the newly created offer id to the caller. */
+    return ofp.id;
+  }
+
+  /* `findPosition` takes a price in the form of a `wants/gives` pair, an offer id (`pivotId`) and walks the book from that offer (backward or forward) until the right position for the price `wants/gives` is found. The position is returned as a `(prev,next)` pair, with `prev` or `next` at 0 to mark the beginning/end of the book (no offer ever has id 0).
+
+  If prices are equal, `findPosition` will put the newest offer last. */
+  function findPosition(
+    /* As a backup pivot, the id of the current best offer is sent by `Dex` to `DexLib`. This is in case `pivotId` turns out to be an invalid offer id. This part of the code relies on consumed offers being deleted, otherwise we would blindly insert offers next to garbage old values. */
+    uint bestValue,
+    DC.OfferPack memory ofp
+  ) internal view returns (uint, uint) {
+    uint pivotId = ofp.pivotId;
+    DC.Offer memory pivot = offers[ofp.base][ofp.quote][pivotId];
+
+    if (!DC.isLive(pivot)) {
+      // in case pivotId is not or no longer a valid offer
+      pivot = offers[ofp.base][ofp.quote][bestValue];
+      pivotId = bestValue;
+    }
+
+    // pivot better than `wants/gives`, we follow next
+    if (
+      better(
+        pivot.wants,
+        pivot.gives,
+        pivotId,
+        ofp.wants,
+        ofp.gives,
+        ofp.gasreq
+      )
+    ) {
+      DC.Offer memory pivotNext;
+      while (pivot.next != 0) {
+        pivotNext = offers[ofp.base][ofp.quote][pivot.next];
+        if (
+          better(
+            pivotNext.wants,
+            pivotNext.gives,
+            pivot.next,
+            ofp.wants,
+            ofp.gives,
+            ofp.gasreq
+          )
+        ) {
+          pivotId = pivot.next;
+          pivot = pivotNext;
+        } else {
+          break;
+        }
+      }
+      // this is also where we end up with an empty book
+      return (pivotId, pivot.next);
+
+      // pivot strictly worse than `wants/gives`, we follow prev
+    } else {
+      DC.Offer memory pivotPrev;
+      while (pivot.prev != 0) {
+        pivotPrev = offers[ofp.base][ofp.quote][pivot.prev];
+        if (
+          better(
+            pivotPrev.wants,
+            pivotPrev.gives,
+            pivot.prev,
+            ofp.wants,
+            ofp.gives,
+            ofp.gasreq
+          )
+        ) {
+          break;
+        } else {
+          pivotId = pivot.prev;
+          pivot = pivotPrev;
+        }
+      }
+      return (pivot.prev, pivotId);
+    }
+  }
+
+  /* The utility method `better`
+    returns false iff the point induced by _(`wants1`,`gives1`,`offerDetails[offerId1].gasreq`)_ is strictly worse than the point induced by _(`wants2`,`gives2`,`gasreq2`)_. It makes `findPosition` easier to read. "Worse" is defined on the lexicographic order $\textrm{price} \times_{\textrm{lex}} \textrm{density}^{-1}$.
+
+    This means that for the same price, offers that deliver more volume per gas are taken first.
+
+    To save gas, instead of giving the `gasreq1` argument directly, we provide a path to it (with `offerDetails` and `offerid1`). If necessary (ie. if the prices `wants1/gives1` and `wants2/gives2` are the same), we spend gas and read `gasreq2`.
+
+  */
+  function better(
+    uint wants1,
+    uint gives1,
+    uint offerId1,
+    uint wants2,
+    uint gives2,
+    uint gasreq2
+  ) internal view returns (bool) {
+    if (offerId1 == 0) {
+      return false;
+    } //happens on empty OB
+    uint weight1 = wants1 * gives2;
+    uint weight2 = wants2 * gives1;
+    if (weight1 == weight2) {
+      uint gasreq1 = offerDetails[offerId1].gasreq;
+      return (gives1 * gasreq2 >= gives2 * gasreq1); //density1 is higher
+    } else {
+      return weight1 < weight2; //price1 is lower
+    }
+  }
+
+  /* # Maker debit/credit utility functions */
+
+  function debitWei(address maker, uint amount) internal {
+    require(freeWei[maker] >= amount, "dex/insufficientProvision");
+    freeWei[maker] -= amount;
+    emit DexEvents.Debit(maker, amount);
+  }
+
+  function creditWei(address maker, uint amount) internal {
+    freeWei[maker] += amount;
+    emit DexEvents.Credit(maker, amount);
   }
 }
 
