@@ -60,7 +60,7 @@ abstract contract Dex is HasAdmin {
    */
   mapping(address => uint) private freeWei;
 
-  /* * `lastId` is a counter for offer ids, incremented every time a new offer is created. It can't go above 2^32-1. */
+  /* * `lastId` is a counter for offer ids, incremented every time a new offer is created. It can't go above 2^24-1. */
   uint private lastId;
 
   /* * If `reentrancyLock` is > 1, orders may not be added nor executed.
