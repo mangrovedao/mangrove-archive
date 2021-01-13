@@ -105,13 +105,13 @@ abstract contract Dex is HasAdmin {
        * Sending ETH to the Dex (the normal way, usual shenanigans are possible)
        * Creating a new offerX
    */
-  function requireLiveDex(DC.Config memory _config) internal pure {
-    require(!_config.global.dead, "dex/dead");
+  function requireLiveDex(DC.Global memory _global) internal pure {
+    require(!_global.dead, "dex/dead");
   }
 
   /* TODO documentation */
   function requireActiveMarket(DC.Config memory _config) internal pure {
-    requireLiveDex(_config);
+    requireLiveDex(_config.global);
     require(_config.local.active, "dex/inactive");
   }
 
@@ -152,7 +152,8 @@ abstract contract Dex is HasAdmin {
     ofp.gasreq = gasreq;
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
-    ofp.config = config(base, quote);
+    ofp.config.global = global;
+    ofp.config.local = locals[base][quote];
     require(uint24(ofp.id) == ofp.id, "dex/offerIdOverflow");
 
     requireActiveMarket(ofp.config);
@@ -207,19 +208,22 @@ abstract contract Dex is HasAdmin {
     uint offerId
   ) public returns (uint) {
     unlockedOnly(base, quote);
-    DC.OfferPack memory ofp =
-      DC.OfferPack({
-        base: base,
-        quote: quote,
-        wants: wants,
-        gives: gives,
-        id: offerId,
-        gasreq: gasreq,
-        gasprice: gasprice,
-        pivotId: pivotId,
-        config: config(base, quote),
-        oldOffer: offers[base][quote][offerId]
-      });
+    DC.OfferPack memory ofp;
+    uint g = gasleft();
+    uint h;
+    ofp.base = base;
+    ofp.quote = quote;
+    ofp.wants = wants;
+    ofp.gives = gives;
+    ofp.id = offerId;
+    ofp.gasreq = gasreq;
+    ofp.gasprice = gasprice;
+    ofp.pivotId = pivotId;
+    ofp.config.global = global;
+    ofp.config.local = locals[base][quote];
+    ofp.oldOffer = offers[base][quote][offerId];
+    h = gasleft();
+    console.log("GAS USED", g - h);
     requireActiveMarket(ofp.config);
     return writeOffer(ofp, true);
   }
@@ -230,7 +234,7 @@ abstract contract Dex is HasAdmin {
 
   /* A transfer with enough gas to the Dex will increase the caller's available `freeWei` balance. _You should send enough gas to execute this function when sending money to the Dex._  */
   function fund() public payable {
-    requireLiveDex(config(address(0), address(0)));
+    requireLiveDex(global);
     creditWei(msg.sender, msg.value);
   }
 
@@ -323,7 +327,8 @@ abstract contract Dex is HasAdmin {
     orp.quote = quote;
     orp.offerId = offerId;
     orp.offer = offers[base][quote][offerId];
-    orp.config = config(base, quote);
+    orp.config.global = global;
+    orp.config.local = locals[base][quote];
     orp.toPunish = new uint[2][](punishLength);
     orp.numToPunish = 0;
     orp.initialWants = takerWants;
@@ -676,7 +681,8 @@ abstract contract Dex is HasAdmin {
     DC.OrderPack memory orp;
     orp.base = base;
     orp.quote = quote;
-    orp.config = config(base, quote);
+    orp.config.global = global;
+    orp.config.local = locals[base][quote];
     orp.toPunish = new uint[2][](punishLength);
     orp.numToPunish = 0;
     orp.totalGot = 0;
@@ -893,7 +899,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     } else {
       (, , , uint[2][] memory toPunish) =
         abi.decode(retdata, (uint, uint, uint, uint[2][]));
-      punish(base, quote, toPunish, config(base, quote).global.gasprice);
+      punish(base, quote, toPunish, global.gasprice);
     }
   }
 
@@ -963,7 +969,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     } else {
       (, , uint[2][] memory toPunish) =
         abi.decode(retdata, (uint, uint, uint[2][]));
-      punish(base, quote, toPunish, config(base, quote).global.gasprice);
+      punish(base, quote, toPunish, global.gasprice);
     }
   }
 
@@ -1093,16 +1099,14 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   //+ignore+updateOffer(constant price)
   //+ignore+updateOffer(change price)
   /* # Configuration */
+  /* should not be called internally, would be a huge memory copying waste */
   function config(address base, address quote)
-    public
+    external
     view
     returns (DC.Config memory ret)
   {
     ret.global = global;
     ret.local = locals[base][quote];
-    if (ret.local.density == 0) {
-      ret.local.density = 1;
-    }
   }
 
   function roundUpRatio(uint num, uint den) internal pure returns (uint) {
