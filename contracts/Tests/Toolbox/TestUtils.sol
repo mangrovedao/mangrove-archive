@@ -74,7 +74,7 @@ library TestUtils {
     uint gasreq
   ) internal view returns (uint) {
     DC.Config memory config = dex.config(base, quote);
-    return ((gasreq + config.gasbase) * config.gasprice);
+    return ((gasreq + config.gasbase) * uint(config.gasprice) * 10**9);
   }
 
   function getOfferInfo(
@@ -98,7 +98,7 @@ library TestUtils {
     if (infKey == Info.gasreq) {
       return offerDetail.gasreq;
     } else {
-      return offerDetail.gasprice;
+      return offer.gasprice;
     }
   }
 
@@ -139,11 +139,7 @@ library DexSetup {
   function setup(TestToken base, TestToken quote) external returns (Dex dex) {
     TestEvents.not0x(address(base));
     TestEvents.not0x(address(quote));
-    dex = new NormalDex({
-      gasprice: 40 * 10**9,
-      gasbase: 30_000,
-      gasmax: 1_000_000
-    });
+    dex = new NormalDex({gasprice: 40, gasbase: 30_000, gasmax: 1_000_000});
 
     dex.activate(address(base), address(quote), 0, 100);
     dex.activate(address(quote), address(base), 0, 100);
@@ -156,11 +152,7 @@ library InvertedDexSetup {
   function setup(TestToken base, TestToken quote) external returns (Dex dex) {
     TestEvents.not0x(address(base));
     TestEvents.not0x(address(quote));
-    dex = new InvertedDex({
-      gasprice: 40 * 10**9,
-      gasbase: 30_000,
-      gasmax: 1_000_000
-    });
+    dex = new InvertedDex({gasprice: 40, gasbase: 30_000, gasmax: 1_000_000});
 
     dex.activate(address(base), address(quote), 0, 100);
     dex.activate(address(quote), address(base), 0, 100);

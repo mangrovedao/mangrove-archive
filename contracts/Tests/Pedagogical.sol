@@ -121,11 +121,7 @@ contract Pedagogical_Test {
 
     dai = new TestToken({admin: address(this), name: "Dai", symbol: "DAI"});
 
-    dex = new NormalDex({
-      gasprice: 40 * 10**9,
-      gasbase: 30_000,
-      gasmax: 1_000_000
-    });
+    dex = new NormalDex({gasprice: 40, gasbase: 30_000, gasmax: 1_000_000});
 
     // activate a market where taker buys BAT using DAI
     dex.activate({

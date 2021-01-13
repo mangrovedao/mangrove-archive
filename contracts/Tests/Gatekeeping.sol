@@ -228,10 +228,10 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function set_gasprice_ceiling_test() public {
-    try dex.setGasprice(uint(type(uint48).max) + 1) {
+    try dex.setGasprice(uint(type(uint16).max) + 1) {
       TestEvents.fail("gasprice above ceiling should fail");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/config/gasprice/48bits");
+      TestEvents.revertEq(r, "dex/config/gasprice/16bits");
     }
   }
 

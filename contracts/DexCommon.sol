@@ -30,9 +30,9 @@ library DexCommon {
   //+clear+
   /* `Offer`s hold the doubly-linked list pointers as well as price and volume information. 256 bits wide, so one storage read is enough. They have the following fields: */
   struct Offer {
-    /* * `prev` points to the next best offer, and `next` points to the next worse. The best offer's `prev` is 0, and the last offer's `next` is 0 as well. _32 bits wide_. */
-    uint32 prev;
-    uint32 next;
+    /* * `prev` points to the next best offer, and `next` points to the next worse. The best offer's `prev` is 0, and the last offer's `next` is 0 as well. _24 bits wide_. */
+    uint24 prev;
+    uint24 next;
     /* * `gives` is the amount of `OFR_TOKEN` the offer will give if successfully executed.
      _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
   10 billions. */
@@ -41,6 +41,12 @@ library DexCommon {
      _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
   10 billions. */
     uint96 wants;
+    /* `gasprice` is in gwei/gas and _16 bits wide_, which accomodates 1 to ~65k gwei / gas.
+
+          `gasprice` is also the name of global Dex
+          parameters. When an offer is created, its current value is added to
+          the offer's `Offer`. The maker may choose an upper bound. */
+    uint16 gasprice;
   }
 
   /* ## `OfferDetail`, provision info */
@@ -104,16 +110,14 @@ They have the following fields: */
 
        and the rest is given back to the maker.
 
-       `gasprice` is _48 bits wide_, which accomodates ~280k gwei / gas. Note that if more room was needed, we could bring it down to 32 bits and have it represent mwei/gas (so up to 4M gwei/gas), or mwei/kgas (so up to 400k gwei/gas).
        `gasbase` is _24 bits wide_ -- note that if more room was needed, we could bring it down to 8 bits and have it represent 1k gas increments.
 
-       Both `gasprice` and `gasbase` are also the names of global Dex
-       parameters. When an offer is created, their current value is added to
-       the offer's `OfferDetail`. The maker does not choose them.
+       `gasbase` is also the name of global Dex
+       parameters. When an offer is created, its current value is added to
+       the offer's `OfferDetail`. The maker does not choose it.
 
     */
     uint24 gasbase;
-    uint48 gasprice;
   }
 
   /* # Configuration
@@ -162,13 +166,13 @@ They have the following fields: */
     uint future
   ) internal {
     if (past != 0) {
-      offers[base][quote][past].next = uint32(future);
+      offers[base][quote][past].next = uint24(future);
     } else {
       bests[base][quote] = future;
     }
 
     if (future != 0) {
-      offers[base][quote][future].prev = uint32(past);
+      offers[base][quote][future].prev = uint24(past);
     }
   }
 

@@ -37,7 +37,7 @@ abstract contract Dex is HasAdmin {
 
   /* Configuration. See DexLib for more information. */
   struct Global {
-    uint48 gasprice;
+    uint16 gasprice;
     uint24 gasbase;
     uint24 gasmax;
     bool dead;
@@ -165,7 +165,7 @@ abstract contract Dex is HasAdmin {
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
     ofp.config = config(base, quote);
-    require(uint32(ofp.id) == ofp.id, "dex/offerIdOverflow");
+    require(uint24(ofp.id) == ofp.id, "dex/offerIdOverflow");
 
     requireActiveMarket(ofp.config);
     return writeOffer(ofp, false);
@@ -199,7 +199,9 @@ abstract contract Dex is HasAdmin {
 
     /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
     uint provision =
-      offerDetail.gasprice * (uint(offerDetail.gasreq) + offerDetail.gasbase);
+      10**9 *
+        uint(offer.gasprice) *
+        (uint(offerDetail.gasreq) + offerDetail.gasbase);
     creditWei(msg.sender, provision);
   }
 
@@ -357,7 +359,6 @@ abstract contract Dex is HasAdmin {
     if (DC.isLive(orp.offer)) {
       internalMarketOrder(orp, orp.offer.prev, orp.initialWants != 0);
     }
-
     return (orp.totalGot, orp.totalGave, orp.toPunish);
   }
 
@@ -511,7 +512,7 @@ abstract contract Dex is HasAdmin {
     //+clear+
     /* The current offer has a price <code>_p_ = offer.wants/offer.gives</code>. `makerWouldWant` is the amount of `REQ_TOKEN` the offer would require at price _p_ to provide `takerWants` `OFR_TOKEN`. Computing `makeWouldWant` gives us both a test that _p_ is an acceptable price for the taker, and the amount of `REQ_TOKEN` to send to the maker.
 
-    **Note**: We never check that `offerId` is actually a `uint32`, or that `offerId` actually points to an offer: it is not possible to insert an offer with an id larger than that, and a wrong `offerId` will point to a zero-initialized offer, which will revert the call when dividing by `offer.gives`.
+    **Note**: We never check that `offerId` is actually a `uint24`, or that `offerId` actually points to an offer: it is not possible to insert an offer with an id larger than that, and a wrong `offerId` will point to a zero-initialized offer, which will revert the call when dividing by `offer.gives`.
 
    **Note**: Since `takerWants` fits in 160 bits and `offer.wants` fits in 96 bits, the multiplication does not overflow.
 
@@ -605,7 +606,13 @@ abstract contract Dex is HasAdmin {
     }
 
     gasLeft = orp.offerDetail.gasreq - gasused;
-    applyPenalty(success, orp.config.gasprice, gasused, orp.offerDetail);
+    applyPenalty(
+      success,
+      orp.config.gasprice,
+      gasused,
+      orp.offer,
+      orp.offerDetail
+    );
   }
 
   function innerDecode(bytes memory data)
@@ -811,11 +818,12 @@ abstract contract Dex is HasAdmin {
     bool success,
     uint gasprice,
     uint gasused,
+    DC.Offer memory offer,
     DC.OfferDetail memory offerDetail
   ) internal {
     /* If offer has not provisioned for a high enough gas price, we take their gasprice as given. */
-    if (offerDetail.gasprice < gasprice) {
-      gasprice = offerDetail.gasprice;
+    if (offer.gasprice < gasprice) {
+      gasprice = offer.gasprice;
     }
     /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible (e.g. with `gasreq = 0`). */
     if (offerDetail.gasreq < gasused) {
@@ -831,11 +839,12 @@ abstract contract Dex is HasAdmin {
 
          Note that to create the offer, the maker had to provision for `gasreq + gasbase` gas.
 
-         Note that `offerDetail.gasbase` and `offerDetail.gasprice` are the values of the Dex parameters `config.gasbase` and `config.gasprice` when the offer was createdd. Without caching, the provision set aside could be insufficient to reimburse the maker (or to compensate the taker).
+         Note that `offerDetail.gasbase` and `offer.gasprice` are the values of the Dex parameters `config.gasbase` and `config.gasprice` when the offer was createdd. Without caching, the provision set aside could be insufficient to reimburse the maker (or to compensate the taker).
 
      */
     uint released =
-      offerDetail.gasprice *
+      10**9 *
+        uint(offer.gasprice) *
         (
           success
             ? offerDetail.gasreq + offerDetail.gasbase
@@ -845,7 +854,8 @@ abstract contract Dex is HasAdmin {
     creditWei(offerDetail.maker, released);
 
     if (!success) {
-      uint amount = offerDetail.gasprice * (offerDetail.gasbase + gasused);
+      uint amount =
+        10**9 * uint(offer.gasprice) * (offerDetail.gasbase + gasused);
       bool noRevert;
       (noRevert, ) = msg.sender.call{gas: 0, value: amount}("");
     }
@@ -1023,7 +1033,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         dirtyDeleteOffer(base, quote, id);
         DC.stitchOffers(base, quote, offers, bests, offer.prev, offer.next);
         uint gasused = toPunish[punishIndex][1];
-        applyPenalty(false, gasprice, gasused, offerDetail);
+        applyPenalty(false, gasprice, gasused, offer, offerDetail);
       }
       punishIndex++;
     }
@@ -1088,7 +1098,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       offer.next,
       offerDetail.gasreq,
       offerDetail.gasbase, // global gasbase at offer creation time
-      offerDetail.gasprice, // global gasprice at offer creation time
+      offer.gasprice, // global gasprice at offer creation time
       offerDetail.maker
     );
   }
@@ -1187,9 +1197,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   function setGasprice(uint value) public {
     adminOnly();
     /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */
-    require(uint48(value) == value, "dex/config/gasprice/48bits");
+    require(uint16(value) == value, "dex/config/gasprice/16bits");
     //+clear+
-    global.gasprice = uint48(value);
+    global.gasprice = uint16(value);
     emit DexEvents.SetGasprice(value);
   }
 
@@ -1256,7 +1266,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
           "dex/updateOffer/unauthorized"
         );
         oldProvision =
-          offerDetail.gasprice *
+          10**9 *
+          uint(ofp.oldOffer.gasprice) *
           (uint(offerDetail.gasreq) + offerDetail.gasbase);
       }
 
@@ -1265,13 +1276,11 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         /* It is currently not possible for a new offer to fail the 3 last tests, but it may in the future, so we make sure we're semantically correct by checking for `!update`. */
         !update ||
         offerDetail.gasreq != ofp.gasreq ||
-        offerDetail.gasbase != ofp.config.gasbase ||
-        offerDetail.gasprice != ofp.config.gasprice
+        offerDetail.gasbase != ofp.config.gasbase
       ) {
         offerDetails[ofp.id] = DC.OfferDetail({
           gasreq: uint24(ofp.gasreq),
           gasbase: uint24(ofp.config.gasbase),
-          gasprice: uint48(ofp.config.gasprice),
           maker: msg.sender
         });
       }
@@ -1280,7 +1289,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* With every change to an offer, a maker must deduct provisions from its `freeWei` balance, or get some back if the updated offer requires fewer provisions. */
 
     {
-      uint provision = (ofp.gasreq + ofp.config.gasbase) * ofp.config.gasprice;
+      uint provision =
+        (ofp.gasreq + ofp.config.gasbase) * uint(ofp.config.gasprice) * 10**9;
       if (provision > oldProvision) {
         debitWei(msg.sender, provision - oldProvision);
       } else if (provision < oldProvision) {
@@ -1299,14 +1309,14 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* tests if offer has moved in the book (or was not already there) if next == ofp.id, then the new offer parameters are strictly better than before but still worse than the old prev. if prev == ofp.id, then the new offer parameters are worse or as good as before but still better than the old next. */
     if (!(next == ofp.id || prev == ofp.id)) {
       if (prev != 0) {
-        offers[ofp.base][ofp.quote][prev].next = uint32(ofp.id);
+        offers[ofp.base][ofp.quote][prev].next = uint24(ofp.id);
       } else {
-        bests[ofp.base][ofp.quote] = uint32(ofp.id);
+        bests[ofp.base][ofp.quote] = uint24(ofp.id);
       }
 
       /* If the offer is not the last one, we update its successor. */
       if (next != 0) {
-        offers[ofp.base][ofp.quote][next].prev = uint32(ofp.id);
+        offers[ofp.base][ofp.quote][next].prev = uint24(ofp.id);
       }
 
       /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *move* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. A priori, if `writeOffer` is called by `newOffer`, `oldOffer` should be all zeros and thus not live. But that would be assuming a subtle implementation detail of `isLive`, so we add the (currently redundant) check on `update`).
@@ -1323,12 +1333,13 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       }
     }
 
-    /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 32 bits (if there is an update, `offerDetails[offerId]` must be owned by `msg.sender`, os `offerId` has the right width). */
+    /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 24 bits (if there is an update, `offerDetails[offerId]` must be owned by `msg.sender`, os `offerId` has the right width). */
     offers[ofp.base][ofp.quote][ofp.id] = DC.Offer({
-      prev: uint32(prev),
-      next: uint32(next),
+      prev: uint24(prev),
+      next: uint24(next),
       wants: uint96(ofp.wants),
-      gives: uint96(ofp.gives)
+      gives: uint96(ofp.gives),
+      gasprice: uint16(ofp.gasprice)
     });
 
     /* And finally return the newly created offer id to the caller. */

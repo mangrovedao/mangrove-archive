@@ -69,7 +69,7 @@ library DexLib {
         takerWants: orp.wants,
         takerGives: orp.gives,
         taker: msg.sender,
-        offerGasprice: orp.offerDetail.gasprice,
+        offerGasprice: orp.offer.gasprice,
         offerGasreq: orp.offerDetail.gasreq,
         offerId: orp.offerId,
         offerWants: orp.offer.wants,
