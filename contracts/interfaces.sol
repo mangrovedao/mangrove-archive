@@ -35,7 +35,14 @@ interface IMaker {
   // Maker callback after trade
   function makerPosthook(Posthook calldata posthook) external;
 
-  event Execute(uint takerWants, uint takerGives, uint offerId);
+  event Execute(
+    address dex,
+    address base,
+    address quote,
+    uint offerId,
+    uint takerWants,
+    uint takerGives
+  );
 }
 
 interface ITaker {
