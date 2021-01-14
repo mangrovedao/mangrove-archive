@@ -29,7 +29,7 @@ library TestUtils {
     pure
     returns (string memory reason)
   {
-    /* returnData for a revert(reason) is the result of 
+    /* returnData for a revert(reason) is the result of
        abi.encodeWithSignature("Error(string)",reason)
        but abi.decode assumes the first 4 bytes are padded to 32
        so we repad them. See:
@@ -148,18 +148,29 @@ library DexSetup {
 
     return dex;
   }
-}
 
-library InvertedDexSetup {
-  function setup(TestToken base, TestToken quote) external returns (Dex dex) {
+  function setup(
+    TestToken base,
+    TestToken quote,
+    bool inverted
+  ) external returns (Dex dex) {
     TestEvents.not0x(address(base));
     TestEvents.not0x(address(quote));
-    dex = new InvertedDex({gasprice: 40, gasbase: 30_000, gasmax: 1_000_000});
+    if (inverted) {
+      dex = new InvertedDex({gasprice: 40, gasbase: 30_000, gasmax: 1_000_000});
 
-    dex.activate(address(base), address(quote), 0, 100);
-    dex.activate(address(quote), address(base), 0, 100);
+      dex.activate(address(base), address(quote), 0, 100);
+      dex.activate(address(quote), address(base), 0, 100);
 
-    return dex;
+      return dex;
+    } else {
+      dex = new NormalDex({gasprice: 40, gasbase: 30_000, gasmax: 1_000_000});
+
+      dex.activate(address(base), address(quote), 0, 100);
+      dex.activate(address(quote), address(base), 0, 100);
+
+      return dex;
+    }
   }
 }
 

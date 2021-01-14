@@ -36,7 +36,7 @@ contract InvertedTakerOperations_Test is ITaker {
     quoteT = TokenSetup.setup("B", "$B");
     base = address(baseT);
     quote = address(quoteT);
-    dex = InvertedDexSetup.setup(baseT, quoteT);
+    dex = DexSetup.setup(baseT, quoteT, true);
     mkr = MakerSetup.setup(dex, base, quote);
 
     address(mkr).transfer(10 ether);
