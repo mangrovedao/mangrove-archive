@@ -89,16 +89,4 @@ contract TestTaker is ITaker {
       punishLength
     );
   }
-
-  function delegateOrder(
-    OfferManager mgr,
-    uint wants,
-    uint gives
-  ) public {
-    try IERC20(_quote).approve(address(mgr), gives) {
-      mgr.order{value: 0.01 ether}(_base, _quote, wants, gives);
-    } catch {
-      require(false, "failed to approve mgr");
-    }
-  }
 }

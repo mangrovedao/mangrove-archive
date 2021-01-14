@@ -17,6 +17,7 @@ import "./Agents/TestMaker.sol";
 import "./Agents/TestMoriartyMaker.sol";
 import "./Agents/MakerDeployer.sol";
 import "./Agents/TestTaker.sol";
+import "./Agents/TestDelegateTaker.sol";
 import "./Agents/OfferManager.sol";
 
 import "./Scenarii/TestCancelOffer.sol";
@@ -32,6 +33,7 @@ import "./Scenarii/TestMarketOrder.sol";
 
 contract Scenarii_Test {
   Dex dex;
+  Dex invDex;
   TestTaker taker;
   MakerDeployer makers;
   TestToken base;
@@ -93,9 +95,14 @@ contract Scenarii_Test {
 
   function b_deployDex_beforeAll() public {
     dex = DexSetup.setup(base, quote);
-    Display.register(address(dex), "dex");
+    Display.register(address(dex), "Dex");
     TestEvents.not0x(address(dex));
     dex.setFee(address(base), address(quote), 300);
+
+    invDex = DexSetup.setup(base, quote, true);
+    Display.register(address(invDex), "InvDex");
+    TestEvents.not0x(address(invDex));
+    invDex.setFee(address(base), address(quote), 300);
   }
 
   function c_deployMakersTaker_beforeAll() public {
@@ -176,34 +183,82 @@ contract Scenarii_Test {
     saveOffers();
   }
 
-  function offer_manager_test() public {
-    OfferManager mgr = new OfferManager(dex);
+  function prepare_offer_manager()
+    internal
+    returns (
+      OfferManager,
+      TestDelegateTaker,
+      TestDelegateTaker
+    )
+  {
+    OfferManager mgr = new OfferManager(dex, invDex);
     Display.register(address(mgr), "OfrMgr");
-    Display.register(address(taker), "Taker (A,B)");
-    TestTaker _taker = TakerSetup.setup(dex, address(quote), address(base));
-    Display.register(address(_taker), "Taker (B,A)");
-    base.mint(address(_taker), 5 ether);
-    bool noRevert0;
-    (noRevert0, ) = address(_taker).call{value: 1 ether}("");
 
-    bool noRevert;
-    (noRevert, ) = address(taker).call{value: 1 ether}("");
-    offerOf = TestInsert.run(balances, dex, makers, taker, base, quote); //creating non empty OB on pair (base,quote)
+    TestDelegateTaker taker = new TestDelegateTaker(mgr, base, quote);
+    TestDelegateTaker _taker = new TestDelegateTaker(mgr, quote, base);
+    Display.register(address(taker), "Taker (A,B)");
+    Display.register(address(_taker), "Taker (B,A)");
+    return (mgr, taker, _taker);
+  }
+
+  function offer_manager_test() public {
+    (OfferManager mgr, TestDelegateTaker tkr, TestDelegateTaker _tkr) =
+      prepare_offer_manager();
+    quote.mint(address(tkr), 5 ether);
+    base.mint(address(_tkr), 5 ether);
+
+    bool noRevert0;
+    (noRevert0, ) = address(_tkr).call{value: 1 ether}("");
+    bool noRevert1;
+    (noRevert1, ) = address(tkr).call{value: 1 ether}("");
+
+    TestInsert.run(balances, dex, makers, taker, base, quote); //creating non empty OB on pair (base,quote)
 
     Display.logOfferBook(dex, address(base), address(quote), 5);
-    Display.logBalances(base, quote, address(taker), address(_taker));
+    Display.logBalances(base, quote, address(tkr), address(_tkr));
 
-    taker.delegateOrder(mgr, 3 ether, 3 ether); // (A,B) order
+    tkr.delegateOrder(mgr, 3 ether, 3 ether, false, false); // (A,B) order
 
-    Display.logBalances(base, quote, address(taker));
+    Display.logBalances(base, quote, address(tkr), address(_tkr));
     Display.logOfferBook(dex, address(base), address(quote), 5); // taker has more A
     Display.logOfferBook(dex, address(quote), address(base), 2);
     //Display.logBalances(base, quote, address(taker));
 
-    _taker.delegateOrder(mgr, 1.8 ether, 1.8 ether); // (B,A) order
-    Display.logBalances(base, quote, address(taker), address(_taker));
+    _tkr.delegateOrder(mgr, 1.8 ether, 1.8 ether, false); // (B,A) order
     Display.logOfferBook(dex, address(base), address(quote), 5);
     Display.logOfferBook(dex, address(quote), address(base), 2);
+    Display.logBalances(base, quote, address(tkr), address(_tkr));
+  }
+
+  function inverted_offer_manager_test() public {
+    (OfferManager mgr, TestDelegateTaker tkr, TestDelegateTaker _tkr) =
+      prepare_offer_manager();
+
+    quote.mint(address(tkr), 5 ether);
+    //base.mint(address(_taker), 5 ether);
+    base.addAdmin(address(_tkr)); // to test flashloan on the taker side
+
+    bool noRevert0;
+    (noRevert0, ) = address(_tkr).call{value: 1 ether}("");
+    bool noRevert1;
+    (noRevert1, ) = address(tkr).call{value: 1 ether}("");
+
+    TestInsert.run(balances, dex, makers, taker, base, quote); //creating non empty OB on pair (base,quote)
+
+    Display.logOfferBook(dex, address(base), address(quote), 5);
+    Display.logBalances(base, quote, address(tkr), address(_tkr));
+
+    tkr.delegateOrder(mgr, 3 ether, 3 ether, false, true); // (A,B) order, residual posted on invertedDex(B,A)
+
+    Display.logBalances(base, quote, address(tkr), address(_tkr));
+    Display.logOfferBook(dex, address(base), address(quote), 5); // taker has more A
+    Display.logOfferBook(invDex, address(quote), address(base), 2);
+    Display.logBalances(base, quote, address(tkr));
+
+    _tkr.delegateOrder(mgr, 1.8 ether, 1.8 ether, true, true); // (B,A) FlashTaker order
+    Display.logOfferBook(dex, address(base), address(quote), 5);
+    Display.logOfferBook(invDex, address(quote), address(base), 2);
+    Display.logBalances(base, quote, address(tkr), address(_tkr));
   }
 }
 
