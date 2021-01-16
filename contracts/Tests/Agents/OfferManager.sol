@@ -94,23 +94,16 @@ contract OfferManager is IMaker, ITaker {
 
   //marketOrder (base,quote) + NewOffer(quote,base)
   function order(
+    Dex DEX,
     address base,
     address quote,
     uint wants,
     uint gives,
-    bool is_flashTaker,
     bool invertedResidual
   ) external payable {
-    Dex DEX;
-    if (!is_flashTaker) {
-      DEX = dex;
-    } else {
-      DEX = invDex;
-    }
-    DC.Config memory config = DEX.config(base, quote);
-
+    bool flashTaker = (address(DEX) == address(invDex));
     caller_id = msg.sender; // this should come with a reentrancy lock
-    if (!is_flashTaker) {
+    if (!flashTaker) {
       // else caller_id will be called when takerTrade is called by Dex
       IERC20(quote).transferFrom(msg.sender, address(this), gives); // OfferManager must be approved by sender
     }
@@ -122,17 +115,31 @@ contract OfferManager is IMaker, ITaker {
     try IERC20(base).transfer(msg.sender, netReceived) {
       uint residual_w = wants - netReceived;
       uint residual_g = (gives * residual_w) / wants;
+
+      Dex _DEX;
+      if (invertedResidual) {
+        _DEX = invDex;
+      } else {
+        _DEX = dex;
+      }
+      DC.Config memory config = _DEX.config(base, quote);
       require(
         msg.value >= gas_to_execute * uint(config.global.gasprice) * 10**9,
         "Insufficent funds to delegate order"
       ); //not checking overflow issues
-      (bool success, ) = address(dex).call{value: msg.value}("");
-
+      (bool success, ) = address(_DEX).call{value: msg.value}("");
       require(success, "provision dex failed");
-
       uint residual_ofr =
-        DEX.newOffer(quote, base, residual_w, residual_g, gas_to_execute, 0, 0);
-      owners[address(DEX)][quote][base][residual_ofr] = msg.sender;
+        _DEX.newOffer(
+          quote,
+          base,
+          residual_w,
+          residual_g,
+          gas_to_execute,
+          0,
+          0
+        );
+      owners[address(_DEX)][quote][base][residual_ofr] = msg.sender;
     } catch {
       require(false, "Failed to send market order money to owner");
     }

@@ -137,7 +137,7 @@ contract Scenarii_Test {
     saveBalances();
   }
 
-  function snipe_insert_and_fail() public {
+  function snipe_insert_and_fail_test() public {
     //TestEvents.logString("=== Insert test ===", 0);
     offerOf = TestInsert.run(balances, dex, makers, taker, base, quote);
     //Display.printOfferBook(dex);
@@ -184,11 +184,19 @@ contract Scenarii_Test {
     OfferManager mgr = new OfferManager(dex, invDex);
     Display.register(address(mgr), "OfrMgr");
 
-    TestDelegateTaker taker = new TestDelegateTaker(mgr, base, quote);
-    TestDelegateTaker _taker = new TestDelegateTaker(mgr, quote, base);
-    Display.register(address(taker), "Taker (A,B)");
-    Display.register(address(_taker), "Taker (B,A)");
-    return (mgr, taker, _taker);
+    TestDelegateTaker tkr = new TestDelegateTaker(mgr, base, quote);
+    TestDelegateTaker _tkr = new TestDelegateTaker(mgr, quote, base);
+    Display.register(address(tkr), "Taker (A,B)");
+    Display.register(address(_tkr), "Taker (B,A)");
+    bool noRevert0;
+    (noRevert0, ) = address(_tkr).call{value: 1 ether}("");
+    bool noRevert1;
+    (noRevert1, ) = address(tkr).call{value: 1 ether}("");
+    require(noRevert1 && noRevert0);
+
+    TestInsert.run(balances, dex, makers, taker, base, quote); //creating non empty OB on pair (base,quote)
+
+    return (mgr, tkr, _tkr);
   }
 
   function offer_manager_test() public {
@@ -197,24 +205,17 @@ contract Scenarii_Test {
     quote.mint(address(tkr), 5 ether);
     base.mint(address(_tkr), 5 ether);
 
-    bool noRevert0;
-    (noRevert0, ) = address(_tkr).call{value: 1 ether}("");
-    bool noRevert1;
-    (noRevert1, ) = address(tkr).call{value: 1 ether}("");
-
-    TestInsert.run(balances, dex, makers, taker, base, quote); //creating non empty OB on pair (base,quote)
-
     Display.logOfferBook(dex, address(base), address(quote), 5);
     Display.logBalances(base, quote, address(tkr), address(_tkr));
 
-    tkr.delegateOrder(mgr, 3 ether, 3 ether, false, false); // (A,B) order
+    tkr.delegateOrder(mgr, 3 ether, 3 ether, dex, false); // (A,B) order
 
     Display.logBalances(base, quote, address(tkr), address(_tkr));
     Display.logOfferBook(dex, address(base), address(quote), 5); // taker has more A
     Display.logOfferBook(dex, address(quote), address(base), 2);
     //Display.logBalances(base, quote, address(taker));
 
-    _tkr.delegateOrder(mgr, 1.8 ether, 1.8 ether, false); // (B,A) order
+    _tkr.delegateOrder(mgr, 1.8 ether, 1.8 ether, dex, false); // (B,A) order
     Display.logOfferBook(dex, address(base), address(quote), 5);
     Display.logOfferBook(dex, address(quote), address(base), 2);
     Display.logBalances(base, quote, address(tkr), address(_tkr));
@@ -228,24 +229,17 @@ contract Scenarii_Test {
     //base.mint(address(_taker), 5 ether);
     base.addAdmin(address(_tkr)); // to test flashloan on the taker side
 
-    bool noRevert0;
-    (noRevert0, ) = address(_tkr).call{value: 1 ether}("");
-    bool noRevert1;
-    (noRevert1, ) = address(tkr).call{value: 1 ether}("");
-
-    TestInsert.run(balances, dex, makers, taker, base, quote); //creating non empty OB on pair (base,quote)
-
     Display.logOfferBook(dex, address(base), address(quote), 5);
     Display.logBalances(base, quote, address(tkr), address(_tkr));
 
-    tkr.delegateOrder(mgr, 3 ether, 3 ether, false, true); // (A,B) order, residual posted on invertedDex(B,A)
+    tkr.delegateOrder(mgr, 3 ether, 3 ether, dex, true); // (A,B) order, residual posted on invertedDex(B,A)
 
     Display.logBalances(base, quote, address(tkr), address(_tkr));
     Display.logOfferBook(dex, address(base), address(quote), 5); // taker has more A
     Display.logOfferBook(invDex, address(quote), address(base), 2);
     Display.logBalances(base, quote, address(tkr));
 
-    _tkr.delegateOrder(mgr, 1.8 ether, 1.8 ether, true, true); // (B,A) FlashTaker order
+    _tkr.delegateOrder(mgr, 1.8 ether, 1.8 ether, invDex, false); // (B,A) FlashTaker order
     Display.logOfferBook(dex, address(base), address(quote), 5);
     Display.logOfferBook(invDex, address(quote), address(base), 2);
     Display.logBalances(base, quote, address(tkr), address(_tkr));

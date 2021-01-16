@@ -40,16 +40,16 @@ contract TestDelegateTaker is ITaker {
     OfferManager mgr,
     uint wants,
     uint gives,
-    bool flashTaker,
+    Dex dex,
     bool invertedResidual
   ) public {
     try quote.approve(address(mgr), gives) {
       mgr.order{value: 0.01 ether}(
+        dex,
         address(base),
         address(quote),
         wants,
         gives,
-        flashTaker,
         invertedResidual
       );
     } catch {
