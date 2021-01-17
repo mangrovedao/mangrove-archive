@@ -243,8 +243,16 @@ library DexEvents {
   event SetGasprice(uint value);
 
   /* * Offer execution */
-  event Success(uint offerId, uint takerWants, uint takerGives);
+  event Success(
+    address base,
+    address quote,
+    uint offerId,
+    uint takerWants,
+    uint takerGives
+  );
   event MakerFail(
+    address base,
+    address quote,
     uint offerId,
     uint takerWants,
     uint takerGives,
@@ -270,8 +278,8 @@ library DexEvents {
   );
 
   /* * An offer was canceled (and possibly erase). */
-  event CancelOffer(uint offerId, bool erase);
+  event CancelOffer(address base, address quote, uint offerId, bool erase);
 
   /* * `offerId` is was present and now removed from the book. */
-  event DeleteOffer(uint offerId);
+  event DeleteOffer(address base, address quote, uint offerId);
 }

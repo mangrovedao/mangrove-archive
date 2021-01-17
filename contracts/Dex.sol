@@ -169,7 +169,7 @@ abstract contract Dex is HasAdmin {
     bool erase
   ) external {
     unlockedOnly(base, quote);
-    emit DexEvents.CancelOffer(offerId, erase);
+    emit DexEvents.CancelOffer(base, quote, offerId, erase);
     DC.Offer memory offer = offers[base][quote][offerId];
     DC.OfferDetail memory offerDetail = offerDetails[base][quote][offerId];
     /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *un-live* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
@@ -549,7 +549,13 @@ abstract contract Dex is HasAdmin {
     if (success) {
       gasused = abi.decode(retdata, (uint));
 
-      emit DexEvents.Success(orp.offerId, orp.wants, orp.gives);
+      emit DexEvents.Success(
+        orp.base,
+        orp.quote,
+        orp.offerId,
+        orp.wants,
+        orp.gives
+      );
       orp.totalGot += orp.wants;
       orp.totalGave += orp.gives;
 
@@ -573,6 +579,8 @@ abstract contract Dex is HasAdmin {
       ) {
         toDelete = true;
         emit DexEvents.MakerFail(
+          orp.base,
+          orp.quote,
           orp.offerId,
           orp.wants,
           orp.gives,
@@ -787,7 +795,7 @@ abstract contract Dex is HasAdmin {
     address quote,
     uint offerId
   ) internal {
-    emit DexEvents.DeleteOffer(offerId);
+    emit DexEvents.DeleteOffer(base, quote, offerId);
     offers[base][quote][offerId].gives = 0;
   }
 
