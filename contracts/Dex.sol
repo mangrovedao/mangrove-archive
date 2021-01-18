@@ -1434,7 +1434,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   }
 }
 
-contract NormalDex is Dex {
+contract FMD is Dex {
   constructor(
     uint gasprice,
     uint gasbase,
@@ -1450,7 +1450,7 @@ contract NormalDex is Dex {
   ) internal override {}
 }
 
-contract InvertedDex is Dex {
+contract FTD is Dex {
   constructor(
     uint gasprice,
     uint gasbase,
