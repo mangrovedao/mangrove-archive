@@ -89,7 +89,7 @@ contract TestMaker is IMaker, Passthrough {
   }
 
   function provisionDex(uint amount) public {
-    _dex.fund{value: amount}();
+    _dex.fund{value: amount}(address(this));
   }
 
   function withdrawDex(uint amount) public returns (bool) {

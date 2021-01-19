@@ -228,13 +228,13 @@ abstract contract Dex is HasAdmin {
   //+clear+
 
   /* A transfer with enough gas to the Dex will increase the caller's available `freeWei` balance. _You should send enough gas to execute this function when sending money to the Dex._  */
-  function fund() public payable {
+  function fund(address maker) public payable {
     requireLiveDex(global);
-    creditWei(msg.sender, msg.value);
+    creditWei(maker, msg.value);
   }
 
   receive() external payable {
-    fund();
+    fund(msg.sender);
   }
 
   /* The remaining balance of a Maker (excluding the penalties currently locked in pending offers) can read with `balanceOf(address)` and withdrawn with `withdraw(uint)`.*/

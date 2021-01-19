@@ -133,7 +133,7 @@ contract Pedagogical_Test {
 
     tkr = new TestTaker({dex: dex, base: bat, quote: dai});
 
-    dex.fund{value: 10 ether}();
+    dex.fund{value: 10 ether}(address(this));
 
     dai.mint({amount: 10 ether, to: address(tkr)});
     tkr.approveDex({amount: 10 ether, token: dai});
