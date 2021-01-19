@@ -175,8 +175,8 @@ abstract contract Dex is HasAdmin {
     /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *un-live* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
     require(msg.sender == offerDetail.maker, "dex/cancelOffer/unauthorized");
 
-    if (DC.isLive(offer)) {
-      DC.stitchOffers(base, quote, offers, bests, offer.prev, offer.next);
+    if (isLive(offer)) {
+      stitchOffers(base, quote, offer.prev, offer.next);
     }
     if (erase) {
       delete offers[base][quote][offerId];
@@ -344,7 +344,7 @@ abstract contract Dex is HasAdmin {
      * Will maintain an array of pairs `(offerId, gasused)` to identify failed offers. Look at [punishment for failing offers](#dex.sol-punishment-for-failing-offers) for more information. Since there are no extensible in-memory arrays, `punishLength` should be an upper bound on the number of failed offers. */
 
     /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. The check is an `if` instead of a `require` so we don't throw on an empty market -- but it also means we treat a bad offer id as a take on an empty market. */
-    if (DC.isLive(orp.offer)) {
+    if (isLive(orp.offer)) {
       internalMarketOrder(orp, orp.offer.prev, orp.initialWants != 0);
     }
     return (orp.totalGot, orp.totalGave, orp.toPunish);
@@ -436,14 +436,7 @@ abstract contract Dex is HasAdmin {
       }
     } else {
       restrictMemoryArrayLength(orp.toPunish, orp.numToPunish);
-      DC.stitchOffers(
-        orp.base,
-        orp.quote,
-        offers,
-        bests,
-        pastOfferId,
-        orp.offerId
-      );
+      stitchOffers(orp.base, orp.quote, pastOfferId, orp.offerId);
       locks[orp.base][orp.quote] = UNLOCKED;
       applyFee(orp);
       executeEnd(orp); //noop if classical Dex
@@ -723,7 +716,7 @@ abstract contract Dex is HasAdmin {
       bool toDelete;
 
       /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. We also check that `gasreq` is not worse than specified. A taker who does not care about `gasreq` can specify any amount larger than $2^{24}-1$. */
-      if (DC.isLive(orp.offer) && orp.offerDetail.gasreq <= targets[i][3]) {
+      if (isLive(orp.offer) && orp.offerDetail.gasreq <= targets[i][3]) {
         require(
           uint96(targets[i][1]) == targets[i][1],
           "dex/snipes/takerWants/96bits"
@@ -736,14 +729,7 @@ abstract contract Dex is HasAdmin {
         }
         if (toDelete) {
           dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
-          DC.stitchOffers(
-            orp.base,
-            orp.quote,
-            offers,
-            bests,
-            orp.offer.prev,
-            orp.offer.next
-          );
+          stitchOffers(orp.base, orp.quote, orp.offer.prev, orp.offer.next);
         }
       }
 
@@ -1026,10 +1012,10 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       uint id = toPunish[punishIndex][0];
       /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
       DC.Offer memory offer = offers[base][quote][id];
-      if (DC.isLive(offer)) {
+      if (isLive(offer)) {
         DC.OfferDetail memory offerDetail = offerDetails[base][quote][id];
         dirtyDeleteOffer(base, quote, id);
-        DC.stitchOffers(base, quote, offers, bests, offer.prev, offer.next);
+        stitchOffers(base, quote, offer.prev, offer.next);
         uint gasused = toPunish[punishIndex][1];
         applyPenalty(false, gasprice, gasbase, gasused, offer, offerDetail);
       }
@@ -1090,7 +1076,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     DC.Offer memory offer = offers[base][quote][offerId];
     DC.OfferDetail memory offerDetail = offerDetails[base][quote][offerId];
     return (
-      DC.isLive(offer),
+      isLive(offer),
       offer.wants,
       offer.gives,
       offer.next,
@@ -1317,15 +1303,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
       /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *move* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. A priori, if `writeOffer` is called by `newOffer`, `oldOffer` should be all zeros and thus not live. But that would be assuming a subtle implementation detail of `isLive`, so we add the (currently redundant) check on `update`).
        */
-      if (update && DC.isLive(ofp.oldOffer)) {
-        DC.stitchOffers(
-          ofp.base,
-          ofp.quote,
-          offers,
-          bests,
-          ofp.oldOffer.prev,
-          ofp.oldOffer.next
-        );
+      if (update && isLive(ofp.oldOffer)) {
+        stitchOffers(ofp.base, ofp.quote, ofp.oldOffer.prev, ofp.oldOffer.next);
       }
     }
 
@@ -1353,7 +1332,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint pivotId = ofp.pivotId;
     DC.Offer memory pivot = offers[ofp.base][ofp.quote][pivotId];
 
-    if (!DC.isLive(pivot)) {
+    if (!isLive(pivot)) {
       // in case pivotId is not or no longer a valid offer
       pivot = offers[ofp.base][ofp.quote][bestValue];
       pivotId = bestValue;
@@ -1431,6 +1410,30 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   function creditWei(address maker, uint amount) internal {
     freeWei[maker] += amount;
     emit DexEvents.Credit(maker, amount);
+  }
+
+  /* The Dex holds a `uint => Offer` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an uninitialized struct. A common way to check for initialization is to add an `exists` field to the struct. In our case, an invariant of the Dex is: on an existing offer, `offer.gives > 0`. So we just check the `gives` field. */
+  /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). */
+  function isLive(DC.Offer memory offer) internal pure returns (bool) {
+    return offer.gives > 0;
+  }
+
+  /* Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer` */
+  function stitchOffers(
+    address base,
+    address quote,
+    uint past,
+    uint future
+  ) internal {
+    if (past != 0) {
+      offers[base][quote][past].next = uint24(future);
+    } else {
+      bests[base][quote] = future;
+    }
+
+    if (future != 0) {
+      offers[base][quote][future].prev = uint24(past);
+    }
   }
 }
 
