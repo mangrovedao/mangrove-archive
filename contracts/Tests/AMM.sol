@@ -143,5 +143,5 @@ contract AMM_Test {
     Display.logBalances(baseT, quoteT, address(tkr), address(_tkr));
   }
 
-  function uniswap_like_maker_test() {}
+  function uniswap_like_maker_test() public {}
 }

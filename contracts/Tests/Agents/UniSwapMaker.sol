@@ -29,28 +29,42 @@ import "../../Dex.sol";
 //   uint takerGives
 // );
 
+// Dex must be provisioned in the name of UniSwapMaker
+// UniSwapMaker must have ERC20 credit in tk0 and tk1 and these credits should not be shared (since contract is memoryless)
 contract UniSwapMaker is IMaker {
-  ERC20 tk0;
-  ERC20 tk1;
   Dex dex;
   address private admin;
   uint gasreq = 100_000;
   uint fraction;
+  uint fee;
 
   constructor(
-    ERC20 _tk0, // makerWants
-    ERC20 _tk1, // makerGives
     Dex _dex,
-    uint _fraction
+    uint _fraction,
+    uint _fee
   ) {
     admin = msg.sender;
-    tk0 = _tk0;
-    tk1 = _tk1;
     dex = _dex; // FMD or FTD
     fraction = _fraction;
+    fee = _fee;
   }
 
   receive() external payable {}
+
+  function setParams(uint _fee, uint _fraction) external {
+    if (msg.sender == admin) {
+      fee = _fee;
+      fraction = _fraction;
+    }
+  }
+
+  function withdraw(address recipient, uint amount) external {
+    if (msg.sender == admin) {
+      bool noRevert;
+      (noRevert, ) = address(recipient).call{value: amount}("");
+      require(noRevert);
+    }
+  }
 
   function makerTrade(IMaker.Trade calldata trade)
     external
@@ -83,12 +97,56 @@ contract UniSwapMaker is IMaker {
   //   bool offerDeleted;
   // }
 
+  function newPrice(ERC20 tk, ERC20 _tk) internal returns (uint, uint) {
+    uint newGives = _tk.balanceOf(address(this)) / fraction;
+    uint x = (fraction * fee) / 1000;
+    uint newWants = (tk.balanceOf(address(this)) * x) / (1 + x);
+    return (newWants, newGives);
+  }
+
+  function newOffer(
+    address base,
+    address quote,
+    uint gasreq,
+    uint gasprice,
+    uint pivotId_bq,
+    uint pivotId_qb
+  ) public {
+    (uint bq_wants, uint bq_gives) = newPrice(ERC20(base), ERC20(quote));
+    (uint qb_wants, uint qb_gives) = newPrice(ERC20(quote), ERC20(base));
+    uint newOfrId_bq =
+      dex.newOffer(
+        base,
+        quote,
+        bq_wants,
+        bq_gives,
+        gasreq,
+        gasprice,
+        pivotId_bq
+      );
+    uint newOfrId_qb =
+      dex.newOffer(
+        quote,
+        base,
+        qb_wants,
+        qb_gives,
+        gasreq,
+        gasprice,
+        pivotId_qb
+      );
+  }
+
   function makerPosthook(IMaker.Posthook calldata posthook) external override {
     // taker has paid maker
-    uint newGives = ERC20(posthook.quote).balanceOf(address(this)) / fraction;
-    uint x = (fraction * 997) / 1000;
-    uint newWants =
-      (ERC20(posthook.base).balanceOf(address(this)) * x) / (1 + x);
+    (uint newWants, uint newGives) =
+      newPrice(ERC20(posthook.quote), ERC20(posthook.base));
+    uint pivotId;
+    if (!posthook.offerDeleted) {
+      pivotId = posthook.offerId;
+    } else {
+      // if offerId = n, try to reenter at position offer[n-1]
+      pivotId = 0;
+    }
     dex.updateOffer(
       posthook.base,
       posthook.quote,
@@ -96,7 +154,7 @@ contract UniSwapMaker is IMaker {
       newGives,
       gasreq,
       0,
-      0,
+      pivotId,
       posthook.offerId
     );
   }
