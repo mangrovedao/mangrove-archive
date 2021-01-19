@@ -48,6 +48,7 @@ contract Pedagogical_Test {
       pivotId: 0
     });
 
+    //logBook
     Display.logOfferBook(dex, address(bat), address(dai), 3);
     Display.logBalances(bat, dai, address(mkr), address(tkr));
   }
@@ -239,12 +240,12 @@ contract Maker_compound is TestMaker {
     returns (bytes32 ret)
   {
     ret; // silence compiler warning
+    _compound.mint({token: ERC20(trade.quote), amount: trade.takerGives});
     _compound.redeem({
       token: ERC20(trade.base),
       amount: trade.takerWants,
       to: trade.taker
     });
-    _compound.mint({token: ERC20(trade.quote), amount: trade.takerGives});
   }
 }
 
