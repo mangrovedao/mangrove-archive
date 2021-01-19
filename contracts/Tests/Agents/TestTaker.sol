@@ -41,6 +41,18 @@ contract TestTaker is ITaker {
     //return taken;
   }
 
+  function snipe(
+    Dex __dex,
+    address __base,
+    address __quote,
+    uint offerId,
+    uint takerWants,
+    uint takerGives,
+    uint gasreq
+  ) external returns (bool success) {
+    __dex.snipe(__base, __quote, offerId, takerWants, takerGives, gasreq);
+  }
+
   function takerTrade(
     address,
     address,
@@ -50,6 +62,16 @@ contract TestTaker is ITaker {
 
   function marketOrder(uint wants, uint gives) external {
     _dex.simpleMarketOrder(_base, _quote, wants, gives);
+  }
+
+  function simpleMarketOrder(
+    Dex __dex,
+    address __base,
+    address __quote,
+    uint takerWants,
+    uint takerGives
+  ) external {
+    __dex.simpleMarketOrder(__base, __quote, takerWants, takerGives);
   }
 
   function marketOrderWithFail(
