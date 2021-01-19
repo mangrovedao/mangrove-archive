@@ -144,7 +144,7 @@ contract UniSwapMaker is IMaker {
     if (!posthook.offerDeleted) {
       pivotId = posthook.offerId;
     } else {
-      // if offerId = n, try to reenter at position offer[n-1]
+      // if offerId = n, try to reenter at position offer[n+1]
       pivotId = 0;
     }
     dex.updateOffer(
