@@ -10,6 +10,7 @@ task(
 )
   .addFlag("showEvents", "Show all non-test events during tests")
   .addFlag("showTestEvents", "Show all test events during tests")
+  .addFlag("showGas", "Show gas used for each test")
   .addFlag(
     "details",
     "Log events interpreted by the logFormatters hardhat.config parameter for additional details on the tests"
@@ -29,6 +30,7 @@ task(
       {
         argTestContractNames: params.contracts || [],
         details: params.details,
+        showGas: params.showGas,
         showEvents: params.showEvents,
         showTestEvents: params.showTestEvents,
         prefix: params.prefix,
