@@ -1,6 +1,7 @@
 //usePlugin("@nomiclabs/buidler-truffle5");
 require("hardhat-deploy");
 require("hardhat-deploy-ethers");
+require("@nomiclabs/hardhat-solpp");
 const test_solidity = require("./lib/test_solidity.js");
 
 // Special task for running Solidity tests
@@ -10,6 +11,10 @@ task(
 )
   .addFlag("showEvents", "Show all non-test events during tests")
   .addFlag("showTestEvents", "Show all test events during tests")
+  .addFlag(
+    "showTx",
+    "Show all transaction hashes (disables revert between tests)"
+  )
   .addFlag("showGas", "Show gas used for each test")
   .addFlag(
     "details",
