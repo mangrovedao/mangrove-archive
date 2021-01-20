@@ -31,22 +31,22 @@ library DexCommon {
   /* `Offer`s hold the doubly-linked list pointers as well as price and volume information. 256 bits wide, so one storage read is enough. They have the following fields: */
   struct Offer {
     /* * `prev` points to the next best offer, and `next` points to the next worse. The best offer's `prev` is 0, and the last offer's `next` is 0 as well. _24 bits wide_. */
-    uint24 prev;
-    uint24 next;
+    uint prev;
+    uint next;
     /* * `gives` is the amount of `OFR_TOKEN` the offer will give if successfully executed.
      _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
   10 billions. */
-    uint96 gives;
+    uint gives;
     /* * `wants` is the amount of `REQ_TOKEN` the offer wants in exchange for `gives`.
      _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
   10 billions. */
-    uint96 wants;
+    uint wants;
     /* `gasprice` is in gwei/gas and _16 bits wide_, which accomodates 1 to ~65k gwei / gas.
 
           `gasprice` is also the name of global Dex
           parameters. When an offer is created, its current value is added to
           the offer's `Offer`. The maker may choose an upper bound. */
-    uint16 gasprice;
+    uint gasprice;
   }
 
   /* ## `OfferDetail`, provision info */
@@ -88,7 +88,7 @@ They have the following fields: */
        In that case, the offer _fails_.
 
   */
-    uint24 gasreq;
+    uint gasreq;
     /*
      * `gasbase` represents the gas overhead used by processing the offer
        inside the Dex. The gas considered 'used' by an offer is at least
@@ -117,7 +117,7 @@ They have the following fields: */
        the offer's `OfferDetail`. The maker does not choose it.
 
     */
-    uint24 gasbase;
+    uint gasbase;
   }
 
   /* # Configuration
@@ -126,22 +126,22 @@ They have the following fields: */
   /* Configuration. See DexLib for more information. */
   struct Global {
     /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
-    uint16 gasprice;
+    uint gasprice;
     /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at leat `gasbase` gas. Should only be updated when opcode prices change. */
-    uint24 gasbase;
+    uint gasbase;
     /* An offer which asks for more gas than the block limit would live forever on
     the book. Nobody could take it or remove it, except its creator (who could cancel it). In practice, we will set this parameter to a reasonable limit taking into account both practical transaction sizes and the complexity of maker contracts.
   */
-    uint24 gasmax;
+    uint gasmax;
     bool dead;
   }
 
   struct Local {
     bool active;
     /* * `fee`, in basis points, of `OFR_TOKEN` given to the taker. This fee is sent to the Dex. Fee is capped to 5% (see Dex.sol). */
-    uint16 fee;
+    uint fee;
     /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `OFR_TOKEN` per gas requested. For instance, if `density == 10`, `gasbase == 5000` an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `OFR_TOKEN`. */
-    uint32 density;
+    uint density;
   }
 
   struct Config {

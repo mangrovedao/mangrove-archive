@@ -1068,20 +1068,20 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     bytes32 offer = offers[base][quote][offerId];
     DC.Offer memory offerStruct =
       DC.Offer({
-        prev: uint24($$(o_prev("offer"))),
-        next: uint24($$(o_next("offer"))),
-        wants: uint96($$(o_wants("offer"))),
-        gives: uint96($$(o_gives("offer"))),
-        gasprice: uint16($$(o_gasprice("offer")))
+        prev: $$(o_prev("offer")),
+        next: $$(o_next("offer")),
+        wants: $$(o_wants("offer")),
+        gives: $$(o_gives("offer")),
+        gasprice: $$(o_gasprice("offer"))
       });
 
     bytes32 offerDetail = offerDetails[base][quote][offerId];
 
     DC.OfferDetail memory offerDetailStruct =
       DC.OfferDetail({
-        maker: address($$(od_maker("offerDetail"))),
-        gasreq: uint24($$(od_gasreq("offerDetail"))),
-        gasbase: uint24($$(od_gasbase("offerDetail")))
+        maker: $$(od_maker("offerDetail")),
+        gasreq: $$(od_gasreq("offerDetail")),
+        gasbase: $$(od_gasbase("offerDetail"))
       });
     return (offerStruct, offerDetailStruct);
   }
@@ -1132,16 +1132,16 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   {
     bytes32 _global = global;
     ret.global = DC.Global({
-      gasprice: uint16($$(glo_gasprice("_global"))),
-      gasbase: uint24($$(glo_gasbase("_global"))),
-      gasmax: uint24($$(glo_gasmax("_global"))),
+      gasprice: $$(glo_gasprice("_global")),
+      gasbase: $$(glo_gasbase("_global")),
+      gasmax: $$(glo_gasmax("_global")),
       dead: $$(glo_dead("global")) > 0
     });
     bytes32 _local = locals[base][quote];
     ret.local = DC.Local({
       active: $$(loc_active("_local")) > 0,
-      fee: uint16($$(loc_fee("_local"))),
-      density: uint32($$(loc_density("_local")))
+      fee: $$(loc_fee("_local")),
+      density: $$(loc_density("_local"))
     });
   }
 
