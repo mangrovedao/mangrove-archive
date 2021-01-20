@@ -1,0 +1,148 @@
+/* Generic utility functions
+****************************/
+
+// There is no empty list literal in solpp
+/* $def nil
+filled(0)
+*/
+
+// bug in solpp prevents using 3rd parameter (index parameter) of reduce, so we redo it
+/* $def reduce_i(l,fn,init)
+len(l) ? reduce(range(len(l)),(acc,val) => fn(acc,l[val],val),init) : l
+*/
+
+// tail of a list
+/* $def tail(l)
+reduce_i(l,(acc,val,i) => i == 0 ? nil : concat(acc,[val]), nil)
+*/
+
+// find an element in a list given a predicate
+/* $def find(l,fn)
+(reduce(l,(acc,val) => (acc[0] ? acc : (fn(val) ? [true,val] : acc)),[false,false]))[1]
+*/
+
+/* Struct-related utility functions
+***********************************/
+
+// Add a 'false' guard at the end to throw if field name is wrong
+/* $def toStruct(data)
+concat(data,[[false]])
+*/
+
+// number of bits before a field
+/* $def before(struct,field)
+(reduce(struct, (acc,fb) => (fb[0] == field) ? [acc[0],false] : [acc[0]+(acc[1] ? fb[1] : 0),acc[1]],[0,true]))[0]
+*/
+
+// number of bits in a field
+/* $def bits(struct,field)
+find(struct, (fb) => fb[0] == field)[1]
+*/
+
+// destination type of a field
+/* $def type(struct,field)
+find(struct, (fb) => fb[0] == field)[2]
+*/
+
+// cleanup-mask: 1's everywhere at field location, 0's elsewhere
+/* $def mask(struct,field)
+hex(((MAX_UINT256_VALUE << (256-bits(struct,field))) >> before(struct,field)) ^ MAX_UINT256_VALUE,32)
+*/
+
+// number of bits after a field
+/* $def after(struct,field)
+256 - before(struct,field) - bits(struct,field)
+*/
+
+// prints accessor for a field
+/* $def get(ptr,struct,field)
+join([type(struct,field),'(uint((',ptr,' << ',before(struct,field),'))',' >> ',before(struct,field) + after(struct,field),')'],'')
+*/
+
+// prints setter for a single field
+/* $def set1(ptr,struct,field,val)
+join(['((',ptr,' & bytes32(uint(',mask(struct,field),'))) | bytes32(uint(',val,') << ',after(struct,field),'))'],'')
+*/
+
+// prints setter for multiple fields
+// set(set1,...) better than set1(set,...) because it keeps stack use constant
+/* $def set(ptr,struct,values)
+len(values) ? set(quote(set1(ptr,struct,values[0][0],values[0][1])),struct,tail(values)) : ptr
+*/
+
+// !unsafe version! prints setter for a single field, without bitmask cleanup
+/* $def set1_unsafe(ptr,struct,field,val)
+join(['(',ptr,' | bytes32(uint(',val,') << ',after(struct,field),'))'],'')
+*/
+
+// !unsafe version! prints setter for multiple fields
+/* $def set_unsafe(ptr,struct,values)
+len(values) ? set_unsafe(quote(set1_unsafe(ptr,struct,values[0][0],values[0][1])),struct,tail(values)) : ptr
+*/
+
+/* Fields shared across structs
+*******************************/
+
+// $def gives_field ['gives',96,'uint']
+// $def wants_field ['wants',96,'uint']
+// $def gasprice_field ['gasprice',16,'uint']
+// $def gasreq_field ['gasreq',24,'uint']
+// $def gasbase_field ['gasbase',24,'uint']
+// $def id_field(name) [name,24,'uint']
+
+/* update offer struct layout, for logging
+******************************************/
+/* $def update_offer 
+toStruct([wants_field, gives_field, gasprice_field, gasreq_field, id_field('id')])
+*/
+
+// $def wo_make(ptr,values) set_unsafe(ptr,update_offer,values)
+
+/* offer struct layout
+**********************/
+/* $def offer
+toStruct([id_field('prev'),id_field('next'),gives_field,wants_field,gasprice_field])
+*/
+
+// $def o_prev(ptr) get(ptr,offer,'prev')
+// $def o_next(ptr) get(ptr,offer,'next')
+// $def o_gives(ptr) get(ptr,offer,'gives')
+// $def o_wants(ptr) get(ptr,offer,'wants')
+// $def o_gasprice(ptr) get(ptr,offer,'gasprice')
+// $def o_set(ptr,values) set(ptr,offer,values)
+// $def o_make(ptr,values) set_unsafe(ptr,offer,values)
+
+/* offer detail struct layout
+*****************************/
+/* $def offerDetail
+toStruct([['maker',160,'address'],gasreq_field,gasbase_field])
+*/
+
+// $def od_maker(ptr) get(ptr,offerDetail,'maker')
+// $def od_gasreq(ptr) get(ptr,offerDetail,'gasreq')
+// $def od_gasbase(ptr) get(ptr,offerDetail,'gasbase')
+// $def od_set(ptr,values) set(ptr,offerDetail,values)
+// $def od_make(ptr,values) set_unsafe(ptr,offerDetail,values)
+
+/* global configuration struct layout
+*************************************/
+/* $def global
+toStruct([gasprice_field, gasbase_field,['gasmax',24,'uint'],['dead',8,'uint']])
+*/
+
+// $def glo_gasprice(ptr) get(ptr,global,'gasprice')
+// $def glo_gasbase(ptr) get(ptr,global,'gasbase')
+// $def glo_gasmax(ptr) get(ptr,global,'gasmax')
+// $def glo_dead(ptr) get(ptr,global,'dead')
+// $def glo_set(ptr,values) set(ptr,global,values)
+
+/* local configuration struct layout
+************************************/
+/* $def local
+toStruct([['active',8,'uint'],['fee',16,'uint'],['density',32,'uint']])
+*/
+
+// $def loc_active(ptr) get(ptr,local,'active')
+// $def loc_fee(ptr) get(ptr,local,'fee')
+// $def loc_density(ptr) get(ptr,local,'density')
+// $def loc_set(ptr,values) set(ptr,local,values)
