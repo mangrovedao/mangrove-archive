@@ -1343,7 +1343,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
 
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
-    (uint prev, uint next) = findPosition(bests[ofp.base][ofp.quote], ofp);
+    (uint prev, uint next) = findPosition(ofp);
     /* Then we place the offer in the book at the position found by `findPosition`.
 
        If the offer is not the best one, we update its predecessor; otherwise we update the `best` value. */
@@ -1401,8 +1401,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
   If prices are equal, `findPosition` will put the newest offer last. */
   function findPosition(
-    /* As a backup pivot, the id of the current best offer is sent by `Dex` to `DexLib`. This is in case `pivotId` turns out to be an invalid offer id. This part of the code relies on consumed offers being deleted, otherwise we would blindly insert offers next to garbage old values. */
-    uint bestValue,
+    /* This part of the code relies on consumed offers being deleted, otherwise we would blindly insert offers next to garbage old values. */
     DC.OfferPack memory ofp
   ) internal view returns (uint, uint) {
     uint pivotId = ofp.pivotId;
@@ -1412,8 +1411,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
     if (!isLive(pivot)) {
       // in case pivotId is not or no longer a valid offer
-      pivot = offers[ofp.base][ofp.quote][bestValue];
-      pivotId = bestValue;
+      pivotId = bests[ofp.base][ofp.quote];
+      pivot = offers[ofp.base][ofp.quote][pivotId];
     }
 
     // pivot better than `wants/gives`, we follow next
