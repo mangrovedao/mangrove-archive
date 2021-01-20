@@ -96,7 +96,7 @@ len(values) ? set_unsafe(quote(set1_unsafe(ptr,struct,values[0][0],values[0][1])
 toStruct([wants_field, gives_field, gasprice_field, gasreq_field, id_field('id')])
 */
 
-// $def wo_make(ptr,values) set_unsafe(ptr,update_offer,values)
+// $def wo_make(values) set_unsafe('bytes32(0)',update_offer,values)
 
 /* offer struct layout
 **********************/
@@ -110,7 +110,7 @@ toStruct([id_field('prev'),id_field('next'),gives_field,wants_field,gasprice_fie
 // $def o_wants(ptr) get(ptr,offer,'wants')
 // $def o_gasprice(ptr) get(ptr,offer,'gasprice')
 // $def o_set(ptr,values) set(ptr,offer,values)
-// $def o_make(ptr,values) set_unsafe(ptr,offer,values)
+// $def o_make(values) set_unsafe('bytes32(0)',offer,values)
 
 /* offer detail struct layout
 *****************************/
@@ -122,7 +122,7 @@ toStruct([['maker',160,'address'],gasreq_field,gasbase_field])
 // $def od_gasreq(ptr) get(ptr,offerDetail,'gasreq')
 // $def od_gasbase(ptr) get(ptr,offerDetail,'gasbase')
 // $def od_set(ptr,values) set(ptr,offerDetail,values)
-// $def od_make(ptr,values) set_unsafe(ptr,offerDetail,values)
+// $def od_make(values) set_unsafe('bytes32(0)',offerDetail,values)
 
 /* global configuration struct layout
 *************************************/

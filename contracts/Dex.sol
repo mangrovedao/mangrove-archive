@@ -1261,7 +1261,6 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       bytes32 writeOfferInfo =
         $$(
           wo_make(
-            "bytes32(0)",
             [
               ["wants", "ofp.wants"],
               ["gives", "ofp.gives"],
@@ -1318,8 +1317,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       ) {
         uint gasbase = $$(glo_gasbase("ofp.global"));
         offerDetails[ofp.base][ofp.quote][ofp.id] = $$(
-          od_set(
-            "bytes32(0)",
+          od_make(
             [
               ["maker", "uint(msg.sender)"],
               ["gasreq", "ofp.gasreq"],
@@ -1382,8 +1380,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 24 bits (if there is an update, `offerDetails[offerId]` must be owned by `msg.sender`, os `offerId` has the right width). */
     bytes32 ofr =
       $$(
-        o_set(
-          "bytes32('')",
+        o_make(
           [
             ["prev", "prev"],
             ["next", "next"],
