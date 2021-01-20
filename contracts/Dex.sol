@@ -185,7 +185,7 @@ abstract contract Dex is HasAdmin {
       delete offers[base][quote][offerId];
       delete offerDetails[base][quote][offerId];
     } else {
-      dirtyDeleteOffer(base, quote, offerId);
+      dirtyDeleteOffer(base, quote, offerId, offer);
     }
 
     /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
@@ -412,7 +412,7 @@ abstract contract Dex is HasAdmin {
       uint takerGives = orp.gives;
 
       if (toDelete) {
-        dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
+        dirtyDeleteOffer(orp.base, orp.quote, orp.offerId, orp.offer);
         // note that internalMarketOrder may be called twice with same offerId, but in that case proceed will be false!
         orp.offerId = $$(o_next("orp.offer"));
         orp.offer = offers[orp.base][orp.quote][orp.offerId];
@@ -736,7 +736,7 @@ abstract contract Dex is HasAdmin {
           successes += 1;
         }
         if (toDelete) {
-          dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
+          dirtyDeleteOffer(orp.base, orp.quote, orp.offerId, orp.offer);
           stitchOffers(
             orp.base,
             orp.quote,
@@ -792,10 +792,10 @@ abstract contract Dex is HasAdmin {
   function dirtyDeleteOffer(
     address base,
     address quote,
-    uint offerId
+    uint offerId,
+    bytes32 offer
   ) internal {
     emit DexEvents.DeleteOffer(base, quote, offerId);
-    bytes32 offer = offers[base][quote][offerId];
     offers[base][quote][offerId] = $$(o_set("offer", [["gives", 0]]));
   }
 
@@ -1029,7 +1029,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       bytes32 offer = offers[base][quote][id];
       if (isLive(offer)) {
         bytes32 offerDetail = offerDetails[base][quote][id];
-        dirtyDeleteOffer(base, quote, id);
+        dirtyDeleteOffer(base, quote, id, offer);
         stitchOffers(base, quote, $$(o_prev("offer")), $$(o_next("offer")));
         uint gasused = toPunish[punishIndex][1];
         applyPenalty(false, gasprice, gasbase, gasused, offer, offerDetail);
