@@ -97,6 +97,67 @@ contract AMM_Test {
     return (mgr, tkr, _tkr);
   }
 
+  function check_logs(
+    address mgr,
+    address tkr,
+    address _tkr,
+    bool inverted
+  ) internal {
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.Success(
+      address(baseT),
+      address(quoteT),
+      3,
+      1 ether,
+      0.5 ether
+    );
+    emit DexEvents.RemoveOffer(address(baseT), address(quoteT), 3, false);
+    emit DexEvents.Success(
+      address(baseT),
+      address(quoteT),
+      2,
+      0.8 ether,
+      1 ether
+    );
+    emit DexEvents.RemoveOffer(address(baseT), address(quoteT), 2, false);
+    Dex DEX = dex;
+    if (inverted) {
+      TestEvents.expectFrom(address(invDex));
+      DEX = invDex;
+    }
+    emit DexEvents.WriteOffer(
+      address(quoteT),
+      address(baseT),
+      address(mgr),
+      1.2 ether,
+      1.2 ether,
+      100_000,
+      DEX.config(address(0), address(0)).global.gasprice,
+      1, // first offerId of the quote,base pair
+      false
+    );
+    emit DexEvents.Success(
+      address(quoteT),
+      address(baseT),
+      1,
+      1.2 ether,
+      1.2 ether
+    );
+    emit DexEvents.RemoveOffer(address(quoteT), address(baseT), 1, false);
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.WriteOffer(
+      address(baseT),
+      address(quoteT),
+      mgr,
+      0.6 ether,
+      0.6 ether,
+      100_000,
+      dex.config(address(0), address(0)).global.gasprice,
+      4, // first offerId of the quote,base pair
+      false
+    );
+  }
+
   function offer_manager_test() public {
     (OfferManager mgr, TestDelegateTaker tkr, TestDelegateTaker _tkr) =
       prepare_offer_manager();
@@ -117,6 +178,8 @@ contract AMM_Test {
     Display.logOfferBook(dex, address(baseT), address(quoteT), 5);
     Display.logOfferBook(dex, address(quoteT), address(baseT), 2);
     Display.logBalances(baseT, quoteT, address(tkr), address(_tkr));
+
+    check_logs(address(mgr), address(tkr), address(_tkr), false);
   }
 
   function inverted_offer_manager_test() public {
@@ -141,6 +204,7 @@ contract AMM_Test {
     Display.logOfferBook(dex, address(baseT), address(quoteT), 5);
     Display.logOfferBook(invDex, address(quoteT), address(baseT), 2);
     Display.logBalances(baseT, quoteT, address(tkr), address(_tkr));
+    check_logs(address(mgr), address(tkr), address(_tkr), true);
   }
 
   function uniswap_like_maker_test() public {}
