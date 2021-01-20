@@ -1257,17 +1257,27 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       ofp.gasprice = $$(glo_gasprice("ofp.global"));
     }
 
-    emit DexEvents.WriteOffer(
-      ofp.base,
-      ofp.quote,
-      msg.sender,
-      ofp.wants,
-      ofp.gives,
-      ofp.gasreq,
-      ofp.gasprice,
-      ofp.id,
-      update
-    );
+    {
+      bytes32 writeOfferInfo =
+        $$(
+          wo_make(
+            "bytes32(0)",
+            [
+              ["wants", "ofp.wants"],
+              ["gives", "ofp.gives"],
+              ["gasreq", "ofp.gasreq"],
+              ["gasprice", "ofp.gasprice"],
+              ["id", "ofp.id"]
+            ]
+          )
+        );
+      emit DexEvents.WriteOffer(
+        ofp.base,
+        ofp.quote,
+        msg.sender,
+        writeOfferInfo
+      );
+    }
 
     /* The following checks are first performed: */
     //+clear+
