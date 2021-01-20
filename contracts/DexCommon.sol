@@ -167,7 +167,8 @@ They have the following fields: */
     uint gasreq;
     uint gasprice;
     uint pivotId;
-    Config config;
+    bytes32 global;
+    bytes32 local;
     bytes32 oldOffer;
   }
 
@@ -181,7 +182,8 @@ They have the following fields: */
     uint totalGot;
     uint totalGave;
     bytes32 offer;
-    Config config;
+    bytes32 global;
+    bytes32 local;
     uint numToPunish;
     uint[2][] toPunish;
     /* will evolve over time, initially the wants/gives from the taker's pov,
