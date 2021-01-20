@@ -1399,7 +1399,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     DC.OfferPack memory ofp
   ) internal view returns (uint, uint) {
     uint pivotId = ofp.pivotId;
-    bytes32 pivot = offers[ofp.base][ofp.quote][pivotId];
+    /* optimize for the case wher pivot info is already known */
+    bytes32 pivot =
+      pivotId == ofp.id ? ofp.oldOffer : offers[ofp.base][ofp.quote][pivotId];
 
     if (!isLive(pivot)) {
       // in case pivotId is not or no longer a valid offer
