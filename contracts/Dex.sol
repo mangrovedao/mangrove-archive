@@ -1477,8 +1477,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* # Maker debit/credit utility functions */
 
   function debitWei(address maker, uint amount) internal {
-    require(freeWei[maker] >= amount, "dex/insufficientProvision");
-    freeWei[maker] -= amount;
+    uint makerFreeWei = freeWei[maker];
+    require(makerFreeWei >= amount, "dex/insufficientProvision");
+    freeWei[maker] = makerFreeWei - amount;
     emit DexEvents.Debit(maker, amount);
   }
 
