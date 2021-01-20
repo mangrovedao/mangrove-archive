@@ -25,7 +25,12 @@ library DexLib {
     /* the transfer from taker to maker must be in this function
        so that any issue with the maker also reverts the flashloan */
     if (
-      transferToken(orp.quote, msg.sender, orp.offerDetail.maker, orp.gives)
+      transferToken(
+        orp.quote,
+        msg.sender,
+        $$(od_maker("orp.offerDetail")),
+        orp.gives
+      )
     ) {
       gasused = makerExecute(orp, residualBelowDust);
     } else {
@@ -70,7 +75,7 @@ library DexLib {
         takerGives: orp.gives,
         taker: msg.sender,
         offerGasprice: $$(get("orp.offer", offer, "gasprice")),
-        offerGasreq: orp.offerDetail.gasreq,
+        offerGasreq: $$(od_gasreq("orp.offerDetail")),
         offerId: orp.offerId,
         offerWants: $$(get("orp.offer", offer, "wants")),
         offerGives: $$(get("orp.offer", offer, "gives")),
@@ -84,8 +89,8 @@ library DexLib {
       innerRevert([bytes32("dex/tradeOverflow"), "", ""]);
     }
     /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + gasbase`. This yul call only retrieves the first byte of the maker's `returndata`. */
-    uint gasreq = orp.offerDetail.gasreq;
-    address maker = orp.offerDetail.maker;
+    uint gasreq = $$(od_gasreq("orp.offerDetail"));
+    address maker = $$(od_maker("orp.offerDetail"));
     bytes memory retdata = new bytes(32);
     bool success;
     bytes32 makerData;

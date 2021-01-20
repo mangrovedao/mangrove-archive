@@ -189,7 +189,7 @@ They have the following fields: */
     uint wants;
     uint gives;
     /* only populated when necessary */
-    OfferDetail offerDetail;
+    bytes32 offerDetail;
   }
 
   enum SwapResult {OK, TakerTransferFail, MakerTransferFail, MakerReverted}
