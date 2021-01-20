@@ -277,9 +277,6 @@ library DexEvents {
     bool updated
   );
 
-  /* * An offer was canceled (and possibly erase). */
-  event CancelOffer(address base, address quote, uint offerId, bool erase);
-
-  /* * `offerId` is was present and now removed from the book. */
-  event DeleteOffer(address base, address quote, uint offerId);
+  /* * `offerId` was present and is now removed from the book. */
+  event RemoveOffer(address base, address quote, uint offerId, bool deleted);
 }
