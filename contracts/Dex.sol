@@ -31,7 +31,8 @@ abstract contract Dex is HasAdmin {
    * `offers[id]` contains pointers to the `prev`ious (better) and `next` (worse) offer in the book, as well as the price and volume of the offer (in the form of two absolute quantities, `wants` and `gives`).
    * `offerDetails[id]` contains the market maker's address (`maker`), the amount of gas required by the offer (`gasreq`) as well cached values for the global `gasbase` and `gasprice` when the offer got created (see `DexCommon` for more on `gasbase` and `gasprice`).
    */
-  mapping(address => mapping(address => mapping(uint => uint))) private offers;
+  mapping(address => mapping(address => mapping(uint => bytes32)))
+    private offers;
   mapping(address => mapping(address => mapping(uint => DC.OfferDetail)))
     private offerDetails;
 
@@ -169,7 +170,7 @@ abstract contract Dex is HasAdmin {
   ) external {
     unlockedOnly(base, quote);
     emit DexEvents.CancelOffer(base, quote, offerId, erase);
-    uint offer = offers[base][quote][offerId];
+    bytes32 offer = offers[base][quote][offerId];
     DC.OfferDetail memory offerDetail = offerDetails[base][quote][offerId];
     /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *un-live* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
     require(msg.sender == offerDetail.maker, "dex/cancelOffer/unauthorized");
@@ -557,7 +558,7 @@ abstract contract Dex is HasAdmin {
       if (residualBelowDust) {
         toDelete = true;
       } else {
-        uint updatedOffer = orp.offer;
+        bytes32 updatedOffer = orp.offer;
         uint newGives = $$(o_gives("updatedOffer")) - orp.wants;
         uint newWants = $$(o_wants("updatedOffer")) - orp.gives;
         offers[orp.base][orp.quote][orp.offerId] = $$(
@@ -789,7 +790,7 @@ abstract contract Dex is HasAdmin {
     uint offerId
   ) internal {
     emit DexEvents.DeleteOffer(base, quote, offerId);
-    uint offer = offers[base][quote][offerId];
+    bytes32 offer = offers[base][quote][offerId];
     offers[base][quote][offerId] = $$(o_set("offer", [["gives", 0]]));
   }
 
@@ -812,7 +813,7 @@ abstract contract Dex is HasAdmin {
     uint gasprice,
     uint gasbase,
     uint gasused,
-    uint offer,
+    bytes32 offer,
     DC.OfferDetail memory offerDetail
   ) internal {
     /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible (e.g. with `gasreq = 0`). */
@@ -1021,7 +1022,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     while (punishIndex < toPunish.length) {
       uint id = toPunish[punishIndex][0];
       /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
-      uint offer = offers[base][quote][id];
+      bytes32 offer = offers[base][quote][id];
       if (isLive(offer)) {
         DC.OfferDetail memory offerDetail = offerDetails[base][quote][id];
         dirtyDeleteOffer(base, quote, id);
@@ -1060,7 +1061,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     bool structured
   ) external view returns (DC.Offer memory, DC.OfferDetail memory) {
     structured; // silence warning about unused variable
-    uint offer = offers[base][quote][offerId];
+    bytes32 offer = offers[base][quote][offerId];
     DC.Offer memory offerStruct =
       DC.Offer({
         prev: uint24($$(o_prev("offer"))),
@@ -1092,7 +1093,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   {
     unlockedOnly(base, quote);
     // TODO: Make sure `requireNoReentrancyLock` is necessary here
-    uint offer = offers[base][quote][offerId];
+    bytes32 offer = offers[base][quote][offerId];
     DC.OfferDetail memory offerDetail = offerDetails[base][quote][offerId];
     return (
       isLive(offer),
@@ -1337,10 +1338,10 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     }
 
     /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 24 bits (if there is an update, `offerDetails[offerId]` must be owned by `msg.sender`, os `offerId` has the right width). */
-    uint ofr =
+    bytes32 ofr =
       $$(
         o_set(
-          "uint(0)",
+          "bytes32('')",
           [
             ["prev", "prev"],
             ["next", "next"],
@@ -1366,7 +1367,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     DC.OfferPack memory ofp
   ) internal view returns (uint, uint) {
     uint pivotId = ofp.pivotId;
-    uint pivot = offers[ofp.base][ofp.quote][pivotId];
+    bytes32 pivot = offers[ofp.base][ofp.quote][pivotId];
 
     if (!isLive(pivot)) {
       // in case pivotId is not or no longer a valid offer
@@ -1376,7 +1377,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
     // pivot better than `wants/gives`, we follow next
     if (better(ofp, pivot, pivotId)) {
-      uint pivotNext;
+      bytes32 pivotNext;
       while ($$(o_next("pivot")) != 0) {
         uint pivotNextId = $$(o_next("pivot"));
         pivotNext = offers[ofp.base][ofp.quote][pivotNextId];
@@ -1392,7 +1393,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
       // pivot strictly worse than `wants/gives`, we follow prev
     } else {
-      uint pivotPrev;
+      bytes32 pivotPrev;
       while ($$(o_prev("pivot")) != 0) {
         uint pivotPrevId = $$(o_prev("pivot"));
         pivotPrev = offers[ofp.base][ofp.quote][pivotPrevId];
@@ -1417,7 +1418,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   */
   function better(
     DC.OfferPack memory ofp,
-    uint offer1,
+    bytes32 offer1,
     //uint wants1,
     //uint gives1,
     uint offerId1
@@ -1455,7 +1456,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
   /* The Dex holds a `uint => Offer` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an uninitialized struct. A common way to check for initialization is to add an `exists` field to the struct. In our case, an invariant of the Dex is: on an existing offer, `offer.gives > 0`. So we just check the `gives` field. */
   /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). */
-  function isLive(uint offer) internal pure returns (bool) {
+  function isLive(bytes32 offer) internal pure returns (bool) {
     return $$(o_gives("offer")) > 0;
   }
 

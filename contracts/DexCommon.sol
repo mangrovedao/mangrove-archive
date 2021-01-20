@@ -168,7 +168,7 @@ They have the following fields: */
     uint gasprice;
     uint pivotId;
     Config config;
-    uint oldOffer;
+    bytes32 oldOffer;
   }
 
   /* Holds data about orders in a struct, used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
@@ -180,7 +180,7 @@ They have the following fields: */
     uint offerId;
     uint totalGot;
     uint totalGave;
-    uint offer;
+    bytes32 offer;
     Config config;
     uint numToPunish;
     uint[2][] toPunish;
