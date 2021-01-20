@@ -1324,9 +1324,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
     {
       uint provision =
-        (ofp.gasreq + $$(glo_gasbase("ofp.global"))) *
-          $$(glo_gasprice("ofp.global")) *
-          10**9;
+        (ofp.gasreq + $$(glo_gasbase("ofp.global"))) * ofp.gasprice * 10**9;
       if (provision > oldProvision) {
         debitWei(msg.sender, provision - oldProvision);
       } else if (provision < oldProvision) {
