@@ -61,7 +61,7 @@ join([type(struct,field),'(uint((',ptr,' << ',before(struct,field),'))',' >> ',b
 
 // prints setter for a single field
 /* $def set1(ptr,struct,field,val)
-join(['((',ptr,' & bytes32(uint(',mask(struct,field),'))) | bytes32(uint(',val,') << ',after(struct,field),'))'],'')
+join(['((',ptr,' & bytes32(uint(',mask(struct,field),'))) | bytes32((uint(',val,') << ',before(struct,field)+after(struct,field),') >> ',before(struct,field),'))'],'')
 */
 
 // prints setter for multiple fields
@@ -72,7 +72,7 @@ len(values) ? set(quote(set1(ptr,struct,values[0][0],values[0][1])),struct,tail(
 
 // !unsafe version! prints setter for a single field, without bitmask cleanup
 /* $def set1_unsafe(ptr,struct,field,val)
-join(['(',ptr,' | bytes32(uint(',val,') << ',after(struct,field),'))'],'')
+join(['(',ptr,' | bytes32((uint(',val,') << ',before(struct,field)+after(struct,field),') >> ',before(struct,field),'))'],'')
 */
 
 // !unsafe version! prints setter for multiple fields
