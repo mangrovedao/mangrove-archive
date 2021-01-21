@@ -185,7 +185,7 @@ abstract contract Dex is HasAdmin {
       delete offers[base][quote][offerId];
       delete offerDetails[base][quote][offerId];
     } else {
-      dirtyDeleteOffer(base, quote, offerId, offer);
+      dirtyDeleteOffer(base, quote, offerId, offer, true);
     }
 
     /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
@@ -603,12 +603,11 @@ abstract contract Dex is HasAdmin {
     gasLeft = $$(od_gasreq("orp.offerDetail")) - gasused;
 
     if (deleted) {
-      dirtyDeleteOffer(orp.base, orp.quote, orp.offerId, orp.offer);
+      dirtyDeleteOffer(orp.base, orp.quote, orp.offerId, orp.offer, !success);
     }
 
-    if (deleted) {
+    if (!success) {
       applyPenalty(
-        success,
         $$(glo_gasprice("orp.global")),
         gasused,
         orp.offer,
@@ -797,10 +796,15 @@ abstract contract Dex is HasAdmin {
     address base,
     address quote,
     uint offerId,
-    bytes32 offer
+    bytes32 offer,
+    bool deprovision
   ) internal {
     emit DexEvents.RemoveOffer(base, quote, offerId, false);
-    offers[base][quote][offerId] = $$(o_set("offer", [["gives", 0]]));
+    offer = $$(o_set("offer", [["gives", 0]]));
+    if (deprovision) {
+      offer = $$(o_set("offer", [["gasprice", 0]]));
+    }
+    offers[base][quote][offerId] = offer;
   }
 
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
@@ -818,7 +822,6 @@ abstract contract Dex is HasAdmin {
   //+clear+
   /* After any offer executes, or after calling a punishment function, `applyPenalty` sends part of the provisioned penalty to the maker, and part to the taker. */
   function applyPenalty(
-    bool success,
     uint gasprice,
     uint gasused,
     bytes32 offer,
@@ -827,42 +830,38 @@ abstract contract Dex is HasAdmin {
     /*
        Then we apply penalties:
 
-       * If the transaction was a success, we entirely refund the maker and send nothing to the taker.
+     * If the transaction was a success, we entirely refund the maker and send nothing to the taker.
 
-       * Otherwise, the maker loses the cost of `gasused + gasbase` gas. The gas price is estimated by `gasprice`.
+     * Otherwise, the maker loses the cost of `gasused + gasbase` gas. The gas price is estimated by `gasprice`.
 
-         Note that to create the offer, the maker had to provision for `gasreq + gasbase` gas at a price of `offer.gasprice`.
+     Note that to create the offer, the maker had to provision for `gasreq + gasbase` gas at a price of `offer.gasprice`.
 
-         Note that we do not consider the tx.gasprice.
+     Note that we do not consider the tx.gasprice.
 
-         Note that `offerDetail.gasbase` and `offer.gasprice` are the values of the Dex parameters `config.gasbase` and `config.gasprice` when the offer was createdd. Without caching, the provision set aside could be insufficient to reimburse the maker (or to compensate the taker).
+     Note that `offerDetail.gasbase` and `offer.gasprice` are the values of the Dex parameters `config.gasbase` and `config.gasprice` when the offer was createdd. Without caching, the provision set aside could be insufficient to reimburse the maker (or to compensate the taker).
 
      */
-    uint released =
+    uint provision =
       10**9 *
         $$(o_gasprice("offer")) *
         ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
 
-    if (!success) {
-      /* We take as gasprice min(offer.gasprice,config.gasprice) */
-      if ($$(o_gasprice("offer")) < gasprice) {
-        gasprice = $$(o_gasprice("offer"));
-      }
-
-      /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible (e.g. with `gasreq = 0`). */
-      if ($$(od_gasreq("offerDetail")) < gasused) {
-        gasused = $$(od_gasreq("offerDetail"));
-      }
-
-      uint toPay = 10**9 * gasprice * (gasused + $$(od_gasbase("offerDetail")));
-
-      // we know statically that toPay <= released
-      released = released - toPay;
-      bool noRevert;
-      (noRevert, ) = msg.sender.call{gas: 0, value: toPay}("");
+    /* We take as gasprice min(offer.gasprice,config.gasprice) */
+    if ($$(o_gasprice("offer")) < gasprice) {
+      gasprice = $$(o_gasprice("offer"));
     }
 
-    creditWei($$(od_maker("offerDetail")), released);
+    /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible (e.g. with `gasreq = 0`). */
+    if ($$(od_gasreq("offerDetail")) < gasused) {
+      gasused = $$(od_gasreq("offerDetail"));
+    }
+
+    uint toPay = 10**9 * gasprice * (gasused + $$(od_gasbase("offerDetail")));
+
+    bool noRevert;
+    (noRevert, ) = msg.sender.call{gas: 0, value: toPay}("");
+
+    creditWei($$(od_maker("offerDetail")), provision - toPay);
   }
 
   /* # Punishment for failing offers */
@@ -1035,10 +1034,10 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       bytes32 offer = offers[base][quote][id];
       if (isLive(offer)) {
         bytes32 offerDetail = offerDetails[base][quote][id];
-        dirtyDeleteOffer(base, quote, id, offer);
+        dirtyDeleteOffer(base, quote, id, offer, true);
         stitchOffers(base, quote, $$(o_prev("offer")), $$(o_next("offer")));
         uint gasused = toPunish[punishIndex][1];
-        applyPenalty(false, gasprice, gasused, offer, offerDetail);
+        applyPenalty(gasprice, gasused, offer, offerDetail);
       }
       punishIndex++;
     }
