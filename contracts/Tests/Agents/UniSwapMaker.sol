@@ -38,6 +38,8 @@ contract UniSwapMaker is IMaker {
   uint fraction;
   uint fee;
 
+  mapping(uint => uint) percentile;
+
   constructor(
     Dex _dex,
     uint _fraction,
@@ -97,7 +99,7 @@ contract UniSwapMaker is IMaker {
   //   bool offerDeleted;
   // }
 
-  function newPrice(ERC20 tk, ERC20 _tk) internal returns (uint, uint) {
+  function newPrice(ERC20 tk, ERC20 _tk) internal view returns (uint, uint) {
     uint newGives = _tk.balanceOf(address(this)) / fraction;
     uint x = (fraction * fee) / 1000;
     uint newWants = (tk.balanceOf(address(this)) * x) / (1 + x);
@@ -107,33 +109,17 @@ contract UniSwapMaker is IMaker {
   function newOffer(
     address base,
     address quote,
-    uint gasreq,
-    uint gasprice,
     uint pivotId_bq,
     uint pivotId_qb
   ) public {
     (uint bq_wants, uint bq_gives) = newPrice(ERC20(base), ERC20(quote));
     (uint qb_wants, uint qb_gives) = newPrice(ERC20(quote), ERC20(base));
     uint newOfrId_bq =
-      dex.newOffer(
-        base,
-        quote,
-        bq_wants,
-        bq_gives,
-        gasreq,
-        gasprice,
-        pivotId_bq
-      );
+      dex.newOffer(base, quote, bq_wants, bq_gives, gasreq, 0, pivotId_bq);
     uint newOfrId_qb =
-      dex.newOffer(
-        quote,
-        base,
-        qb_wants,
-        qb_gives,
-        gasreq,
-        gasprice,
-        pivotId_qb
-      );
+      dex.newOffer(quote, base, qb_wants, qb_gives, gasreq, 0, pivotId_qb);
+    newOfrId_bq; // should be recorded as step i of price curve discretization
+    newOfrId_qb; // should be recorded as step i of price curve discretization
   }
 
   function makerPosthook(IMaker.Posthook calldata posthook) external override {
@@ -150,6 +136,22 @@ contract UniSwapMaker is IMaker {
     dex.updateOffer(
       posthook.base,
       posthook.quote,
+      newWants,
+      newGives,
+      gasreq,
+      0,
+      pivotId,
+      posthook.offerId
+    );
+    // for all pairs in opposite Dex:
+    pivotId = 0; // if offerId = n, try to reenter at position offer[n+1]
+    (newWants, newGives) = newPrice(
+      ERC20(posthook.base),
+      ERC20(posthook.quote)
+    );
+    dex.updateOffer(
+      posthook.quote,
+      posthook.base,
       newWants,
       newGives,
       gasreq,

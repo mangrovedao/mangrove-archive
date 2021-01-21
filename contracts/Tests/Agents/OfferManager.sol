@@ -59,7 +59,7 @@ contract OfferManager is IMaker, ITaker {
   function makerTrade(IMaker.Trade calldata trade)
     external
     override
-    returns (bytes32)
+    returns (bytes32 ret)
   {
     emit Execute(
       msg.sender,
@@ -77,17 +77,17 @@ contract OfferManager is IMaker, ITaker {
           owners[address(dex)][trade.base][trade.quote][trade.offerId];
         require(owner != address(0), "Unkown owner");
         try IERC20(trade.quote).transfer(owner, trade.takerGives) {
-          return "OfferManager/transferOK";
+          ret = "OfferManager/transferOK";
         } catch {
-          return "transferToOwnerFail";
+          ret = "transferToOwnerFail";
         }
       } catch {
-        return "transferToTakerFail";
+        ret = "transferToTakerFail";
       }
     } else {
       require(msg.sender == address(invDex), "Invalid msg.sender");
       try IERC20(trade.base).transfer(trade.taker, trade.takerWants) {} catch {
-        return "transferToTakerFail";
+        ret = "transferToTakerFail";
       }
     }
   }

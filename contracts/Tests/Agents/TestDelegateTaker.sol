@@ -27,7 +27,7 @@ contract TestDelegateTaker is ITaker {
   function takerTrade(
     //NB this is not called if dex is not a flashTaker dex
     address,
-    address quote,
+    address,
     uint,
     uint shouldGive
   ) external override {

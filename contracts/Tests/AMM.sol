@@ -97,12 +97,7 @@ contract AMM_Test {
     return (mgr, tkr, _tkr);
   }
 
-  function check_logs(
-    address mgr,
-    address tkr,
-    address _tkr,
-    bool inverted
-  ) internal {
+  function check_logs(address mgr, bool inverted) internal {
     TestEvents.expectFrom(address(dex));
     emit DexEvents.Success(
       address(baseT),
@@ -179,7 +174,7 @@ contract AMM_Test {
     Display.logOfferBook(dex, address(quoteT), address(baseT), 2);
     Display.logBalances(baseT, quoteT, address(tkr), address(_tkr));
 
-    check_logs(address(mgr), address(tkr), address(_tkr), false);
+    check_logs(address(mgr), false);
   }
 
   function inverted_offer_manager_test() public {
@@ -204,7 +199,7 @@ contract AMM_Test {
     Display.logOfferBook(dex, address(baseT), address(quoteT), 5);
     Display.logOfferBook(invDex, address(quoteT), address(baseT), 2);
     Display.logBalances(baseT, quoteT, address(tkr), address(_tkr));
-    check_logs(address(mgr), address(tkr), address(_tkr), true);
+    check_logs(address(mgr), true);
   }
 
   function uniswap_like_maker_test() public {}
