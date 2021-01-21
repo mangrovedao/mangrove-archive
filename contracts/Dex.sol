@@ -605,7 +605,6 @@ abstract contract Dex is HasAdmin {
     applyPenalty(
       success,
       $$(glo_gasprice("orp.global")),
-      $$(glo_gasbase("orp.global")),
       gasused,
       orp.offer,
       orp.offerDetail
@@ -816,16 +815,10 @@ abstract contract Dex is HasAdmin {
   function applyPenalty(
     bool success,
     uint gasprice,
-    uint gasbase,
     uint gasused,
     bytes32 offer,
     bytes32 offerDetail
   ) internal {
-    /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible (e.g. with `gasreq = 0`). */
-    if ($$(od_gasreq("offerDetail")) < gasused) {
-      gasused = $$(od_gasreq("offerDetail"));
-    }
-
     /*
        Then we apply penalties:
 
@@ -833,7 +826,7 @@ abstract contract Dex is HasAdmin {
 
        * Otherwise, the maker loses the cost of `gasused + gasbase` gas. The gas price is estimated by `gasprice`.
 
-         Note that to create the offer, the maker had to provision for `gasreq + gasbase` gas at a price of `offer.gasprice`. So consider their entire provision and take as much as possible given the current gasprice.
+         Note that to create the offer, the maker had to provision for `gasreq + gasbase` gas at a price of `offer.gasprice`.
 
          Note that we do not consider the tx.gasprice.
 
@@ -846,10 +839,19 @@ abstract contract Dex is HasAdmin {
         ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
 
     if (!success) {
-      uint toPay = 10**9 * gasprice * (gasused + gasbase);
-      if (toPay > released) {
-        toPay = released;
+      /* We take as gasprice min(offer.gasprice,config.gasprice) */
+      if ($$(o_gasprice("offer")) < gasprice) {
+        gasprice = $$(o_gasprice("offer"));
       }
+
+      /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible (e.g. with `gasreq = 0`). */
+      if ($$(od_gasreq("offerDetail")) < gasused) {
+        gasused = $$(od_gasreq("offerDetail"));
+      }
+
+      uint toPay = 10**9 * gasprice * (gasused + $$(od_gasbase("offerDetail")));
+
+      // we know statically that toPay <= released
       released = released - toPay;
       bool noRevert;
       (noRevert, ) = msg.sender.call{gas: 0, value: toPay}("");
@@ -1022,7 +1024,6 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint punishIndex;
     bytes32 _global = global;
     uint gasprice = $$(glo_gasprice("_global"));
-    uint gasbase = $$(glo_gasbase("_global"));
     while (punishIndex < toPunish.length) {
       uint id = toPunish[punishIndex][0];
       /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
@@ -1032,7 +1033,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         dirtyDeleteOffer(base, quote, id, offer);
         stitchOffers(base, quote, $$(o_prev("offer")), $$(o_next("offer")));
         uint gasused = toPunish[punishIndex][1];
-        applyPenalty(false, gasprice, gasbase, gasused, offer, offerDetail);
+        applyPenalty(false, gasprice, gasused, offer, offerDetail);
       }
       punishIndex++;
     }
