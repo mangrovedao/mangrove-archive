@@ -240,7 +240,7 @@ library DexEvents {
 
   /* * A new offer was inserted into book.
    `maker` is the address of the contract that implements the offer. */
-  event WriteOffer(address base, address quote, address maker, bytes32 info);
+  event WriteOffer(address base, address quote, address maker, bytes32 data);
 
   /* * An offer was canceled (and possibly erase). */
   event CancelOffer(address base, address quote, uint offerId, bool erase);

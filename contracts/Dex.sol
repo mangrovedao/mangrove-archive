@@ -1258,7 +1258,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     }
 
     {
-      bytes32 writeOfferInfo =
+      bytes32 writeOfferData =
         $$(
           wo_make(
             [
@@ -1274,7 +1274,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         ofp.base,
         ofp.quote,
         msg.sender,
-        writeOfferInfo
+        writeOfferData
       );
     }
 
