@@ -602,13 +602,15 @@ abstract contract Dex is HasAdmin {
     }
 
     gasLeft = $$(od_gasreq("orp.offerDetail")) - gasused;
-    applyPenalty(
-      success,
-      $$(glo_gasprice("orp.global")),
-      gasused,
-      orp.offer,
-      orp.offerDetail
-    );
+    if (toDelete) {
+      applyPenalty(
+        success,
+        $$(glo_gasprice("orp.global")),
+        gasused,
+        orp.offer,
+        orp.offerDetail
+      );
+    }
   }
 
   function innerDecode(bytes memory data)
