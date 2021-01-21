@@ -31,13 +31,13 @@ abstract contract Dex is HasAdmin {
    * `offers[id]` contains pointers to the `prev`ious (better) and `next` (worse) offer in the book, as well as the price and volume of the offer (in the form of two absolute quantities, `wants` and `gives`).
    * `offerDetails[id]` contains the market maker's address (`maker`), the amount of gas required by the offer (`gasreq`) as well cached values for the global `gasbase` and `gasprice` when the offer got created (see `DexCommon` for more on `gasbase` and `gasprice`).
    */
-  mapping(address => mapping(address => mapping(uint => DC.Offer)))
+  mapping(address => mapping(address => mapping(uint => bytes32)))
     private offers;
-  mapping(address => mapping(address => mapping(uint => DC.OfferDetail)))
+  mapping(address => mapping(address => mapping(uint => bytes32)))
     private offerDetails;
 
-  DC.Global private global;
-  mapping(address => mapping(address => DC.Local)) private locals;
+  bytes32 private global;
+  mapping(address => mapping(address => bytes32)) private locals;
 
   /* * Makers provision their possible penalties in the `freeWei` mapping.
 
@@ -104,14 +104,14 @@ abstract contract Dex is HasAdmin {
        * Sending ETH to the Dex (the normal way, usual shenanigans are possible)
        * Creating a new offerX
    */
-  function requireLiveDex(DC.Global memory _global) internal pure {
-    require(!_global.dead, "dex/dead");
+  function requireLiveDex(bytes32 _global) internal pure {
+    require($$(glo_dead("_global")) == 0, "dex/dead");
   }
 
   /* TODO documentation */
-  function requireActiveMarket(DC.Config memory _config) internal pure {
-    requireLiveDex(_config.global);
-    require(_config.local.active, "dex/inactive");
+  function requireActiveMarket(bytes32 _global, bytes32 _local) internal pure {
+    requireLiveDex(_global);
+    require($$(loc_active("_local")) > 0, "dex/inactive");
   }
 
   /* # Maker operations
@@ -151,11 +151,11 @@ abstract contract Dex is HasAdmin {
     ofp.gasreq = gasreq;
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
-    ofp.config.global = global;
-    ofp.config.local = locals[base][quote];
+    ofp.global = global;
+    ofp.local = locals[base][quote];
     require(uint24(ofp.id) == ofp.id, "dex/offerIdOverflow");
 
-    requireActiveMarket(ofp.config);
+    requireActiveMarket(ofp.global, ofp.local);
     return writeOffer(ofp, false);
   }
 
@@ -169,27 +169,30 @@ abstract contract Dex is HasAdmin {
     bool to_delete
   ) external {
     unlockedOnly(base, quote);
-    DC.Offer memory offer = offers[base][quote][offerId];
-    DC.OfferDetail memory offerDetail = offerDetails[base][quote][offerId];
+    bytes32 offer = offers[base][quote][offerId];
+    bytes32 offerDetail = offerDetails[base][quote][offerId];
     /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *un-live* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
-    require(msg.sender == offerDetail.maker, "dex/cancelOffer/unauthorized");
+    require(
+      msg.sender == $$(od_maker("offerDetail")),
+      "dex/cancelOffer/unauthorized"
+    );
 
     if (isLive(offer)) {
-      stitchOffers(base, quote, offer.prev, offer.next);
+      stitchOffers(base, quote, $$(o_prev("offer")), $$(o_next("offer")));
     }
     if (to_delete) {
       emit DexEvents.RemoveOffer(base, quote, offerId, true);
       delete offers[base][quote][offerId];
       delete offerDetails[base][quote][offerId];
     } else {
-      dirtyDeleteOffer(base, quote, offerId);
+      dirtyDeleteOffer(base, quote, offerId, offer);
     }
 
     /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
     uint provision =
       10**9 *
-        uint(offer.gasprice) *
-        (uint(offerDetail.gasreq) + offerDetail.gasbase);
+        $$(o_gasprice("offer")) *
+        ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
     creditWei(msg.sender, provision);
   }
 
@@ -216,10 +219,10 @@ abstract contract Dex is HasAdmin {
     ofp.gasreq = gasreq;
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
-    ofp.config.global = global;
-    ofp.config.local = locals[base][quote];
+    ofp.global = global;
+    ofp.local = locals[base][quote];
     ofp.oldOffer = offers[base][quote][offerId];
-    requireActiveMarket(ofp.config);
+    requireActiveMarket(ofp.global, ofp.local);
     return writeOffer(ofp, true);
   }
 
@@ -322,8 +325,8 @@ abstract contract Dex is HasAdmin {
     orp.quote = quote;
     orp.offerId = offerId;
     orp.offer = offers[base][quote][offerId];
-    orp.config.global = global;
-    orp.config.local = locals[base][quote];
+    orp.global = global;
+    orp.local = locals[base][quote];
     orp.toPunish = new uint[2][](punishLength);
     orp.numToPunish = 0;
     orp.initialWants = takerWants;
@@ -334,7 +337,7 @@ abstract contract Dex is HasAdmin {
     orp.gives = 0;
 
     /* For the market order to even start, the market needs to be both alive (that is, not irreversibly killed following emergency action), and not currently protected from reentrancy. */
-    requireActiveMarket(orp.config);
+    requireActiveMarket(orp.global, orp.local);
 
     /* ### Initialization */
     /* The market order will operate as follows : it will go through offers from best to worse, starting from `offerId`, and: */
@@ -345,7 +348,7 @@ abstract contract Dex is HasAdmin {
 
     /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. The check is an `if` instead of a `require` so we don't throw on an empty market -- but it also means we treat a bad offer id as a take on an empty market. */
     if (isLive(orp.offer)) {
-      internalMarketOrder(orp, orp.offer.prev, orp.initialWants != 0);
+      internalMarketOrder(orp, $$(o_prev("orp.offer")), orp.initialWants != 0);
     }
     return (orp.totalGot, orp.totalGave, orp.toPunish);
   }
@@ -403,15 +406,15 @@ abstract contract Dex is HasAdmin {
       */
 
       // those may have been updated by execute, we keep them in stack
-      address maker = orp.offerDetail.maker;
+      address maker = $$(od_maker("orp.offerDetail"));
       uint offerId = orp.offerId;
       uint takerWants = orp.wants;
       uint takerGives = orp.gives;
 
       if (toDelete) {
-        dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
+        dirtyDeleteOffer(orp.base, orp.quote, orp.offerId, orp.offer);
         // note that internalMarketOrder may be called twice with same offerId, but in that case proceed will be false!
-        orp.offerId = orp.offer.next;
+        orp.offerId = $$(o_next("orp.offer"));
         orp.offer = offers[orp.base][orp.quote][orp.offerId];
       }
 
@@ -504,25 +507,28 @@ abstract contract Dex is HasAdmin {
    To do that, we round up the amount required by the maker. That amount will later be deduced from the offer's total volume.
        */
     uint makerWouldWant =
-      roundUpRatio(orp.wants * orp.offer.wants, orp.offer.gives);
+      roundUpRatio(
+        orp.wants * $$(o_wants("orp.offer")),
+        $$(o_gives("orp.offer"))
+      );
 
     if (makerWouldWant > orp.gives) {
-      return (success, toDelete, orp.offerDetail.gasreq);
+      return (success, toDelete, $$(od_gasreq("orp.offerDetail")));
     }
 
     /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `orp.wants`,`orp.gives` are how much the taker will trade with the current offer. */
-    if (orp.offer.gives < orp.wants) {
-      orp.wants = orp.offer.gives;
-      orp.gives = orp.offer.wants;
+    if ($$(o_gives("orp.offer")) < orp.wants) {
+      orp.wants = $$(o_gives("orp.offer"));
+      orp.gives = $$(o_wants("orp.offer"));
     } else {
       orp.gives = makerWouldWant;
     }
 
     bool residualBelowDust;
     if (
-      orp.offer.gives - orp.wants <
-      uint(orp.config.local.density) *
-        (orp.offerDetail.gasreq + uint(orp.config.global.gasbase))
+      $$(o_gives("orp.offer")) - orp.wants <
+      $$(loc_density("orp.local")) *
+        ($$(od_gasreq("orp.offerDetail")) + $$(glo_gasbase("orp.global")))
     ) {
       residualBelowDust = true;
     }
@@ -555,11 +561,11 @@ abstract contract Dex is HasAdmin {
       if (residualBelowDust) {
         toDelete = true;
       } else {
-        offers[orp.base][orp.quote][orp.offerId].gives = uint96(
-          orp.offer.gives - orp.wants
-        );
-        offers[orp.base][orp.quote][orp.offerId].wants = uint96(
-          orp.offer.wants - orp.gives
+        bytes32 updatedOffer = orp.offer;
+        uint newGives = $$(o_gives("updatedOffer")) - orp.wants;
+        uint newWants = $$(o_wants("updatedOffer")) - orp.gives;
+        offers[orp.base][orp.quote][orp.offerId] = $$(
+          o_set("updatedOffer", [["gives", "newGives"], ["wants", "newWants"]])
         );
       }
     } else {
@@ -595,11 +601,11 @@ abstract contract Dex is HasAdmin {
       }
     }
 
-    gasLeft = orp.offerDetail.gasreq - gasused;
+    gasLeft = $$(od_gasreq("orp.offerDetail")) - gasused;
     applyPenalty(
       success,
-      orp.config.global.gasprice,
-      orp.config.global.gasbase,
+      $$(glo_gasprice("orp.global")),
+      $$(glo_gasbase("orp.global")),
       gasused,
       orp.offer,
       orp.offerDetail
@@ -678,8 +684,8 @@ abstract contract Dex is HasAdmin {
     DC.OrderPack memory orp;
     orp.base = base;
     orp.quote = quote;
-    orp.config.global = global;
-    orp.config.local = locals[base][quote];
+    orp.global = global;
+    orp.local = locals[base][quote];
     orp.toPunish = new uint[2][](punishLength);
     orp.numToPunish = 0;
     orp.totalGot = 0;
@@ -687,7 +693,7 @@ abstract contract Dex is HasAdmin {
     orp.wants = 0;
     orp.gives = 0;
 
-    requireActiveMarket(orp.config);
+    requireActiveMarket(orp.global, orp.local);
 
     /* ### Main loop */
     //+clear+
@@ -716,7 +722,9 @@ abstract contract Dex is HasAdmin {
       bool toDelete;
 
       /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. We also check that `gasreq` is not worse than specified. A taker who does not care about `gasreq` can specify any amount larger than $2^{24}-1$. */
-      if (isLive(orp.offer) && orp.offerDetail.gasreq <= targets[i][3]) {
+      if (
+        isLive(orp.offer) && $$(od_gasreq("orp.offerDetail")) <= targets[i][3]
+      ) {
         require(
           uint96(targets[i][1]) == targets[i][1],
           "dex/snipes/takerWants/96bits"
@@ -728,12 +736,17 @@ abstract contract Dex is HasAdmin {
           successes += 1;
         }
         if (toDelete) {
-          dirtyDeleteOffer(orp.base, orp.quote, orp.offerId);
-          stitchOffers(orp.base, orp.quote, orp.offer.prev, orp.offer.next);
+          dirtyDeleteOffer(orp.base, orp.quote, orp.offerId, orp.offer);
+          stitchOffers(
+            orp.base,
+            orp.quote,
+            $$(o_prev("orp.offer")),
+            $$(o_next("orp.offer"))
+          );
         }
       }
 
-      address maker = orp.offerDetail.maker;
+      address maker = $$(od_maker("orp.offerDetail"));
       uint offerId = orp.offerId;
       uint takerWants = orp.wants;
       uint takerGives = orp.gives;
@@ -779,16 +792,17 @@ abstract contract Dex is HasAdmin {
   function dirtyDeleteOffer(
     address base,
     address quote,
-    uint offerId
+    uint offerId,
+    bytes32 offer
   ) internal {
     emit DexEvents.RemoveOffer(base, quote, offerId, false);
-    offers[base][quote][offerId].gives = 0;
+    offers[base][quote][offerId] = $$(o_set("offer", [["gives", 0]]));
   }
 
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
   function applyFee(DC.OrderPack memory orp) internal {
     if (orp.totalGot > 0) {
-      uint concreteFee = (orp.totalGot * uint(orp.config.local.fee)) / 10_000;
+      uint concreteFee = (orp.totalGot * $$(loc_fee("orp.local"))) / 10_000;
       orp.totalGot -= concreteFee;
       bool success =
         DexLib.transferToken(orp.base, msg.sender, admin, concreteFee);
@@ -804,12 +818,12 @@ abstract contract Dex is HasAdmin {
     uint gasprice,
     uint gasbase,
     uint gasused,
-    DC.Offer memory offer,
-    DC.OfferDetail memory offerDetail
+    bytes32 offer,
+    bytes32 offerDetail
   ) internal {
     /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible (e.g. with `gasreq = 0`). */
-    if (offerDetail.gasreq < gasused) {
-      gasused = offerDetail.gasreq;
+    if ($$(od_gasreq("offerDetail")) < gasused) {
+      gasused = $$(od_gasreq("offerDetail"));
     }
 
     /*
@@ -827,7 +841,9 @@ abstract contract Dex is HasAdmin {
 
      */
     uint released =
-      10**9 * uint(offer.gasprice) * (offerDetail.gasreq + offerDetail.gasbase);
+      10**9 *
+        $$(o_gasprice("offer")) *
+        ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
 
     if (!success) {
       uint toPay = 10**9 * gasprice * (gasused + gasbase);
@@ -839,7 +855,7 @@ abstract contract Dex is HasAdmin {
       (noRevert, ) = msg.sender.call{gas: 0, value: toPay}("");
     }
 
-    creditWei(offerDetail.maker, released);
+    creditWei($$(od_maker("offerDetail")), released);
   }
 
   /* # Punishment for failing offers */
@@ -888,8 +904,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     } else {
       (, , , uint[2][] memory toPunish) =
         abi.decode(retdata, (uint, uint, uint, uint[2][]));
-      DC.Global memory _global = global;
-      punish(base, quote, toPunish, _global.gasprice, _global.gasbase);
+      punish(base, quote, toPunish);
     }
   }
 
@@ -959,8 +974,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     } else {
       (, , uint[2][] memory toPunish) =
         abi.decode(retdata, (uint, uint, uint[2][]));
-      DC.Global memory _global = global;
-      punish(base, quote, toPunish, _global.gasprice, _global.gasbase);
+      punish(base, quote, toPunish);
     }
   }
 
@@ -1003,19 +1017,20 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   function punish(
     address base,
     address quote,
-    uint[2][] memory toPunish,
-    uint gasprice,
-    uint gasbase
+    uint[2][] memory toPunish
   ) internal {
     uint punishIndex;
+    bytes32 _global = global;
+    uint gasprice = $$(glo_gasprice("_global"));
+    uint gasbase = $$(glo_gasbase("_global"));
     while (punishIndex < toPunish.length) {
       uint id = toPunish[punishIndex][0];
       /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
-      DC.Offer memory offer = offers[base][quote][id];
+      bytes32 offer = offers[base][quote][id];
       if (isLive(offer)) {
-        DC.OfferDetail memory offerDetail = offerDetails[base][quote][id];
-        dirtyDeleteOffer(base, quote, id);
-        stitchOffers(base, quote, offer.prev, offer.next);
+        bytes32 offerDetail = offerDetails[base][quote][id];
+        dirtyDeleteOffer(base, quote, id, offer);
+        stitchOffers(base, quote, $$(o_prev("offer")), $$(o_next("offer")));
         uint gasused = toPunish[punishIndex][1];
         applyPenalty(false, gasprice, gasbase, gasused, offer, offerDetail);
       }
@@ -1050,7 +1065,25 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     bool structured
   ) external view returns (DC.Offer memory, DC.OfferDetail memory) {
     structured; // silence warning about unused variable
-    return (offers[base][quote][offerId], offerDetails[base][quote][offerId]);
+    bytes32 offer = offers[base][quote][offerId];
+    DC.Offer memory offerStruct =
+      DC.Offer({
+        prev: $$(o_prev("offer")),
+        next: $$(o_next("offer")),
+        wants: $$(o_wants("offer")),
+        gives: $$(o_gives("offer")),
+        gasprice: $$(o_gasprice("offer"))
+      });
+
+    bytes32 offerDetail = offerDetails[base][quote][offerId];
+
+    DC.OfferDetail memory offerDetailStruct =
+      DC.OfferDetail({
+        maker: $$(od_maker("offerDetail")),
+        gasreq: $$(od_gasreq("offerDetail")),
+        gasbase: $$(od_gasbase("offerDetail"))
+      });
+    return (offerStruct, offerDetailStruct);
   }
 
   function getOfferInfo(
@@ -1073,17 +1106,17 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   {
     unlockedOnly(base, quote);
     // TODO: Make sure `requireNoReentrancyLock` is necessary here
-    DC.Offer memory offer = offers[base][quote][offerId];
-    DC.OfferDetail memory offerDetail = offerDetails[base][quote][offerId];
+    bytes32 offer = offers[base][quote][offerId];
+    bytes32 offerDetail = offerDetails[base][quote][offerId];
     return (
       isLive(offer),
-      offer.wants,
-      offer.gives,
-      offer.next,
-      offerDetail.gasreq,
-      offerDetail.gasbase, // global gasbase at offer creation time
-      offer.gasprice, // global gasprice at offer creation time
-      offerDetail.maker
+      $$(o_wants("offer")),
+      $$(o_gives("offer")),
+      $$(o_next("offer")),
+      $$(od_gasreq("offerDetail")),
+      $$(od_gasbase("offerDetail")), // global gasbase at offer creation time
+      $$(o_gasprice("offer")), // global gasprice at offer creation time
+      $$(od_maker("offerDetail"))
     );
   }
 
@@ -1097,8 +1130,19 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     view
     returns (DC.Config memory ret)
   {
-    ret.global = global;
-    ret.local = locals[base][quote];
+    bytes32 _global = global;
+    ret.global = DC.Global({
+      gasprice: $$(glo_gasprice("_global")),
+      gasbase: $$(glo_gasbase("_global")),
+      gasmax: $$(glo_gasmax("_global")),
+      dead: $$(glo_dead("global")) > 0
+    });
+    bytes32 _local = locals[base][quote];
+    ret.local = DC.Local({
+      active: $$(loc_active("_local")) > 0,
+      fee: $$(loc_fee("_local")),
+      density: $$(loc_density("_local"))
+    });
   }
 
   function roundUpRatio(uint num, uint den) internal pure returns (uint) {
@@ -1118,7 +1162,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint density
   ) public {
     adminOnly();
-    locals[base][quote].active = true;
+    locals[base][quote] = $$(loc_set("locals[base][quote]", [["active", 1]]));
     setFee(base, quote, fee);
     setDensity(base, quote, density);
     emit DexEvents.SetActive(base, quote, true);
@@ -1126,7 +1170,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
   function deactivate(address base, address quote) public {
     adminOnly();
-    locals[base][quote].active = false;
+    locals[base][quote] = $$(loc_set("locals[base][quote]", [["active", 0]]));
     emit DexEvents.SetActive(base, quote, true);
   }
 
@@ -1139,7 +1183,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     adminOnly();
     /* `fee` is in basis points, i.e. in percents of a percent. */
     require(value <= 500, "dex/config/fee/<=500"); // at most 5%
-    locals[base][quote].fee = uint16(value);
+    locals[base][quote] = $$(
+      loc_set("locals[base][quote]", [["fee", "value"]])
+    );
     emit DexEvents.SetFee(base, quote, value);
   }
 
@@ -1155,7 +1201,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
     require(uint32(value) == value, "dex/config/density/32bits");
     //+clear+
-    locals[base][quote].density = uint32(value);
+    locals[base][quote] = $$(
+      loc_set("locals[base][quote]", [["density", "value"]])
+    );
     emit DexEvents.SetDensity(base, quote, value);
   }
 
@@ -1163,7 +1211,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* ### `kill` */
   function kill() public {
     adminOnly();
-    global.dead = true;
+    global = $$(glo_set("global", [["dead", 1]]));
     emit DexEvents.Kill();
   }
 
@@ -1173,7 +1221,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */
     require(uint16(value) == value, "dex/config/gasprice/16bits");
     //+clear+
-    global.gasprice = uint16(value);
+
+    global = $$(glo_set("global", [["gasprice", "value"]]));
     emit DexEvents.SetGasprice(value);
   }
 
@@ -1185,7 +1234,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* Checking the size of `gasbase` is necessary to prevent a) data loss when `gasbase` is copied to an `OfferDetail` struct, and b) overflow when `gasbase` is used in calculations. */
     require(uint24(value) == value, "dex/config/gasbase/24bits");
     //+clear+
-    global.gasbase = uint24(value);
+    global = $$(glo_set("global", [["gasbase", "value"]]));
     emit DexEvents.SetGasbase(value);
   }
 
@@ -1195,7 +1244,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* Since any new `gasreq` is bounded above by `config.gasmax`, this check implies that all offers' `gasreq` is 24 bits wide at most. */
     require(uint24(value) == value, "dex/config/gasmax/24bits");
     //+clear+
-    global.gasmax = uint24(value);
+    global = $$(glo_set("global", [["gasmax", "value"]]));
     emit DexEvents.SetGasmax(value);
   }
 
@@ -1204,65 +1253,78 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     returns (uint)
   {
     /* gasprice given by maker will be bounded below by internal gasprice estimate at offer write time. with a large enough overapproximation of the gasprice, the maker can regularly update their offer without updating it */
-    if (ofp.gasprice < ofp.config.global.gasprice) {
-      ofp.gasprice = ofp.config.global.gasprice;
+    if (ofp.gasprice < $$(glo_gasprice("ofp.global"))) {
+      ofp.gasprice = $$(glo_gasprice("ofp.global"));
     }
 
-    emit DexEvents.WriteOffer(
-      ofp.base,
-      ofp.quote,
-      msg.sender,
-      ofp.wants,
-      ofp.gives,
-      ofp.gasreq,
-      ofp.gasprice,
-      ofp.id,
-      update
-    );
+    {
+      bytes32 writeOfferData =
+        $$(
+          wo_make(
+            [
+              ["wants", "ofp.wants"],
+              ["gives", "ofp.gives"],
+              ["gasreq", "ofp.gasreq"],
+              ["gasprice", "ofp.gasprice"],
+              ["id", "ofp.id"]
+            ]
+          )
+        );
+      emit DexEvents.WriteOffer(
+        ofp.base,
+        ofp.quote,
+        msg.sender,
+        writeOfferData
+      );
+    }
 
     /* The following checks are first performed: */
     //+clear+
     /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `provision` (see below). */
     require(
-      ofp.gasreq <= ofp.config.global.gasmax,
+      ofp.gasreq <= $$(glo_gasmax("ofp.global")),
       "dex/writeOffer/gasreq/tooHigh"
     );
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isLive` method sound. */
     require(
       ofp.gives >=
-        (ofp.gasreq + uint(ofp.config.global.gasbase)) *
-          uint(ofp.config.local.density),
+        (ofp.gasreq + $$(glo_gasbase("ofp.global"))) *
+          $$(loc_density("ofp.local")),
       "dex/writeOffer/gives/tooLow"
     );
 
     /* First, we write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `freeWei`. */
     uint oldProvision;
     {
-      DC.OfferDetail memory offerDetail =
-        offerDetails[ofp.base][ofp.quote][ofp.id];
+      bytes32 offerDetail = offerDetails[ofp.base][ofp.quote][ofp.id];
       if (update) {
         require(
-          msg.sender == offerDetail.maker,
+          msg.sender == $$(od_maker("offerDetail")),
           "dex/updateOffer/unauthorized"
         );
         oldProvision =
           10**9 *
-          uint(ofp.oldOffer.gasprice) *
-          (uint(offerDetail.gasreq) + offerDetail.gasbase);
+          $$(o_gasprice("ofp.oldOffer")) *
+          ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
       }
 
       //TODO check that we're using less gas if those values haven't changed
       if (
         /* It is currently not possible for a new offer to fail the 3 last tests, but it may in the future, so we make sure we're semantically correct by checking for `!update`. */
         !update ||
-        offerDetail.gasreq != ofp.gasreq ||
-        offerDetail.gasbase != ofp.config.global.gasbase
+        $$(od_gasreq("offerDetail")) != ofp.gasreq ||
+        $$(od_gasbase("offerDetail")) != $$(glo_gasbase("ofp.global"))
       ) {
-        offerDetails[ofp.base][ofp.quote][ofp.id] = DC.OfferDetail({
-          gasreq: uint24(ofp.gasreq),
-          gasbase: uint24(ofp.config.global.gasbase),
-          maker: msg.sender
-        });
+        uint gasbase = $$(glo_gasbase("ofp.global"));
+        offerDetails[ofp.base][ofp.quote][ofp.id] = $$(
+          od_make(
+            [
+              ["maker", "uint(msg.sender)"],
+              ["gasreq", "ofp.gasreq"],
+              ["gasbase", "gasbase"]
+            ]
+          )
+        );
       }
     }
 
@@ -1270,9 +1332,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
     {
       uint provision =
-        (ofp.gasreq + uint(ofp.config.global.gasbase)) *
-          uint(ofp.config.global.gasprice) *
-          10**9;
+        (ofp.gasreq + $$(glo_gasbase("ofp.global"))) * ofp.gasprice * 10**9;
       if (provision > oldProvision) {
         debitWei(msg.sender, provision - oldProvision);
       } else if (provision < oldProvision) {
@@ -1283,7 +1343,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
 
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
-    (uint prev, uint next) = findPosition(bests[ofp.base][ofp.quote], ofp);
+    (uint prev, uint next) = findPosition(ofp);
     /* Then we place the offer in the book at the position found by `findPosition`.
 
        If the offer is not the best one, we update its predecessor; otherwise we update the `best` value. */
@@ -1291,33 +1351,49 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* tests if offer has moved in the book (or was not already there) if next == ofp.id, then the new offer parameters are strictly better than before but still worse than the old prev. if prev == ofp.id, then the new offer parameters are worse or as good as before but still better than the old next. */
     if (!(next == ofp.id || prev == ofp.id)) {
       if (prev != 0) {
-        offers[ofp.base][ofp.quote][prev].next = uint24(ofp.id);
+        offers[ofp.base][ofp.quote][prev] = $$(
+          o_set("offers[ofp.base][ofp.quote][prev]", [["next", "ofp.id"]])
+        );
       } else {
-        bests[ofp.base][ofp.quote] = uint24(ofp.id);
+        bests[ofp.base][ofp.quote] = ofp.id;
       }
 
       /* If the offer is not the last one, we update its successor. */
       if (next != 0) {
-        offers[ofp.base][ofp.quote][next].prev = uint24(ofp.id);
+        offers[ofp.base][ofp.quote][next] = $$(
+          o_set("offers[ofp.base][ofp.quote][next]", [["prev", "ofp.id"]])
+        );
       }
 
       /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *move* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. A priori, if `writeOffer` is called by `newOffer`, `oldOffer` should be all zeros and thus not live. But that would be assuming a subtle implementation detail of `isLive`, so we add the (currently redundant) check on `update`).
        */
       if (update && isLive(ofp.oldOffer)) {
-        stitchOffers(ofp.base, ofp.quote, ofp.oldOffer.prev, ofp.oldOffer.next);
+        stitchOffers(
+          ofp.base,
+          ofp.quote,
+          $$(o_prev("ofp.oldOffer")),
+          $$(o_next("ofp.oldOffer"))
+        );
       }
     }
 
     /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 24 bits (if there is an update, `offerDetails[offerId]` must be owned by `msg.sender`, os `offerId` has the right width). */
-    offers[ofp.base][ofp.quote][ofp.id] = DC.Offer({
-      prev: uint24(prev),
-      next: uint24(next),
-      wants: uint96(ofp.wants),
-      gives: uint96(ofp.gives),
-      gasprice: uint16(ofp.gasprice)
-    });
+    bytes32 ofr =
+      $$(
+        o_make(
+          [
+            ["prev", "prev"],
+            ["next", "next"],
+            ["wants", "ofp.wants"],
+            ["gives", "ofp.gives"],
+            ["gasprice", "ofp.gasprice"]
+          ]
+        )
+      );
+    offers[ofp.base][ofp.quote][ofp.id] = ofr;
 
     /* And finally return the newly created offer id to the caller. */
+
     return ofp.id;
   }
 
@@ -1325,47 +1401,50 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
   If prices are equal, `findPosition` will put the newest offer last. */
   function findPosition(
-    /* As a backup pivot, the id of the current best offer is sent by `Dex` to `DexLib`. This is in case `pivotId` turns out to be an invalid offer id. This part of the code relies on consumed offers being deleted, otherwise we would blindly insert offers next to garbage old values. */
-    uint bestValue,
+    /* This part of the code relies on consumed offers being deleted, otherwise we would blindly insert offers next to garbage old values. */
     DC.OfferPack memory ofp
   ) internal view returns (uint, uint) {
     uint pivotId = ofp.pivotId;
-    DC.Offer memory pivot = offers[ofp.base][ofp.quote][pivotId];
+    /* optimize for the case wher pivot info is already known */
+    bytes32 pivot =
+      pivotId == ofp.id ? ofp.oldOffer : offers[ofp.base][ofp.quote][pivotId];
 
     if (!isLive(pivot)) {
       // in case pivotId is not or no longer a valid offer
-      pivot = offers[ofp.base][ofp.quote][bestValue];
-      pivotId = bestValue;
+      pivotId = bests[ofp.base][ofp.quote];
+      pivot = offers[ofp.base][ofp.quote][pivotId];
     }
 
     // pivot better than `wants/gives`, we follow next
-    if (better(ofp, pivot.wants, pivot.gives, pivotId)) {
-      DC.Offer memory pivotNext;
-      while (pivot.next != 0) {
-        pivotNext = offers[ofp.base][ofp.quote][pivot.next];
-        if (better(ofp, pivotNext.wants, pivotNext.gives, pivot.next)) {
-          pivotId = pivot.next;
+    if (better(ofp, pivot, pivotId)) {
+      bytes32 pivotNext;
+      while ($$(o_next("pivot")) != 0) {
+        uint pivotNextId = $$(o_next("pivot"));
+        pivotNext = offers[ofp.base][ofp.quote][pivotNextId];
+        if (better(ofp, pivotNext, pivotNextId)) {
+          pivotId = pivotNextId;
           pivot = pivotNext;
         } else {
           break;
         }
       }
       // this is also where we end up with an empty book
-      return (pivotId, pivot.next);
+      return (pivotId, $$(o_next("pivot")));
 
       // pivot strictly worse than `wants/gives`, we follow prev
     } else {
-      DC.Offer memory pivotPrev;
-      while (pivot.prev != 0) {
-        pivotPrev = offers[ofp.base][ofp.quote][pivot.prev];
-        if (better(ofp, pivotPrev.wants, pivotPrev.gives, pivot.prev)) {
+      bytes32 pivotPrev;
+      while ($$(o_prev("pivot")) != 0) {
+        uint pivotPrevId = $$(o_prev("pivot"));
+        pivotPrev = offers[ofp.base][ofp.quote][pivotPrevId];
+        if (better(ofp, pivotPrev, pivotPrevId)) {
           break;
         } else {
-          pivotId = pivot.prev;
+          pivotId = pivotPrevId;
           pivot = pivotPrev;
         }
       }
-      return (pivot.prev, pivotId);
+      return ($$(o_prev("pivot")), pivotId);
     }
   }
 
@@ -1379,10 +1458,13 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   */
   function better(
     DC.OfferPack memory ofp,
-    uint wants1,
-    uint gives1,
+    bytes32 offer1,
+    //uint wants1,
+    //uint gives1,
     uint offerId1
   ) internal view returns (bool) {
+    uint wants1 = $$(o_wants("offer1"));
+    uint gives1 = $$(o_gives("offer1"));
     if (offerId1 == 0) {
       return false;
     } //happens on empty OB
@@ -1391,7 +1473,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint weight1 = wants1 * gives2;
     uint weight2 = wants2 * gives1;
     if (weight1 == weight2) {
-      uint gasreq1 = offerDetails[ofp.base][ofp.quote][offerId1].gasreq;
+      uint gasreq1 =
+        $$(od_gasreq("offerDetails[ofp.base][ofp.quote][offerId1]"));
       uint gasreq2 = ofp.gasreq;
       return (gives1 * gasreq2 >= gives2 * gasreq1); //density1 is higher
     } else {
@@ -1402,8 +1485,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* # Maker debit/credit utility functions */
 
   function debitWei(address maker, uint amount) internal {
-    require(freeWei[maker] >= amount, "dex/insufficientProvision");
-    freeWei[maker] -= amount;
+    uint makerFreeWei = freeWei[maker];
+    require(makerFreeWei >= amount, "dex/insufficientProvision");
+    freeWei[maker] = makerFreeWei - amount;
     emit DexEvents.Debit(maker, amount);
   }
 
@@ -1414,25 +1498,29 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
   /* The Dex holds a `uint => Offer` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an uninitialized struct. A common way to check for initialization is to add an `exists` field to the struct. In our case, an invariant of the Dex is: on an existing offer, `offer.gives > 0`. So we just check the `gives` field. */
   /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). */
-  function isLive(DC.Offer memory offer) internal pure returns (bool) {
-    return offer.gives > 0;
+  function isLive(bytes32 offer) internal pure returns (bool) {
+    return $$(o_gives("offer")) > 0;
   }
 
   /* Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer` */
   function stitchOffers(
     address base,
     address quote,
-    uint past,
-    uint future
+    uint pastId,
+    uint futureId
   ) internal {
-    if (past != 0) {
-      offers[base][quote][past].next = uint24(future);
+    if (pastId != 0) {
+      offers[base][quote][pastId] = $$(
+        o_set("offers[base][quote][pastId]", [["next", "futureId"]])
+      );
     } else {
-      bests[base][quote] = future;
+      bests[base][quote] = futureId;
     }
 
-    if (future != 0) {
-      offers[base][quote][future].prev = uint24(past);
+    if (futureId != 0) {
+      offers[base][quote][futureId] = $$(
+        o_set("offers[base][quote][futureId]", [["prev", "pastId"]])
+      );
     }
   }
 }

@@ -1,7 +1,7 @@
 //usePlugin("@nomiclabs/buidler-truffle5");
 require("hardhat-deploy");
 require("hardhat-deploy-ethers");
-require("@nomiclabs/hardhat-solpp");
+require("adhusson-hardhat-solpp");
 const test_solidity = require("./lib/test_solidity.js");
 
 // Special task for running Solidity tests
@@ -69,6 +69,9 @@ module.exports = {
     tests: "./test",
     cache: "./cache",
     artifacts: "./build",
+  },
+  solpp: {
+    includes: ["./solpp_config"],
   },
   logFormatters: {
     Success: (log, rawLog, originator, formatArg) => {
