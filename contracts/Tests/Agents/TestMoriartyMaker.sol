@@ -23,26 +23,28 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     succeed = true;
   }
 
-  function execute(
-    address,
-    address,
-    uint takerWants,
-    uint,
-    address taker,
-    uint,
-    uint offerId
-  ) public override returns (uint ret) {
+  function makerTrade(IMaker.Trade calldata trade)
+    public
+    override
+    returns (bytes32 ret)
+  {
     bool _succeed = succeed;
-    if (offerId == dummy) {
+    if (trade.offerId == dummy) {
       succeed = false;
     }
     if (_succeed) {
-      bool s = IERC20(base).transfer(taker, takerWants);
-      ret = s ? 0 : 2;
+      bool s = IERC20(trade.base).transfer(trade.taker, trade.takerWants);
+      ret = s ? bytes32(0) : bytes32(uint(2));
     } else {
       assert(false);
     }
   }
+
+  function makerPosthook(IMaker.Posthook calldata posthook)
+    external
+    pure
+    override
+  {}
 
   function newOffer(
     uint wants,
@@ -50,18 +52,19 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     uint gasreq,
     uint pivotId
   ) public {
-    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
-    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
-    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
-    dex.newOffer(base, quote, wants, gives, gasreq, pivotId);
-    uint density = dex.config(base, quote).density;
-    uint gasbase = dex.config(base, quote).gasbase;
+    dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
+    dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
+    dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
+    dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
+    uint density = dex.config(base, quote).local.density;
+    uint gasbase = dex.config(base, quote).global.gasbase;
     dummy = dex.newOffer({
       base: base,
       quote: quote,
       wants: 1,
       gives: density * (gasbase + 100000),
       gasreq: 100000,
+      gasprice: 0,
       pivotId: 0
     }); //dummy offer
   }
@@ -71,7 +74,7 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     require(success);
   }
 
-  function approve(IERC20 token, uint amount) public {
+  function approveDex(IERC20 token, uint amount) public {
     token.approve(address(dex), amount);
   }
 

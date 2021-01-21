@@ -18,10 +18,11 @@ import "./Agents/TestMoriartyMaker.sol";
 import "./Agents/MakerDeployer.sol";
 import "./Agents/TestTaker.sol";
 
-contract MakerOperations_Test {
+contract MakerOperations_Test is IMaker {
   Dex dex;
   TestMaker mkr;
   TestMaker mkr2;
+  TestTaker tkr;
   TestToken base;
   TestToken quote;
 
@@ -33,9 +34,15 @@ contract MakerOperations_Test {
     dex = DexSetup.setup(base, quote);
     mkr = MakerSetup.setup(dex, address(base), address(quote), false);
     mkr2 = MakerSetup.setup(dex, address(base), address(quote), false);
+    tkr = TakerSetup.setup(dex, address(base), address(quote));
 
     address(mkr).transfer(10 ether);
     address(mkr2).transfer(10 ether);
+
+    address(tkr).transfer(10 ether);
+
+    quote.mint(address(tkr), 1 ether);
+    tkr.approveDex(quote, 1 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "MakerOperations_Test");
@@ -44,6 +51,7 @@ contract MakerOperations_Test {
     Display.register(address(dex), "dex");
     Display.register(address(mkr), "maker");
     Display.register(address(mkr2), "maker2");
+    Display.register(address(tkr), "taker");
   }
 
   function provision_adds_freeWei_and_ethers_test() public {
@@ -72,6 +80,69 @@ contract MakerOperations_Test {
       dex_bal + amt1 + amt2,
       "incorrect dex ETH balance (2)"
     );
+  }
+
+  // since we check calldata, execute must be internal
+  function makerTrade(IMaker.Trade calldata trade)
+    external
+    override
+    returns (bytes32 ret)
+  {
+    ret; // silence unused function parameter warning
+    IERC20(base).transfer(trade.taker, trade.takerWants);
+    uint num_args = 11;
+    uint selector_bytes = 4;
+    uint length = selector_bytes + num_args * 32;
+    TestEvents.eq(
+      msg.data.length,
+      length,
+      "calldata length in execute is incorrect"
+    );
+
+    TestEvents.eq(trade.base, address(base), "wrong base");
+    TestEvents.eq(trade.quote, address(quote), "wrong quote");
+    TestEvents.eq(trade.takerWants, 0.05 ether, "wrong takerWants");
+    TestEvents.eq(trade.takerGives, 0.05 ether, "wrong takerGives");
+    TestEvents.eq(trade.taker, address(tkr), "wrong taker");
+    TestEvents.eq(
+      trade.offerGasprice,
+      dex.config(trade.base, trade.quote).global.gasprice,
+      "wrong gasprice"
+    );
+    TestEvents.eq(trade.offerGasreq, 200_000, "wrong gasreq");
+    TestEvents.eq(trade.offerId, 1, "wrong offerId");
+    TestEvents.eq(trade.offerWants, 0.05 ether, "wrong offerWants");
+    TestEvents.eq(trade.offerGives, 0.05 ether, "wrong offerGives");
+    TestEvents.check(trade.offerWillDelete, "offerWillDelete should be true");
+    // test flashloan
+    TestEvents.eq(
+      quote.balanceOf(address(this)),
+      0.05 ether,
+      "wrong quote balance"
+    );
+  }
+
+  function makerPosthook(IMaker.Posthook calldata posthook)
+    external
+    pure
+    override
+  {}
+
+  function calldata_and_balance_in_makerTrade_are_correct_test() public {
+    bool funded;
+    (funded, ) = address(dex).call{value: 1 ether}("");
+    base.mint(address(this), 1 ether);
+    uint ofr =
+      dex.newOffer(
+        address(base),
+        address(quote),
+        0.05 ether,
+        0.05 ether,
+        200_000,
+        0,
+        0
+      );
+    require(tkr.take(ofr, 0.05 ether), "take must work of test is void");
   }
 
   function withdraw_removes_freeWei_and_ethers_test() public {
@@ -162,7 +233,7 @@ contract MakerOperations_Test {
     try mkr.newOffer(1 ether, density - 1, 0, 0) {
       TestEvents.fail("density too low, newOffer should fail");
     } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/newOffer/gives/tooLow", "wrong revert reason");
+      TestEvents.eq(r, "dex/writeOffer/gives/tooLow", "wrong revert reason");
     }
   }
 }

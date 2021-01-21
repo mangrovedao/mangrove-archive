@@ -4,21 +4,55 @@ pragma experimental ABIEncoderV2;
 import {DexCommon as DC} from "./DexCommon.sol";
 
 interface IMaker {
-  function execute(
+  struct Trade {
+    address base;
+    address quote;
+    uint takerWants;
+    uint takerGives;
+    address taker;
+    uint offerGasprice;
+    uint offerGasreq;
+    uint offerId;
+    uint offerWants;
+    uint offerGives;
+    bool offerWillDelete;
+  }
+
+  // Maker sends quote to taker
+  // In normal dex, they already received base
+  // In inverted dex, they did not
+  function makerTrade(Trade calldata trade) external returns (bytes32);
+
+  struct Posthook {
+    address base;
+    address quote;
+    uint takerWants;
+    uint takerGives;
+    uint offerId;
+    bool offerDeleted;
+  }
+
+  // Maker callback after trade
+  function makerPosthook(Posthook calldata posthook) external;
+
+  event Execute(
+    address dex,
     address base,
     address quote,
+    uint offerId,
     uint takerWants,
-    uint takerGives,
-    address taker,
-    uint offerGasprice,
-    uint offerId
-  ) external returns (uint);
+    uint takerGives
+  );
 }
 
 interface ITaker {
-  function take(uint offerId, uint takerWants) external returns (bool);
-
-  function marketOrder(uint wants, uint gives) external;
+  // Inverted dex only: taker acquires enough base to pay back quote loan
+  function takerTrade(
+    address base,
+    address quote,
+    uint totalGot,
+    uint totalGives
+  ) external;
 }
 
 /* Governance contract interface */
@@ -31,7 +65,7 @@ interface IGovernance {
     address taker,
     address maker,
     bool success,
-    uint gasUsed,
+    uint gasused,
     uint gasbase,
     uint gasreq,
     uint gasprice

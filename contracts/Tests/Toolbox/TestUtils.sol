@@ -24,14 +24,32 @@ library TestUtils {
   }
   enum Info {makerWants, makerGives, nextId, gasreq, gasprice}
 
+  function getReason(bytes memory returnData)
+    internal
+    pure
+    returns (string memory reason)
+  {
+    /* returnData for a revert(reason) is the result of
+       abi.encodeWithSignature("Error(string)",reason)
+       but abi.decode assumes the first 4 bytes are padded to 32
+       so we repad them. See:
+       https://github.com/ethereum/solidity/issues/6012
+     */
+    bytes memory pointer = abi.encodePacked(bytes28(0), returnData);
+    uint len = returnData.length - 4;
+    assembly {
+      pointer := add(32, pointer)
+      mstore(pointer, len)
+    }
+    reason = abi.decode(pointer, (string));
+  }
+
   function isEmptyOB(
     Dex dex,
     address base,
     address quote
   ) internal view returns (bool) {
-    (DC.Offer memory offer, ) =
-      dex.getOfferInfo(base, quote, dex.getBest(base, quote), true);
-    return !DC.isLive(offer);
+    return dex.bests(base, quote) == 0;
   }
 
   function adminOf(Dex dex) internal view returns (address) {
@@ -44,7 +62,7 @@ library TestUtils {
     address quote,
     uint price
   ) internal view returns (uint) {
-    return ((price * dex.config(base, quote).fee) / 10000);
+    return ((price * dex.config(base, quote).local.fee) / 10000);
   }
 
   function getProvision(
@@ -54,7 +72,9 @@ library TestUtils {
     uint gasreq
   ) internal view returns (uint) {
     DC.Config memory config = dex.config(base, quote);
-    return ((gasreq + config.gasbase) * config.gasprice);
+    return ((gasreq + config.global.gasbase) *
+      uint(config.global.gasprice) *
+      10**9);
   }
 
   function getOfferInfo(
@@ -78,7 +98,7 @@ library TestUtils {
     if (infKey == Info.gasreq) {
       return offerDetail.gasreq;
     } else {
-      return offerDetail.gasprice;
+      return offer.gasprice;
     }
   }
 
@@ -119,19 +139,36 @@ library DexSetup {
   function setup(TestToken base, TestToken quote) external returns (Dex dex) {
     TestEvents.not0x(address(base));
     TestEvents.not0x(address(quote));
-    dex = new Dex({
-      gasprice: 40 * 10**9,
-      gasbase: 30_000,
-      gasmax: 1_000_000,
-      takerLends: true
-    });
+    dex = new FMD({gasprice: 40, gasbase: 30_000, gasmax: 1_000_000});
 
-    dex.setActive(address(base), address(quote), true);
-    dex.setDensity(address(base), address(quote), 100);
-    dex.setActive(address(quote), address(base), true);
-    dex.setDensity(address(quote), address(base), 100);
+    dex.activate(address(base), address(quote), 0, 100);
+    dex.activate(address(quote), address(base), 0, 100);
 
     return dex;
+  }
+
+  function setup(
+    TestToken base,
+    TestToken quote,
+    bool inverted
+  ) external returns (Dex dex) {
+    TestEvents.not0x(address(base));
+    TestEvents.not0x(address(quote));
+    if (inverted) {
+      dex = new FTD({gasprice: 40, gasbase: 30_000, gasmax: 1_000_000});
+
+      dex.activate(address(base), address(quote), 0, 100);
+      dex.activate(address(quote), address(base), 0, 100);
+
+      return dex;
+    } else {
+      dex = new FMD({gasprice: 40, gasbase: 30_000, gasmax: 1_000_000});
+
+      dex.activate(address(base), address(quote), 0, 100);
+      dex.activate(address(quote), address(base), 0, 100);
+
+      return dex;
+    }
   }
 }
 
@@ -142,7 +179,9 @@ library MakerSetup {
     address quote,
     bool shouldFail
   ) external returns (TestMaker) {
-    return new TestMaker(dex, base, quote, shouldFail);
+    TestMaker tm = new TestMaker(dex, IERC20(base), IERC20(quote));
+    tm.shouldFail(shouldFail);
+    return tm;
   }
 
   function setup(
@@ -150,7 +189,7 @@ library MakerSetup {
     address base,
     address quote
   ) external returns (TestMaker) {
-    return new TestMaker(dex, base, quote, false);
+    return new TestMaker(dex, ERC20(base), ERC20(quote));
   }
 }
 
@@ -172,6 +211,6 @@ library TakerSetup {
     address quote
   ) external returns (TestTaker) {
     TestEvents.not0x(address(dex));
-    return new TestTaker(dex, base, quote);
+    return new TestTaker(dex, ERC20(base), ERC20(quote));
   }
 }

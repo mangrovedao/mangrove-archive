@@ -17,25 +17,25 @@ library TestInsert {
     offerOf[1] = makers.getMaker(1).newOffer({ // offer 1
       wants: 1 ether,
       gives: 0.5 ether,
-      gasreq: 70000,
+      gasreq: 50_000,
       pivotId: 0
     });
     offerOf[2] = makers.getMaker(2).newOffer({ // offer 2
       wants: 1 ether,
       gives: 0.8 ether,
-      gasreq: 80000,
+      gasreq: 80_000,
       pivotId: 1
     });
     offerOf[3] = makers.getMaker(3).newOffer({ // offer 3
       wants: 0.5 ether,
       gives: 1 ether,
-      gasreq: 90000,
+      gasreq: 90_000,
       pivotId: 72
     });
     offerOf[0] = makers.getMaker(0).newOffer({ //failer offer 4
       wants: 20 ether,
       gives: 10 ether,
-      gasreq: dex.config(address(base), address(quote)).gasmax,
+      gasreq: dex.config(address(base), address(quote)).global.gasmax,
       pivotId: 0
     });
     //Display.printOfferBook(dex);

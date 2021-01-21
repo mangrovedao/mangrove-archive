@@ -15,13 +15,13 @@ contract HasAdmin {
     return (candidate == admin || candidate == address(this));
   }
 
-  function setAdmin(address _admin) public adminOnly {
+  function setAdmin(address _admin) public {
+    adminOnly();
     admin = _admin;
     emit SetAdmin(admin);
   }
 
-  modifier adminOnly {
+  function adminOnly() internal view {
     require(isAdmin(msg.sender), "HasAdmin/adminOnly");
-    _;
   }
 }

@@ -1,6 +1,7 @@
 //usePlugin("@nomiclabs/buidler-truffle5");
 require("hardhat-deploy");
 require("hardhat-deploy-ethers");
+require("@nomiclabs/hardhat-solpp");
 const test_solidity = require("./lib/test_solidity.js");
 
 // Special task for running Solidity tests
@@ -10,6 +11,15 @@ task(
 )
   .addFlag("showEvents", "Show all non-test events during tests")
   .addFlag("showTestEvents", "Show all test events during tests")
+  .addFlag(
+    "showTx",
+    "Show all transaction hashes (disables revert between tests)"
+  )
+  .addFlag("showGas", "Show gas used for each test")
+  .addFlag(
+    "details",
+    "Log events interpreted by the logFormatters hardhat.config parameter for additional details on the tests"
+  )
   .addOptionalParam(
     "prefix",
     "Match test function names for prefix. Javascript regex. Remember to escape backslash and surround with single quotes if necessary.",
@@ -24,6 +34,8 @@ task(
     await test_solidity(
       {
         argTestContractNames: params.contracts || [],
+        details: params.details,
+        showGas: params.showGas,
         showEvents: params.showEvents,
         showTestEvents: params.showTestEvents,
         prefix: params.prefix,
@@ -48,7 +60,7 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: false,
-        runs: 20000,
+        runs: 200000000,
       },
     },
   },
@@ -59,6 +71,57 @@ module.exports = {
     artifacts: "./build",
   },
   logFormatters: {
+    Success: (log, rawLog, originator, formatArg) => {
+      console.log("  ┅┅┅┅");
+      console.log(`┇ Offer ${formatArg(log.args.offerId)} consumed`);
+      console.log(`┇ takerWants ${formatArg(log.args.takerWants)}`);
+      console.log(`┇ takerGives ${formatArg(log.args.takerGives)}`);
+      console.log("  ┅┅┅┅");
+    },
+    ERC20Balances: (log, rawLog, originator, formatArg) => {
+      /* Reminder:
+
+      event ERC20Balances(
+      address[] tokens,
+      address[] accounts,
+      uint[] balances,
+    );
+
+      */
+
+      const tokens = {};
+
+      log.args.tokens.forEach((token, i) => {
+        tokens[token] = [];
+      });
+
+      log.args.tokens.forEach((token, i) => {
+        const pad = i * log.args.accounts.length;
+        log.args.accounts.forEach((account, j) => {
+          if (!tokens[token]) tokens[token] = [];
+          tokens[token].push({
+            account: formatArg(account, "address"),
+            balance: formatArg(log.args.balances[pad + j]),
+          });
+        });
+      });
+
+      const lineA = ({ account, balance }) => {
+        const p = (s, n) =>
+          (s.length > n ? s.slice(0, n - 1) + "…" : s).padEnd(n);
+        const ps = (s, n) =>
+          (s.length > n ? s.slice(0, n - 1) + "…" : s).padStart(n);
+        return ` ${ps(account, 15)} │ ${p(balance, 10)}`;
+      };
+
+      Object.entries(tokens).forEach(([token, balances]) => {
+        console.log(formatArg(token, "address").padStart(19));
+        console.log("─".repeat(17) + "┬" + "─".repeat(14));
+        balances.forEach((info) => {
+          console.log(lineA(info));
+        });
+      });
+    },
     OBState: (log, rawLog, originator, formatArg) => {
       /* Reminder:
 
@@ -77,7 +140,7 @@ module.exports = {
           wants: formatArg(log.args.wants[i]),
           gives: formatArg(log.args.gives[i]),
           maker: formatArg(log.args.makerAddr[i], "address"),
-          gas: formatArg(log.args.gasreq[i]),
+          gas: formatArg(log.args.gasreqs[i]),
         };
       });
 

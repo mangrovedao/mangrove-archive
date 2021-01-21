@@ -30,9 +30,9 @@ library DexCommon {
   //+clear+
   /* `Offer`s hold the doubly-linked list pointers as well as price and volume information. 256 bits wide, so one storage read is enough. They have the following fields: */
   struct Offer {
-    /* * `prev` points to the next best offer, and `next` points to the next worse. The best offer's `prev` is 0, and the last offer's `next` is 0 as well. _32 bits wide_. */
-    uint32 prev;
-    uint32 next;
+    /* * `prev` points to the next best offer, and `next` points to the next worse. The best offer's `prev` is 0, and the last offer's `next` is 0 as well. _24 bits wide_. */
+    uint24 prev;
+    uint24 next;
     /* * `gives` is the amount of `OFR_TOKEN` the offer will give if successfully executed.
      _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
   10 billions. */
@@ -41,6 +41,12 @@ library DexCommon {
      _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
   10 billions. */
     uint96 wants;
+    /* `gasprice` is in gwei/gas and _16 bits wide_, which accomodates 1 to ~65k gwei / gas.
+
+          `gasprice` is also the name of global Dex
+          parameters. When an offer is created, its current value is added to
+          the offer's `Offer`. The maker may choose an upper bound. */
+    uint16 gasprice;
   }
 
   /* ## `OfferDetail`, provision info */
@@ -99,42 +105,48 @@ They have the following fields: */
        ```
         When an offer fails, the following amount is given to the taker as compensation:
        ```
-       (gasUsed + gasbase) * gasprice
+       (gasused + gasbase) * gasprice
        ```
 
        and the rest is given back to the maker.
 
-       `gasprice` is _48 bits wide_, which accomodates ~280k gwei / gas. Note that if more room was needed, we could bring it down to 32 bits and have it represent mwei/gas (so up to 4M gwei/gas), or mwei/kgas (so up to 400k gwei/gas).
        `gasbase` is _24 bits wide_ -- note that if more room was needed, we could bring it down to 8 bits and have it represent 1k gas increments.
 
-       Both `gasprice` and `gasbase` are also the names of global Dex
-       parameters. When an offer is created, their current value is added to
-       the offer's `OfferDetail`. The maker does not choose them.
+       `gasbase` is also the name of global Dex
+       parameters. When an offer is created, its current value is added to
+       the offer's `OfferDetail`. The maker does not choose it.
 
     */
     uint24 gasbase;
-    uint48 gasprice;
   }
 
   /* # Configuration
    All configuration information of the Dex is in a `Config` struct. Configuration fields are:
 */
-  struct Config {
-    bool dead;
-    bool active;
-    /* * `fee`, in basis points, of `OFR_TOKEN` given to the taker. This fee is sent to the Dex. Fee is capped to 5% (see Dex.sol). */
-    uint fee;
+  /* Configuration. See DexLib for more information. */
+  struct Global {
     /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
-    uint gasprice;
+    uint16 gasprice;
     /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at leat `gasbase` gas. Should only be updated when opcode prices change. */
-    uint gasbase;
-    /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `OFR_TOKEN` per gas requested. For instance, if `density == 10`, `gasbase == 5000` an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `OFR_TOKEN`. */
-    uint density;
-    /*
-    * An offer which asks for more gas than the block limit would live forever on
+    uint24 gasbase;
+    /* An offer which asks for more gas than the block limit would live forever on
     the book. Nobody could take it or remove it, except its creator (who could cancel it). In practice, we will set this parameter to a reasonable limit taking into account both practical transaction sizes and the complexity of maker contracts.
   */
-    uint gasmax;
+    uint24 gasmax;
+    bool dead;
+  }
+
+  struct Local {
+    bool active;
+    /* * `fee`, in basis points, of `OFR_TOKEN` given to the taker. This fee is sent to the Dex. Fee is capped to 5% (see Dex.sol). */
+    uint16 fee;
+    /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `OFR_TOKEN` per gas requested. For instance, if `density == 10`, `gasbase == 5000` an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `OFR_TOKEN`. */
+    uint32 density;
+  }
+
+  struct Config {
+    Global global;
+    Local local;
   }
 
   /* # Misc.
@@ -145,33 +157,6 @@ They have the following fields: */
     uint value;
   }
 
-  /* The Dex holds a `uint => Offer` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an uninitialized struct. A common way to check for initialization is to add an `exists` field to the struct. In our case, an invariant of the Dex is: on an existing offer, `offer.gives > 0`. So we just check the `gives` field. */
-  /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). */
-  function isLive(Offer memory offer) internal pure returns (bool) {
-    return offer.gives > 0;
-  }
-
-  /* Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer` */
-  function stitchOffers(
-    address base,
-    address quote,
-    mapping(address => mapping(address => mapping(uint => Offer)))
-      storage offers,
-    mapping(address => mapping(address => uint)) storage bests,
-    uint past,
-    uint future
-  ) internal {
-    if (past != 0) {
-      offers[base][quote][past].next = uint32(future);
-    } else {
-      bests[base][quote] = future;
-    }
-
-    if (future != 0) {
-      offers[base][quote][future].prev = uint32(past);
-    }
-  }
-
   /* Holds data about offers in a struct, used by `newOffer` to avoid stack too deep errors. */
   struct OfferPack {
     address base;
@@ -180,6 +165,7 @@ They have the following fields: */
     uint gives;
     uint id;
     uint gasreq;
+    uint gasprice;
     uint pivotId;
     Config config;
     Offer oldOffer;
@@ -189,16 +175,21 @@ They have the following fields: */
   struct OrderPack {
     address base;
     address quote;
-    uint wants;
-    uint gives;
+    uint initialWants;
+    uint initialGives;
     uint offerId;
     uint totalGot;
     uint totalGave;
     Offer offer;
     Config config;
-    address governance;
-    uint numFailures;
-    uint[2][] failures;
+    uint numToPunish;
+    uint[2][] toPunish;
+    /* will evolve over time, initially the wants/gives from the taker's pov,
+       then actual wants/give depending on how much the offer is ready */
+    uint wants;
+    uint gives;
+    /* only populated when necessary */
+    OfferDetail offerDetail;
   }
 
   enum SwapResult {OK, TakerTransferFail, MakerTransferFail, MakerReverted}
@@ -225,13 +216,21 @@ library DexEvents {
   event SetGasprice(uint value);
 
   /* * Offer execution */
-  event Success(uint offerId, uint takerWants, uint takerGives);
+  event Success(
+    address base,
+    address quote,
+    uint offerId,
+    uint takerWants,
+    uint takerGives
+  );
   event MakerFail(
+    address base,
+    address quote,
     uint offerId,
     uint takerWants,
     uint takerGives,
     bool reverted,
-    uint makerData
+    bytes32 makerData
   );
 
   /* * Dex closure */
@@ -239,21 +238,18 @@ library DexEvents {
 
   /* * A new offer was inserted into book.
    `maker` is the address of the contract that implements the offer. */
-  event NewOffer(
+  event WriteOffer(
     address base,
     address quote,
     address maker,
     uint wants,
     uint gives,
     uint gasreq,
-    uint offerId
+    uint gasprice,
+    uint offerId,
+    bool updated
   );
-  /* * An offer was created/updated into book. Creation if offerId is new. */
-  event UpdateOffer(uint wants, uint gives, uint gasreq, uint offerId);
 
-  /* * An offer was canceled (and possibly erase). */
-  event CancelOffer(uint offerId, bool erase);
-
-  /* * `offerId` is was present and now removed from the book. */
-  event DeleteOffer(uint offerId);
+  /* * `offerId` was present and is now removed from the book. */
+  event RemoveOffer(address base, address quote, uint offerId, bool deleted);
 }

@@ -8,11 +8,11 @@ contract TestToken is ERC20 {
   mapping(address => bool) admins;
 
   constructor(
-    address _admin,
+    address admin,
     string memory name,
     string memory symbol
   ) ERC20(name, symbol) {
-    admins[_admin] = true;
+    admins[admin] = true;
   }
 
   function requireAdmin() internal view {
@@ -27,5 +27,10 @@ contract TestToken is ERC20 {
   function mint(address to, uint amount) external {
     requireAdmin();
     _mint(to, amount);
+  }
+
+  function burn(address account, uint amount) external {
+    requireAdmin();
+    _burn(account, amount);
   }
 }

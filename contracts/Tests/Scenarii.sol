@@ -17,6 +17,8 @@ import "./Agents/TestMaker.sol";
 import "./Agents/TestMoriartyMaker.sol";
 import "./Agents/MakerDeployer.sol";
 import "./Agents/TestTaker.sol";
+import "./Agents/TestDelegateTaker.sol";
+import "./Agents/OfferManager.sol";
 
 import "./Scenarii/TestCancelOffer.sol";
 import "./Scenarii/TestCollectFailingOffer.sol";
@@ -92,7 +94,7 @@ contract Scenarii_Test {
 
   function b_deployDex_beforeAll() public {
     dex = DexSetup.setup(base, quote);
-    Display.register(address(dex), "dex");
+    Display.register(address(dex), "Dex");
     TestEvents.not0x(address(dex));
     dex.setFee(address(base), address(quote), 300);
   }
@@ -124,38 +126,28 @@ contract Scenarii_Test {
     }
 
     quote.mint(address(taker), 5 ether);
-    taker.approve(quote, 5 ether);
-    taker.approve(base, 50 ether);
+    taker.approveDex(quote, 5 ether);
+    taker.approveDex(base, 50 ether);
     saveBalances();
-  }
-
-  function zeroDust_test() public {
-    try dex.setDensity(address(base), address(quote), 0) {
-      TestEvents.fail("zero density should revert");
-    } catch Error(
-      string memory /*reason*/
-    ) {
-      TestEvents.succeed();
-    }
   }
 
   function snipe_insert_and_fail_test() public {
     //TestEvents.logString("=== Insert test ===", 0);
     offerOf = TestInsert.run(balances, dex, makers, taker, base, quote);
     //Display.printOfferBook(dex);
-    //Display.logOfferBook(dex,4);
+    Display.logOfferBook(dex, address(base), address(quote), 4);
 
     //TestEvents.logString("=== Snipe test ===", 0);
     saveBalances();
     saveOffers();
     TestSnipe.run(balances, offers, dex, makers, taker, base, quote);
-    //Display.logOfferBook(dex, 4);
+    Display.logOfferBook(dex, address(base), address(quote), 4);
 
     //TestEvents.logString("=== Market order test ===", 0);
     saveBalances();
     saveOffers();
     TestMarketOrder.run(balances, offers, dex, makers, taker, base, quote);
-    //Display.logOfferBook(dex, 4);
+    Display.logOfferBook(dex, address(base), address(quote), 4);
 
     //TestEvents.logString("=== Failling offer test ===", 0);
     saveBalances();
@@ -170,7 +162,7 @@ contract Scenarii_Test {
       base,
       quote
     );
-    //Display.logOfferBook(dex, 4);
+    Display.logOfferBook(dex, address(base), address(quote), 4);
     saveBalances();
     saveOffers();
   }
@@ -199,8 +191,8 @@ contract DeepCollect_Test {
     Display.register(address(tkr), "taker");
 
     quote.mint(address(tkr), 5 ether);
-    tkr.approve(quote, 20 ether);
-    tkr.approve(base, 20 ether);
+    tkr.approveDex(quote, 20 ether);
+    tkr.approveDex(base, 20 ether);
 
     evil = new TestMoriartyMaker(dex, address(base), address(quote));
     Display.register(address(evil), "Moriarty");
@@ -209,7 +201,7 @@ contract DeepCollect_Test {
     require(success, "maker transfer");
     evil.provisionDex(10 ether);
     base.mint(address(evil), 5 ether);
-    evil.approve(base, 5 ether);
+    evil.approveDex(base, 5 ether);
 
     evil.newOffer({
       wants: 1 ether,

@@ -5,6 +5,7 @@ pragma solidity ^0.7.0;
 import "../../Dex.sol";
 import "../../interfaces.sol";
 import "./TestMaker.sol";
+import "../../ERC20.sol";
 import "hardhat/console.sol";
 
 //import "./TestMaker.sol";
@@ -50,7 +51,8 @@ contract MakerDeployer {
     if (!deployed) {
       makers = new address payable[](k);
       for (uint i = 0; i < k; i++) {
-        makers[i] = address(new TestMaker(dex, base, quote, i == 0)); //maker-0 is failer
+        makers[i] = address(new TestMaker(dex, ERC20(base), ERC20(quote)));
+        TestMaker(makers[i]).shouldFail(i == 0); //maker-0 is failer
       }
     }
     deployed = true;

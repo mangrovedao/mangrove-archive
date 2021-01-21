@@ -14,7 +14,6 @@ library Display {
 
   // Disgusting hack so a library can manipulate storage refs.
   bytes32 constant NAMES_POS = keccak256("Display.NAMES_POS");
-
   // Store mapping in library caller's storage.
   // That's quite fragile.
   struct Registers {
@@ -36,12 +35,12 @@ library Display {
     return regs;
   }
 
-  function register(address addr, string memory _name) internal {
-    registers().map[addr] = _name;
-    emit Register(addr, _name);
+  function register(address addr, string memory name) internal {
+    registers().map[addr] = name;
+    emit Register(addr, name);
   }
 
-  function name(address addr) internal view returns (string memory) {
+  function nameOf(address addr) internal view returns (string memory) {
     string memory s = registers().map[addr];
     if (keccak256(bytes(s)) != keccak256(bytes(""))) {
       return s;
@@ -129,11 +128,112 @@ library Display {
     }
   }
 
+  event ERC20Balances(ERC20[] tokens, address[] accounts, uint[] balances);
+
+  function logBalances(ERC20 t1, address a1) internal {
+    ERC20[] memory tokens = new ERC20[](1);
+    tokens[0] = t1;
+    address[] memory accounts = new address[](1);
+    accounts[0] = a1;
+    logBalances(tokens, accounts);
+  }
+
+  function logBalances(
+    ERC20 t1,
+    address a1,
+    address a2
+  ) internal {
+    ERC20[] memory tokens = new ERC20[](1);
+    tokens[0] = t1;
+    address[] memory accounts = new address[](2);
+    accounts[0] = a1;
+    accounts[1] = a2;
+    logBalances(tokens, accounts);
+  }
+
+  function logBalances(
+    ERC20 t1,
+    address a1,
+    address a2,
+    address a3
+  ) internal {
+    ERC20[] memory tokens = new ERC20[](1);
+    tokens[0] = t1;
+    address[] memory accounts = new address[](3);
+    accounts[0] = a1;
+    accounts[1] = a2;
+    accounts[2] = a3;
+    logBalances(tokens, accounts);
+  }
+
+  function logBalances(
+    ERC20 t1,
+    ERC20 t2,
+    address a1
+  ) internal {
+    ERC20[] memory tokens = new ERC20[](2);
+    tokens[0] = t1;
+    tokens[1] = t2;
+    address[] memory accounts = new address[](1);
+    accounts[0] = a1;
+    logBalances(tokens, accounts);
+  }
+
+  function logBalances(
+    ERC20 t1,
+    ERC20 t2,
+    address a1,
+    address a2
+  ) internal {
+    ERC20[] memory tokens = new ERC20[](2);
+    tokens[0] = t1;
+    tokens[1] = t2;
+    address[] memory accounts = new address[](2);
+    accounts[0] = a1;
+    accounts[1] = a2;
+    logBalances(tokens, accounts);
+  }
+
+  function logBalances(
+    ERC20 t1,
+    ERC20 t2,
+    address a1,
+    address a2,
+    address a3
+  ) internal {
+    ERC20[] memory tokens = new ERC20[](2);
+    tokens[0] = t1;
+    tokens[1] = t2;
+    address[] memory accounts = new address[](3);
+    accounts[0] = a1;
+    accounts[1] = a2;
+    accounts[2] = a3;
+    logBalances(tokens, accounts);
+  }
+
+  /* takes [t1,...,tM], [a1,...,aN]
+       logs also [...b(t1,aj) ... b(tM,aj) ...] */
+
+  function logBalances(ERC20[] memory tokens, address[] memory accounts)
+    internal
+  {
+    uint[] memory balances = new uint[](tokens.length * accounts.length);
+    for (uint i = 0; i < tokens.length; i++) {
+      for (uint j = 0; j < accounts.length; j++) {
+        uint bal = tokens[i].balanceOf(accounts[j]);
+        balances[i * accounts.length + j] = bal;
+        //console.log(tokens[i].symbol(),nameOf(accounts[j]),bal);
+      }
+    }
+    emit ERC20Balances(tokens, accounts, balances);
+  }
+
   event OBState(
     uint[] offerIds,
     uint[] wants,
     uint[] gives,
-    address[] makerAddr
+    address[] makerAddr,
+    uint[] gasreqs
   );
 
   function logOfferBook(
@@ -148,6 +248,7 @@ library Display {
     uint[] memory gives = new uint[](size);
     address[] memory makerAddr = new address[](size);
     uint[] memory offerIds = new uint[](size);
+    uint[] memory gasreqs = new uint[](size);
     uint c = 0;
     while ((offerId != 0) && (c < size)) {
       (DC.Offer memory offer, DC.OfferDetail memory od) =
@@ -156,11 +257,11 @@ library Display {
       gives[c] = offer.gives;
       makerAddr[c] = od.maker;
       offerIds[c] = offerId;
-
+      gasreqs[c] = od.gasreq;
       offerId = offer.next;
       c++;
     }
-    emit OBState(offerIds, wants, gives, makerAddr);
+    emit OBState(offerIds, wants, gives, makerAddr, gasreqs);
   }
 
   function printOfferBook(
