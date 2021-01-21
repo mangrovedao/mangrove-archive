@@ -236,4 +236,18 @@ contract MakerOperations_Test is IMaker {
       TestEvents.eq(r, "dex/writeOffer/gives/tooLow", "wrong revert reason");
     }
   }
+
+  function maker_gets_no_freeWei_on_partial_fill_test() public {
+    mkr.provisionDex(1 ether);
+    base.mint(address(mkr), 1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    uint oldBalance = dex.balanceOf(address(mkr));
+    bool success = tkr.take(ofr, 0.1 ether);
+    TestEvents.check(success, "take must succeed");
+    TestEvents.eq(
+      dex.balanceOf(address(mkr)),
+      oldBalance,
+      "mkr balance must not change"
+    );
+  }
 }
