@@ -369,12 +369,12 @@ abstract contract Dex is HasAdmin {
       /* `executed` is false if offer could not be executed against 2nd and 3rd argument of execute. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
       // reduce stack size for recursion
 
-      bool toDelete;
+      bool deleted;
       orp.wants = orp.initialWants - orp.totalGot;
       orp.gives = orp.initialGives - orp.totalGave;
       orp.offerDetail = offerDetails[orp.base][orp.quote][orp.offerId];
 
-      (success, toDelete, gasLeft) = execute(orp);
+      (success, deleted, gasLeft) = execute(orp);
 
       /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
 
@@ -411,7 +411,7 @@ abstract contract Dex is HasAdmin {
       uint takerWants = orp.wants;
       uint takerGives = orp.gives;
 
-      if (toDelete) {
+      if (deleted) {
         // note that internalMarketOrder may be called twice with same offerId, but in that case proceed will be false!
         orp.offerId = $$(o_next("orp.offer"));
         orp.offer = offers[orp.base][orp.quote][orp.offerId];
@@ -420,7 +420,7 @@ abstract contract Dex is HasAdmin {
       internalMarketOrder(
         orp,
         pastOfferId,
-        orp.initialWants - orp.totalGot > 0 && orp.offerId != 0 && toDelete
+        orp.initialWants - orp.totalGot > 0 && orp.offerId != 0 && deleted
       );
 
       // reentrancy is allowed here
@@ -432,7 +432,7 @@ abstract contract Dex is HasAdmin {
           takerGives,
           offerId,
           maker,
-          toDelete,
+          deleted,
           gasLeft
         ); // maker callback
       }
@@ -451,7 +451,7 @@ abstract contract Dex is HasAdmin {
     uint takerGives,
     uint offerId,
     address maker,
-    bool toDelete,
+    bool deleted,
     uint gasLeft
   ) internal {
     IMaker.Posthook memory posthook =
@@ -461,7 +461,7 @@ abstract contract Dex is HasAdmin {
         takerWants: takerWants,
         takerGives: takerGives,
         offerId: offerId,
-        offerDeleted: toDelete
+        offerDeleted: deleted
       });
     bytes memory cd =
       abi.encodeWithSelector(IMaker.makerPosthook.selector, posthook);
@@ -487,7 +487,7 @@ abstract contract Dex is HasAdmin {
     internal
     returns (
       bool success,
-      bool toDelete,
+      bool deleted,
       uint gasLeft
     )
   {
@@ -512,7 +512,7 @@ abstract contract Dex is HasAdmin {
       );
 
     if (makerWouldWant > orp.gives) {
-      return (success, toDelete, $$(od_gasreq("orp.offerDetail")));
+      return (success, deleted, $$(od_gasreq("orp.offerDetail")));
     }
 
     /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `orp.wants`,`orp.gives` are how much the taker will trade with the current offer. */
@@ -558,7 +558,7 @@ abstract contract Dex is HasAdmin {
       orp.totalGave += orp.gives;
 
       if (residualBelowDust) {
-        toDelete = true;
+        deleted = true;
       } else {
         bytes32 updatedOffer = orp.offer;
         uint newGives = $$(o_gives("updatedOffer")) - orp.wants;
@@ -575,7 +575,7 @@ abstract contract Dex is HasAdmin {
       if (
         errorCode == "dex/makerRevert" || errorCode == "dex/makerTransferFail"
       ) {
-        toDelete = true;
+        deleted = true;
         emit DexEvents.MakerFail(
           orp.base,
           orp.quote,
@@ -602,11 +602,11 @@ abstract contract Dex is HasAdmin {
 
     gasLeft = $$(od_gasreq("orp.offerDetail")) - gasused;
 
-    if (toDelete) {
+    if (deleted) {
       dirtyDeleteOffer(orp.base, orp.quote, orp.offerId, orp.offer);
     }
 
-    if (toDelete) {
+    if (deleted) {
       applyPenalty(
         success,
         $$(glo_gasprice("orp.global")),
@@ -724,7 +724,7 @@ abstract contract Dex is HasAdmin {
 
       bool success;
       uint gasLeft;
-      bool toDelete;
+      bool deleted;
 
       /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. We also check that `gasreq` is not worse than specified. A taker who does not care about `gasreq` can specify any amount larger than $2^{24}-1$. */
       if (
@@ -736,11 +736,11 @@ abstract contract Dex is HasAdmin {
         );
         orp.wants = targets[i][1];
         orp.gives = targets[i][2];
-        (success, toDelete, gasLeft) = execute(orp);
+        (success, deleted, gasLeft) = execute(orp);
         if (success) {
           successes += 1;
         }
-        if (toDelete) {
+        if (deleted) {
           stitchOffers(
             orp.base,
             orp.quote,
@@ -764,7 +764,7 @@ abstract contract Dex is HasAdmin {
           takerGives,
           offerId,
           maker,
-          toDelete,
+          deleted,
           gasLeft
         );
       }
