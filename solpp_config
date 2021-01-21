@@ -24,11 +24,6 @@ reduce_i(l,(acc,val,i) => i == 0 ? nil : concat(acc,[val]), nil)
 /* Struct-related utility functions
 ***********************************/
 
-// Add a 'false' guard at the end to throw if field name is wrong
-/* $def toStruct(data)
-concat(data,[[false]])
-*/
-
 // number of bits before a field
 /* $def before(struct,field)
 (reduce(struct, (acc,fb) => (fb[0] == field) ? [acc[0],false] : [acc[0]+(acc[1] ? fb[1] : 0),acc[1]],[0,true]))[0]
@@ -92,16 +87,16 @@ len(values) ? set_unsafe(quote(set1_unsafe(ptr,struct,values[0][0],values[0][1])
 
 /* update offer struct layout, for logging
 ******************************************/
-/* $def update_offer 
-toStruct([wants_field, gives_field, gasprice_field, gasreq_field, id_field('id')])
+/* $def writeOffer 
+[wants_field, gives_field, gasprice_field, gasreq_field, id_field('id')]
 */
 
-// $def wo_make(values) set_unsafe('bytes32(0)',update_offer,values)
+// $def wo_make(values) set_unsafe('bytes32(0)',writeOffer,values)
 
 /* offer struct layout
 **********************/
 /* $def offer
-toStruct([id_field('prev'),id_field('next'),gives_field,wants_field,gasprice_field])
+[id_field('prev'),id_field('next'),gives_field,wants_field,gasprice_field]
 */
 
 // $def o_prev(ptr) get(ptr,offer,'prev')
@@ -115,7 +110,7 @@ toStruct([id_field('prev'),id_field('next'),gives_field,wants_field,gasprice_fie
 /* offer detail struct layout
 *****************************/
 /* $def offerDetail
-toStruct([['maker',160,'address'],gasreq_field,gasbase_field])
+[['maker',160,'address'],gasreq_field,gasbase_field]
 */
 
 // $def od_maker(ptr) get(ptr,offerDetail,'maker')
@@ -127,7 +122,7 @@ toStruct([['maker',160,'address'],gasreq_field,gasbase_field])
 /* global configuration struct layout
 *************************************/
 /* $def global
-toStruct([gasprice_field, gasbase_field,['gasmax',24,'uint'],['dead',8,'uint']])
+[gasprice_field, gasbase_field,['gasmax',24,'uint'],['dead',8,'uint']]
 */
 
 // $def glo_gasprice(ptr) get(ptr,global,'gasprice')
@@ -139,7 +134,7 @@ toStruct([gasprice_field, gasbase_field,['gasmax',24,'uint'],['dead',8,'uint']])
 /* local configuration struct layout
 ************************************/
 /* $def local
-toStruct([['active',8,'uint'],['fee',16,'uint'],['density',32,'uint']])
+[['active',8,'uint'],['fee',16,'uint'],['density',32,'uint']]
 */
 
 // $def loc_active(ptr) get(ptr,local,'active')
