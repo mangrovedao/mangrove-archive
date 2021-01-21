@@ -412,7 +412,6 @@ abstract contract Dex is HasAdmin {
       uint takerGives = orp.gives;
 
       if (toDelete) {
-        dirtyDeleteOffer(orp.base, orp.quote, orp.offerId, orp.offer);
         // note that internalMarketOrder may be called twice with same offerId, but in that case proceed will be false!
         orp.offerId = $$(o_next("orp.offer"));
         orp.offer = offers[orp.base][orp.quote][orp.offerId];
@@ -602,6 +601,11 @@ abstract contract Dex is HasAdmin {
     }
 
     gasLeft = $$(od_gasreq("orp.offerDetail")) - gasused;
+
+    if (toDelete) {
+      dirtyDeleteOffer(orp.base, orp.quote, orp.offerId, orp.offer);
+    }
+
     if (toDelete) {
       applyPenalty(
         success,
@@ -737,7 +741,6 @@ abstract contract Dex is HasAdmin {
           successes += 1;
         }
         if (toDelete) {
-          dirtyDeleteOffer(orp.base, orp.quote, orp.offerId, orp.offer);
           stitchOffers(
             orp.base,
             orp.quote,
