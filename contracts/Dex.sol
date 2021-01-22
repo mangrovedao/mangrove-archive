@@ -365,7 +365,7 @@ abstract contract Dex is HasAdmin {
   ) internal {
     if (proceed) {
       bool success;
-      uint gasLeft;
+      uint gasused;
       /* `executed` is false if offer could not be executed against 2nd and 3rd argument of execute. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
       // reduce stack size for recursion
 
@@ -374,7 +374,12 @@ abstract contract Dex is HasAdmin {
       orp.gives = orp.initialGives - orp.totalGave;
       orp.offerDetail = offerDetails[orp.base][orp.quote][orp.offerId];
 
-      (success, deleted, gasLeft) = execute(orp);
+      /* it is crucial that a false success value means that the error is the maker's fault */
+      (success, deleted, gasused) = execute(orp);
+      /* if maker failed, we increase the failure number -- even past orp.numToPunish so the decrement count after the call stack has popped is correct. */
+      if (!success) {
+        orp.numToPunish = orp.numToPunish + 1;
+      }
 
       /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
 
@@ -406,10 +411,11 @@ abstract contract Dex is HasAdmin {
       */
 
       // those may have been updated by execute, we keep them in stack
-      address maker = $$(od_maker("orp.offerDetail"));
       uint offerId = orp.offerId;
       uint takerWants = orp.wants;
       uint takerGives = orp.gives;
+      bytes32 offer = orp.offer;
+      bytes32 offerDetail = orp.offerDetail;
 
       if (deleted) {
         // note that internalMarketOrder may be called twice with same offerId, but in that case proceed will be false!
@@ -417,6 +423,10 @@ abstract contract Dex is HasAdmin {
         orp.offer = offers[orp.base][orp.quote][orp.offerId];
       }
 
+      /* ! danger ! beyond this point, the following `orp` properties 
+           reflect the last offer to be examined:
+         `offerId`, `offer`, `offerDetail`, `wants`, `gives`, `offerDetail`
+       */
       internalMarketOrder(
         orp,
         pastOfferId,
@@ -425,16 +435,42 @@ abstract contract Dex is HasAdmin {
 
       // reentrancy is allowed here
       if (success) {
-        executeCallback(orp, maker, takerGives); // noop in Classical dex
-        makerPosthook(
-          orp,
-          takerWants,
-          takerGives,
-          offerId,
-          maker,
-          deleted,
-          gasLeft
-        ); // maker callback
+        executeCallback(orp, $$(od_maker("offerDetail")), takerGives); // noop in Classical dex
+      }
+
+      {
+        uint gasreq = $$(od_gasreq("offerDetail"));
+
+        gasused =
+          gasused +
+          makerPosthook(
+            orp,
+            takerWants,
+            takerGives,
+            offerId,
+            $$(od_maker("offerDetail")),
+            deleted,
+            gasused > gasreq ? 0 : gasreq - gasused
+          ); // maker callback
+
+        if (gasused > gasreq) {
+          gasused = gasreq;
+        }
+      }
+
+      if (!success) {
+        applyPenalty(
+          $$(glo_gasprice("orp.global")),
+          gasused,
+          offer,
+          offerDetail
+        );
+
+        orp.numToPunish = orp.numToPunish - 1;
+
+        if (orp.numToPunish < orp.toPunish.length) {
+          orp.toPunish[orp.numToPunish] = [offerId, gasused];
+        }
       }
     } else {
       restrictMemoryArrayLength(orp.toPunish, orp.numToPunish);
@@ -453,7 +489,7 @@ abstract contract Dex is HasAdmin {
     address maker,
     bool deleted,
     uint gasLeft
-  ) internal {
+  ) internal returns (uint gasused) {
     IMaker.Posthook memory posthook =
       IMaker.Posthook({
         base: orp.base,
@@ -472,6 +508,7 @@ abstract contract Dex is HasAdmin {
     }
     bool noRevert;
     (noRevert, ) = maker.call{gas: gasLeft}(cd);
+    gasused = oldGas - gasleft();
   }
 
   function executeEnd(DC.OrderPack memory orp) internal virtual;
@@ -488,7 +525,7 @@ abstract contract Dex is HasAdmin {
     returns (
       bool success,
       bool deleted,
-      uint gasLeft
+      uint gasused
     )
   {
     /* #### `makerWouldWant` */
@@ -541,8 +578,6 @@ abstract contract Dex is HasAdmin {
       abi.encodeWithSelector(FLASHLOANER, orp, residualBelowDust)
     );
 
-    uint gasused;
-
     /* Revert if FLASHLOANER reverted. **Danger**: if a well-crafted offer/maker pair can force a revert of FLASHLOANER, the Dex will be stuck. */
     if (success) {
       gasused = abi.decode(retdata, (uint));
@@ -585,10 +620,6 @@ abstract contract Dex is HasAdmin {
           errorCode == "dex/makerRevert",
           makerData
         );
-        if (orp.numToPunish < orp.toPunish.length) {
-          orp.toPunish[orp.numToPunish] = [orp.offerId, gasused];
-          orp.numToPunish++;
-        }
       } else if (errorCode == "dex/tradeOverflow") {
         revert("dex/tradeOverflow");
       } else if (errorCode == "dex/notEnoughGasForMakerTrade") {
@@ -600,19 +631,8 @@ abstract contract Dex is HasAdmin {
       }
     }
 
-    gasLeft = $$(od_gasreq("orp.offerDetail")) - gasused;
-
     if (deleted) {
       dirtyDeleteOffer(orp.base, orp.quote, orp.offerId, orp.offer, !success);
-    }
-
-    if (!success) {
-      applyPenalty(
-        $$(glo_gasprice("orp.global")),
-        gasused,
-        orp.offer,
-        orp.offerDetail
-      );
     }
   }
 
@@ -722,7 +742,7 @@ abstract contract Dex is HasAdmin {
       orp.offerDetail = offerDetails[orp.base][orp.quote][orp.offerId];
 
       bool success;
-      uint gasLeft;
+      uint gasused;
       bool deleted;
 
       /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. We also check that `gasreq` is not worse than specified. A taker who does not care about `gasreq` can specify any amount larger than $2^{24}-1$. */
@@ -735,10 +755,15 @@ abstract contract Dex is HasAdmin {
         );
         orp.wants = targets[i][1];
         orp.gives = targets[i][2];
-        (success, deleted, gasLeft) = execute(orp);
+
+        (success, deleted, gasused) = execute(orp);
+
         if (success) {
           successes += 1;
+        } else {
+          orp.numToPunish = orp.numToPunish + 1;
         }
+
         if (deleted) {
           stitchOffers(
             orp.base,
@@ -749,23 +774,51 @@ abstract contract Dex is HasAdmin {
         }
       }
 
-      address maker = $$(od_maker("orp.offerDetail"));
       uint offerId = orp.offerId;
       uint takerWants = orp.wants;
       uint takerGives = orp.gives;
+      bytes32 offer = orp.offer;
+      bytes32 offerDetail = orp.offerDetail;
+
       successes = internalSnipes(orp, targets, i + 1, successes);
 
       if (success) {
-        executeCallback(orp, maker, takerGives);
-        makerPosthook(
-          orp,
-          takerWants,
-          takerGives,
-          offerId,
-          maker,
-          deleted,
-          gasLeft
+        executeCallback(orp, $$(od_maker("offerDetail")), takerGives);
+      }
+
+      {
+        uint gasreq = $$(od_gasreq("offerDetail"));
+
+        gasused =
+          gasused +
+          makerPosthook(
+            orp,
+            takerWants,
+            takerGives,
+            offerId,
+            $$(od_maker("offerDetail")),
+            deleted,
+            gasused > gasreq ? 0 : gasreq - gasused
+          );
+
+        if (gasused > gasreq) {
+          gasused = gasreq;
+        }
+      }
+
+      if (!success) {
+        applyPenalty(
+          $$(glo_gasprice("orp.global")),
+          gasused,
+          offer,
+          offerDetail
         );
+
+        orp.numToPunish = orp.numToPunish - 1;
+
+        if (orp.numToPunish < orp.toPunish.length) {
+          orp.toPunish[orp.numToPunish] = [offerId, gasused];
+        }
       }
     } else {
       /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
