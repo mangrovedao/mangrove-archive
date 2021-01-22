@@ -75,11 +75,10 @@ module.exports = {
   },
   logFormatters: {
     Success: (log, rawLog, originator, formatArg) => {
-      console.log("  ┅┅┅┅");
-      console.log(`┇ Offer ${formatArg(log.args.offerId)} consumed`);
-      console.log(`┇ takerWants ${formatArg(log.args.takerWants)}`);
-      console.log(`┇ takerGives ${formatArg(log.args.takerGives)}`);
-      console.log("  ┅┅┅┅");
+      console.log(`┏ Offer ${formatArg(log.args.offerId)} consumed`);
+      console.log(`┃ takerWants ${formatArg(log.args.takerWants)}`);
+      console.log(`┗ takerGives ${formatArg(log.args.takerGives)}`);
+      console.log(" ");
     },
     ERC20Balances: (log, rawLog, originator, formatArg) => {
       /* Reminder:
