@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "hardhat/console.sol";
-
+import "../DexPack.sol";
 import "./Toolbox/TestEvents.sol";
 import "./Toolbox/TestUtils.sol";
 import "./Toolbox/Display.sol";
@@ -121,17 +121,18 @@ contract AMM_Test {
       DEX = invDex;
     }
     // temporarily comment out
-    //emit DexEvents.WriteOffer(
-    //address(quoteT),
-    //address(baseT),
-    //address(mgr),
-    //1.2 ether,
-    //1.2 ether,
-    //100_000,
-    //DEX.config(address(0), address(0)).global.gasprice,
-    //1, // first offerId of the quote,base pair
-    //false
-    //);
+    emit DexEvents.WriteOffer(
+      address(quoteT),
+      address(baseT),
+      address(mgr),
+      DexPack.writeOffer_pack(
+        1.2 ether,
+        1.2 ether,
+        DEX.config(address(0), address(0)).global.gasprice,
+        100_000,
+        1
+      )
+    );
     emit DexEvents.Success(
       address(quoteT),
       address(baseT),
@@ -141,18 +142,19 @@ contract AMM_Test {
     );
     emit DexEvents.RemoveOffer(address(quoteT), address(baseT), 1, false);
     TestEvents.expectFrom(address(dex));
-    // temporarily comment out
-    //emit DexEvents.WriteOffer(
-    //address(baseT),
-    //address(quoteT),
-    //mgr,
-    //0.6 ether,
-    //0.6 ether,
-    //100_000,
-    //dex.config(address(0), address(0)).global.gasprice,
-    //4, // first offerId of the quote,base pair
-    //false
-    //);
+
+    emit DexEvents.WriteOffer(
+      address(baseT),
+      address(quoteT),
+      mgr,
+      DexPack.writeOffer_pack(
+        0.6 ether,
+        0.6 ether,
+        dex.config(address(0), address(0)).global.gasprice,
+        100_000,
+        4
+      )
+    );
   }
 
   function offer_manager_test() public {
