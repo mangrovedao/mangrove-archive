@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
 // Encode structs
-pragma experimental ABIEncoderV2;
+pragma abicoder v2;
 
 import "../Agents/TestTaker.sol";
 import "../Agents/MakerDeployer.sol";

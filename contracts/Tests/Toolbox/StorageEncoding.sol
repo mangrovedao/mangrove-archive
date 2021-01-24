@@ -3,7 +3,7 @@
 /* Testing bad storage encoding */
 
 // We can't even encode storage references without the experimental encoder
-pragma experimental ABIEncoderV2;
+pragma abicoder v2;
 
 pragma solidity ^0.7.4;
 import "./TestEvents.sol";

@@ -4,7 +4,7 @@
 Due to the 24kB contract size limit, we pay some additional complexity in the form of `DexLib`, to which `Dex` will delegate some calls. It notably includes configuration getters and setters, token transfer low-level functions, as well as the `writeOffer` machinery used by makers when they post new offers and update existing ones.
 */
 pragma solidity ^0.7.0;
-pragma experimental ABIEncoderV2;
+pragma abicoder v2;
 import "./DexCommon.sol";
 import "./interfaces.sol";
 import {DexCommon as DC, DexEvents} from "./DexCommon.sol";

@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.0;
 // Encode structs
-pragma experimental ABIEncoderV2;
+pragma abicoder v2;
 // ERC, Maker, Taker interfaces
 import "./interfaces.sol";
 // Types common to main Dex contract and DexLib
