@@ -377,7 +377,7 @@ abstract contract Dex is HasAdmin {
       /* it is crucial that a false success value means that the error is the maker's fault */
       (success, deleted, gasused) = execute(orp);
       /* if maker failed, we increase the failure number -- even past orp.numToPunish so the decrement count after the call stack has popped is correct. */
-      if (!success) {
+      if (!success && deleted) {
         orp.numToPunish = orp.numToPunish + 1;
       }
 
@@ -499,6 +499,11 @@ abstract contract Dex is HasAdmin {
   function executeCallback(DC.OrderPack memory orp) internal virtual;
 
   /* We could make `execute` part of DexLib to reduce Dex contract size, but we make heavy use of the memory struct `orp` to modify data that will then be used by the caller (`internalSnipes` or `internalMarketOrder`). */
+  /* maker has failed iff (!success && deleted) */
+  /* offer has not been executed iff (!success && !deleted) */
+  /* offer has been consumed below dust level if (success && deleted) */
+  /* offer has been consumed strictly above dust level if (success && !deleted) */
+  /* a taker fail triggers a revert */
   function execute(DC.OrderPack memory orp)
     internal
     returns (
@@ -737,11 +742,12 @@ abstract contract Dex is HasAdmin {
         orp.wants = targets[i][1];
         orp.gives = targets[i][2];
 
+        // ! warning ! updates orp.wants, orp.gives
         (success, deleted, gasused) = execute(orp);
 
         if (success) {
           successes += 1;
-        } else {
+        } else if (deleted) {
           orp.numToPunish = orp.numToPunish + 1;
         }
 
@@ -796,21 +802,23 @@ abstract contract Dex is HasAdmin {
     {
       uint gasreq = $$(od_gasreq("orp.offerDetail"));
 
-      gasused =
-        gasused +
-        makerPosthook(
-          orp,
-          gasused > gasreq ? 0 : gasreq - gasused,
-          deleted,
-          success
-        );
+      if (success || (!success && deleted)) {
+        gasused =
+          gasused +
+          makerPosthook(
+            orp,
+            gasused > gasreq ? 0 : gasreq - gasused,
+            deleted,
+            success
+          );
 
-      if (gasused > gasreq) {
-        gasused = gasreq;
+        if (gasused > gasreq) {
+          gasused = gasreq;
+        }
       }
     }
 
-    if (!success) {
+    if (!success && deleted) {
       applyPenalty(
         $$(glo_gasprice("orp.global")),
         gasused,
