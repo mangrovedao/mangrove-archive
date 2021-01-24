@@ -36,6 +36,7 @@ task(
         argTestContractNames: params.contracts || [],
         details: params.details,
         showGas: params.showGas,
+        showTx: params.showTx,
         showEvents: params.showEvents,
         showTestEvents: params.showTestEvents,
         prefix: params.prefix,
