@@ -315,24 +315,26 @@ abstract contract Dex is HasAdmin {
 
     /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
     require(uint160(takerWants) == takerWants, "dex/mOrder/takerWants/160bits");
-    DC.OrderPack memory orp;
-    orp.base = base;
-    orp.quote = quote;
-    orp.offerId = offerId;
-    orp.offer = offers[base][quote][offerId];
-    orp.global = global;
-    orp.local = locals[base][quote];
-    orp.toPunish = new uint[2][](punishLength);
-    orp.numToPunish = 0;
-    orp.initialWants = takerWants;
-    orp.totalGot = 0;
-    orp.initialGives = takerGives;
-    orp.totalGave = 0;
-    orp.wants = 0;
-    orp.gives = 0;
+
+    DC.SingleOrder memory sor;
+    DC.MultiOrder memory mor;
+    sor.base = base;
+    sor.quote = quote;
+    sor.offerId = offerId;
+    sor.offer = offers[base][quote][offerId];
+    mor.global = global;
+    mor.local = locals[base][quote];
+    mor.toPunish = new uint[2][](punishLength);
+    mor.numToPunish = 0;
+    mor.initialWants = takerWants;
+    mor.totalGot = 0;
+    mor.initialGives = takerGives;
+    mor.totalGave = 0;
+    sor.wants = 0;
+    sor.gives = 0;
 
     /* For the market order to even start, the market needs to be both alive (that is, not irreversibly killed following emergency action), and not currently protected from reentrancy. */
-    requireActiveMarket(orp.global, orp.local);
+    requireActiveMarket(mor.global, mor.local);
 
     /* ### Initialization */
     /* The market order will operate as follows : it will go through offers from best to worse, starting from `offerId`, and: */
@@ -342,10 +344,15 @@ abstract contract Dex is HasAdmin {
      * Will maintain an array of pairs `(offerId, gasused)` to identify failed offers. Look at [punishment for failing offers](#dex.sol-punishment-for-failing-offers) for more information. Since there are no extensible in-memory arrays, `punishLength` should be an upper bound on the number of failed offers. */
 
     /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. The check is an `if` instead of a `require` so we don't throw on an empty market -- but it also means we treat a bad offer id as a take on an empty market. */
-    if (isLive(orp.offer)) {
-      internalMarketOrder(orp, $$(o_prev("orp.offer")), orp.initialWants != 0);
+    if (isLive(sor.offer)) {
+      internalMarketOrder(
+        mor,
+        sor,
+        $$(o_prev("sor.offer")),
+        mor.initialWants != 0
+      );
     }
-    return (orp.totalGot, orp.totalGave, orp.toPunish);
+    return (mor.totalGot, mor.totalGave, mor.toPunish);
   }
 
   /* ### Main loop */
@@ -354,7 +361,8 @@ abstract contract Dex is HasAdmin {
    * remaining amount wanted reaches 0, or
    * `offerId == 0`, which means we've gone past the end of the book. */
   function internalMarketOrder(
-    DC.OrderPack memory orp,
+    DC.MultiOrder memory mor,
+    DC.SingleOrder memory sor,
     uint pastOfferId,
     bool proceed
   ) internal {
@@ -365,15 +373,15 @@ abstract contract Dex is HasAdmin {
       // reduce stack size for recursion
 
       bool deleted;
-      orp.wants = orp.initialWants - orp.totalGot;
-      orp.gives = orp.initialGives - orp.totalGave;
-      orp.offerDetail = offerDetails[orp.base][orp.quote][orp.offerId];
+      sor.wants = mor.initialWants - mor.totalGot;
+      sor.gives = mor.initialGives - mor.totalGave;
+      sor.offerDetail = offerDetails[sor.base][sor.quote][sor.offerId];
 
       /* it is crucial that a false success value means that the error is the maker's fault */
-      (success, deleted, gasused) = execute(orp);
-      /* if maker failed, we increase the failure number -- even past orp.numToPunish so the decrement count after the call stack has popped is correct. */
+      (success, deleted, gasused) = execute(mor, sor);
+      /* if maker failed, we increase the failure number -- even past mor.numToPunish so the decrement count after the call stack has popped is correct. */
       if (!success && deleted) {
-        orp.numToPunish = orp.numToPunish + 1;
+        mor.numToPunish = mor.numToPunish + 1;
       }
 
       /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
@@ -407,58 +415,61 @@ abstract contract Dex is HasAdmin {
 
       // those may have been updated by execute, we keep them in stack
       {
-        uint offerId = orp.offerId;
-        uint takerWants = orp.wants;
-        uint takerGives = orp.gives;
-        bytes32 offer = orp.offer;
-        bytes32 offerDetail = orp.offerDetail;
+        /* it is known statically that initialWants-totalGot does not underflow since 1) totalGot is increase by sor.wants during the loop, 2) sor.wants may be clamped down to offer.gives, 3) and sor.wants was at most initialWants-totalGot from earlier step */
+        uint stillWants = mor.initialWants - mor.totalGot;
+        uint offerId = sor.offerId;
+        uint takerWants = sor.wants;
+        uint takerGives = sor.gives;
+        bytes32 offer = sor.offer;
+        bytes32 offerDetail = sor.offerDetail;
 
         if (deleted) {
           // note that internalMarketOrder may be called twice with same offerId, but in that case proceed will be false!
-          orp.offerId = $$(o_next("orp.offer"));
-          orp.offer = offers[orp.base][orp.quote][orp.offerId];
+          sor.offerId = $$(o_next("sor.offer"));
+          sor.offer = offers[sor.base][sor.quote][sor.offerId];
         }
 
-        /* ! danger ! beyond this point, the following `orp` properties 
+        /* ! danger ! beyond this point, the following `sor` properties
            reflect the last offer to be examined:
          `offerId`, `offer`, `offerDetail`, `wants`, `gives`, `offerDetail`
        */
         internalMarketOrder(
-          orp,
+          mor,
+          sor,
           pastOfferId,
-          orp.initialWants - orp.totalGot > 0 && orp.offerId != 0 && deleted
+          stillWants > 0 && sor.offerId != 0 && deleted
         );
 
-        orp.offerId = offerId;
-        orp.wants = takerWants;
-        orp.gives = takerGives;
-        orp.offer = offer;
-        orp.offerDetail = offerDetail;
+        sor.offerId = offerId;
+        sor.wants = takerWants;
+        sor.gives = takerGives;
+        sor.offer = offer;
+        sor.offerDetail = offerDetail;
       }
 
-      postExecute(orp, success, deleted, gasused);
+      postExecute(mor, sor, success, deleted, gasused);
     } else {
-      restrictMemoryArrayLength(orp.toPunish, orp.numToPunish);
-      stitchOffers(orp.base, orp.quote, pastOfferId, orp.offerId);
-      locks[orp.base][orp.quote] = UNLOCKED;
-      applyFee(orp);
-      executeEnd(orp); //noop if classical Dex
+      restrictMemoryArrayLength(mor.toPunish, mor.numToPunish);
+      stitchOffers(sor.base, sor.quote, pastOfferId, sor.offerId);
+      locks[sor.base][sor.quote] = UNLOCKED;
+      applyFee(mor, sor);
+      executeEnd(mor, sor); //noop if classical Dex
     }
   }
 
   function makerPosthook(
-    DC.OrderPack memory orp,
+    DC.SingleOrder memory sor,
     uint gasLeft,
     bool deleted,
     bool success
   ) internal returns (uint gasused) {
     IMaker.Posthook memory posthook =
       IMaker.Posthook({
-        base: orp.base,
-        quote: orp.quote,
-        takerWants: orp.wants,
-        takerGives: orp.gives,
-        offerId: orp.offerId,
+        base: sor.base,
+        quote: sor.quote,
+        takerWants: sor.wants,
+        takerGives: sor.gives,
+        offerId: sor.offerId,
         offerDeleted: deleted,
         success: success
       });
@@ -468,7 +479,7 @@ abstract contract Dex is HasAdmin {
 
     bytes memory retdata = new bytes(32);
 
-    address maker = $$(od_maker("orp.offerDetail"));
+    address maker = $$(od_maker("sor.offerDetail"));
 
     uint oldGas = gasleft();
     if (!(oldGas - oldGas / 64 >= gasLeft)) {
@@ -489,17 +500,19 @@ abstract contract Dex is HasAdmin {
     gasused = oldGas - gasleft();
   }
 
-  function executeEnd(DC.OrderPack memory orp) internal virtual;
+  function executeEnd(DC.MultiOrder memory mor, DC.SingleOrder memory sor)
+    internal
+    virtual;
 
-  function executeCallback(DC.OrderPack memory orp) internal virtual;
+  function executeCallback(DC.SingleOrder memory sor) internal virtual;
 
-  /* We could make `execute` part of DexLib to reduce Dex contract size, but we make heavy use of the memory struct `orp` to modify data that will then be used by the caller (`internalSnipes` or `internalMarketOrder`). */
+  /* We could make `execute` part of DexLib to reduce Dex contract size, but we make heavy use of the memory struct `sor` to modify data that will then be used by the caller (`internalSnipes` or `internalMarketOrder`). */
   /* maker has failed iff (!success && deleted) */
   /* offer has not been executed iff (!success && !deleted) */
   /* offer has been consumed below dust level if (success && deleted) */
   /* offer has been consumed strictly above dust level if (success && !deleted) */
   /* a taker fail triggers a revert */
-  function execute(DC.OrderPack memory orp)
+  function execute(DC.MultiOrder memory mor, DC.SingleOrder memory sor)
     internal
     returns (
       bool success,
@@ -523,27 +536,27 @@ abstract contract Dex is HasAdmin {
        */
     uint makerWouldWant =
       roundUpRatio(
-        orp.wants * $$(o_wants("orp.offer")),
-        $$(o_gives("orp.offer"))
+        sor.wants * $$(o_wants("sor.offer")),
+        $$(o_gives("sor.offer"))
       );
 
-    if (makerWouldWant > orp.gives) {
-      return (success, deleted, $$(od_gasreq("orp.offerDetail")));
+    if (makerWouldWant > sor.gives) {
+      return (success, deleted, $$(od_gasreq("sor.offerDetail")));
     }
 
-    /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `orp.wants`,`orp.gives` are how much the taker will trade with the current offer. */
-    if ($$(o_gives("orp.offer")) < orp.wants) {
-      orp.wants = $$(o_gives("orp.offer"));
-      orp.gives = $$(o_wants("orp.offer"));
+    /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `sor.wants`,`sor.gives` are how much the taker will trade with the current offer. */
+    if ($$(o_gives("sor.offer")) < sor.wants) {
+      sor.wants = $$(o_gives("sor.offer"));
+      sor.gives = $$(o_wants("sor.offer"));
     } else {
-      orp.gives = makerWouldWant;
+      sor.gives = makerWouldWant;
     }
 
     bool residualBelowDust;
     if (
-      $$(o_gives("orp.offer")) - orp.wants <
-      $$(loc_density("orp.local")) *
-        ($$(od_gasreq("orp.offerDetail")) + $$(glo_gasbase("orp.global")))
+      $$(o_gives("sor.offer")) - sor.wants <
+      $$(loc_density("mor.local")) *
+        ($$(od_gasreq("sor.offerDetail")) + $$(glo_gasbase("mor.global")))
     ) {
       residualBelowDust = true;
     }
@@ -554,7 +567,7 @@ abstract contract Dex is HasAdmin {
     */
     bytes memory retdata;
     (success, retdata) = address(DexLib).delegatecall(
-      abi.encodeWithSelector(FLASHLOANER, orp, residualBelowDust)
+      abi.encodeWithSelector(FLASHLOANER, sor, residualBelowDust)
     );
 
     /* Revert if FLASHLOANER reverted. **Danger**: if a well-crafted offer/maker pair can force a revert of FLASHLOANER, the Dex will be stuck. */
@@ -562,22 +575,23 @@ abstract contract Dex is HasAdmin {
       gasused = abi.decode(retdata, (uint));
 
       emit DexEvents.Success(
-        orp.base,
-        orp.quote,
-        orp.offerId,
-        orp.wants,
-        orp.gives
+        sor.base,
+        sor.quote,
+        sor.offerId,
+        sor.wants,
+        sor.gives
       );
-      orp.totalGot += orp.wants;
-      orp.totalGave += orp.gives;
+
+      mor.totalGot += sor.wants;
+      mor.totalGave += sor.gives;
 
       if (residualBelowDust) {
         deleted = true;
       } else {
-        bytes32 updatedOffer = orp.offer;
-        uint newGives = $$(o_gives("updatedOffer")) - orp.wants;
-        uint newWants = $$(o_wants("updatedOffer")) - orp.gives;
-        offers[orp.base][orp.quote][orp.offerId] = $$(
+        bytes32 updatedOffer = sor.offer;
+        uint newGives = $$(o_gives("updatedOffer")) - sor.wants;
+        uint newWants = $$(o_wants("updatedOffer")) - sor.gives;
+        offers[sor.base][sor.quote][sor.offerId] = $$(
           o_set("updatedOffer", [["gives", "newGives"], ["wants", "newWants"]])
         );
       }
@@ -591,11 +605,11 @@ abstract contract Dex is HasAdmin {
       ) {
         deleted = true;
         emit DexEvents.MakerFail(
-          orp.base,
-          orp.quote,
-          orp.offerId,
-          orp.wants,
-          orp.gives,
+          sor.base,
+          sor.quote,
+          sor.offerId,
+          sor.wants,
+          sor.gives,
           errorCode == "dex/makerRevert",
           makerData
         );
@@ -611,7 +625,7 @@ abstract contract Dex is HasAdmin {
     }
 
     if (deleted) {
-      dirtyDeleteOffer(orp.base, orp.quote, orp.offerId, orp.offer, !success);
+      dirtyDeleteOffer(sor.base, sor.quote, sor.offerId, sor.offer, !success);
     }
   }
 
@@ -684,47 +698,49 @@ abstract contract Dex is HasAdmin {
     locks[base][quote] = LOCKED;
     /* ### Pre-loop Checks */
     //+clear+
-    DC.OrderPack memory orp;
-    orp.base = base;
-    orp.quote = quote;
-    orp.global = global;
-    orp.local = locals[base][quote];
-    orp.toPunish = new uint[2][](punishLength);
-    orp.numToPunish = 0;
-    orp.totalGot = 0;
-    orp.totalGave = 0;
-    orp.wants = 0;
-    orp.gives = 0;
+    DC.MultiOrder memory mor;
+    DC.SingleOrder memory sor;
+    sor.base = base;
+    sor.quote = quote;
+    mor.global = global;
+    mor.local = locals[base][quote];
+    mor.toPunish = new uint[2][](punishLength);
+    mor.numToPunish = 0;
+    mor.totalGot = 0;
+    mor.totalGave = 0;
+    sor.wants = 0;
+    sor.gives = 0;
 
-    requireActiveMarket(orp.global, orp.local);
+    requireActiveMarket(mor.global, mor.local);
 
     /* ### Main loop */
     //+clear+
 
     return (
-      internalSnipes(orp, targets, 0, 0),
-      orp.totalGot,
-      orp.totalGave,
-      orp.toPunish
+      internalSnipes(mor, sor, targets, 0, 0),
+      mor.totalGot,
+      mor.totalGave,
+      mor.toPunish
     );
   }
 
   function internalSnipes(
-    DC.OrderPack memory orp,
+    DC.MultiOrder memory mor,
+    DC.SingleOrder memory sor,
     uint[4][] memory targets,
     uint i,
     uint successes
   ) internal returns (uint) {
     if (i < targets.length) {
-      orp.offerId = targets[i][0];
-      orp.offer = offers[orp.base][orp.quote][orp.offerId];
-      orp.offerDetail = offerDetails[orp.base][orp.quote][orp.offerId];
+      sor.offerId = targets[i][0];
+      sor.offer = offers[sor.base][sor.quote][sor.offerId];
+      sor.offerDetail = offerDetails[sor.base][sor.quote][sor.offerId];
 
       /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. We also check that `gasreq` is not worse than specified. A taker who does not care about `gasreq` can specify any amount larger than $2^{24}-1$. */
       if (
-        !isLive(orp.offer) || $$(od_gasreq("orp.offerDetail")) > targets[i][3]
+        !isLive(sor.offer) || $$(od_gasreq("sor.offerDetail")) > targets[i][3]
       ) {
-        return internalSnipes(orp, targets, i + 1, successes);
+        return internalSnipes(mor, sor, targets, i + 1, successes);
       } else {
         bool success;
         uint gasused;
@@ -734,74 +750,75 @@ abstract contract Dex is HasAdmin {
           uint96(targets[i][1]) == targets[i][1],
           "dex/snipes/takerWants/96bits"
         );
-        orp.wants = targets[i][1];
-        orp.gives = targets[i][2];
+        sor.wants = targets[i][1];
+        sor.gives = targets[i][2];
 
-        // ! warning ! updates orp.wants, orp.gives
-        (success, deleted, gasused) = execute(orp);
+        // ! warning ! updates sor.wants, sor.gives
+        (success, deleted, gasused) = execute(mor, sor);
 
         if (success) {
           successes += 1;
         } else if (deleted) {
-          orp.numToPunish = orp.numToPunish + 1;
+          mor.numToPunish = mor.numToPunish + 1;
         }
 
         if (deleted) {
           stitchOffers(
-            orp.base,
-            orp.quote,
-            $$(o_prev("orp.offer")),
-            $$(o_next("orp.offer"))
+            sor.base,
+            sor.quote,
+            $$(o_prev("sor.offer")),
+            $$(o_next("sor.offer"))
           );
         }
 
         {
-          uint offerId = orp.offerId;
-          uint takerWants = orp.wants;
-          uint takerGives = orp.gives;
-          bytes32 offer = orp.offer;
-          bytes32 offerDetail = orp.offerDetail;
+          uint offerId = sor.offerId;
+          uint takerWants = sor.wants;
+          uint takerGives = sor.gives;
+          bytes32 offer = sor.offer;
+          bytes32 offerDetail = sor.offerDetail;
 
-          successes = internalSnipes(orp, targets, i + 1, successes);
+          successes = internalSnipes(mor, sor, targets, i + 1, successes);
 
-          orp.offerId = offerId;
-          orp.wants = takerWants;
-          orp.gives = takerGives;
-          orp.offer = offer;
-          orp.offerDetail = offerDetail;
+          sor.offerId = offerId;
+          sor.wants = takerWants;
+          sor.gives = takerGives;
+          sor.offer = offer;
+          sor.offerDetail = offerDetail;
         }
 
-        postExecute(orp, success, deleted, gasused);
+        postExecute(mor, sor, success, deleted, gasused);
       }
     } else {
       /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
-      restrictMemoryArrayLength(orp.toPunish, orp.numToPunish);
-      locks[orp.base][orp.quote] = UNLOCKED;
-      applyFee(orp);
-      executeEnd(orp);
+      restrictMemoryArrayLength(mor.toPunish, mor.numToPunish);
+      locks[sor.base][sor.quote] = UNLOCKED;
+      applyFee(mor, sor);
+      executeEnd(mor, sor);
     }
 
     return successes;
   }
 
   function postExecute(
-    DC.OrderPack memory orp,
+    DC.MultiOrder memory mor,
+    DC.SingleOrder memory sor,
     bool success,
     bool deleted,
     uint gasused
   ) internal {
     if (success) {
-      executeCallback(orp);
+      executeCallback(sor);
     }
 
     {
-      uint gasreq = $$(od_gasreq("orp.offerDetail"));
+      uint gasreq = $$(od_gasreq("sor.offerDetail"));
 
       if (success || (!success && deleted)) {
         gasused =
           gasused +
           makerPosthook(
-            orp,
+            sor,
             gasused > gasreq ? 0 : gasreq - gasused,
             deleted,
             success
@@ -815,16 +832,16 @@ abstract contract Dex is HasAdmin {
 
     if (!success && deleted) {
       applyPenalty(
-        $$(glo_gasprice("orp.global")),
+        $$(glo_gasprice("mor.global")),
         gasused,
-        orp.offer,
-        orp.offerDetail
+        sor.offer,
+        sor.offerDetail
       );
 
-      orp.numToPunish = orp.numToPunish - 1;
+      mor.numToPunish = mor.numToPunish - 1;
 
-      if (orp.numToPunish < orp.toPunish.length) {
-        orp.toPunish[orp.numToPunish] = [orp.offerId, gasused];
+      if (mor.numToPunish < mor.toPunish.length) {
+        mor.toPunish[mor.numToPunish] = [sor.offerId, gasused];
       }
     }
   }
@@ -859,12 +876,14 @@ abstract contract Dex is HasAdmin {
   }
 
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
-  function applyFee(DC.OrderPack memory orp) internal {
-    if (orp.totalGot > 0) {
-      uint concreteFee = (orp.totalGot * $$(loc_fee("orp.local"))) / 10_000;
-      orp.totalGot -= concreteFee;
+  function applyFee(DC.MultiOrder memory mor, DC.SingleOrder memory sor)
+    internal
+  {
+    if (mor.totalGot > 0) {
+      uint concreteFee = (mor.totalGot * $$(loc_fee("mor.local"))) / 10_000;
+      mor.totalGot -= concreteFee;
       bool success =
-        DexLib.transferToken(orp.base, msg.sender, admin, concreteFee);
+        DexLib.transferToken(sor.base, msg.sender, admin, concreteFee);
       require(success, "dex/takerFailToPayDex");
     }
   }
@@ -1588,9 +1607,12 @@ contract FMD is Dex {
     uint gasmax
   ) Dex(gasprice, gasbase, gasmax, true) {}
 
-  function executeEnd(DC.OrderPack memory orp) internal override {}
+  function executeEnd(DC.MultiOrder memory mor, DC.SingleOrder memory sor)
+    internal
+    override
+  {}
 
-  function executeCallback(DC.OrderPack memory orp) internal override {}
+  function executeCallback(DC.SingleOrder memory sor) internal override {}
 }
 
 contract FTD is Dex {
@@ -1601,12 +1623,15 @@ contract FTD is Dex {
   ) Dex(gasprice, gasbase, gasmax, false) {}
 
   // execute taker trade
-  function executeEnd(DC.OrderPack memory orp) internal override {
+  function executeEnd(DC.MultiOrder memory mor, DC.SingleOrder memory sor)
+    internal
+    override
+  {
     ITaker(msg.sender).takerTrade(
-      orp.base,
-      orp.quote,
-      orp.totalGot,
-      orp.totalGave
+      sor.base,
+      sor.quote,
+      mor.totalGot,
+      mor.totalGave
     );
   }
 
@@ -1620,13 +1645,13 @@ contract FTD is Dex {
      2) is OK, but has an extra CALL cost on top of the token transfer, one for each maker. This is unavoidable anyway when calling makerTrade (since the maker must be able to execute arbitrary code at that moment), but we can skip it here.
      3) is the cheapest, but it has the drawbacks of `transferFrom`: money must end up owned by the taker, and taker needs to `approve` Dex
    */
-  function executeCallback(DC.OrderPack memory orp) internal override {
+  function executeCallback(DC.SingleOrder memory sor) internal override {
     bool success =
       DexLib.transferToken(
-        orp.quote,
+        sor.quote,
         msg.sender,
-        $$(od_maker("orp.offerDetail")),
-        $$(o_gives("orp.offer"))
+        $$(od_maker("sor.offerDetail")),
+        $$(o_gives("sor.offer"))
       );
     require(success, "dex/takerFailToPayMaker");
   }

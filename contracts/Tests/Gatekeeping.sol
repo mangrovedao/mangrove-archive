@@ -297,13 +297,13 @@ contract Gatekeeping_Test is IMaker {
   bytes posthook_cb;
 
   // maker's trade fn for the dex
-  function makerTrade(IMaker.Trade calldata trade)
-    external
-    override
-    returns (bytes32 ret)
-  {
+  function makerTrade(
+    DC.SingleOrder calldata order,
+    address taker,
+    bool
+  ) external override returns (bytes32 ret) {
     ret; // silence unused function parameter
-    IERC20(trade.base).transfer(trade.taker, trade.takerWants);
+    IERC20(order.base).transfer(taker, order.wants);
     bool success;
     if (trade_cb.length > 0) {
       (success, ) = address(this).call(trade_cb);

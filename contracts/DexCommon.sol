@@ -173,19 +173,23 @@ They have the following fields: */
   }
 
   /* Holds data about orders in a struct, used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
-  struct OrderPack {
-    address base;
-    address quote;
+  struct MultiOrder {
     uint initialWants;
     uint initialGives;
-    uint offerId;
     uint totalGot;
     uint totalGave;
-    bytes32 offer;
     bytes32 global;
     bytes32 local;
     uint numToPunish;
     uint[2][] toPunish;
+  }
+
+  /* Holds data about orders in a struct, used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
+  struct SingleOrder {
+    address base;
+    address quote;
+    uint offerId;
+    bytes32 offer;
     /* will evolve over time, initially the wants/gives from the taker's pov,
        then actual wants/give depending on how much the offer is ready */
     uint wants;

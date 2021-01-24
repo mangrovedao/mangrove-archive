@@ -83,14 +83,14 @@ contract MakerOperations_Test is IMaker {
   }
 
   // since we check calldata, execute must be internal
-  function makerTrade(IMaker.Trade calldata trade)
-    external
-    override
-    returns (bytes32 ret)
-  {
+  function makerTrade(
+    DC.SingleOrder calldata order,
+    address taker,
+    bool offerWillDelete
+  ) external override returns (bytes32 ret) {
     ret; // silence unused function parameter warning
-    IERC20(base).transfer(trade.taker, trade.takerWants);
-    uint num_args = 11;
+    IERC20(base).transfer(taker, order.wants);
+    uint num_args = 9;
     uint selector_bytes = 4;
     uint length = selector_bytes + num_args * 32;
     TestEvents.eq(
@@ -99,21 +99,33 @@ contract MakerOperations_Test is IMaker {
       "calldata length in execute is incorrect"
     );
 
-    TestEvents.eq(trade.base, address(base), "wrong base");
-    TestEvents.eq(trade.quote, address(quote), "wrong quote");
-    TestEvents.eq(trade.takerWants, 0.05 ether, "wrong takerWants");
-    TestEvents.eq(trade.takerGives, 0.05 ether, "wrong takerGives");
-    TestEvents.eq(trade.taker, address(tkr), "wrong taker");
+    TestEvents.eq(order.base, address(base), "wrong base");
+    TestEvents.eq(order.quote, address(quote), "wrong quote");
+    TestEvents.eq(order.wants, 0.05 ether, "wrong takerWants");
+    TestEvents.eq(order.gives, 0.05 ether, "wrong takerGives");
+    TestEvents.eq(taker, address(tkr), "wrong taker");
     TestEvents.eq(
-      trade.offerGasprice,
-      dex.config(trade.base, trade.quote).global.gasprice,
+      DexPack.offer_unpack_gasprice(order.offer),
+      dex.config(order.base, order.quote).global.gasprice,
       "wrong gasprice"
     );
-    TestEvents.eq(trade.offerGasreq, 200_000, "wrong gasreq");
-    TestEvents.eq(trade.offerId, 1, "wrong offerId");
-    TestEvents.eq(trade.offerWants, 0.05 ether, "wrong offerWants");
-    TestEvents.eq(trade.offerGives, 0.05 ether, "wrong offerGives");
-    TestEvents.check(trade.offerWillDelete, "offerWillDelete should be true");
+    TestEvents.eq(
+      DexPack.offerDetail_unpack_gasreq(order.offerDetail),
+      200_000,
+      "wrong gasreq"
+    );
+    TestEvents.eq(order.offerId, 1, "wrong offerId");
+    TestEvents.eq(
+      DexPack.offer_unpack_wants(order.offer),
+      0.05 ether,
+      "wrong offerWants"
+    );
+    TestEvents.eq(
+      DexPack.offer_unpack_gives(order.offer),
+      0.05 ether,
+      "wrong offerGives"
+    );
+    TestEvents.check(offerWillDelete, "offerWillDelete should be true");
     // test flashloan
     TestEvents.eq(
       quote.balanceOf(address(this)),

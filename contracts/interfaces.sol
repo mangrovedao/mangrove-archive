@@ -21,7 +21,16 @@ interface IMaker {
   // Maker sends quote to taker
   // In normal dex, they already received base
   // In inverted dex, they did not
-  function makerTrade(Trade calldata trade) external returns (bytes32);
+  //function makerTrade(Trade calldata trade) external returns (bytes32);
+
+  // Maker sends quote to taker
+  // In normal dex, they already received base
+  // In inverted dex, they did not
+  function makerTrade(
+    DC.SingleOrder calldata sor,
+    address taker,
+    bool willDelete
+  ) external returns (bytes32);
 
   struct Posthook {
     address base;

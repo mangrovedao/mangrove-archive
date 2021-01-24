@@ -120,7 +120,6 @@ contract AMM_Test {
       TestEvents.expectFrom(address(invDex));
       DEX = invDex;
     }
-    // temporarily comment out
     emit DexEvents.WriteOffer(
       address(quoteT),
       address(baseT),

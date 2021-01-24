@@ -68,21 +68,21 @@ contract UniSwapMaker is IMaker {
     }
   }
 
-  function makerTrade(IMaker.Trade calldata trade)
-    external
-    override
-    returns (bytes32)
-  {
+  function makerTrade(
+    DC.SingleOrder calldata order,
+    address taker,
+    bool
+  ) external override returns (bytes32) {
     require(msg.sender == address(dex), "Illegal call");
     emit Execute(
       msg.sender,
-      trade.base, // takerGives
-      trade.quote, // takerWants
-      trade.offerId,
-      trade.takerWants,
-      trade.takerGives
+      order.base, // takerGives
+      order.quote, // takerWants
+      order.offerId,
+      order.wants,
+      order.gives
     );
-    try ERC20(trade.quote).transfer(trade.taker, trade.takerWants) {
+    try ERC20(order.quote).transfer(taker, order.wants) {
       // try catch useless but clarifies
       return "OK";
     } catch {

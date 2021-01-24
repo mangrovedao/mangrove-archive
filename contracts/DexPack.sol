@@ -15,5 +15,12 @@ library DexPack {
     __$$(fb[0]) = $$(get('__packed',ns[1],fb[0]));
     // $done
   }
+
+  // $for fb in ns[1]
+  function $$(ns[0])_unpack_$$(fb[0])(bytes32 __packed) internal pure returns($$(fb[2])) {
+    return $$(get('__packed',ns[1],fb[0]));
+  }
+  // $done
+
   // $done
 }

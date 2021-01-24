@@ -5,6 +5,7 @@ pragma experimental ABIEncoderV2;
 import "./Passthrough.sol";
 import "../../interfaces.sol";
 import "../../Dex.sol";
+import "../../DexPack.sol";
 import "hardhat/console.sol";
 
 contract TestMaker is IMaker, Passthrough {
@@ -36,17 +37,16 @@ contract TestMaker is IMaker, Passthrough {
     _shouldFail = should;
   }
 
-  function makerTrade(IMaker.Trade calldata trade)
-    public
-    virtual
-    override
-    returns (bytes32)
-  {
+  function makerTrade(
+    DC.SingleOrder calldata order,
+    address taker,
+    bool
+  ) public virtual override returns (bytes32) {
     emit Execute(
-      trade.takerWants,
-      trade.takerGives,
-      trade.offerGasprice,
-      trade.offerId
+      order.wants,
+      order.gives,
+      DexPack.offer_unpack_gasprice(order.offer),
+      order.offerId
     );
     if (_shouldRevert) {
       bytes32[1] memory three = [bytes32("testMaker/revert")];
@@ -55,7 +55,7 @@ contract TestMaker is IMaker, Passthrough {
       }
     }
     if (!_shouldFail) {
-      try IERC20(trade.base).transfer(trade.taker, trade.takerWants) {
+      try IERC20(order.base).transfer(taker, order.wants) {
         return "testMaker/ok";
       } catch {
         return "testMaker/transferFail";

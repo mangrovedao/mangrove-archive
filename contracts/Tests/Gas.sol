@@ -73,13 +73,13 @@ contract Gas_Test is IMaker {
     return (_dex, _tkr, _base, _quote);
   }
 
-  function makerTrade(IMaker.Trade calldata trade)
-    external
-    override
-    returns (bytes32 ret)
-  {
+  function makerTrade(
+    DC.SingleOrder calldata order,
+    address taker,
+    bool
+  ) external override returns (bytes32 ret) {
     ret; // silence unused function parameter
-    IERC20(trade.base).transfer(trade.taker, trade.takerWants);
+    IERC20(order.base).transfer(taker, order.wants);
   }
 
   function makerPosthook(IMaker.Posthook calldata posthook) external override {}

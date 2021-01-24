@@ -201,16 +201,13 @@ contract Maker_basic is TestMaker {
     ERC20 quote
   ) TestMaker(dex, base, quote) {}
 
-  function makerTrade(IMaker.Trade calldata trade)
-    public
-    override
-    returns (bytes32 ret)
-  {
+  function makerTrade(
+    DC.SingleOrder calldata order,
+    address taker,
+    bool
+  ) public override returns (bytes32 ret) {
     ret; // silence compiler warning
-    ERC20(trade.base).transfer({
-      recipient: trade.taker,
-      amount: trade.takerWants
-    });
+    ERC20(order.base).transfer({recipient: taker, amount: order.wants});
   }
 }
 
@@ -234,17 +231,17 @@ contract Maker_compound is TestMaker {
     _compound.mint(ERC20(_base), 4 ether);
   }
 
-  function makerTrade(IMaker.Trade calldata trade)
-    public
-    override
-    returns (bytes32 ret)
-  {
+  function makerTrade(
+    DC.SingleOrder calldata order,
+    address taker,
+    bool
+  ) public override returns (bytes32 ret) {
     ret; // silence compiler warning
-    _compound.mint({token: ERC20(trade.quote), amount: trade.takerGives});
+    _compound.mint({token: ERC20(order.quote), amount: order.gives});
     _compound.redeem({
-      token: ERC20(trade.base),
-      amount: trade.takerWants,
-      to: trade.taker
+      token: ERC20(order.base),
+      amount: order.wants,
+      to: taker
     });
   }
 }
@@ -258,16 +255,13 @@ contract Maker_callback is TestMaker {
     ERC20 quote
   ) TestMaker(dex, base, quote) {}
 
-  function makerTrade(IMaker.Trade calldata trade)
-    public
-    override
-    returns (bytes32 ret)
-  {
+  function makerTrade(
+    DC.SingleOrder calldata order,
+    address taker,
+    bool
+  ) public override returns (bytes32 ret) {
     ret; // silence compiler warning
-    ERC20(trade.base).transfer({
-      recipient: trade.taker,
-      amount: trade.takerWants
-    });
+    ERC20(order.base).transfer({recipient: taker, amount: order.wants});
   }
 
   uint volume = 1 ether;

@@ -18,7 +18,7 @@ library DexLib {
      2. Runs `offerDetail.maker`'s `execute` function.
      3. Returns the result of the operations, with optional makerData to help the maker debug.
    */
-  function flashloan(DC.OrderPack calldata orp, bool residualBelowDust)
+  function flashloan(DC.SingleOrder calldata sor, bool residualBelowDust)
     external
     returns (uint gasused)
   {
@@ -26,13 +26,13 @@ library DexLib {
        so that any issue with the maker also reverts the flashloan */
     if (
       transferToken(
-        orp.quote,
+        sor.quote,
         msg.sender,
-        $$(od_maker("orp.offerDetail")),
-        orp.gives
+        $$(od_maker("sor.offerDetail")),
+        sor.gives
       )
     ) {
-      gasused = makerExecute(orp, residualBelowDust);
+      gasused = makerExecute(sor, residualBelowDust);
     } else {
       innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
     }
@@ -56,41 +56,33 @@ library DexLib {
        * costs more gas to do 2 SLOADS (checking balanceOf twice) than to run the `transfer` ourselves -- if there's only one transfer.
     */
 
-  function invertedFlashloan(DC.OrderPack calldata orp, bool residualBelowDust)
-    external
-    returns (uint gasused)
-  {
-    gasused = makerExecute(orp, residualBelowDust);
+  function invertedFlashloan(
+    DC.SingleOrder calldata sor,
+    bool residualBelowDust
+  ) external returns (uint gasused) {
+    gasused = makerExecute(sor, residualBelowDust);
   }
 
-  function makerExecute(DC.OrderPack calldata orp, bool residualBelowDust)
+  function makerExecute(DC.SingleOrder calldata sor, bool residualBelowDust)
     internal
     returns (uint gasused)
   {
-    IMaker.Trade memory trade =
-      IMaker.Trade({
-        base: orp.base,
-        quote: orp.quote,
-        takerWants: orp.wants,
-        takerGives: orp.gives,
-        taker: msg.sender,
-        offerGasprice: $$(o_gasprice("orp.offer")),
-        offerGasreq: $$(od_gasreq("orp.offerDetail")),
-        offerId: orp.offerId,
-        offerWants: $$(o_wants("orp.offer")),
-        offerGives: $$(o_gives("orp.offer")),
-        offerWillDelete: residualBelowDust
-      });
+    bytes memory cd =
+      abi.encodeWithSelector(
+        IMaker.makerTrade.selector,
+        sor,
+        msg.sender,
+        residualBelowDust
+      );
 
-    bytes memory cd = abi.encodeWithSelector(IMaker.makerTrade.selector, trade);
-    uint oldBalance = IERC20(orp.base).balanceOf(msg.sender);
-    /* If the transfer would trigger an overflow, we blame the taker. Since orp.wants is `min(takerWants,offer.gives)`, the taker cannot be tricked into overflow by a maker. This check must be done before the callto maker because an overflow-trggering ERC20 transfer could throw and result in an unjust maker failure. */
-    if (oldBalance + orp.wants < oldBalance) {
+    uint oldBalance = IERC20(sor.base).balanceOf(msg.sender);
+    /* If the transfer would trigger an overflow, we blame the taker. Since sor.wants is `min(takerWants,offer.gives)`, the taker cannot be tricked into overflow by a maker. This check must be done before the callto maker because an overflow-trggering ERC20 transfer could throw and result in an unjust maker failure. */
+    if (oldBalance + sor.wants < oldBalance) {
       innerRevert([bytes32("dex/tradeOverflow"), "", ""]);
     }
     /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + gasbase`. This yul call only retrieves the first byte of the maker's `returndata`. */
-    uint gasreq = $$(od_gasreq("orp.offerDetail"));
-    address maker = $$(od_maker("orp.offerDetail"));
+    uint gasreq = $$(od_gasreq("sor.offerDetail"));
+    address maker = $$(od_maker("sor.offerDetail"));
     bytes memory retdata = new bytes(32);
     bool success;
     bytes32 makerData;
@@ -116,13 +108,13 @@ library DexLib {
     gasused = oldGas - gasleft();
     // An example why this is not safe if ERC20 has a callback:
     // https://peckshield.medium.com/akropolis-incident-root-cause-analysis-c11ee59e05d4
-    uint newBalance = IERC20(orp.base).balanceOf(msg.sender);
-    /* oldBalance + orp.wants cannot overflow thanks to earlier check */
+    uint newBalance = IERC20(sor.base).balanceOf(msg.sender);
+    /* oldBalance + sor.wants cannot overflow thanks to earlier check */
     /* `msg.sender == maker` balance might be invariant*/
     if (!success) {
       innerRevert([bytes32("dex/makerRevert"), bytes32(gasused), makerData]);
     } else if (
-      (newBalance >= oldBalance + orp.wants) || (msg.sender == maker)
+      (newBalance >= oldBalance + sor.wants) || (msg.sender == maker)
     ) {
       // ok
     } else {
