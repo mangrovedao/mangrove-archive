@@ -741,14 +741,16 @@ abstract contract Dex is HasAdmin {
       orp.offer = offers[orp.base][orp.quote][orp.offerId];
       orp.offerDetail = offerDetails[orp.base][orp.quote][orp.offerId];
 
-      bool success;
-      uint gasused;
-      bool deleted;
-
       /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. We also check that `gasreq` is not worse than specified. A taker who does not care about `gasreq` can specify any amount larger than $2^{24}-1$. */
       if (
-        isLive(orp.offer) && $$(od_gasreq("orp.offerDetail")) <= targets[i][3]
+        !isLive(orp.offer) || $$(od_gasreq("orp.offerDetail")) > targets[i][3]
       ) {
+        return internalSnipes(orp, targets, i + 1, successes);
+      } else {
+        bool success;
+        uint gasused;
+        bool deleted;
+
         require(
           uint96(targets[i][1]) == targets[i][1],
           "dex/snipes/takerWants/96bits"
@@ -772,52 +774,52 @@ abstract contract Dex is HasAdmin {
             $$(o_next("orp.offer"))
           );
         }
-      }
 
-      uint offerId = orp.offerId;
-      uint takerWants = orp.wants;
-      uint takerGives = orp.gives;
-      bytes32 offer = orp.offer;
-      bytes32 offerDetail = orp.offerDetail;
+        uint offerId = orp.offerId;
+        uint takerWants = orp.wants;
+        uint takerGives = orp.gives;
+        bytes32 offer = orp.offer;
+        bytes32 offerDetail = orp.offerDetail;
 
-      successes = internalSnipes(orp, targets, i + 1, successes);
+        successes = internalSnipes(orp, targets, i + 1, successes);
 
-      if (success) {
-        executeCallback(orp, $$(od_maker("offerDetail")), takerGives);
-      }
+        if (success) {
+          executeCallback(orp, $$(od_maker("offerDetail")), takerGives);
+        }
 
-      {
-        uint gasreq = $$(od_gasreq("offerDetail"));
+        {
+          uint gasreq = $$(od_gasreq("offerDetail"));
 
-        gasused =
-          gasused +
-          makerPosthook(
-            orp,
-            takerWants,
-            takerGives,
-            offerId,
-            $$(od_maker("offerDetail")),
-            deleted,
-            gasused > gasreq ? 0 : gasreq - gasused
+          gasused =
+            gasused +
+            makerPosthook(
+              orp,
+              takerWants,
+              takerGives,
+              offerId,
+              $$(od_maker("offerDetail")),
+              deleted,
+              gasused > gasreq ? 0 : gasreq - gasused
+            );
+
+          if (gasused > gasreq) {
+            gasused = gasreq;
+          }
+        }
+
+        if (!success) {
+          applyPenalty(
+            $$(glo_gasprice("orp.global")),
+            gasused,
+            offer,
+            offerDetail
           );
 
-        if (gasused > gasreq) {
-          gasused = gasreq;
-        }
-      }
+          orp.numToPunish = orp.numToPunish - 1;
 
-      if (!success) {
-        applyPenalty(
-          $$(glo_gasprice("orp.global")),
-          gasused,
-          offer,
-          offerDetail
-        );
-
-        orp.numToPunish = orp.numToPunish - 1;
-
-        if (orp.numToPunish < orp.toPunish.length) {
-          orp.toPunish[orp.numToPunish] = [offerId, gasused];
+          if (orp.numToPunish < orp.toPunish.length) {
+            orp.toPunish[orp.numToPunish] = [offerId, gasused];
+          }
         }
       }
     } else {
