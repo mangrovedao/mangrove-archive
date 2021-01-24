@@ -153,9 +153,6 @@ They have the following fields: */
    Finally, some miscellaneous things useful to both `Dex` and `DexLib`:*/
   //+clear+
   /* A container for `uint` that can be passed to an external library function as a storage reference so that the library can write the `uint` (in Solidity, references to storage value types cannot be passed around). This is used to send a writeable reference to the current best offer to the library functions of `DexLib` (`DexLib` exists to reduce the contract size of `Dex`). */
-  struct UintContainer {
-    uint value;
-  }
 
   /* Holds data about offers in a struct, used by `newOffer` to avoid stack too deep errors. */
   struct OfferPack {
@@ -197,8 +194,6 @@ They have the following fields: */
     /* only populated when necessary */
     bytes32 offerDetail;
   }
-
-  enum SwapResult {OK, TakerTransferFail, MakerTransferFail, MakerReverted}
 }
 
 /* # Events

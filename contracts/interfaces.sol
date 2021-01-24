@@ -5,20 +5,6 @@ pragma abicoder v2;
 import {DexCommon as DC} from "./DexCommon.sol";
 
 interface IMaker {
-  struct Trade {
-    address base;
-    address quote;
-    uint takerWants;
-    uint takerGives;
-    address taker;
-    uint offerGasprice;
-    uint offerGasreq;
-    uint offerId;
-    uint offerWants;
-    uint offerGives;
-    bool offerWillDelete;
-  }
-
   // Maker sends quote to taker
   // In normal dex, they already received base
   // In inverted dex, they did not
