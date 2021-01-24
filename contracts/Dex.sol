@@ -325,14 +325,9 @@ abstract contract Dex is HasAdmin {
     mor.global = global;
     mor.local = locals[base][quote];
     mor.toPunish = new uint[2][](punishLength);
-    mor.numToPunish = 0;
     mor.initialWants = takerWants;
-    mor.totalGot = 0;
     mor.initialGives = takerGives;
-    mor.totalGave = 0;
     mor.extraData = $$(o_prev("sor.offer"));
-    sor.wants = 0;
-    sor.gives = 0;
 
     /* For the market order to even start, the market needs to be both alive (that is, not irreversibly killed following emergency action), and not currently protected from reentrancy. */
     requireActiveMarket(mor.global, mor.local);
@@ -702,11 +697,6 @@ abstract contract Dex is HasAdmin {
     mor.global = global;
     mor.local = locals[base][quote];
     mor.toPunish = new uint[2][](punishLength);
-    mor.numToPunish = 0;
-    mor.totalGot = 0;
-    mor.totalGave = 0;
-    sor.wants = 0;
-    sor.gives = 0;
 
     requireActiveMarket(mor.global, mor.local);
 
