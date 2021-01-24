@@ -30,6 +30,7 @@ interface IMaker {
     uint takerGives;
     uint offerId;
     bool offerDeleted;
+    bool success;
   }
 
   // Maker callback after trade

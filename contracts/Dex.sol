@@ -451,7 +451,12 @@ abstract contract Dex is HasAdmin {
 
         gasused =
           gasused +
-          makerPosthook(orp, gasused > gasreq ? 0 : gasreq - gasused, deleted); // maker callback
+          makerPosthook(
+            orp,
+            gasused > gasreq ? 0 : gasreq - gasused,
+            deleted,
+            success
+          ); // maker callback
 
         if (gasused > gasreq) {
           gasused = gasreq;
@@ -484,7 +489,8 @@ abstract contract Dex is HasAdmin {
   function makerPosthook(
     DC.OrderPack memory orp,
     uint gasLeft,
-    bool deleted
+    bool deleted,
+    bool success
   ) internal returns (uint gasused) {
     IMaker.Posthook memory posthook =
       IMaker.Posthook({
@@ -493,7 +499,8 @@ abstract contract Dex is HasAdmin {
         takerWants: orp.wants,
         takerGives: orp.gives,
         offerId: orp.offerId,
-        offerDeleted: deleted
+        offerDeleted: deleted,
+        success: success
       });
 
     bytes memory cd =
@@ -810,7 +817,8 @@ abstract contract Dex is HasAdmin {
             makerPosthook(
               orp,
               gasused > gasreq ? 0 : gasreq - gasused,
-              deleted
+              deleted,
+              success
             );
 
           if (gasused > gasreq) {
