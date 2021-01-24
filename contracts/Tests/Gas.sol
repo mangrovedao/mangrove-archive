@@ -19,7 +19,7 @@ import "./Agents/MakerDeployer.sol";
 import "./Agents/TestTaker.sol";
 
 // In these tests, the testing contract is the market maker.
-contract Gas_Test {
+contract Gas_Test is IMaker {
   receive() external payable {}
 
   Dex _dex;
@@ -38,7 +38,7 @@ contract Gas_Test {
     (noRevert, ) = address(_dex).call{value: 10 ether}("");
 
     baseT.mint(address(this), 2 ether);
-    baseT.approve(address(_dex), 1 ether);
+    baseT.approve(address(_dex), 2 ether);
     quoteT.approve(address(_dex), 1 ether);
 
     Display.register(msg.sender, "Test Runner");
@@ -54,6 +54,11 @@ contract Gas_Test {
     quoteT.mint(address(_tkr), 2 ether);
     _tkr.approveDex(quoteT, 2 ether);
     Display.register(address(_tkr), "Taker");
+
+    /* set lock to 1 to avoid spurious 15k gas cost */
+    uint ofr =
+      _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _tkr.take(ofr, 0.1 ether);
   }
 
   function getStored()
@@ -67,6 +72,17 @@ contract Gas_Test {
   {
     return (_dex, _tkr, _base, _quote);
   }
+
+  function makerTrade(IMaker.Trade calldata trade)
+    external
+    override
+    returns (bytes32 ret)
+  {
+    ret; // silence unused function parameter
+    IERC20(trade.base).transfer(trade.taker, trade.takerWants);
+  }
+
+  function makerPosthook(IMaker.Posthook calldata posthook) external override {}
 
   function update_min_offer_test() public {
     (Dex dex, , address base, address quote) = getStored();
@@ -133,7 +149,7 @@ contract Gas_Test {
     _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
     uint g = gasleft();
     uint h;
-    tkr.simpleMarketOrder(dex, base, quote, 1 ether, 1 ether);
+    tkr.simpleMarketOrder(dex, base, quote, 2 ether, 2 ether);
     h = gasleft();
     console.log("Gas used", g - h);
   }
