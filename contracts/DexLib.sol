@@ -74,11 +74,11 @@ library DexLib {
         takerWants: orp.wants,
         takerGives: orp.gives,
         taker: msg.sender,
-        offerGasprice: $$(get("orp.offer", offer, "gasprice")),
+        offerGasprice: $$(o_gasprice("orp.offer")),
         offerGasreq: $$(od_gasreq("orp.offerDetail")),
         offerId: orp.offerId,
-        offerWants: $$(get("orp.offer", offer, "wants")),
-        offerGives: $$(get("orp.offer", offer, "gives")),
+        offerWants: $$(o_wants("orp.offer")),
+        offerGives: $$(o_gives("orp.offer")),
         offerWillDelete: residualBelowDust
       });
 
