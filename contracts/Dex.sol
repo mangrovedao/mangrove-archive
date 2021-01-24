@@ -441,42 +441,7 @@ abstract contract Dex is HasAdmin {
         orp.offerDetail = offerDetail;
       }
 
-      // reentrancy is allowed here
-      if (success) {
-        executeCallback(orp); // noop in Classical dex
-      }
-
-      {
-        uint gasreq = $$(od_gasreq("orp.offerDetail"));
-
-        gasused =
-          gasused +
-          makerPosthook(
-            orp,
-            gasused > gasreq ? 0 : gasreq - gasused,
-            deleted,
-            success
-          ); // maker callback
-
-        if (gasused > gasreq) {
-          gasused = gasreq;
-        }
-      }
-
-      if (!success) {
-        applyPenalty(
-          $$(glo_gasprice("orp.global")),
-          gasused,
-          orp.offer,
-          orp.offerDetail
-        );
-
-        orp.numToPunish = orp.numToPunish - 1;
-
-        if (orp.numToPunish < orp.toPunish.length) {
-          orp.toPunish[orp.numToPunish] = [orp.offerId, gasused];
-        }
-      }
+      postExecute(orp, success, deleted, gasused);
     } else {
       restrictMemoryArrayLength(orp.toPunish, orp.numToPunish);
       stitchOffers(orp.base, orp.quote, pastOfferId, orp.offerId);
@@ -805,41 +770,7 @@ abstract contract Dex is HasAdmin {
           orp.offerDetail = offerDetail;
         }
 
-        if (success) {
-          executeCallback(orp);
-        }
-
-        {
-          uint gasreq = $$(od_gasreq("orp.offerDetail"));
-
-          gasused =
-            gasused +
-            makerPosthook(
-              orp,
-              gasused > gasreq ? 0 : gasreq - gasused,
-              deleted,
-              success
-            );
-
-          if (gasused > gasreq) {
-            gasused = gasreq;
-          }
-        }
-
-        if (!success) {
-          applyPenalty(
-            $$(glo_gasprice("orp.global")),
-            gasused,
-            orp.offer,
-            orp.offerDetail
-          );
-
-          orp.numToPunish = orp.numToPunish - 1;
-
-          if (orp.numToPunish < orp.toPunish.length) {
-            orp.toPunish[orp.numToPunish] = [orp.offerId, gasused];
-          }
-        }
+        postExecute(orp, success, deleted, gasused);
       }
     } else {
       /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
@@ -850,6 +781,49 @@ abstract contract Dex is HasAdmin {
     }
 
     return successes;
+  }
+
+  function postExecute(
+    DC.OrderPack memory orp,
+    bool success,
+    bool deleted,
+    uint gasused
+  ) internal {
+    if (success) {
+      executeCallback(orp);
+    }
+
+    {
+      uint gasreq = $$(od_gasreq("orp.offerDetail"));
+
+      gasused =
+        gasused +
+        makerPosthook(
+          orp,
+          gasused > gasreq ? 0 : gasreq - gasused,
+          deleted,
+          success
+        );
+
+      if (gasused > gasreq) {
+        gasused = gasreq;
+      }
+    }
+
+    if (!success) {
+      applyPenalty(
+        $$(glo_gasprice("orp.global")),
+        gasused,
+        orp.offer,
+        orp.offerDetail
+      );
+
+      orp.numToPunish = orp.numToPunish - 1;
+
+      if (orp.numToPunish < orp.toPunish.length) {
+        orp.toPunish[orp.numToPunish] = [orp.offerId, gasused];
+      }
+    }
   }
 
   /* The `toPunish` array initially has size `punishLength`. To remember the number of failures actually stored in `toPunish` (which can be strictly less than `punishLength`), we store `numToPunish` in the length field of `toPunish`. This also saves on the amount of memory copied in the return value.
