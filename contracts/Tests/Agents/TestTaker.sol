@@ -5,7 +5,6 @@ pragma abicoder v2;
 import "../../interfaces.sol";
 import "../../Dex.sol";
 import "./OfferManager.sol";
-import "./TestToken.sol";
 
 contract TestTaker is ITaker {
   Dex _dex;
@@ -50,7 +49,14 @@ contract TestTaker is ITaker {
     uint takerGives,
     uint gasreq
   ) external returns (bool success) {
-    __dex.snipe(__base, __quote, offerId, takerWants, takerGives, gasreq);
+    (success, , ) = __dex.snipe(
+      __base,
+      __quote,
+      offerId,
+      takerWants,
+      takerGives,
+      gasreq
+    );
   }
 
   function takerTrade(
@@ -79,8 +85,8 @@ contract TestTaker is ITaker {
     uint gives,
     uint punishLength,
     uint offerId
-  ) external returns (uint[2][] memory fails) {
-    (, , fails) = _dex.marketOrder(
+  ) external returns (uint[2][] memory failures) {
+    (, , failures) = _dex.marketOrder(
       _base,
       _quote,
       wants,
