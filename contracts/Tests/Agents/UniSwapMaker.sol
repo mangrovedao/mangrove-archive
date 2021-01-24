@@ -122,42 +122,42 @@ contract UniSwapMaker is IMaker {
     newOfrId_qb; // should be recorded as step i of price curve discretization
   }
 
-  function makerPosthook(IMaker.Posthook calldata posthook) external override {
+  function makerPosthook(
+    DC.SingleOrder calldata order,
+    DC.OrderResult calldata result
+  ) external override {
     // taker has paid maker
     (uint newWants, uint newGives) =
-      newPrice(ERC20(posthook.quote), ERC20(posthook.base));
+      newPrice(ERC20(order.quote), ERC20(order.base));
     uint pivotId;
-    if (!posthook.offerDeleted) {
-      pivotId = posthook.offerId;
+    if (!result.deleted) {
+      pivotId = order.offerId;
     } else {
       // if offerId = n, try to reenter at position offer[n+1]
       pivotId = 0;
     }
     dex.updateOffer(
-      posthook.base,
-      posthook.quote,
+      order.base,
+      order.quote,
       newWants,
       newGives,
       gasreq,
       0,
       pivotId,
-      posthook.offerId
+      order.offerId
     );
     // for all pairs in opposite Dex:
     pivotId = 0; // if offerId = n, try to reenter at position offer[n+1]
-    (newWants, newGives) = newPrice(
-      ERC20(posthook.base),
-      ERC20(posthook.quote)
-    );
+    (newWants, newGives) = newPrice(ERC20(order.base), ERC20(order.quote));
     dex.updateOffer(
-      posthook.quote,
-      posthook.base,
+      order.quote,
+      order.base,
       newWants,
       newGives,
       gasreq,
       0,
       pivotId,
-      posthook.offerId
+      order.offerId
     );
   }
 }

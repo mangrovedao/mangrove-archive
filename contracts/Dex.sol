@@ -454,20 +454,16 @@ abstract contract Dex is HasAdmin {
     bool success,
     bytes32 makerData
   ) internal returns (uint gasused) {
-    IMaker.Posthook memory posthook =
-      IMaker.Posthook({
-        base: sor.base,
-        quote: sor.quote,
-        takerWants: sor.wants,
-        takerGives: sor.gives,
-        offerId: sor.offerId,
-        offerDeleted: deleted,
+    DC.OrderResult memory res =
+      DC.OrderResult({
+        taker: msg.sender,
         success: success,
+        deleted: deleted,
         makerData: makerData
       });
 
     bytes memory cd =
-      abi.encodeWithSelector(IMaker.makerPosthook.selector, posthook);
+      abi.encodeWithSelector(IMaker.makerPosthook.selector, sor, res);
 
     bytes memory retdata = new bytes(32);
 

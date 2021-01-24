@@ -82,7 +82,10 @@ contract Gas_Test is IMaker {
     IERC20(order.base).transfer(taker, order.wants);
   }
 
-  function makerPosthook(IMaker.Posthook calldata posthook) external override {}
+  function makerPosthook(
+    DC.SingleOrder calldata order,
+    DC.OrderResult calldata result
+  ) external override {}
 
   function update_min_offer_test() public {
     (Dex dex, , address base, address quote) = getStored();

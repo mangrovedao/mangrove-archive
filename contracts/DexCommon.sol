@@ -197,6 +197,13 @@ They have the following fields: */
     /* only populated when necessary */
     bytes32 offerDetail;
   }
+
+  struct OrderResult {
+    address taker;
+    bool success;
+    bool deleted;
+    bytes32 makerData;
+  }
 }
 
 /* # Events

@@ -134,11 +134,10 @@ contract MakerOperations_Test is IMaker {
     );
   }
 
-  function makerPosthook(IMaker.Posthook calldata posthook)
-    external
-    pure
-    override
-  {}
+  function makerPosthook(
+    DC.SingleOrder calldata order,
+    DC.OrderResult calldata result
+  ) external override {}
 
   function calldata_and_balance_in_makerTrade_are_correct_test() public {
     bool funded;

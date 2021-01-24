@@ -14,24 +14,27 @@ interface IMaker {
   // In normal dex, they already received base
   // In inverted dex, they did not
   function makerTrade(
-    DC.SingleOrder calldata sor,
+    DC.SingleOrder calldata order,
     address taker,
     bool willDelete
   ) external returns (bytes32);
 
-  struct Posthook {
-    address base;
-    address quote;
-    uint takerWants;
-    uint takerGives;
-    uint offerId;
-    bool offerDeleted;
-    bool success;
-    bytes32 makerData;
-  }
+  //struct Posthook {
+  //address base;
+  //address quote;
+  //uint takerWants;
+  //uint takerGives;
+  //uint offerId;
+  //bool offerDeleted;
+  //bool success;
+  //bytes32 makerData;
+  //}
 
   // Maker callback after trade
-  function makerPosthook(Posthook calldata posthook) external;
+  function makerPosthook(
+    DC.SingleOrder calldata order,
+    DC.OrderResult calldata result
+  ) external;
 
   event Execute(
     address dex,

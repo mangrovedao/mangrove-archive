@@ -311,12 +311,15 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
-  function makerPosthook(IMaker.Posthook calldata posthook) external override {
+  function makerPosthook(
+    DC.SingleOrder calldata order,
+    DC.OrderResult calldata result
+  ) external override {
     bool success;
-    posthook; // silence compiler warning
+    order; // silence compiler warning
     if (posthook_cb.length > 0) {
       (success, ) = address(this).call(posthook_cb);
-      require(success, "makerPosthook callback must work");
+      require(result.success, "makerPosthook callback must work");
     }
   }
 

@@ -40,11 +40,10 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     }
   }
 
-  function makerPosthook(IMaker.Posthook calldata posthook)
-    external
-    pure
-    override
-  {}
+  function makerPosthook(
+    DC.SingleOrder calldata order,
+    DC.OrderResult calldata result
+  ) external override {}
 
   function newOffer(
     uint wants,

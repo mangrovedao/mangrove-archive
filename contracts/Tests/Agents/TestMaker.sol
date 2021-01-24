@@ -65,11 +65,10 @@ contract TestMaker is IMaker, Passthrough {
     }
   }
 
-  function makerPosthook(IMaker.Posthook calldata posthook)
-    external
-    virtual
-    override
-  {}
+  function makerPosthook(
+    DC.SingleOrder calldata order,
+    DC.OrderResult calldata result
+  ) external virtual override {}
 
   function cancelOffer(Dex dex, uint offerId) public {
     dex.cancelOffer(_base, _quote, offerId, false);

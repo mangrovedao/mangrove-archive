@@ -268,18 +268,21 @@ contract Maker_callback is TestMaker {
   uint price = 340; // in %
   uint gasreq = 400_000;
 
-  function makerPosthook(IMaker.Posthook calldata posthook) public override {
+  function makerPosthook(
+    DC.SingleOrder calldata order,
+    DC.OrderResult calldata result
+  ) external override {
     Dex dex = Dex(msg.sender);
-    if (posthook.offerDeleted) {
+    if (result.deleted) {
       dex.updateOffer({
-        base: posthook.base,
-        quote: posthook.quote,
+        base: order.base,
+        quote: order.quote,
         wants: (price * volume) / 100,
         gives: volume,
         gasreq: gasreq,
         gasprice: 0,
         pivotId: 0,
-        offerId: posthook.offerId
+        offerId: order.offerId
       });
     }
   }

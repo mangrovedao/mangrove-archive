@@ -43,13 +43,16 @@ contract OfferManager is IMaker, ITaker {
     }
   }
 
-  function makerPosthook(IMaker.Posthook calldata posthook) external override {
+  function makerPosthook(
+    DC.SingleOrder calldata _order,
+    DC.OrderResult calldata
+  ) external override {
     if (msg.sender == address(invDex)) {
       //should have received funds by now
       address owner =
-        owners[msg.sender][posthook.base][posthook.quote][posthook.offerId];
+        owners[msg.sender][_order.base][_order.quote][_order.offerId];
       require(owner != address(0), "Unkown owner");
-      IERC20(posthook.quote).transfer(owner, posthook.takerGives);
+      IERC20(_order.quote).transfer(owner, _order.gives);
     }
   }
 
