@@ -330,6 +330,7 @@ abstract contract Dex is HasAdmin {
     mor.totalGot = 0;
     mor.initialGives = takerGives;
     mor.totalGave = 0;
+    mor.extraData = $$(o_prev("sor.offer"));
     sor.wants = 0;
     sor.gives = 0;
 
@@ -345,12 +346,7 @@ abstract contract Dex is HasAdmin {
 
     /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. The check is an `if` instead of a `require` so we don't throw on an empty market -- but it also means we treat a bad offer id as a take on an empty market. */
     if (isLive(sor.offer)) {
-      internalMarketOrder(
-        mor,
-        sor,
-        $$(o_prev("sor.offer")),
-        mor.initialWants != 0
-      );
+      internalMarketOrder(mor, sor, mor.initialWants != 0);
     }
     return (mor.totalGot, mor.totalGave, mor.toPunish);
   }
@@ -363,7 +359,6 @@ abstract contract Dex is HasAdmin {
   function internalMarketOrder(
     DC.MultiOrder memory mor,
     DC.SingleOrder memory sor,
-    uint pastOfferId,
     bool proceed
   ) internal {
     if (proceed) {
@@ -387,7 +382,7 @@ abstract contract Dex is HasAdmin {
       /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
 
          Let _r~1~_, ..., _r~n~_ the successive values taken by `offer` each time the current while loop's test is executed.
-         Also, let _r~0~_ = `offers[pastOfferId]` be the offer immediately better
+         Also, let _r~0~_ = `offers[mor.extraData]` (where `extraData` is `pastOfferId`) be the offer immediately better
          than _r~1~_.
          After the market order loop ends, we will restore the doubly linked
          list by connecting _r~0~_ to _r~n~_ through their `prev`/`next`
@@ -436,7 +431,6 @@ abstract contract Dex is HasAdmin {
         internalMarketOrder(
           mor,
           sor,
-          pastOfferId,
           stillWants > 0 && sor.offerId != 0 && deleted
         );
 
@@ -450,7 +444,7 @@ abstract contract Dex is HasAdmin {
       postExecute(mor, sor, success, deleted, gasused);
     } else {
       restrictMemoryArrayLength(mor.toPunish, mor.numToPunish);
-      stitchOffers(sor.base, sor.quote, pastOfferId, sor.offerId);
+      stitchOffers(sor.base, sor.quote, mor.extraData, sor.offerId);
       locks[sor.base][sor.quote] = UNLOCKED;
       applyFee(mor, sor);
       executeEnd(mor, sor); //noop if classical Dex
@@ -717,7 +711,7 @@ abstract contract Dex is HasAdmin {
     //+clear+
 
     return (
-      internalSnipes(mor, sor, targets, 0, 0),
+      internalSnipes(mor, sor, targets, 0),
       mor.totalGot,
       mor.totalGave,
       mor.toPunish
@@ -728,8 +722,7 @@ abstract contract Dex is HasAdmin {
     DC.MultiOrder memory mor,
     DC.SingleOrder memory sor,
     uint[4][] memory targets,
-    uint i,
-    uint successes
+    uint i
   ) internal returns (uint) {
     if (i < targets.length) {
       sor.offerId = targets[i][0];
@@ -740,7 +733,7 @@ abstract contract Dex is HasAdmin {
       if (
         !isLive(sor.offer) || $$(od_gasreq("sor.offerDetail")) > targets[i][3]
       ) {
-        return internalSnipes(mor, sor, targets, i + 1, successes);
+        return internalSnipes(mor, sor, targets, i + 1);
       } else {
         bool success;
         uint gasused;
@@ -757,7 +750,7 @@ abstract contract Dex is HasAdmin {
         (success, deleted, gasused) = execute(mor, sor);
 
         if (success) {
-          successes += 1;
+          mor.extraData += 1;
         } else if (deleted) {
           mor.numToPunish = mor.numToPunish + 1;
         }
@@ -778,7 +771,7 @@ abstract contract Dex is HasAdmin {
           bytes32 offer = sor.offer;
           bytes32 offerDetail = sor.offerDetail;
 
-          successes = internalSnipes(mor, sor, targets, i + 1, successes);
+          internalSnipes(mor, sor, targets, i + 1);
 
           sor.offerId = offerId;
           sor.wants = takerWants;
@@ -797,7 +790,7 @@ abstract contract Dex is HasAdmin {
       executeEnd(mor, sor);
     }
 
-    return successes;
+    return mor.extraData;
   }
 
   function postExecute(

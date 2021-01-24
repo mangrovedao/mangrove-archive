@@ -179,6 +179,9 @@ They have the following fields: */
     bytes32 local;
     uint numToPunish;
     uint[2][] toPunish;
+    // used as past offer id in internalMarketOrder
+    // used as #successes in internalSnipes
+    uint extraData;
   }
 
   /* Holds data about orders in a struct, used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
