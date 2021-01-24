@@ -39,13 +39,13 @@ abstract contract Dex is HasAdmin {
   bytes32 private global;
   mapping(address => mapping(address => bytes32)) private locals;
 
-  /* * Makers provision their possible penalties in the `freeWei` mapping.
+  /* * Makers provision their possible penalties in the `balanceOf` mapping.
 
-       Offers specify the amount of gas they require for successful execution (`gasreq`). To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq`. This provision is deducted from their `freeWei`. If an offer fails, part of that provision is given to the taker, as compensation. The exact amount depends on the gas used by the offer before failing.
+       Offers specify the amount of gas they require for successful execution (`gasreq`). To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq`. This provision is deducted from their `balanceOf`. If an offer fails, part of that provision is given to the taker, as compensation. The exact amount depends on the gas used by the offer before failing.
 
-       The Dex keeps track of their available balance in the `freeWei` map, which is decremented every time a maker creates a new offer (new offer creation is in `DexLib`, see `writeOffer`), and modified on offer updates/cancelations/takings.
+       The Dex keeps track of their available balance in the `balanceOf` map, which is decremented every time a maker creates a new offer (new offer creation is in `DexLib`, see `writeOffer`), and modified on offer updates/cancelations/takings.
    */
-  mapping(address => uint) private freeWei;
+  mapping(address => uint) public balanceOf;
 
   /* * `lastId` is a counter for offer ids, incremented every time a new offer is created. It can't go above 2^24-1. */
   mapping(address => mapping(address => uint)) private lastId;
@@ -122,7 +122,7 @@ abstract contract Dex is HasAdmin {
 
   /* The function `newOffer` is for market makers only; no match with the existing book is done. Makers specify how much `REQ_TOKEN` they `want` and how much `OFR_TOKEN` they are willing to `give`. They also specify how much gas should be given when executing their offer.
 
- _`gasreq` will determine the penalty provision set aside by the Dex from the market maker's `freeWei` balance._
+ _`gasreq` will determine the penalty provision set aside by the Dex from the market maker's `balanceOf` balance._
 
   Offers are always inserted at the correct place in the book (for more on the book data structure, see `DexCommon.sol`). This requires walking through offers to find the correct insertion point. As in [Oasis](https://github.com/daifoundation/maker-otc/blob/master/src/matching_market.sol#L129), Makers should find the id of an offer close to theirs and provide it as `pivotId`.
 
@@ -227,10 +227,10 @@ abstract contract Dex is HasAdmin {
   }
 
   /* ## Provisioning
-  Market makers must have enough provisions for possible penalties. These provisions are in ETH. Every time a new offer is created, the `freeWei` balance is decreased by the amount necessary to provision the offer's maximum possible penalty. */
+  Market makers must have enough provisions for possible penalties. These provisions are in ETH. Every time a new offer is created, the `balanceOf` balance is decreased by the amount necessary to provision the offer's maximum possible penalty. */
   //+clear+
 
-  /* A transfer with enough gas to the Dex will increase the caller's available `freeWei` balance. _You should send enough gas to execute this function when sending money to the Dex._  */
+  /* A transfer with enough gas to the Dex will increase the caller's available `balanceOf` balance. _You should send enough gas to execute this function when sending money to the Dex._  */
   function fund(address maker) public payable {
     requireLiveDex(global);
     creditWei(maker, msg.value);
@@ -238,11 +238,6 @@ abstract contract Dex is HasAdmin {
 
   receive() external payable {
     fund(msg.sender);
-  }
-
-  /* The remaining balance of a Maker (excluding the penalties currently locked in pending offers) can read with `balanceOf(address)` and withdrawn with `withdraw(uint)`.*/
-  function balanceOf(address maker) external view returns (uint) {
-    return freeWei[maker];
   }
 
   /* Any provision not currently held to secure an offer's possible penalty is available for withdrawal. */
@@ -1354,7 +1349,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       "dex/writeOffer/gives/tooLow"
     );
 
-    /* First, we write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `freeWei`. */
+    /* First, we write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `balanceOf`. */
     uint oldProvision;
     {
       bytes32 offerDetail = offerDetails[ofp.base][ofp.quote][ofp.id];
@@ -1389,7 +1384,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       }
     }
 
-    /* With every change to an offer, a maker must deduct provisions from its `freeWei` balance, or get some back if the updated offer requires fewer provisions. */
+    /* With every change to an offer, a maker must deduct provisions from its `balanceOf` balance, or get some back if the updated offer requires fewer provisions. */
 
     {
       uint provision =
@@ -1546,14 +1541,14 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* # Maker debit/credit utility functions */
 
   function debitWei(address maker, uint amount) internal {
-    uint makerFreeWei = freeWei[maker];
-    require(makerFreeWei >= amount, "dex/insufficientProvision");
-    freeWei[maker] = makerFreeWei - amount;
+    uint makerBalance = balanceOf[maker];
+    require(makerBalance >= amount, "dex/insufficientProvision");
+    balanceOf[maker] = makerBalance - amount;
     emit DexEvents.Debit(maker, amount);
   }
 
   function creditWei(address maker, uint amount) internal {
-    freeWei[maker] += amount;
+    balanceOf[maker] += amount;
     emit DexEvents.Credit(maker, amount);
   }
 
