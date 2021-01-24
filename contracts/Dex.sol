@@ -411,47 +411,47 @@ abstract contract Dex is HasAdmin {
       */
 
       // those may have been updated by execute, we keep them in stack
-      uint offerId = orp.offerId;
-      uint takerWants = orp.wants;
-      uint takerGives = orp.gives;
-      bytes32 offer = orp.offer;
-      bytes32 offerDetail = orp.offerDetail;
+      {
+        uint offerId = orp.offerId;
+        uint takerWants = orp.wants;
+        uint takerGives = orp.gives;
+        bytes32 offer = orp.offer;
+        bytes32 offerDetail = orp.offerDetail;
 
-      if (deleted) {
-        // note that internalMarketOrder may be called twice with same offerId, but in that case proceed will be false!
-        orp.offerId = $$(o_next("orp.offer"));
-        orp.offer = offers[orp.base][orp.quote][orp.offerId];
-      }
+        if (deleted) {
+          // note that internalMarketOrder may be called twice with same offerId, but in that case proceed will be false!
+          orp.offerId = $$(o_next("orp.offer"));
+          orp.offer = offers[orp.base][orp.quote][orp.offerId];
+        }
 
-      /* ! danger ! beyond this point, the following `orp` properties 
+        /* ! danger ! beyond this point, the following `orp` properties 
            reflect the last offer to be examined:
          `offerId`, `offer`, `offerDetail`, `wants`, `gives`, `offerDetail`
        */
-      internalMarketOrder(
-        orp,
-        pastOfferId,
-        orp.initialWants - orp.totalGot > 0 && orp.offerId != 0 && deleted
-      );
+        internalMarketOrder(
+          orp,
+          pastOfferId,
+          orp.initialWants - orp.totalGot > 0 && orp.offerId != 0 && deleted
+        );
+
+        orp.offerId = offerId;
+        orp.wants = takerWants;
+        orp.gives = takerGives;
+        orp.offer = offer;
+        orp.offerDetail = offerDetail;
+      }
 
       // reentrancy is allowed here
       if (success) {
-        executeCallback(orp, $$(od_maker("offerDetail")), takerGives); // noop in Classical dex
+        executeCallback(orp); // noop in Classical dex
       }
 
       {
-        uint gasreq = $$(od_gasreq("offerDetail"));
+        uint gasreq = $$(od_gasreq("orp.offerDetail"));
 
         gasused =
           gasused +
-          makerPosthook(
-            orp,
-            takerWants,
-            takerGives,
-            offerId,
-            $$(od_maker("offerDetail")),
-            deleted,
-            gasused > gasreq ? 0 : gasreq - gasused
-          ); // maker callback
+          makerPosthook(orp, gasused > gasreq ? 0 : gasreq - gasused, deleted); // maker callback
 
         if (gasused > gasreq) {
           gasused = gasreq;
@@ -462,14 +462,14 @@ abstract contract Dex is HasAdmin {
         applyPenalty(
           $$(glo_gasprice("orp.global")),
           gasused,
-          offer,
-          offerDetail
+          orp.offer,
+          orp.offerDetail
         );
 
         orp.numToPunish = orp.numToPunish - 1;
 
         if (orp.numToPunish < orp.toPunish.length) {
-          orp.toPunish[orp.numToPunish] = [offerId, gasused];
+          orp.toPunish[orp.numToPunish] = [orp.offerId, gasused];
         }
       }
     } else {
@@ -483,20 +483,16 @@ abstract contract Dex is HasAdmin {
 
   function makerPosthook(
     DC.OrderPack memory orp,
-    uint takerWants,
-    uint takerGives,
-    uint offerId,
-    address maker,
-    bool deleted,
-    uint gasLeft
+    uint gasLeft,
+    bool deleted
   ) internal returns (uint gasused) {
     IMaker.Posthook memory posthook =
       IMaker.Posthook({
         base: orp.base,
         quote: orp.quote,
-        takerWants: takerWants,
-        takerGives: takerGives,
-        offerId: offerId,
+        takerWants: orp.wants,
+        takerGives: orp.gives,
+        offerId: orp.offerId,
         offerDeleted: deleted
       });
 
@@ -504,6 +500,8 @@ abstract contract Dex is HasAdmin {
       abi.encodeWithSelector(IMaker.makerPosthook.selector, posthook);
 
     bytes memory retdata = new bytes(32);
+
+    address maker = $$(od_maker("orp.offerDetail"));
 
     uint oldGas = gasleft();
     if (!(oldGas - oldGas / 64 >= gasLeft)) {
@@ -526,11 +524,7 @@ abstract contract Dex is HasAdmin {
 
   function executeEnd(DC.OrderPack memory orp) internal virtual;
 
-  function executeCallback(
-    DC.OrderPack memory orp,
-    address maker,
-    uint gives
-  ) internal virtual;
+  function executeCallback(DC.OrderPack memory orp) internal virtual;
 
   /* We could make `execute` part of DexLib to reduce Dex contract size, but we make heavy use of the memory struct `orp` to modify data that will then be used by the caller (`internalSnipes` or `internalMarketOrder`). */
   function execute(DC.OrderPack memory orp)
@@ -788,31 +782,35 @@ abstract contract Dex is HasAdmin {
           );
         }
 
-        uint offerId = orp.offerId;
-        uint takerWants = orp.wants;
-        uint takerGives = orp.gives;
-        bytes32 offer = orp.offer;
-        bytes32 offerDetail = orp.offerDetail;
+        {
+          uint offerId = orp.offerId;
+          uint takerWants = orp.wants;
+          uint takerGives = orp.gives;
+          bytes32 offer = orp.offer;
+          bytes32 offerDetail = orp.offerDetail;
 
-        successes = internalSnipes(orp, targets, i + 1, successes);
+          successes = internalSnipes(orp, targets, i + 1, successes);
+
+          orp.offerId = offerId;
+          orp.wants = takerWants;
+          orp.gives = takerGives;
+          orp.offer = offer;
+          orp.offerDetail = offerDetail;
+        }
 
         if (success) {
-          executeCallback(orp, $$(od_maker("offerDetail")), takerGives);
+          executeCallback(orp);
         }
 
         {
-          uint gasreq = $$(od_gasreq("offerDetail"));
+          uint gasreq = $$(od_gasreq("orp.offerDetail"));
 
           gasused =
             gasused +
             makerPosthook(
               orp,
-              takerWants,
-              takerGives,
-              offerId,
-              $$(od_maker("offerDetail")),
-              deleted,
-              gasused > gasreq ? 0 : gasreq - gasused
+              gasused > gasreq ? 0 : gasreq - gasused,
+              deleted
             );
 
           if (gasused > gasreq) {
@@ -824,14 +822,14 @@ abstract contract Dex is HasAdmin {
           applyPenalty(
             $$(glo_gasprice("orp.global")),
             gasused,
-            offer,
-            offerDetail
+            orp.offer,
+            orp.offerDetail
           );
 
           orp.numToPunish = orp.numToPunish - 1;
 
           if (orp.numToPunish < orp.toPunish.length) {
-            orp.toPunish[orp.numToPunish] = [offerId, gasused];
+            orp.toPunish[orp.numToPunish] = [orp.offerId, gasused];
           }
         }
       }
@@ -1607,11 +1605,7 @@ contract FMD is Dex {
 
   function executeEnd(DC.OrderPack memory orp) internal override {}
 
-  function executeCallback(
-    DC.OrderPack memory orp,
-    address maker,
-    uint takerGives
-  ) internal override {}
+  function executeCallback(DC.OrderPack memory orp) internal override {}
 }
 
 contract FTD is Dex {
@@ -1641,13 +1635,14 @@ contract FTD is Dex {
      2) is OK, but has an extra CALL cost on top of the token transfer, one for each maker. This is unavoidable anyway when calling makerTrade (since the maker must be able to execute arbitrary code at that moment), but we can skip it here.
      3) is the cheapest, but it has the drawbacks of `transferFrom`: money must end up owned by the taker, and taker needs to `approve` Dex
    */
-  function executeCallback(
-    DC.OrderPack memory orp,
-    address maker,
-    uint takerGives
-  ) internal override {
+  function executeCallback(DC.OrderPack memory orp) internal override {
     bool success =
-      DexLib.transferToken(orp.quote, msg.sender, maker, takerGives);
+      DexLib.transferToken(
+        orp.quote,
+        msg.sender,
+        $$(od_maker("orp.offerDetail")),
+        $$(o_gives("orp.offer"))
+      );
     require(success, "dex/takerFailToPayMaker");
   }
 }
