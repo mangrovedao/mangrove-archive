@@ -499,15 +499,28 @@ abstract contract Dex is HasAdmin {
         offerId: offerId,
         offerDeleted: deleted
       });
+
     bytes memory cd =
       abi.encodeWithSelector(IMaker.makerPosthook.selector, posthook);
+
+    bytes memory retdata = new bytes(32);
 
     uint oldGas = gasleft();
     if (!(oldGas - oldGas / 64 >= gasLeft)) {
       revert("dex/notEnoughGasForMakerPosthook");
     }
-    bool noRevert;
-    (noRevert, ) = maker.call{gas: gasLeft}(cd);
+
+    assembly {
+      let success2 := call(
+        gasLeft,
+        maker,
+        0,
+        add(cd, 32),
+        mload(cd),
+        add(retdata, 32),
+        32
+      )
+    }
     gasused = oldGas - gasleft();
   }
 
