@@ -364,6 +364,7 @@ abstract contract Dex is HasAdmin {
     if (proceed) {
       bool success;
       uint gasused;
+      bytes32 makerData;
       /* `executed` is false if offer could not be executed against 2nd and 3rd argument of execute. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
       // reduce stack size for recursion
 
@@ -373,7 +374,7 @@ abstract contract Dex is HasAdmin {
       sor.offerDetail = offerDetails[sor.base][sor.quote][sor.offerId];
 
       /* it is crucial that a false success value means that the error is the maker's fault */
-      (success, deleted, gasused) = execute(mor, sor);
+      (success, deleted, gasused, makerData) = execute(mor, sor);
       /* if maker failed, we increase the failure number -- even past mor.numToPunish so the decrement count after the call stack has popped is correct. */
       if (!success && deleted) {
         mor.numToPunish = mor.numToPunish + 1;
@@ -441,7 +442,7 @@ abstract contract Dex is HasAdmin {
         sor.offerDetail = offerDetail;
       }
 
-      postExecute(mor, sor, success, deleted, gasused);
+      postExecute(mor, sor, success, deleted, gasused, makerData);
     } else {
       restrictMemoryArrayLength(mor.toPunish, mor.numToPunish);
       stitchOffers(sor.base, sor.quote, mor.extraData, sor.offerId);
@@ -455,7 +456,8 @@ abstract contract Dex is HasAdmin {
     DC.SingleOrder memory sor,
     uint gasLeft,
     bool deleted,
-    bool success
+    bool success,
+    bytes32 makerData
   ) internal returns (uint gasused) {
     IMaker.Posthook memory posthook =
       IMaker.Posthook({
@@ -465,7 +467,8 @@ abstract contract Dex is HasAdmin {
         takerGives: sor.gives,
         offerId: sor.offerId,
         offerDeleted: deleted,
-        success: success
+        success: success,
+        makerData: makerData
       });
 
     bytes memory cd =
@@ -511,7 +514,8 @@ abstract contract Dex is HasAdmin {
     returns (
       bool success,
       bool deleted,
-      uint gasused
+      uint gasused,
+      bytes32 makerData
     )
   {
     /* #### `makerWouldWant` */
@@ -535,7 +539,7 @@ abstract contract Dex is HasAdmin {
       );
 
     if (makerWouldWant > sor.gives) {
-      return (success, deleted, $$(od_gasreq("sor.offerDetail")));
+      return (success, deleted, $$(od_gasreq("sor.offerDetail")), bytes32(0));
     }
 
     /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `sor.wants`,`sor.gives` are how much the taker will trade with the current offer. */
@@ -592,7 +596,6 @@ abstract contract Dex is HasAdmin {
     } else {
       /* This short reason string should not be exploitable by maker/taker! */
       bytes32 errorCode;
-      bytes32 makerData;
       (errorCode, gasused, makerData) = innerDecode(retdata);
       if (
         errorCode == "dex/makerRevert" || errorCode == "dex/makerTransferFail"
@@ -738,6 +741,7 @@ abstract contract Dex is HasAdmin {
         bool success;
         uint gasused;
         bool deleted;
+        bytes32 makerData;
 
         require(
           uint96(targets[i][1]) == targets[i][1],
@@ -747,7 +751,7 @@ abstract contract Dex is HasAdmin {
         sor.gives = targets[i][2];
 
         // ! warning ! updates sor.wants, sor.gives
-        (success, deleted, gasused) = execute(mor, sor);
+        (success, deleted, gasused, makerData) = execute(mor, sor);
 
         if (success) {
           mor.extraData += 1;
@@ -780,7 +784,7 @@ abstract contract Dex is HasAdmin {
           sor.offerDetail = offerDetail;
         }
 
-        postExecute(mor, sor, success, deleted, gasused);
+        postExecute(mor, sor, success, deleted, gasused, makerData);
       }
     } else {
       /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
@@ -798,7 +802,8 @@ abstract contract Dex is HasAdmin {
     DC.SingleOrder memory sor,
     bool success,
     bool deleted,
-    uint gasused
+    uint gasused,
+    bytes32 makerData
   ) internal {
     if (success) {
       executeCallback(sor);
@@ -814,7 +819,8 @@ abstract contract Dex is HasAdmin {
             sor,
             gasused > gasreq ? 0 : gasreq - gasused,
             deleted,
-            success
+            success,
+            makerData
           );
 
         if (gasused > gasreq) {

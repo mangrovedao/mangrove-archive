@@ -27,6 +27,7 @@ interface IMaker {
     uint offerId;
     bool offerDeleted;
     bool success;
+    bytes32 makerData;
   }
 
   // Maker callback after trade
