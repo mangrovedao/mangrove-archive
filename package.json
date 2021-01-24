@@ -11,7 +11,7 @@
     "hardhat": "^2.0.7",
     "hardhat-deploy": "^0.7.0-beta.44",
     "hardhat-deploy-ethers": "^0.3.0-beta.7",
-    "solcco": ">=1.0.1"
+    "solcco": ">=1.0.5"
   },
   "scripts": {
     "doc": "solcco -f DexDoc.html contracts/DexCommon.sol contracts/Dex.sol contracts/DexLib.sol",
