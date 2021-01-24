@@ -121,4 +121,20 @@ contract Gas_Test {
     h = gasleft();
     console.log("Gas used", g - h);
   }
+
+  function market_order_8_test() public {
+    (Dex dex, TestTaker tkr, address base, address quote) = getStored();
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    uint g = gasleft();
+    uint h;
+    tkr.simpleMarketOrder(dex, base, quote, 1 ether, 1 ether);
+    h = gasleft();
+    console.log("Gas used", g - h);
+  }
 }
