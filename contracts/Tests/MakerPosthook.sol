@@ -53,17 +53,20 @@ contract MakerPosthook_Test is IMaker {
     return "OK";
   }
 
-  function makerPosthook(Posthook calldata posthook) external override {
+  function makerPosthook(
+    DexCommon.SingleOrder calldata order,
+    DexCommon.OrderResult calldata result
+  ) external override {
     require(msg.sender == address(dex));
     dex.updateOffer(
-      posthook.base,
-      posthook.quote,
+      order.base,
+      order.quote,
       1 ether,
       1 ether,
       gasreq,
       gasprice,
-      posthook.offerId,
-      posthook.offerId
+      order.offerId,
+      order.offerId
     );
   }
 
