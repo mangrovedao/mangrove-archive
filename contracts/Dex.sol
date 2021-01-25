@@ -699,12 +699,8 @@ abstract contract Dex is HasAdmin {
     /* ### Main loop */
     //+clear+
 
-    return (
-      internalSnipes(mor, sor, targets, 0),
-      mor.totalGot,
-      mor.totalGave,
-      mor.toPunish
-    );
+    internalSnipes(mor, sor, targets, 0);
+    return (mor.extraData, mor.totalGot, mor.totalGave, mor.toPunish);
   }
 
   function internalSnipes(
@@ -712,7 +708,7 @@ abstract contract Dex is HasAdmin {
     DC.SingleOrder memory sor,
     uint[4][] memory targets,
     uint i
-  ) internal returns (uint) {
+  ) internal {
     if (i < targets.length) {
       sor.offerId = targets[i][0];
       sor.offer = offers[sor.base][sor.quote][sor.offerId];
@@ -722,7 +718,7 @@ abstract contract Dex is HasAdmin {
       if (
         !isLive(sor.offer) || $$(od_gasreq("sor.offerDetail")) > targets[i][3]
       ) {
-        return internalSnipes(mor, sor, targets, i + 1);
+        internalSnipes(mor, sor, targets, i + 1);
       } else {
         bool success;
         uint gasused;
@@ -779,8 +775,6 @@ abstract contract Dex is HasAdmin {
       applyFee(mor, sor);
       executeEnd(mor, sor);
     }
-
-    return mor.extraData;
   }
 
   function postExecute(
