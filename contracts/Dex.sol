@@ -1290,7 +1290,16 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     internal
     returns (uint)
   {
-    /* gasprice given by maker will be bounded below by internal gasprice estimate at offer write time. with a large enough overapproximation of the gasprice, the maker can regularly update their offer without updating it */
+    /* We check gasprice,gives,wants,gasreq size to avoid checking a high gasprice, then reducing it by packing. */
+    require(
+      uint16(ofp.gasprice) == ofp.gasprice,
+      "dex/writeOffer/gasprice/16bits"
+    );
+    require(uint96(ofp.wants) == ofp.wants, "dex/writeOffer/wants/96bits");
+    require(uint96(ofp.gives) == ofp.gives, "dex/writeOffer/gives/96bits");
+    require(uint24(ofp.gasreq) == ofp.gasreq, "dex/writeOffer/gasreq/24bits");
+
+    /* gasprice given by maker will be bounded below by internal gasprice estimate at offer write time. with a large enough overapproximation of the gasprice, the maker can regularly update their offer without updating it.  */
     if (ofp.gasprice < $$(glo_gasprice("ofp.global"))) {
       ofp.gasprice = $$(glo_gasprice("ofp.global"));
     }
