@@ -143,6 +143,17 @@ contract Scenarii_Test {
     TestSnipe.run(balances, offers, dex, makers, taker, base, quote);
     Display.logOfferBook(dex, address(base), address(quote), 4);
 
+    // restore offer that was deleted after partial fill, minus taken amount
+    makers.getMaker(2).updateOffer(
+      1 ether - 0.375 ether,
+      0.8 ether - 0.3 ether,
+      80_000,
+      0,
+      2
+    );
+
+    Display.logOfferBook(dex, address(base), address(quote), 4);
+
     //TestEvents.logString("=== Market order test ===", 0);
     saveBalances();
     saveOffers();

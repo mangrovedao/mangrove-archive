@@ -35,11 +35,11 @@ contract MakerPosthook_Test is IMaker {
   // /* only populated when necessary */
   // bytes32 offerDetail;
 
-  function makerTrade(
-    DexCommon.SingleOrder calldata trade,
-    address taker,
-    bool willDelete
-  ) external override returns (bytes32 ret) {
+  function makerTrade(DexCommon.SingleOrder calldata trade, address taker)
+    external
+    override
+    returns (bytes32 ret)
+  {
     require(msg.sender == address(dex));
     emit Execute(
       msg.sender,

@@ -68,11 +68,11 @@ contract UniSwapMaker is IMaker {
     }
   }
 
-  function makerTrade(
-    DC.SingleOrder calldata order,
-    address taker,
-    bool
-  ) external override returns (bytes32) {
+  function makerTrade(DC.SingleOrder calldata order, address taker)
+    external
+    override
+    returns (bytes32)
+  {
     require(msg.sender == address(dex), "Illegal call");
     emit Execute(
       msg.sender,
@@ -130,12 +130,7 @@ contract UniSwapMaker is IMaker {
     (uint newWants, uint newGives) =
       newPrice(ERC20(order.quote), ERC20(order.base));
     uint pivotId;
-    if (!result.deleted) {
-      pivotId = order.offerId;
-    } else {
-      // if offerId = n, try to reenter at position offer[n+1]
-      pivotId = 0;
-    }
+    pivotId = 0;
     dex.updateOffer(
       order.base,
       order.quote,

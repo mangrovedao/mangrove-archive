@@ -23,11 +23,11 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     succeed = true;
   }
 
-  function makerTrade(
-    DC.SingleOrder calldata order,
-    address taker,
-    bool
-  ) public override returns (bytes32 ret) {
+  function makerTrade(DC.SingleOrder calldata order, address taker)
+    public
+    override
+    returns (bytes32 ret)
+  {
     bool _succeed = succeed;
     if (order.offerId == dummy) {
       succeed = false;

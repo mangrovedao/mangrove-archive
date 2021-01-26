@@ -363,15 +363,15 @@ abstract contract Dex is HasAdmin {
       /* `executed` is false if offer could not be executed against 2nd and 3rd argument of execute. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
       // reduce stack size for recursion
 
-      bool deleted;
+      bool executed;
       sor.wants = mor.initialWants - mor.totalGot;
       sor.gives = mor.initialGives - mor.totalGave;
       sor.offerDetail = offerDetails[sor.base][sor.quote][sor.offerId];
 
       /* it is crucial that a false success value means that the error is the maker's fault */
-      (success, deleted, gasused, makerData) = execute(mor, sor);
+      (success, executed, gasused, makerData) = execute(mor, sor);
       /* if maker failed, we increase the failure number -- even past mor.numToPunish so the decrement count after the call stack has popped is correct. */
-      if (!success && deleted) {
+      if (!success && executed) {
         mor.numToPunish = mor.numToPunish + 1;
       }
 
@@ -414,7 +414,7 @@ abstract contract Dex is HasAdmin {
         bytes32 offer = sor.offer;
         bytes32 offerDetail = sor.offerDetail;
 
-        if (deleted) {
+        if (executed) {
           // note that internalMarketOrder may be called twice with same offerId, but in that case proceed will be false!
           sor.offerId = $$(o_next("sor.offer"));
           sor.offer = offers[sor.base][sor.quote][sor.offerId];
@@ -427,7 +427,7 @@ abstract contract Dex is HasAdmin {
         internalMarketOrder(
           mor,
           sor,
-          stillWants > 0 && sor.offerId != 0 && deleted
+          stillWants > 0 && sor.offerId != 0 && executed
         );
 
         sor.offerId = offerId;
@@ -437,7 +437,7 @@ abstract contract Dex is HasAdmin {
         sor.offerDetail = offerDetail;
       }
 
-      postExecute(mor, sor, success, deleted, gasused, makerData);
+      postExecute(mor, sor, success, executed, gasused, makerData);
     } else {
       restrictMemoryArrayLength(mor.toPunish, mor.numToPunish);
       stitchOffers(sor.base, sor.quote, mor.extraData, sor.offerId);
@@ -450,7 +450,6 @@ abstract contract Dex is HasAdmin {
   function makerPosthook(
     DC.SingleOrder memory sor,
     uint gasLeft,
-    bool deleted,
     bool success,
     bytes32 makerData
   ) internal returns (uint gasused) {
@@ -458,7 +457,6 @@ abstract contract Dex is HasAdmin {
       DC.OrderResult({
         taker: msg.sender,
         success: success,
-        deleted: deleted,
         makerData: makerData
       });
 
@@ -498,13 +496,13 @@ abstract contract Dex is HasAdmin {
   /* maker has failed iff (!success && deleted) */
   /* offer has not been executed iff (!success && !deleted) */
   /* offer has been consumed below dust level if (success && deleted) */
-  /* offer has been consumed strictly above dust level if (success && !deleted) */
+  /* impossible because we always delete offers: (success && !deleted) */
   /* a taker fail triggers a revert */
   function execute(DC.MultiOrder memory mor, DC.SingleOrder memory sor)
     internal
     returns (
       bool success,
-      bool deleted,
+      bool executed,
       uint gasused,
       bytes32 makerData
     )
@@ -530,8 +528,10 @@ abstract contract Dex is HasAdmin {
       );
 
     if (makerWouldWant > sor.gives) {
-      return (success, deleted, $$(od_gasreq("sor.offerDetail")), bytes32(0));
+      return (success, executed, $$(od_gasreq("sor.offerDetail")), bytes32(0));
     }
+
+    executed = true;
 
     /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `sor.wants`,`sor.gives` are how much the taker will trade with the current offer. */
     if ($$(o_gives("sor.offer")) < sor.wants) {
@@ -541,22 +541,13 @@ abstract contract Dex is HasAdmin {
       sor.gives = makerWouldWant;
     }
 
-    bool residualBelowDust;
-    if (
-      $$(o_gives("sor.offer")) - sor.wants <
-      $$(loc_density("mor.local")) *
-        ($$(od_gasreq("sor.offerDetail")) + $$(glo_gasbase("mor.global")))
-    ) {
-      residualBelowDust = true;
-    }
-
     /* The flashswap is executed by delegatecall to `FLASHLOANER`. If the call reverts, it means the maker failed to send back `takerWants` `OFR_TOKEN` to the taker. If the call succeeds, `retdata` encodes a boolean indicating whether the taker did send enough to the maker or not.
 
     Note that any spurious exception due to an error in Dex code will be falsely blamed on the Maker, and its provision for the offer will be unfairly taken away.
     */
     bytes memory retdata;
     (success, retdata) = address(DexLib).delegatecall(
-      abi.encodeWithSelector(FLASHLOANER, sor, residualBelowDust)
+      abi.encodeWithSelector(FLASHLOANER, sor)
     );
 
     /* Revert if FLASHLOANER reverted. **Danger**: if a well-crafted offer/maker pair can force a revert of FLASHLOANER, the Dex will be stuck. */
@@ -574,16 +565,12 @@ abstract contract Dex is HasAdmin {
       mor.totalGot += sor.wants;
       mor.totalGave += sor.gives;
 
-      if (residualBelowDust) {
-        deleted = true;
-      } else {
-        bytes32 updatedOffer = sor.offer;
-        uint newGives = $$(o_gives("updatedOffer")) - sor.wants;
-        uint newWants = $$(o_wants("updatedOffer")) - sor.gives;
-        offers[sor.base][sor.quote][sor.offerId] = $$(
-          o_set("updatedOffer", [["gives", "newGives"], ["wants", "newWants"]])
-        );
-      }
+      bytes32 updatedOffer = sor.offer;
+      uint newGives = $$(o_gives("updatedOffer")) - sor.wants;
+      uint newWants = $$(o_wants("updatedOffer")) - sor.gives;
+      offers[sor.base][sor.quote][sor.offerId] = $$(
+        o_set("updatedOffer", [["gives", "newGives"], ["wants", "newWants"]])
+      );
     } else {
       /* This short reason string should not be exploitable by maker/taker! */
       bytes32 errorCode;
@@ -591,7 +578,6 @@ abstract contract Dex is HasAdmin {
       if (
         errorCode == "dex/makerRevert" || errorCode == "dex/makerTransferFail"
       ) {
-        deleted = true;
         emit DexEvents.MakerFail(
           sor.base,
           sor.quote,
@@ -612,7 +598,7 @@ abstract contract Dex is HasAdmin {
       }
     }
 
-    if (deleted) {
+    if (executed) {
       dirtyDeleteOffer(sor.base, sor.quote, sor.offerId, sor.offer, !success);
     }
   }
@@ -722,7 +708,7 @@ abstract contract Dex is HasAdmin {
       } else {
         bool success;
         uint gasused;
-        bool deleted;
+        bool executed;
         bytes32 makerData;
 
         require(
@@ -733,15 +719,15 @@ abstract contract Dex is HasAdmin {
         sor.gives = targets[i][2];
 
         // ! warning ! updates sor.wants, sor.gives
-        (success, deleted, gasused, makerData) = execute(mor, sor);
+        (success, executed, gasused, makerData) = execute(mor, sor);
 
         if (success) {
           mor.extraData += 1;
-        } else if (deleted) {
+        } else if (executed) {
           mor.numToPunish = mor.numToPunish + 1;
         }
 
-        if (deleted) {
+        if (executed) {
           stitchOffers(
             sor.base,
             sor.quote,
@@ -766,7 +752,7 @@ abstract contract Dex is HasAdmin {
           sor.offerDetail = offerDetail;
         }
 
-        postExecute(mor, sor, success, deleted, gasused, makerData);
+        postExecute(mor, sor, success, executed, gasused, makerData);
       }
     } else {
       /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
@@ -781,7 +767,7 @@ abstract contract Dex is HasAdmin {
     DC.MultiOrder memory mor,
     DC.SingleOrder memory sor,
     bool success,
-    bool deleted,
+    bool executed,
     uint gasused,
     bytes32 makerData
   ) internal {
@@ -792,13 +778,12 @@ abstract contract Dex is HasAdmin {
     {
       uint gasreq = $$(od_gasreq("sor.offerDetail"));
 
-      if (success || (!success && deleted)) {
+      if (executed) {
         gasused =
           gasused +
           makerPosthook(
             sor,
             gasused > gasreq ? 0 : gasreq - gasused,
-            deleted,
             success,
             makerData
           );
@@ -809,7 +794,7 @@ abstract contract Dex is HasAdmin {
       }
     }
 
-    if (!success && deleted) {
+    if (!success && executed) {
       applyPenalty(
         $$(glo_gasprice("mor.global")),
         gasused,

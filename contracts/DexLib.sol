@@ -18,7 +18,7 @@ library DexLib {
      2. Runs `offerDetail.maker`'s `execute` function.
      3. Returns the result of the operations, with optional makerData to help the maker debug.
    */
-  function flashloan(DC.SingleOrder calldata sor, bool residualBelowDust)
+  function flashloan(DC.SingleOrder calldata sor)
     external
     returns (uint gasused)
   {
@@ -32,7 +32,7 @@ library DexLib {
         sor.gives
       )
     ) {
-      gasused = makerExecute(sor, residualBelowDust);
+      gasused = makerExecute(sor);
     } else {
       innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
     }
@@ -56,24 +56,19 @@ library DexLib {
        * costs more gas to do 2 SLOADS (checking balanceOf twice) than to run the `transfer` ourselves -- if there's only one transfer.
     */
 
-  function invertedFlashloan(
-    DC.SingleOrder calldata sor,
-    bool residualBelowDust
-  ) external returns (uint gasused) {
-    gasused = makerExecute(sor, residualBelowDust);
+  function invertedFlashloan(DC.SingleOrder calldata sor)
+    external
+    returns (uint gasused)
+  {
+    gasused = makerExecute(sor);
   }
 
-  function makerExecute(DC.SingleOrder calldata sor, bool residualBelowDust)
+  function makerExecute(DC.SingleOrder calldata sor)
     internal
     returns (uint gasused)
   {
     bytes memory cd =
-      abi.encodeWithSelector(
-        IMaker.makerTrade.selector,
-        sor,
-        msg.sender,
-        residualBelowDust
-      );
+      abi.encodeWithSelector(IMaker.makerTrade.selector, sor, msg.sender);
 
     uint oldBalance = IERC20(sor.base).balanceOf(msg.sender);
     /* If the transfer would trigger an overflow, we blame the taker. Since sor.wants is `min(takerWants,offer.gives)`, the taker cannot be tricked into overflow by a maker. This check must be done before the callto maker because an overflow-trggering ERC20 transfer could throw and result in an unjust maker failure. */

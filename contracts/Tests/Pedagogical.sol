@@ -201,11 +201,11 @@ contract Maker_basic is TestMaker {
     ERC20 quote
   ) TestMaker(dex, base, quote) {}
 
-  function makerTrade(
-    DC.SingleOrder calldata order,
-    address taker,
-    bool
-  ) public override returns (bytes32 ret) {
+  function makerTrade(DC.SingleOrder calldata order, address taker)
+    public
+    override
+    returns (bytes32 ret)
+  {
     ret; // silence compiler warning
     ERC20(order.base).transfer({recipient: taker, amount: order.wants});
   }
@@ -231,11 +231,11 @@ contract Maker_compound is TestMaker {
     _compound.mint(ERC20(_base), 4 ether);
   }
 
-  function makerTrade(
-    DC.SingleOrder calldata order,
-    address taker,
-    bool
-  ) public override returns (bytes32 ret) {
+  function makerTrade(DC.SingleOrder calldata order, address taker)
+    public
+    override
+    returns (bytes32 ret)
+  {
     ret; // silence compiler warning
     _compound.mint({token: ERC20(order.quote), amount: order.gives});
     _compound.redeem({
@@ -255,11 +255,11 @@ contract Maker_callback is TestMaker {
     ERC20 quote
   ) TestMaker(dex, base, quote) {}
 
-  function makerTrade(
-    DC.SingleOrder calldata order,
-    address taker,
-    bool
-  ) public override returns (bytes32 ret) {
+  function makerTrade(DC.SingleOrder calldata order, address taker)
+    public
+    override
+    returns (bytes32 ret)
+  {
     ret; // silence compiler warning
     ERC20(order.base).transfer({recipient: taker, amount: order.wants});
   }
@@ -273,17 +273,15 @@ contract Maker_callback is TestMaker {
     DC.OrderResult calldata result
   ) external override {
     Dex dex = Dex(msg.sender);
-    if (result.deleted) {
-      dex.updateOffer({
-        base: order.base,
-        quote: order.quote,
-        wants: (price * volume) / 100,
-        gives: volume,
-        gasreq: gasreq,
-        gasprice: 0,
-        pivotId: 0,
-        offerId: order.offerId
-      });
-    }
+    dex.updateOffer({
+      base: order.base,
+      quote: order.quote,
+      wants: (price * volume) / 100,
+      gives: volume,
+      gasreq: gasreq,
+      gasprice: 0,
+      pivotId: 0,
+      offerId: order.offerId
+    });
   }
 }

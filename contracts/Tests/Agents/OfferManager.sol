@@ -58,11 +58,11 @@ contract OfferManager is IMaker, ITaker {
 
   // Maker side execute for residual offer
 
-  function makerTrade(
-    DC.SingleOrder calldata _order,
-    address taker,
-    bool
-  ) external override returns (bytes32 ret) {
+  function makerTrade(DC.SingleOrder calldata _order, address taker)
+    external
+    override
+    returns (bytes32 ret)
+  {
     emit Execute(
       msg.sender,
       _order.base,

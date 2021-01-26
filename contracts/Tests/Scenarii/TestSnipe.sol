@@ -57,18 +57,6 @@ library TestSnipe {
     // Testing residual offer
     (bool exists, uint makerWants, uint makerGives, , , , , ) =
       dex.getOfferInfo(address(base), address(quote), snipedId);
-    TestEvents.check(exists, "Offer should have a residual");
-    TestEvents.eq(
-      makerGives,
-      offers[snipedId][TestUtils.Info.makerGives] - orderAmount,
-      "Incorrect residual offer (gives)"
-    );
-    TestEvents.eq(
-      makerWants,
-      (offers[snipedId][TestUtils.Info.makerWants] *
-        (offers[snipedId][TestUtils.Info.makerGives] - orderAmount)) /
-        offers[snipedId][TestUtils.Info.makerGives],
-      "Incorrect residual offer (wants)"
-    );
+    TestEvents.check(!exists, "Offer should not have a residual");
   }
 }

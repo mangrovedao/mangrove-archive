@@ -83,14 +83,14 @@ contract MakerOperations_Test is IMaker {
   }
 
   // since we check calldata, execute must be internal
-  function makerTrade(
-    DC.SingleOrder calldata order,
-    address taker,
-    bool offerWillDelete
-  ) external override returns (bytes32 ret) {
+  function makerTrade(DC.SingleOrder calldata order, address taker)
+    external
+    override
+    returns (bytes32 ret)
+  {
     ret; // silence unused function parameter warning
     IERC20(base).transfer(taker, order.wants);
-    uint num_args = 9;
+    uint num_args = 8;
     uint selector_bytes = 4;
     uint length = selector_bytes + num_args * 32;
     TestEvents.eq(
@@ -125,7 +125,6 @@ contract MakerOperations_Test is IMaker {
       0.05 ether,
       "wrong offerGives"
     );
-    TestEvents.check(offerWillDelete, "offerWillDelete should be true");
     // test flashloan
     TestEvents.eq(
       quote.balanceOf(address(this)),

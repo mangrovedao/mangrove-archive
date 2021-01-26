@@ -37,11 +37,12 @@ contract TestMaker is IMaker, Passthrough {
     _shouldFail = should;
   }
 
-  function makerTrade(
-    DC.SingleOrder calldata order,
-    address taker,
-    bool
-  ) public virtual override returns (bytes32) {
+  function makerTrade(DC.SingleOrder calldata order, address taker)
+    public
+    virtual
+    override
+    returns (bytes32)
+  {
     emit Execute(
       order.wants,
       order.gives,
@@ -81,6 +82,18 @@ contract TestMaker is IMaker, Passthrough {
     uint pivotId
   ) public returns (uint) {
     return (_dex.newOffer(_base, _quote, wants, gives, gasreq, 0, pivotId));
+  }
+
+  function updateOffer(
+    uint wants,
+    uint gives,
+    uint gasreq,
+    uint pivotId,
+    uint offerId
+  ) public returns (uint) {
+    return (
+      _dex.updateOffer(_base, _quote, wants, gives, gasreq, 0, pivotId, offerId)
+    );
   }
 
   function cancelOffer(uint offerId) public {
