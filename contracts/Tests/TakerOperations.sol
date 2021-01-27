@@ -359,6 +359,22 @@ contract TakerOperations_Test {
     dex.simpleMarketOrder{gas: 350_000}(base, quote, takerWants, takerGives);
   }
 
+  function snipe_with_0_wants_ejects_offer_test() public {
+    quoteT.approve(address(dex), 1 ether);
+    uint mkrBal = baseT.balanceOf(address(mkr));
+    uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 0);
+    //dex.setGasprice(dex.config(base,quote).global.gasprice - 1);
+    (bool success, uint takerGot, uint takerGave) =
+      dex.snipe(base, quote, ofr, 0, 1 ether, 50_000);
+    TestEvents.check(success, "snipe should succeed");
+    TestEvents.eq(dex.bests(base, quote), 0, "offer should be gone");
+    TestEvents.eq(
+      baseT.balanceOf(address(mkr)),
+      mkrBal,
+      "mkr balance should not change"
+    );
+  }
+
   // function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
   //   try tkr.marketOrder(2**160, 0) {
   //     TestEvents.fail("TakerWants > 160bits, order should fail");
