@@ -179,6 +179,7 @@ They have the following fields: */
     bytes32 local;
     uint numToPunish;
     uint[2][] toPunish;
+    uint takerDue;
     // used as past offer id in internalMarketOrder
     // used as #successes in internalSnipes
     uint extraData;

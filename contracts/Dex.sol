@@ -342,6 +342,7 @@ abstract contract Dex is HasAdmin {
     if (isLive(sor.offer)) {
       internalMarketOrder(mor, sor, mor.initialWants != 0);
     }
+    paySender(mor.takerDue);
     return (mor.totalGot, mor.totalGave, mor.toPunish);
   }
 
@@ -669,6 +670,7 @@ abstract contract Dex is HasAdmin {
     //+clear+
 
     internalSnipes(mor, sor, targets, 0);
+    paySender(mor.takerDue);
     return (mor.extraData, mor.totalGot, mor.totalGave, mor.toPunish);
   }
 
@@ -778,7 +780,7 @@ abstract contract Dex is HasAdmin {
     }
 
     if (!success && executed) {
-      applyPenalty(
+      mor.takerDue += applyPenalty(
         $$(glo_gasprice("mor.global")),
         gasused,
         sor.offer,
@@ -843,7 +845,7 @@ abstract contract Dex is HasAdmin {
     uint gasused,
     bytes32 offer,
     bytes32 offerDetail
-  ) internal {
+  ) internal returns (uint) {
     /*
        Then we apply penalties:
 
@@ -873,12 +875,19 @@ abstract contract Dex is HasAdmin {
       gasused = $$(od_gasreq("offerDetail"));
     }
 
-    uint toPay = 10**9 * gasprice * (gasused + $$(od_gasbase("offerDetail")));
+    uint takerDue =
+      10**9 * gasprice * (gasused + $$(od_gasbase("offerDetail")));
 
-    bool noRevert;
-    (noRevert, ) = msg.sender.call{gas: 0, value: toPay}("");
+    creditWei($$(od_maker("offerDetail")), provision - takerDue);
 
-    creditWei($$(od_maker("offerDetail")), provision - toPay);
+    return takerDue;
+  }
+
+  function paySender(uint amount) internal {
+    if (amount > 0) {
+      bool noRevert;
+      (noRevert, ) = msg.sender.call{gas: 0, value: amount}("");
+    }
   }
 
   /* # Punishment for failing offers */
@@ -1045,6 +1054,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint punishIndex;
     bytes32 _global = global;
     uint gasprice = $$(glo_gasprice("_global"));
+    uint takerDue = 0;
     while (punishIndex < toPunish.length) {
       uint id = toPunish[punishIndex][0];
       /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
@@ -1054,10 +1064,11 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         dirtyDeleteOffer(base, quote, id, offer, true);
         stitchOffers(base, quote, $$(o_prev("offer")), $$(o_next("offer")));
         uint gasused = toPunish[punishIndex][1];
-        applyPenalty(gasprice, gasused, offer, offerDetail);
+        takerDue += applyPenalty(gasprice, gasused, offer, offerDetail);
       }
       punishIndex++;
     }
+    paySender(takerDue);
   }
 
   /* Given some `bytes`, `evmRevert` reverts the current call with the raw bytes as revert data. The length prefix is omitted. Prevents abi-encoding of solidity-revert's string argument.  */
