@@ -268,10 +268,10 @@ contract Maker_callback is TestMaker {
   uint price = 340; // in %
   uint gasreq = 400_000;
 
-  function makerPosthook(
-    DC.SingleOrder calldata order,
-    DC.OrderResult calldata result
-  ) external override {
+  function makerPosthook(DC.SingleOrder calldata order, DC.OrderResult calldata)
+    external
+    override
+  {
     Dex dex = Dex(msg.sender);
     dex.updateOffer({
       base: order.base,

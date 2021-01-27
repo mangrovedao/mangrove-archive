@@ -122,10 +122,10 @@ contract UniSwapMaker is IMaker {
     newOfrId_qb; // should be recorded as step i of price curve discretization
   }
 
-  function makerPosthook(
-    DC.SingleOrder calldata order,
-    DC.OrderResult calldata result
-  ) external override {
+  function makerPosthook(DC.SingleOrder calldata order, DC.OrderResult calldata)
+    external
+    override
+  {
     // taker has paid maker
     (uint newWants, uint newGives) =
       newPrice(ERC20(order.quote), ERC20(order.base));

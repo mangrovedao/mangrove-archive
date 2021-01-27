@@ -310,7 +310,7 @@ contract TakerOperations_Test {
     quoteT.approve(address(dex), 1 ether);
     mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 0);
     mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 1);
-    (uint takerGot, uint takerGave) =
+    (uint takerGot, ) =
       dex.simpleMarketOrder(base, quote, 0.15 ether, 0.15 ether);
     TestEvents.eq(
       takerGot,
@@ -363,9 +363,7 @@ contract TakerOperations_Test {
     quoteT.approve(address(dex), 1 ether);
     uint mkrBal = baseT.balanceOf(address(mkr));
     uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 0);
-    //dex.setGasprice(dex.config(base,quote).global.gasprice - 1);
-    (bool success, uint takerGot, uint takerGave) =
-      dex.snipe(base, quote, ofr, 0, 1 ether, 50_000);
+    (bool success, , ) = dex.snipe(base, quote, ofr, 0, 1 ether, 50_000);
     TestEvents.check(success, "snipe should succeed");
     TestEvents.eq(dex.bests(base, quote), 0, "offer should be gone");
     TestEvents.eq(

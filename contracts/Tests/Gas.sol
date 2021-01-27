@@ -63,6 +63,7 @@ contract Gas_Test is IMaker {
 
   function getStored()
     internal
+    view
     returns (
       Dex,
       TestTaker,

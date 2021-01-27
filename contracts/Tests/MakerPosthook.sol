@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
@@ -51,7 +52,7 @@ contract MakerPosthook_Test is IMaker {
 
   function renew_offer_at_posthook(
     DexCommon.SingleOrder calldata order,
-    DexCommon.OrderResult calldata result
+    DexCommon.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
     dex.updateOffer(
@@ -68,7 +69,7 @@ contract MakerPosthook_Test is IMaker {
 
   function update_gas_offer_at_posthook(
     DexCommon.SingleOrder calldata order,
-    DexCommon.OrderResult calldata result
+    DexCommon.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
     DexCommon.Config memory cfg = dex.config(base, quote);
@@ -85,16 +86,16 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function failer_posthook(
-    DexCommon.SingleOrder calldata order,
-    DexCommon.OrderResult calldata result
+    DexCommon.SingleOrder calldata,
+    DexCommon.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
     TestEvents.fail("Posthook should not be called");
   }
 
   function cancelOffer_posthook(
-    DexCommon.SingleOrder calldata order,
-    DexCommon.OrderResult calldata result
+    DexCommon.SingleOrder calldata,
+    DexCommon.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
     dex.cancelOffer(base, quote, ofr, false);
@@ -105,7 +106,10 @@ contract MakerPosthook_Test is IMaker {
     DexCommon.OrderResult calldata result
   ) external override {
     require(msg.sender == address(dex));
-    address(this).call(abi.encodeWithSelector(posthook_bytes, order, result));
+    bool noRevert;
+    (noRevert, ) = address(this).call(
+      abi.encodeWithSelector(posthook_bytes, order, result)
+    );
   }
 
   function a_beforeAll() public {
@@ -138,7 +142,6 @@ contract MakerPosthook_Test is IMaker {
   function renew_offer_after_partial_fill_test() public {
     uint mkr_provision =
       TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
-    uint standard_provision = TestUtils.getProvision(dex, base, quote, gasreq);
     posthook_bytes = this.renew_offer_at_posthook.selector;
 
     ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
@@ -167,7 +170,6 @@ contract MakerPosthook_Test is IMaker {
   function renew_offer_after_complete_fill_test() public {
     uint mkr_provision =
       TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
-    uint standard_provision = TestUtils.getProvision(dex, base, quote, gasreq);
     posthook_bytes = this.renew_offer_at_posthook.selector;
 
     ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
@@ -194,9 +196,6 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function renew_offer_after_failed_execution_test() public {
-    uint mkr_provision =
-      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
-    uint standard_provision = TestUtils.getProvision(dex, base, quote, gasreq);
     posthook_bytes = this.renew_offer_at_posthook.selector;
 
     ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);

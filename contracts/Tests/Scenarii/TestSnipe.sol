@@ -72,7 +72,7 @@ library TestSnipe {
       "incorrect maker B balance"
     );
     // Testing residual offer
-    (bool exists, uint makerWants, uint makerGives, , , , , ) =
+    (bool exists, , , , , , , ) =
       dex.getOfferInfo(address(base), address(quote), snipedId);
     TestEvents.check(!exists, "Offer should not have a residual");
   }
