@@ -162,36 +162,56 @@ abstract contract Dex is HasAdmin {
   /* ## Cancel Offer */
   //+clear+
   /* `cancelOffer` with `erase == false` takes the offer out of the book. However, `erase == true` clears out the offer's entry in `offers` and `offerDetails` -- an erased offer cannot be resurrected. */
-  function cancelOffer(
+  function retractOffer(
     address base,
     address quote,
-    uint offerId,
-    bool to_delete
+    uint offerId
   ) external {
     unlockedOnly(base, quote);
     bytes32 offer = offers[base][quote][offerId];
     bytes32 offerDetail = offerDetails[base][quote][offerId];
-    /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *un-live* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
     require(
       msg.sender == $$(od_maker("offerDetail")),
-      "dex/cancelOffer/unauthorized"
+      "dex/retractOffer/unauthorized"
     );
 
+    /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *un-live* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
     if (isLive(offer)) {
       stitchOffers(base, quote, $$(o_prev("offer")), $$(o_next("offer")));
+      // set `offer.gives` to 0
+      dirtyDeleteOffer(base, quote, offerId, offer, false);
+      emit DexEvents.RetractOffer(base, quote, offerId);
     }
-    if (to_delete) {
-      emit DexEvents.RemoveOffer(base, quote, offerId, true);
-      delete offers[base][quote][offerId];
-      delete offerDetails[base][quote][offerId];
-    } else {
-      dirtyDeleteOffer(base, quote, offerId, offer, true);
+  }
+
+  function deleteOffer(
+    address base,
+    address quote,
+    uint offerId
+  ) external {
+    bytes32 offer = offers[base][quote][offerId];
+    bytes32 offerDetail = offerDetails[base][quote][offerId];
+    require(
+      msg.sender == $$(od_maker("offerDetail")),
+      "dex/deleteOffer/unauthorized"
+    );
+    // retracts offer if needed
+    if (isLive(offer)) {
+      unlockedOnly(base, quote); // should not retact offer if pair is locked
+      stitchOffers(base, quote, $$(o_prev("offer")), $$(o_next("offer")));
+      emit DexEvents.RetractOffer(base, quote, offerId);
     }
+
     /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
     uint provision =
       10**9 *
         $$(o_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
         ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
+    // log offer deletion
+    emit DexEvents.DeleteOffer(base, quote, offerId);
+    delete offers[base][quote][offerId];
+    delete offerDetails[base][quote][offerId];
+    // credit balanceOf and log transfer
     creditWei(msg.sender, provision);
   }
 
@@ -830,7 +850,6 @@ abstract contract Dex is HasAdmin {
     bytes32 offer,
     bool deprovision
   ) internal {
-    emit DexEvents.RemoveOffer(base, quote, offerId, false);
     offer = $$(o_set("offer", [["gives", 0]]));
     if (deprovision) {
       offer = $$(o_set("offer", [["gasprice", 0]]));
