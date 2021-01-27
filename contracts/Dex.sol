@@ -390,19 +390,7 @@ abstract contract Dex is HasAdmin {
         Note that if the invariant _"not `deleted` → end of `while` loop"_ does not hold, the market order is completely broken.
 
 
-          Proof that we are at the last iteration of the while loop: if what's left in the offer after a successful execution is above the minimum size offer, we update the offer and keep it in the book: in `executeOffer`, the offer is not deleted iff the test below passes (variables renamed for clarity):
-         ```
-         success &&
-         gives - localTakerwants >=
-           density * (gasreq + gasbase)
-         ```
-        By the `Config`, `density * gasbase > 0`, so by the test above `offer.gives - localTakerWants > 0`, so by definition of `localTakerWants`, `localTakerWants == takerWants`. So after updating `takerWants` (the line `takerWants -= localTakerWants`), we have
-        ```
-         takerWants == 0 < density * gasbase
-        ```
-        And so the loop ends.
-      */
-
+          Proof that we are at the last iteration of the while loop: if the offer was not deleted, it was not executed. So proceed will be false on the next recursive call. */
       // those may have been updated by execute, we keep them in stack
       {
         /* it is known statically that initialWants-totalGot does not underflow since 1) totalGot is increase by sor.wants during the loop, 2) sor.wants may be clamped down to offer.gives, 3) and sor.wants was at most initialWants-totalGot from earlier step */
