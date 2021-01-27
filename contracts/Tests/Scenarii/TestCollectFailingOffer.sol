@@ -45,7 +45,7 @@ library TestCollectFailingOffer {
       TestEvents.eq(
         address(dex).balance,
         balances.dexBalanceWei - (provision - returned),
-        "Dex has not send enough money to taker"
+        "Dex has not send the correct amount to taker"
       );
     } catch (bytes memory errorMsg) {
       string memory err = abi.decode(errorMsg, (string));
