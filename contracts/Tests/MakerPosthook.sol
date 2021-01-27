@@ -19,27 +19,23 @@ contract MakerPosthook_Test is IMaker {
   TestToken quoteT;
   address base;
   address quote;
-  uint gasreq = 50_000;
+  uint gasreq = 200_000;
+  uint ofr;
+  bytes4 posthook_bytes;
   uint gasprice = 50; // will cover for a gasprice of 50 gwei/gas uint
+  uint weiBalMaker;
+  bool abort = false;
 
   receive() external payable {}
-
-  // address base;
-  // address quote;
-  // uint offerId;
-  // bytes32 offer;
-  // /* will evolve over time, initially the wants/gives from the taker's pov,
-  //    then actual wants/give depending on how much the offer is ready */
-  // uint wants;
-  // uint gives;
-  // /* only populated when necessary */
-  // bytes32 offerDetail;
 
   function makerTrade(DexCommon.SingleOrder calldata trade, address taker)
     external
     override
     returns (bytes32 ret)
   {
+    if (abort) {
+      return ret;
+    }
     require(msg.sender == address(dex));
     emit Execute(
       msg.sender,
@@ -50,14 +46,14 @@ contract MakerPosthook_Test is IMaker {
       trade.gives
     );
     TestToken(trade.base).transfer(taker, trade.wants);
-    return "OK";
+    ret = "OK";
   }
 
-  function makerPosthook(
+  function renew_offer_at_posthook(
     DexCommon.SingleOrder calldata order,
     DexCommon.OrderResult calldata result
-  ) external override {
-    require(msg.sender == address(dex));
+  ) external {
+    require(msg.sender == address(this));
     dex.updateOffer(
       order.base,
       order.quote,
@@ -70,24 +66,221 @@ contract MakerPosthook_Test is IMaker {
     );
   }
 
+  function update_gas_offer_at_posthook(
+    DexCommon.SingleOrder calldata order,
+    DexCommon.OrderResult calldata result
+  ) external {
+    require(msg.sender == address(this));
+    DexCommon.Config memory cfg = dex.config(base, quote);
+    dex.updateOffer(
+      order.base,
+      order.quote,
+      1 ether,
+      1 ether,
+      gasreq,
+      cfg.global.gasprice, // Dex default
+      order.offerId,
+      order.offerId
+    );
+  }
+
+  function failer_posthook(
+    DexCommon.SingleOrder calldata order,
+    DexCommon.OrderResult calldata result
+  ) external {
+    require(msg.sender == address(this));
+    TestEvents.fail("Posthook should not be called");
+  }
+
+  function cancelOffer_posthook(
+    DexCommon.SingleOrder calldata order,
+    DexCommon.OrderResult calldata result
+  ) external {
+    require(msg.sender == address(this));
+    dex.cancelOffer(base, quote, ofr, false);
+  }
+
+  function makerPosthook(
+    DexCommon.SingleOrder calldata order,
+    DexCommon.OrderResult calldata result
+  ) external override {
+    require(msg.sender == address(dex));
+    address(this).call(abi.encodeWithSelector(posthook_bytes, order, result));
+  }
+
   function a_beforeAll() public {
+    Display.register(address(this), "Test runner");
+
     baseT = TokenSetup.setup("A", "$A");
     quoteT = TokenSetup.setup("B", "$B");
     base = address(baseT);
     quote = address(quoteT);
+    Display.register(base, "base");
+    Display.register(quote, "quote");
 
     dex = DexSetup.setup(baseT, quoteT);
+    Display.register(address(dex), "Dex");
+
     tkr = TakerSetup.setup(dex, base, quote);
+    Display.register(address(tkr), "Taker");
 
     address(tkr).transfer(10 ether);
     quoteT.mint(address(tkr), 1 ether);
+    baseT.mint(address(this), 5 ether);
+
     tkr.approveDex(baseT, 1 ether); // takerFee
     tkr.approveDex(quoteT, 1 ether);
 
     dex.fund{value: 10 ether}(address(this)); // for new offer and further updates
-
-    dex.newOffer(base, quote, 1 ether, 1 ether, 50_000, 0, 0);
+    weiBalMaker = dex.balanceOf(address(this));
   }
 
-  function update_offer_test() public {}
+  function renew_offer_after_partial_fill_test() public {
+    uint mkr_provision =
+      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
+    uint standard_provision = TestUtils.getProvision(dex, base, quote, gasreq);
+    posthook_bytes = this.renew_offer_at_posthook.selector;
+
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+
+    TestEvents.eq(
+      dex.balanceOf(address(this)),
+      weiBalMaker - mkr_provision, // maker has provision for his gasprice
+      "Incorrect maker balance before take"
+    );
+
+    bool success = tkr.take(ofr, 0.5 ether);
+    TestEvents.check(success, "Snipe should succeed");
+
+    TestEvents.eq(
+      dex.balanceOf(address(this)),
+      weiBalMaker - mkr_provision, // maker reposts
+      "Incorrect maker balance after take"
+    );
+    TestEvents.eq(
+      TestUtils.getOfferInfo(dex, base, quote, TestUtils.Info.makerGives, ofr),
+      1 ether,
+      "Offer was not correctly updated"
+    );
+  }
+
+  function renew_offer_after_complete_fill_test() public {
+    uint mkr_provision =
+      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
+    uint standard_provision = TestUtils.getProvision(dex, base, quote, gasreq);
+    posthook_bytes = this.renew_offer_at_posthook.selector;
+
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+
+    TestEvents.eq(
+      dex.balanceOf(address(this)),
+      weiBalMaker - mkr_provision, // maker has provision for his gasprice
+      "Incorrect maker balance before take"
+    );
+
+    bool success = tkr.take(ofr, 2 ether);
+    TestEvents.check(success, "Snipe should succeed");
+
+    TestEvents.eq(
+      dex.balanceOf(address(this)),
+      weiBalMaker - mkr_provision, // maker reposts
+      "Incorrect maker balance after take"
+    );
+    TestEvents.eq(
+      TestUtils.getOfferInfo(dex, base, quote, TestUtils.Info.makerGives, ofr),
+      1 ether,
+      "Offer was not correctly updated"
+    );
+  }
+
+  function renew_offer_after_failed_execution_test() public {
+    uint mkr_provision =
+      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
+    uint standard_provision = TestUtils.getProvision(dex, base, quote, gasreq);
+    posthook_bytes = this.renew_offer_at_posthook.selector;
+
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    abort = true;
+
+    bool success = tkr.take(ofr, 2 ether);
+    TestEvents.check(!success, "Snipe should fail");
+
+    TestEvents.eq(
+      TestUtils.getOfferInfo(dex, base, quote, TestUtils.Info.makerGives, ofr),
+      1 ether,
+      "Offer was not correctly updated"
+    );
+  }
+
+  function update_offer_with_less_gasprice_test() public {
+    uint mkr_provision =
+      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
+    uint standard_provision = TestUtils.getProvision(dex, base, quote, gasreq);
+    posthook_bytes = this.update_gas_offer_at_posthook.selector;
+
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+
+    TestEvents.eq(
+      dex.balanceOf(address(this)),
+      weiBalMaker - mkr_provision, // maker has provision for his gasprice
+      "Incorrect maker balance before take"
+    );
+
+    bool success = tkr.take(ofr, 2 ether);
+    TestEvents.check(success, "Snipe should succeed");
+
+    TestEvents.eq(
+      dex.balanceOf(address(this)),
+      weiBalMaker - standard_provision, // maker reposts
+      "Incorrect maker balance after take"
+    );
+    TestEvents.eq(
+      TestUtils.getOfferInfo(dex, base, quote, TestUtils.Info.makerGives, ofr),
+      1 ether,
+      "Offer was not correctly updated"
+    );
+  }
+
+  function posthook_of_skipped_offer_wrong_gas_should_not_be_called_test()
+    public
+  {
+    posthook_bytes = this.failer_posthook.selector;
+
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+
+    bool success =
+      tkr.snipe(dex, base, quote, ofr, 1 ether, 1 ether, gasreq - 1);
+    TestEvents.check(!success, "Snipe should fail");
+  }
+
+  function posthook_of_skipped_offer_wrong_price_should_not_be_called_test()
+    public
+  {
+    posthook_bytes = this.failer_posthook.selector;
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    bool success = tkr.snipe(dex, base, quote, ofr, 1.1 ether, 1 ether, gasreq);
+    TestEvents.check(!success, "Snipe should fail");
+  }
+
+  function cancel_offer_in_posthook_test() public {
+    uint mkr_provision =
+      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
+    posthook_bytes = this.cancelOffer_posthook.selector;
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    TestEvents.eq(
+      dex.balanceOf(address(this)),
+      weiBalMaker - mkr_provision, // maker has provision for his gasprice
+      "Incorrect maker balance before take"
+    );
+    bool success = tkr.take(ofr, 2 ether);
+    TestEvents.check(success, "Snipe should succeed");
+    TestEvents.eq(
+      dex.balanceOf(address(this)),
+      weiBalMaker, // provision returned to taker
+      "Incorrect maker balance after take"
+    );
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.RemoveOffer(base, quote, ofr, false);
+    DexEvents.Credit(address(this), mkr_provision);
+  }
 }

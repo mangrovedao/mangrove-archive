@@ -77,6 +77,23 @@ library TestUtils {
       10**9);
   }
 
+  function getProvision(
+    Dex dex,
+    address base,
+    address quote,
+    uint gasreq,
+    uint gasprice
+  ) internal view returns (uint) {
+    DC.Config memory config = dex.config(base, quote);
+    uint _gp;
+    if (config.global.gasprice > gasprice) {
+      _gp = uint(config.global.gasprice);
+    } else {
+      _gp = gasprice;
+    }
+    return ((gasreq + config.global.gasbase) * _gp * 10**9);
+  }
+
   function getOfferInfo(
     Dex dex,
     address base,
