@@ -187,11 +187,10 @@ abstract contract Dex is HasAdmin {
     } else {
       dirtyDeleteOffer(base, quote, offerId, offer, true);
     }
-
     /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
     uint provision =
       10**9 *
-        $$(o_gasprice("offer")) *
+        $$(o_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
         ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
     creditWei(msg.sender, provision);
   }
