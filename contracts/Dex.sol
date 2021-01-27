@@ -508,11 +508,14 @@ abstract contract Dex is HasAdmin {
 
    To do that, we round up the amount required by the maker. That amount will later be deduced from the offer's total volume.
        */
-    uint makerWouldWant =
-      roundUpRatio(
-        sor.wants * $$(o_wants("sor.offer")),
-        $$(o_gives("sor.offer"))
-      );
+    uint makerWouldWant;
+
+    /* round up ratio */
+    {
+      uint num = sor.wants * $$(o_wants("sor.offer"));
+      uint den = $$(o_gives("sor.offer"));
+      makerWouldWant = num / den + (num % den == 0 ? 0 : 1);
+    }
 
     if (makerWouldWant > sor.gives) {
       return (success, executed, $$(od_gasreq("sor.offerDetail")), bytes32(0));
@@ -1162,10 +1165,6 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       fee: $$(loc_fee("_local")),
       density: $$(loc_density("_local"))
     });
-  }
-
-  function roundUpRatio(uint num, uint den) internal pure returns (uint) {
-    return num / den + (num % den == 0 ? 0 : 1);
   }
 
   /* # Configuration access */
