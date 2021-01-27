@@ -551,13 +551,6 @@ abstract contract Dex is HasAdmin {
 
       mor.totalGot += sor.wants;
       mor.totalGave += sor.gives;
-
-      bytes32 updatedOffer = sor.offer;
-      uint newGives = $$(o_gives("updatedOffer")) - sor.wants;
-      uint newWants = $$(o_wants("updatedOffer")) - sor.gives;
-      offers[sor.base][sor.quote][sor.offerId] = $$(
-        o_set("updatedOffer", [["gives", "newGives"], ["wants", "newWants"]])
-      );
     } else {
       /* This short reason string should not be exploitable by maker/taker! */
       bytes32 errorCode;
