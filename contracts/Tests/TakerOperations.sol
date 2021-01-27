@@ -148,7 +148,20 @@ contract TakerOperations_Test {
     quoteT.approve(address(dex), 1 ether);
     uint balTaker = baseT.balanceOf(address(this));
     uint balMaker = quoteT.balanceOf(address(mkr));
-    try dex.simpleMarketOrder(base, quote, 1 ether, 1 ether) {
+    try dex.simpleMarketOrder(base, quote, 1 ether, 1 ether) returns (
+      uint takerGot,
+      uint takerGave
+    ) {
+      TestEvents.eq(
+        takerGot,
+        1 ether,
+        "Incorrect declared delivered amount (taker)"
+      );
+      TestEvents.eq(
+        takerGave,
+        1 ether,
+        "Incorrect declared delivered amount (maker)"
+      );
       TestEvents.eq(
         baseT.balanceOf(address(this)) - balTaker,
         1 ether,
@@ -290,7 +303,6 @@ contract TakerOperations_Test {
     quoteT.approve(address(dex), 10 ether);
     // 6/1/20 : ~50k/offer with optims
     //uint g = gasleft();
-    dex.simpleMarketOrder(base, quote, 1 ether, 1 ether);
     //console.log("gas used per offer: ",(g-gasleft())/50);
   }
 
@@ -298,7 +310,13 @@ contract TakerOperations_Test {
     quoteT.approve(address(dex), 1 ether);
     mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 0);
     mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 1);
-    dex.simpleMarketOrder(base, quote, 0.15 ether, 0.15 ether);
+    (uint takerGot, uint takerGave) =
+      dex.simpleMarketOrder(base, quote, 0.15 ether, 0.15 ether);
+    TestEvents.eq(
+      takerGot,
+      0.15 ether,
+      "Incorrect declared partial fill amount"
+    );
     TestEvents.eq(
       baseT.balanceOf(address(this)),
       0.15 ether,

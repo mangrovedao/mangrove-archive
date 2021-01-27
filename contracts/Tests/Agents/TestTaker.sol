@@ -40,6 +40,27 @@ contract TestTaker is ITaker {
     //return taken;
   }
 
+  function takeWithInfo(uint offerId, uint takerWants)
+    external
+    returns (
+      bool,
+      uint,
+      uint
+    )
+  {
+    //uint taken = TestEvents.min(makerGives, takerWants);
+    return
+      _dex.snipe(
+        _base,
+        _quote,
+        offerId,
+        takerWants,
+        type(uint96).max, //takergives
+        type(uint48).max //gasreq
+      );
+    //return taken;
+  }
+
   function snipe(
     Dex __dex,
     address __base,
@@ -66,8 +87,8 @@ contract TestTaker is ITaker {
     uint
   ) external pure override {}
 
-  function marketOrder(uint wants, uint gives) external {
-    _dex.simpleMarketOrder(_base, _quote, wants, gives);
+  function marketOrder(uint wants, uint gives) external returns (uint, uint) {
+    return _dex.simpleMarketOrder(_base, _quote, wants, gives);
   }
 
   function simpleMarketOrder(
@@ -76,8 +97,8 @@ contract TestTaker is ITaker {
     address __quote,
     uint takerWants,
     uint takerGives
-  ) external {
-    __dex.simpleMarketOrder(__base, __quote, takerWants, takerGives);
+  ) external returns (uint, uint) {
+    return __dex.simpleMarketOrder(__base, __quote, takerWants, takerGives);
   }
 
   function marketOrderWithFail(
@@ -85,15 +106,15 @@ contract TestTaker is ITaker {
     uint gives,
     uint punishLength,
     uint offerId
-  ) external returns (uint[2][] memory failures) {
-    (, , failures) = _dex.marketOrder(
-      _base,
-      _quote,
-      wants,
-      gives,
-      punishLength,
-      offerId
-    );
+  )
+    external
+    returns (
+      uint,
+      uint,
+      uint[2][] memory
+    )
+  {
+    return _dex.marketOrder(_base, _quote, wants, gives, punishLength, offerId);
   }
 
   function snipesAndRevert(uint[4][] calldata targets, uint punishLength)

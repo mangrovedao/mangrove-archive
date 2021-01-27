@@ -18,22 +18,22 @@ library TestSnipe {
 
     //(uint init_mkr_wants, uint init_mkr_gives,,,,,)=dex.getOfferInfo(2);
     //---------------SNIPE------------------//
-    TestEvents.check(
-      taker.take(snipedId, orderAmount),
-      "snipe should be a success"
-    );
+    uint takerGave;
+    uint takerGot;
+    {
+      bool takeSuccess;
+      (takeSuccess, takerGot, takerGave) = taker.takeWithInfo(
+        snipedId,
+        orderAmount
+      );
+
+      TestEvents.check(takeSuccess, "snipe should be a success");
+    }
     TestEvents.eq(
       base.balanceOf(TestUtils.adminOf(dex)), //actual
       balances.dexBalanceFees +
         TestUtils.getFee(dex, address(base), address(quote), orderAmount), //expected
       "incorrect Dex A balance"
-    );
-    TestEvents.eq(
-      quote.balanceOf(address(taker)),
-      balances.takerBalanceB -
-        (orderAmount * offers[snipedId][TestUtils.Info.makerWants]) /
-        offers[snipedId][TestUtils.Info.makerGives],
-      "incorrect taker B balance"
     );
     TestEvents.eq(
       base.balanceOf(address(taker)), // actual
@@ -42,6 +42,23 @@ library TestSnipe {
         TestUtils.getFee(dex, address(base), address(quote), orderAmount), // expected
       "incorrect taker A balance"
     );
+    TestEvents.eq(
+      takerGot,
+      orderAmount -
+        TestUtils.getFee(dex, address(base), address(quote), orderAmount),
+      "Incorrect takerGot"
+    );
+    {
+      uint shouldGive =
+        (orderAmount * offers[snipedId][TestUtils.Info.makerWants]) /
+          offers[snipedId][TestUtils.Info.makerGives];
+      TestEvents.eq(
+        quote.balanceOf(address(taker)),
+        balances.takerBalanceB - shouldGive,
+        "incorrect taker B balance"
+      );
+      TestEvents.eq(takerGave, shouldGive, "Incorrect takerGave");
+    }
     TestEvents.eq(
       base.balanceOf(address(maker)),
       balances.makersBalanceA[snipedId] - orderAmount,

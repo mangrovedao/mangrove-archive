@@ -10,7 +10,7 @@ library TestFailingMarketOrder {
     address quote,
     TestTaker taker
   ) external {
-    uint[2][] memory failures =
+    (, , uint[2][] memory failures) =
       taker.marketOrderWithFail({
         wants: 10 ether,
         gives: 30 ether,
