@@ -518,7 +518,7 @@ abstract contract Dex is HasAdmin {
     }
 
     if (makerWouldWant > sor.gives) {
-      return (success, executed, $$(od_gasreq("sor.offerDetail")), bytes32(0));
+      return (false, false, 0, bytes32(0));
     }
 
     executed = true;
