@@ -171,6 +171,23 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
+  function killing_updates_config_test() public {
+    dex.kill();
+    TestEvents.check(
+      dex.config(address(0), address(0)).global.dead,
+      "dex should be dead "
+    );
+  }
+
+  function kill_is_idempotent_test() public {
+    dex.kill();
+    dex.kill();
+    TestEvents.check(
+      dex.config(address(0), address(0)).global.dead,
+      "dex should still be dead"
+    );
+  }
+
   function only_admin_can_set_active_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
     try notAdmin.activate(quote, base, 0, 100) {
