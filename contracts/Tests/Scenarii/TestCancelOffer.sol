@@ -14,12 +14,12 @@ library TestCancelOffer {
     TestToken base,
     TestToken quote
   ) external {
-    try wrongOwner.cancelOffer(dex, offerId) {
+    try wrongOwner.deleteOffer(offerId) {
       TestEvents.fail("Invalid authorization to cancel order");
     } catch Error(string memory reason) {
       TestEvents.eq(reason, "dex/cancelOffer/unauthorized", "Unexpected throw");
-      try maker.cancelOffer(dex, offerId) {
-        maker.cancelOffer(dex, 0);
+      try maker.deleteOffer(offerId) {
+        maker.deleteOffer(0);
         uint provisioned =
           TestUtils.getProvision(
             dex,

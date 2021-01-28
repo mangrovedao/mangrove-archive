@@ -444,34 +444,34 @@ contract Gatekeeping_Test is IMaker {
 
   /* Cancel Offer failure */
 
-  function cancelOfferKO(uint id) external {
-    try dex.cancelOffer(base, quote, id, false) {
-      TestEvents.fail("cancelOffer on same pair should fail");
+  function retractOfferKO(uint id) external {
+    try dex.retractOffer(base, quote, id, false) {
+      TestEvents.fail("retractOffer on same pair should fail");
     } catch Error(string memory reason) {
       TestEvents.revertEq(reason, "dex/reentrancyLocked");
     }
   }
 
-  function cancelOffer_on_reentrancy_fails_test() public {
+  function retractOffer_on_reentrancy_fails_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0, 0);
-    trade_cb = abi.encodeWithSelector(this.cancelOfferKO.selector, ofr);
+    trade_cb = abi.encodeWithSelector(this.retractOfferKO.selector, ofr);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
   }
 
   /* Cancel Offer success */
 
-  function cancelOfferOK(
+  function retractOfferOK(
     address _base,
     address _quote,
     uint id
   ) external {
-    dex.cancelOffer(_base, _quote, id, false);
+    dex.retractOffer(_base, _quote, id, false);
   }
 
-  function cancelOffer_on_reentrancy_succeeds_test() public {
+  function retractOffer_on_reentrancy_succeeds_test() public {
     uint other_ofr = dex.newOffer(quote, base, 1 ether, 1 ether, 90_000, 0, 0);
     trade_cb = abi.encodeWithSelector(
-      this.cancelOfferOK.selector,
+      this.retractOfferOK.selector,
       quote,
       base,
       other_ofr
@@ -481,14 +481,14 @@ contract Gatekeeping_Test is IMaker {
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
     require(
       dex.bests(quote, base) == 0,
-      "cancelOffer on swapped pair must work"
+      "retractOffer on swapped pair must work"
     );
   }
 
-  function cancelOffer_on_posthook_succeeds_test() public {
+  function retractOffer_on_posthook_succeeds_test() public {
     uint other_ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0, 0);
     posthook_cb = abi.encodeWithSelector(
-      this.cancelOfferOK.selector,
+      this.retractOfferOK.selector,
       base,
       quote,
       other_ofr
@@ -496,7 +496,7 @@ contract Gatekeeping_Test is IMaker {
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    require(dex.bests(base, quote) == 0, "cancelOffer on posthook must work");
+    require(dex.bests(base, quote) == 0, "retractOffer on posthook must work");
   }
 
   /* Market Order failure */
@@ -678,10 +678,10 @@ contract Gatekeeping_Test is IMaker {
     dex.withdraw(0.1 ether);
   }
 
-  function cancelOffer_on_closed_ok_test() public {
+  function retractOffer_on_closed_ok_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0, 0);
     dex.kill();
-    dex.cancelOffer(base, quote, ofr, false);
+    dex.retractOffer(base, quote, ofr, false);
   }
 
   function updateOffer_on_closed_fails_test() public {

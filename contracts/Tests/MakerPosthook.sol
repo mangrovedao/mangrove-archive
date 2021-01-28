@@ -72,14 +72,13 @@ contract MakerPosthook_Test is IMaker {
     DexCommon.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
-    DexCommon.Config memory cfg = dex.config(base, quote);
     dex.updateOffer(
       order.base,
       order.quote,
       1 ether,
       1 ether,
       gasreq,
-      cfg.global.gasprice, // Dex default
+      gasprice, // Dex default
       order.offerId,
       order.offerId
     );
@@ -93,13 +92,14 @@ contract MakerPosthook_Test is IMaker {
     TestEvents.fail("Posthook should not be called");
   }
 
+
   function cancelOffer_posthook(
     DexCommon.SingleOrder calldata,
     DexCommon.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
     uint bal = dex.balanceOf(address(this));
-    dex.cancelOffer(base, quote, ofr, false);
+    dex.retractOffer(base, quote, ofr, true);
     if (abort) {
       TestEvents.eq(
         bal,
@@ -114,10 +114,11 @@ contract MakerPosthook_Test is IMaker {
     DexCommon.OrderResult calldata result
   ) external override {
     require(msg.sender == address(dex));
-    bool noRevert;
-    (noRevert, ) = address(this).call(
-      abi.encodeWithSelector(posthook_bytes, order, result)
+    TestEvents.check(
+      !TestUtils.hasOffer(dex, order.base, order.quote, order.offerId),
+      "Offer was not removed after take"
     );
+    address(this).call(abi.encodeWithSelector(posthook_bytes, order, result));
   }
 
   function a_beforeAll() public {
@@ -219,17 +220,17 @@ contract MakerPosthook_Test is IMaker {
     );
   }
 
-  function update_offer_with_less_gasprice_test() public {
+  function update_offer_with_more_gasprice_test() public {
     uint mkr_provision =
       TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
     uint standard_provision = TestUtils.getProvision(dex, base, quote, gasreq);
     posthook_bytes = this.update_gas_offer_at_posthook.selector;
-
-    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    // provision for dex.global.gasprice
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, 0, 0);
 
     TestEvents.eq(
       dex.balanceOf(address(this)),
-      weiBalMaker - mkr_provision, // maker has provision for his gasprice
+      weiBalMaker - standard_provision, // maker has provision for his gasprice
       "Incorrect maker balance before take"
     );
 
@@ -238,7 +239,7 @@ contract MakerPosthook_Test is IMaker {
 
     TestEvents.eq(
       dex.balanceOf(address(this)),
-      weiBalMaker - standard_provision, // maker reposts
+      weiBalMaker - mkr_provision, // maker reposts
       "Incorrect maker balance after take"
     );
     TestEvents.eq(
@@ -269,10 +270,10 @@ contract MakerPosthook_Test is IMaker {
     TestEvents.check(!success, "Snipe should fail");
   }
 
-  function cancel_offer_in_posthook_test() public {
+  function delete_offer_in_posthook_test() public {
     uint mkr_provision =
       TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
-    posthook_bytes = this.cancelOffer_posthook.selector;
+    posthook_bytes = this.deleteOffer_posthook.selector;
     ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
     TestEvents.eq(
       dex.balanceOf(address(this)),
@@ -287,8 +288,8 @@ contract MakerPosthook_Test is IMaker {
       "Incorrect maker balance after take"
     );
     TestEvents.expectFrom(address(dex));
-    emit DexEvents.RemoveOffer(base, quote, ofr, false);
-    DexEvents.Credit(address(this), mkr_provision);
+    emit DexEvents.Credit(address(this), mkr_provision);
+    emit DexEvents.DeleteOffer(base, quote, ofr);
   }
 
   function cancel_offer_after_fail_in_posthook_test() public {

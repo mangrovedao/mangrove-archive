@@ -252,5 +252,8 @@ library DexEvents {
   event WriteOffer(address base, address quote, address maker, bytes32 data);
 
   /* * `offerId` was present and is now removed from the book. */
-  event RemoveOffer(address base, address quote, uint offerId, bool deleted);
+  event RetractOffer(address base, address quote, uint offerId);
+
+  /* *Dead offer `offerId` is collected: provision is withdrawn and `offerId` is removed from `offers` and `offerDetails` maps*/
+  event DeleteOffer(address base, address quote, uint offerId);
 }

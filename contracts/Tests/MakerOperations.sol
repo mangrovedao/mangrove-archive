@@ -193,21 +193,21 @@ contract MakerOperations_Test is IMaker {
     }
   }
 
-  function cancel_restores_balance_test() public {
+  function delete_restores_balance_test() public {
     mkr.provisionDex(1 ether);
     uint bal = mkr.freeWei();
-    mkr.cancelOffer(mkr.newOffer(1 ether, 1 ether, 2300, 0));
+    mkr.deleteOffer(mkr.newOffer(1 ether, 1 ether, 2300, 0));
 
-    TestEvents.eq(mkr.freeWei(), bal, "cancel has not restored balance");
+    TestEvents.eq(mkr.freeWei(), bal, "delete has not restored balance");
   }
 
-  function cancel_wrong_offer_fails_test() public {
+  function delete_wrong_offer_fails_test() public {
     mkr.provisionDex(1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 2300, 0);
-    try mkr2.cancelOffer(ofr) {
-      TestEvents.fail("mkr2 should not be able to cancel mkr's offer");
+    try mkr2.deleteOffer(ofr) {
+      TestEvents.fail("mkr2 should not be able to delete mkr's offer");
     } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/cancelOffer/unauthorized", "wrong revert reason");
+      TestEvents.eq(r, "dex/retractOffer/unauthorized", "wrong revert reason");
     }
   }
 

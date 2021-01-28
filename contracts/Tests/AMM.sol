@@ -106,7 +106,6 @@ contract AMM_Test {
       1 ether,
       0.5 ether
     );
-    emit DexEvents.RemoveOffer(address(baseT), address(quoteT), 3, false);
     emit DexEvents.Success(
       address(baseT),
       address(quoteT),
@@ -114,7 +113,6 @@ contract AMM_Test {
       0.8 ether,
       1 ether
     );
-    emit DexEvents.RemoveOffer(address(baseT), address(quoteT), 2, false);
     Dex DEX = dex;
     if (inverted) {
       TestEvents.expectFrom(address(invDex));
@@ -139,7 +137,6 @@ contract AMM_Test {
       1.2 ether,
       1.2 ether
     );
-    emit DexEvents.RemoveOffer(address(quoteT), address(baseT), 1, false);
     TestEvents.expectFrom(address(dex));
 
     emit DexEvents.WriteOffer(
