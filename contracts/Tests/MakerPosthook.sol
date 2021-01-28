@@ -32,12 +32,12 @@ contract MakerPosthook_Test is IMaker {
   function makerTrade(DexCommon.SingleOrder calldata trade, address taker)
     external
     override
-    returns (bytes32 ret)
+    returns (bytes32)
   {
-    if (abort) {
-      return ret;
-    }
     require(msg.sender == address(dex));
+    if (abort) {
+      return ("NOK");
+    }
     emit Execute(
       msg.sender,
       trade.base,
@@ -47,7 +47,7 @@ contract MakerPosthook_Test is IMaker {
       trade.gives
     );
     TestToken(trade.base).transfer(taker, trade.wants);
-    ret = "OK";
+    return ("OK");
   }
 
   function renew_offer_at_posthook(
@@ -98,7 +98,15 @@ contract MakerPosthook_Test is IMaker {
     DexCommon.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
+    uint bal = dex.balanceOf(address(this));
     dex.cancelOffer(base, quote, ofr, false);
+    if (abort) {
+      TestEvents.eq(
+        bal,
+        dex.balanceOf(address(this)),
+        "Cancel offer of a failed offer should not give provision to maker"
+      );
+    }
   }
 
   function makerPosthook(
@@ -281,5 +289,39 @@ contract MakerPosthook_Test is IMaker {
     TestEvents.expectFrom(address(dex));
     emit DexEvents.RemoveOffer(base, quote, ofr, false);
     DexEvents.Credit(address(this), mkr_provision);
+  }
+
+  function cancel_offer_after_fail_in_posthook_test() public {
+    uint mkr_provision =
+      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
+    posthook_bytes = this.cancelOffer_posthook.selector;
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    TestEvents.eq(
+      dex.balanceOf(address(this)),
+      weiBalMaker - mkr_provision, // maker has provision for his gasprice
+      "Incorrect maker balance before take"
+    );
+    abort = true; // maker should fail
+    bool success = tkr.take(ofr, 2 ether);
+    TestEvents.check(!success, "Snipe should fail");
+
+    TestEvents.less(
+      dex.balanceOf(address(this)),
+      weiBalMaker,
+      "Maker balance after take should be less than original balance"
+    );
+    uint refund = dex.balanceOf(address(this)) + mkr_provision - weiBalMaker;
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.MakerFail(
+      base,
+      quote,
+      ofr,
+      1 ether,
+      1 ether,
+      false,
+      bytes32("NOK")
+    );
+    emit DexEvents.RemoveOffer(base, quote, ofr, false);
+    DexEvents.Credit(address(this), refund);
   }
 }
