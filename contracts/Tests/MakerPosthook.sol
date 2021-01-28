@@ -78,7 +78,7 @@ contract MakerPosthook_Test is IMaker {
       1 ether,
       1 ether,
       gasreq,
-      gasprice, // Dex default
+      gasprice,
       order.offerId,
       order.offerId
     );
@@ -92,8 +92,7 @@ contract MakerPosthook_Test is IMaker {
     TestEvents.fail("Posthook should not be called");
   }
 
-
-  function cancelOffer_posthook(
+  function deleteOffer_posthook(
     DexCommon.SingleOrder calldata,
     DexCommon.OrderResult calldata
   ) external {
@@ -174,6 +173,13 @@ contract MakerPosthook_Test is IMaker {
       1 ether,
       "Offer was not correctly updated"
     );
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.WriteOffer(
+      base,
+      quote,
+      address(this),
+      DexPack.writeOffer_pack(1 ether, 1 ether, gasprice, gasreq, ofr)
+    );
   }
 
   function renew_offer_after_complete_fill_test() public {
@@ -202,6 +208,13 @@ contract MakerPosthook_Test is IMaker {
       1 ether,
       "Offer was not correctly updated"
     );
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.WriteOffer(
+      base,
+      quote,
+      address(this),
+      DexPack.writeOffer_pack(1 ether, 1 ether, gasprice, gasreq, ofr)
+    );
   }
 
   function renew_offer_after_failed_execution_test() public {
@@ -217,6 +230,13 @@ contract MakerPosthook_Test is IMaker {
       TestUtils.getOfferInfo(dex, base, quote, TestUtils.Info.makerGives, ofr),
       1 ether,
       "Offer was not correctly updated"
+    );
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.WriteOffer(
+      base,
+      quote,
+      address(this),
+      DexPack.writeOffer_pack(1 ether, 1 ether, gasprice, gasreq, ofr)
     );
   }
 
@@ -246,6 +266,13 @@ contract MakerPosthook_Test is IMaker {
       TestUtils.getOfferInfo(dex, base, quote, TestUtils.Info.makerGives, ofr),
       1 ether,
       "Offer was not correctly updated"
+    );
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.WriteOffer(
+      base,
+      quote,
+      address(this),
+      DexPack.writeOffer_pack(1 ether, 1 ether, gasprice, gasreq, ofr)
     );
   }
 
@@ -288,14 +315,15 @@ contract MakerPosthook_Test is IMaker {
       "Incorrect maker balance after take"
     );
     TestEvents.expectFrom(address(dex));
+    emit DexEvents.Success(base, quote, ofr, 1 ether, 1 ether);
     emit DexEvents.Credit(address(this), mkr_provision);
     emit DexEvents.DeleteOffer(base, quote, ofr);
   }
 
-  function cancel_offer_after_fail_in_posthook_test() public {
+  function delete_offer_after_fail_in_posthook_test() public {
     uint mkr_provision =
       TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
-    posthook_bytes = this.cancelOffer_posthook.selector;
+    posthook_bytes = this.deleteOffer_posthook.selector;
     ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
     TestEvents.eq(
       dex.balanceOf(address(this)),
@@ -322,7 +350,7 @@ contract MakerPosthook_Test is IMaker {
       false,
       bytes32("NOK")
     );
-    emit DexEvents.RemoveOffer(base, quote, ofr, false);
+    emit DexEvents.DeleteOffer(base, quote, ofr);
     DexEvents.Credit(address(this), refund);
   }
 }
