@@ -10,7 +10,7 @@ library TestFailingMarketOrder {
     address quote,
     TestTaker taker
   ) external {
-    uint[2][] memory failures =
+    (, , uint[2][] memory failures) =
       taker.marketOrderWithFail({
         wants: 10 ether,
         gives: 30 ether,
@@ -22,7 +22,7 @@ library TestFailingMarketOrder {
       TestEvents.eq(failures[i][0], failedOffer, "Incorrect failed offer Id");
       TestEvents.less(
         failures[i][1],
-        100000 + uint(dex.config(base, quote).global.gasbase),
+        100000 + uint(dex.config(base, quote).local.gasbase),
         "Incorrect Gas consummed"
       );
       failedOffer++;

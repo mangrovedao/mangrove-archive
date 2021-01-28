@@ -231,14 +231,14 @@ contract MakerOperations_Test is IMaker {
   function min_density_with_newOffer_ok_test() public {
     mkr.provisionDex(1 ether);
     uint density = 10**7;
-    dex.setGasbase(1);
+    dex.setGasbase(address(base), address(quote), 1);
     dex.setDensity(address(base), address(quote), density);
     mkr.newOffer(1 ether, density, 0, 0);
   }
 
   function low_density_fails_newOffer_test() public {
     uint density = 10**7;
-    dex.setGasbase(1);
+    dex.setGasbase(address(base), address(quote), 1);
     dex.setDensity(address(base), address(quote), density);
     try mkr.newOffer(1 ether, density - 1, 0, 0) {
       TestEvents.fail("density too low, newOffer should fail");

@@ -122,14 +122,15 @@ contract Pedagogical_Test {
 
     dai = new TestToken({admin: address(this), name: "Dai", symbol: "DAI"});
 
-    dex = new FMD({gasprice: 40, gasbase: 30_000, gasmax: 1_000_000});
+    dex = new FMD({gasprice: 40, gasmax: 1_000_000});
 
     // activate a market where taker buys BAT using DAI
     dex.activate({
       base: address(bat),
       quote: address(dai),
       fee: 0,
-      density: 100
+      density: 100,
+      gasbase: 30_000
     });
 
     tkr = new TestTaker({dex: dex, base: bat, quote: dai});
@@ -268,10 +269,10 @@ contract Maker_callback is TestMaker {
   uint price = 340; // in %
   uint gasreq = 400_000;
 
-  function makerPosthook(
-    DC.SingleOrder calldata order,
-    DC.OrderResult calldata result
-  ) external override {
+  function makerPosthook(DC.SingleOrder calldata order, DC.OrderResult calldata)
+    external
+    override
+  {
     Dex dex = Dex(msg.sender);
     dex.updateOffer({
       base: order.base,

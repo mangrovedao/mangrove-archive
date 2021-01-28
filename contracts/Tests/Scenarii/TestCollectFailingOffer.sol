@@ -14,19 +14,24 @@ library TestCollectFailingOffer {
     TestToken quote
   ) external {
     // executing failing offer
-    try taker.take(failingOfferId, 0.5 ether) returns (bool success) {
+    try taker.takeWithInfo(failingOfferId, 0.5 ether) returns (
+      bool success,
+      uint takerGot,
+      uint takerGave
+    ) {
       // take should return false not throw
       TestEvents.check(!success, "Failer should fail");
+      TestEvents.eq(takerGot, 0, "Failed offer should declare 0 takerGot");
+      TestEvents.eq(takerGave, 0, "Failed offer should declare 0 takerGave");
       // failingOffer should have been removed from Dex
-      (bool exists, , , , , , , ) =
-        dex.getOfferInfo(address(base), address(quote), failingOfferId);
-      TestEvents.check(
-        !exists,
-        "Failing offer should have been removed from Dex"
-      );
-      uint returned =
-        dex.balanceOf(address(makers.getMaker(0))) -
-          balances.makersBalanceWei[0];
+      {
+        (bool exists, , , , , , , ) =
+          dex.getOfferInfo(address(base), address(quote), failingOfferId);
+        TestEvents.check(
+          !exists,
+          "Failing offer should have been removed from Dex"
+        );
+      }
       uint provision =
         TestUtils.getProvision(
           dex,
@@ -34,10 +39,13 @@ library TestCollectFailingOffer {
           address(quote),
           offers[failingOfferId][TestUtils.Info.gasreq]
         );
+      uint returned =
+        dex.balanceOf(address(makers.getMaker(0))) -
+          balances.makersBalanceWei[0];
       TestEvents.eq(
         address(dex).balance,
         balances.dexBalanceWei - (provision - returned),
-        "Dex has not send enough money to taker"
+        "Dex has not send the correct amount to taker"
       );
     } catch (bytes memory errorMsg) {
       string memory err = abi.decode(errorMsg, (string));

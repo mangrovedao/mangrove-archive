@@ -127,8 +127,6 @@ They have the following fields: */
   struct Global {
     /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
     uint gasprice;
-    /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at leat `gasbase` gas. Should only be updated when opcode prices change. */
-    uint gasbase;
     /* An offer which asks for more gas than the block limit would live forever on
     the book. Nobody could take it or remove it, except its creator (who could cancel it). In practice, we will set this parameter to a reasonable limit taking into account both practical transaction sizes and the complexity of maker contracts.
   */
@@ -142,6 +140,8 @@ They have the following fields: */
     uint fee;
     /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `OFR_TOKEN` per gas requested. For instance, if `density == 10`, `gasbase == 5000` an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `OFR_TOKEN`. */
     uint density;
+    /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at leat `gasbase` gas. Should only be updated when opcode prices change. */
+    uint gasbase;
   }
 
   struct Config {
@@ -179,6 +179,7 @@ They have the following fields: */
     bytes32 local;
     uint numToPunish;
     uint[2][] toPunish;
+    uint takerDue;
     // used as past offer id in internalMarketOrder
     // used as #successes in internalSnipes
     uint extraData;

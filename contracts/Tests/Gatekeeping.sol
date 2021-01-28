@@ -49,13 +49,18 @@ contract NotAdmin {
     address base,
     address quote,
     uint fee,
-    uint density
+    uint density,
+    uint gasbase
   ) public {
-    dex.activate(base, quote, fee, density);
+    dex.activate(base, quote, fee, density, gasbase);
   }
 
-  function setGasbase(uint value) public {
-    dex.setGasbase(value);
+  function setGasbase(
+    address base,
+    address quote,
+    uint value
+  ) public {
+    dex.setGasbase(base, quote, value);
   }
 
   function setGasmax(uint value) public {
@@ -171,9 +176,26 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
+  function killing_updates_config_test() public {
+    dex.kill();
+    TestEvents.check(
+      dex.config(address(0), address(0)).global.dead,
+      "dex should be dead "
+    );
+  }
+
+  function kill_is_idempotent_test() public {
+    dex.kill();
+    dex.kill();
+    TestEvents.check(
+      dex.config(address(0), address(0)).global.dead,
+      "dex should still be dead"
+    );
+  }
+
   function only_admin_can_set_active_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
-    try notAdmin.activate(quote, base, 0, 100) {
+    try notAdmin.activate(quote, base, 0, 100, 30_000) {
       TestEvents.fail("nonadmin cannot set active");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "HasAdmin/adminOnly");
@@ -200,7 +222,7 @@ contract Gatekeeping_Test is IMaker {
 
   function only_admin_can_set_gasbase_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
-    try notAdmin.setGasbase(0) {
+    try notAdmin.setGasbase(base, quote, 0) {
       TestEvents.fail("nonadmin cannot set gasbase");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "HasAdmin/adminOnly");
@@ -244,7 +266,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function set_gasbase_floor_test() public {
-    try dex.setGasbase(0) {
+    try dex.setGasbase(base, quote, 0) {
       TestEvents.fail("gasprice below floor should fail");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "dex/config/gasbase/>0");
@@ -252,7 +274,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function set_gasbase_ceiling_test() public {
-    try dex.setGasbase(uint(type(uint24).max) + 1) {
+    try dex.setGasbase(base, quote, uint(type(uint24).max) + 1) {
       TestEvents.fail("gasbase above ceiling should fail");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "dex/config/gasbase/24bits");

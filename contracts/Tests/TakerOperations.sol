@@ -148,7 +148,20 @@ contract TakerOperations_Test {
     quoteT.approve(address(dex), 1 ether);
     uint balTaker = baseT.balanceOf(address(this));
     uint balMaker = quoteT.balanceOf(address(mkr));
-    try dex.simpleMarketOrder(base, quote, 1 ether, 1 ether) {
+    try dex.simpleMarketOrder(base, quote, 1 ether, 1 ether) returns (
+      uint takerGot,
+      uint takerGave
+    ) {
+      TestEvents.eq(
+        takerGot,
+        1 ether,
+        "Incorrect declared delivered amount (taker)"
+      );
+      TestEvents.eq(
+        takerGave,
+        1 ether,
+        "Incorrect declared delivered amount (maker)"
+      );
       TestEvents.eq(
         baseT.balanceOf(address(this)) - balTaker,
         1 ether,
@@ -290,7 +303,6 @@ contract TakerOperations_Test {
     quoteT.approve(address(dex), 10 ether);
     // 6/1/20 : ~50k/offer with optims
     //uint g = gasleft();
-    dex.simpleMarketOrder(base, quote, 1 ether, 1 ether);
     //console.log("gas used per offer: ",(g-gasleft())/50);
   }
 
@@ -298,7 +310,13 @@ contract TakerOperations_Test {
     quoteT.approve(address(dex), 1 ether);
     mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 0);
     mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 1);
-    dex.simpleMarketOrder(base, quote, 0.15 ether, 0.15 ether);
+    (uint takerGot, ) =
+      dex.simpleMarketOrder(base, quote, 0.15 ether, 0.15 ether);
+    TestEvents.eq(
+      takerGot,
+      0.15 ether,
+      "Incorrect declared partial fill amount"
+    );
     TestEvents.eq(
       baseT.balanceOf(address(this)),
       0.15 ether,
@@ -341,17 +359,28 @@ contract TakerOperations_Test {
     dex.simpleMarketOrder{gas: 350_000}(base, quote, takerWants, takerGives);
   }
 
-  // function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
-  //   try tkr.marketOrder(2**160, 0) {
-  //     TestEvents.fail("TakerWants > 160bits, order should fail");
-  //   } catch Error(string memory r) {
-  //     TestEvents.eq(
-  //       r,
-  //       "dex/mOrder/takerWants/160bits",
-  //       "wrong revert reason"
-  //     );
-  //   }
-  // }
+  function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
+    try dex.simpleMarketOrder(base, quote, 2**160, 1) {
+      TestEvents.fail("TakerWants > 160bits, order should fail");
+    } catch Error(string memory r) {
+      TestEvents.eq(r, "dex/mOrder/takerWants/160bits", "wrong revert reason");
+    }
+  }
+
+  function snipe_with_0_wants_ejects_offer_test() public {
+    quoteT.approve(address(dex), 1 ether);
+    uint mkrBal = baseT.balanceOf(address(mkr));
+    uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 0);
+    (bool success, , ) = dex.snipe(base, quote, ofr, 0, 1 ether, 50_000);
+    TestEvents.check(success, "snipe should succeed");
+    TestEvents.eq(dex.bests(base, quote), 0, "offer should be gone");
+    TestEvents.eq(
+      baseT.balanceOf(address(mkr)),
+      mkrBal,
+      "mkr balance should not change"
+    );
+  }
+
   //
   // function unsafe_gas_left_fails_order_test() public {
   //   dex.setGasbase(1);

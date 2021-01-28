@@ -15,7 +15,7 @@ library TestMarketOrder {
     uint takerWants = 1.6 ether; // of B token
     uint takerGives = 2 ether; // of A token
 
-    taker.marketOrder(takerWants, takerGives);
+    (uint takerGot, uint takerGave) = taker.marketOrder(takerWants, takerGives);
 
     // Checking Makers balances
     for (uint i = 2; i < 4; i++) {
@@ -31,19 +31,24 @@ library TestMarketOrder {
         Display.append("Incorrect B balance for maker ", Display.uint2str(i))
       );
     }
-    uint leftTkrWants =
-      takerWants -
-        (offers[2][TestUtils.Info.makerGives] +
-          offers[3][TestUtils.Info.makerGives]);
-    uint leftMkrWants =
-      (offers[1][TestUtils.Info.makerWants] * leftTkrWants) /
+    uint leftMkrWants;
+    {
+      uint leftTkrWants =
+        takerWants -
+          (offers[2][TestUtils.Info.makerGives] +
+            offers[3][TestUtils.Info.makerGives]);
+
+      leftMkrWants =
+        (offers[1][TestUtils.Info.makerWants] * leftTkrWants) /
         offers[1][TestUtils.Info.makerGives];
 
-    TestEvents.eq(
-      base.balanceOf(address(makers.getMaker(1))),
-      balances.makersBalanceA[1] - leftTkrWants,
-      "Incorrect A balance for maker 1"
-    );
+      TestEvents.eq(
+        base.balanceOf(address(makers.getMaker(1))),
+        balances.makersBalanceA[1] - leftTkrWants,
+        "Incorrect A balance for maker 1"
+      );
+    }
+
     TestEvents.eq(
       quote.balanceOf(address(makers.getMaker(1))),
       balances.makersBalanceB[1] + leftMkrWants,
@@ -60,13 +65,23 @@ library TestMarketOrder {
     );
 
     TestEvents.eq(
+      takerGot,
+      takerWants -
+        TestUtils.getFee(dex, address(base), address(quote), takerWants),
+      "Incorrect declared takerGot"
+    );
+
+    uint shouldGive =
+      (offers[3][TestUtils.Info.makerWants] +
+        offers[2][TestUtils.Info.makerWants] +
+        leftMkrWants);
+    TestEvents.eq(
       quote.balanceOf(address(taker)), // actual
-      balances.takerBalanceB -
-        (offers[3][TestUtils.Info.makerWants] +
-          offers[2][TestUtils.Info.makerWants] +
-          leftMkrWants), // expected
+      balances.takerBalanceB - shouldGive, // expected
       "incorrect taker B balance"
     );
+
+    TestEvents.eq(takerGave, shouldGive, "Incorrect declared takerGave");
 
     // Checking DEX Fee Balance
     TestEvents.eq(
