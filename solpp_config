@@ -114,11 +114,10 @@ unquote(reduce(values, (acc,fb) => quote(set1_unsafe(acc,struct,fb[0],fb[1])), p
 /* global configuration struct layout
 *************************************/
 /* $def global
-[gasprice_field, gasbase_field,['gasmax',24,'uint'],['dead',8,'uint']]
+[gasprice_field, ['gasmax',24,'uint'],['dead',8,'uint']]
 */
 
 // $def glo_gasprice(ptr) get(ptr,global,'gasprice')
-// $def glo_gasbase(ptr) get(ptr,global,'gasbase')
 // $def glo_gasmax(ptr) get(ptr,global,'gasmax')
 // $def glo_dead(ptr) get(ptr,global,'dead')
 // $def glo_set(ptr,values) set(ptr,global,values)
@@ -126,10 +125,11 @@ unquote(reduce(values, (acc,fb) => quote(set1_unsafe(acc,struct,fb[0],fb[1])), p
 /* local configuration struct layout
 ************************************/
 /* $def local
-[['active',8,'uint'],['fee',16,'uint'],['density',32,'uint']]
+[['active',8,'uint'],['fee',16,'uint'],['density',32,'uint'], gasbase_field]
 */
 
 // $def loc_active(ptr) get(ptr,local,'active')
 // $def loc_fee(ptr) get(ptr,local,'fee')
 // $def loc_density(ptr) get(ptr,local,'density')
+// $def loc_gasbase(ptr) get(ptr,local,'gasbase')
 // $def loc_set(ptr,values) set(ptr,local,values)

@@ -22,7 +22,7 @@ library TestFailingMarketOrder {
       TestEvents.eq(failures[i][0], failedOffer, "Incorrect failed offer Id");
       TestEvents.less(
         failures[i][1],
-        100000 + uint(dex.config(base, quote).global.gasbase),
+        100000 + uint(dex.config(base, quote).local.gasbase),
         "Incorrect Gas consummed"
       );
       failedOffer++;

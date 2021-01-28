@@ -71,14 +71,12 @@ abstract contract Dex is HasAdmin {
   */
   constructor(
     uint gasprice,
-    uint gasbase,
     uint gasmax,
     /* determines whether the taker or maker does the flashlend */
     bool takerLends
   ) HasAdmin() {
     emit DexEvents.NewDex();
     setGasprice(gasprice);
-    setGasbase(gasbase);
     setGasmax(gasmax);
     /* In a 'normal' mode of operation, takers lend the liquidity to the maker. */
     /* In an 'arbitrage' mode of operation, takers come ask the makers for liquidity. */
@@ -1166,13 +1164,13 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     bytes32 _global = global;
     ret.global = DC.Global({
       gasprice: $$(glo_gasprice("_global")),
-      gasbase: $$(glo_gasbase("_global")),
       gasmax: $$(glo_gasmax("_global")),
       dead: $$(glo_dead("global")) > 0
     });
     bytes32 _local = locals[base][quote];
     ret.local = DC.Local({
       active: $$(loc_active("_local")) > 0,
+      gasbase: $$(loc_gasbase("_local")),
       fee: $$(loc_fee("_local")),
       density: $$(loc_density("_local"))
     });
@@ -1188,12 +1186,14 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     address base,
     address quote,
     uint fee,
-    uint density
+    uint density,
+    uint gasbase
   ) public {
     adminOnly();
     locals[base][quote] = $$(loc_set("locals[base][quote]", [["active", 1]]));
     setFee(base, quote, fee);
     setDensity(base, quote, density);
+    setGasbase(base, quote, gasbase);
     emit DexEvents.SetActive(base, quote, true);
   }
 
@@ -1236,6 +1236,24 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     emit DexEvents.SetDensity(base, quote, value);
   }
 
+  /* ### `gasbase` */
+  function setGasbase(
+    address base,
+    address quote,
+    uint value
+  ) public {
+    adminOnly();
+    /* `gasbase > 0` ensures various invariants -- this documentation explains how each time it is relevant */
+    require(value > 0, "dex/config/gasbase/>0");
+    /* Checking the size of `gasbase` is necessary to prevent a) data loss when `gasbase` is copied to an `OfferDetail` struct, and b) overflow when `gasbase` is used in calculations. */
+    require(uint24(value) == value, "dex/config/gasbase/24bits");
+    //+clear+
+    locals[base][quote] = $$(
+      loc_set("locals[base][quote]", [["gasbase", "value"]])
+    );
+    emit DexEvents.SetGasbase(value);
+  }
+
   /* ## Globals */
   /* ### `kill` */
   function kill() public {
@@ -1253,18 +1271,6 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
     global = $$(glo_set("global", [["gasprice", "value"]]));
     emit DexEvents.SetGasprice(value);
-  }
-
-  /* ### `gasbase` */
-  function setGasbase(uint value) public {
-    adminOnly();
-    /* `gasbase > 0` ensures various invariants -- this documentation explains how each time it is relevant */
-    require(value > 0, "dex/config/gasbase/>0");
-    /* Checking the size of `gasbase` is necessary to prevent a) data loss when `gasbase` is copied to an `OfferDetail` struct, and b) overflow when `gasbase` is used in calculations. */
-    require(uint24(value) == value, "dex/config/gasbase/24bits");
-    //+clear+
-    global = $$(glo_set("global", [["gasbase", "value"]]));
-    emit DexEvents.SetGasbase(value);
   }
 
   /* ### `gasmax` */
@@ -1326,7 +1332,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isLive` method sound. */
     require(
       ofp.gives >=
-        (ofp.gasreq + $$(glo_gasbase("ofp.global"))) *
+        (ofp.gasreq + $$(loc_gasbase("ofp.local"))) *
           $$(loc_density("ofp.local")),
       "dex/writeOffer/gives/tooLow"
     );
@@ -1351,9 +1357,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         /* It is currently not possible for a new offer to fail the 3 last tests, but it may in the future, so we make sure we're semantically correct by checking for `!update`. */
         !update ||
         $$(od_gasreq("offerDetail")) != ofp.gasreq ||
-        $$(od_gasbase("offerDetail")) != $$(glo_gasbase("ofp.global"))
+        $$(od_gasbase("offerDetail")) != $$(loc_gasbase("ofp.local"))
       ) {
-        uint gasbase = $$(glo_gasbase("ofp.global"));
+        uint gasbase = $$(loc_gasbase("ofp.local"));
         offerDetails[ofp.base][ofp.quote][ofp.id] = $$(
           od_make(
             [
@@ -1370,7 +1376,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
     {
       uint provision =
-        (ofp.gasreq + $$(glo_gasbase("ofp.global"))) * ofp.gasprice * 10**9;
+        (ofp.gasreq + $$(loc_gasbase("ofp.local"))) * ofp.gasprice * 10**9;
       if (provision > oldProvision) {
         debitWei(msg.sender, provision - oldProvision);
       } else if (provision < oldProvision) {
@@ -1564,11 +1570,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 }
 
 contract FMD is Dex {
-  constructor(
-    uint gasprice,
-    uint gasbase,
-    uint gasmax
-  ) Dex(gasprice, gasbase, gasmax, true) {}
+  constructor(uint gasprice, uint gasmax) Dex(gasprice, gasmax, true) {}
 
   function executeEnd(DC.MultiOrder memory mor, DC.SingleOrder memory sor)
     internal
@@ -1579,11 +1581,7 @@ contract FMD is Dex {
 }
 
 contract FTD is Dex {
-  constructor(
-    uint gasprice,
-    uint gasbase,
-    uint gasmax
-  ) Dex(gasprice, gasbase, gasmax, false) {}
+  constructor(uint gasprice, uint gasmax) Dex(gasprice, gasmax, false) {}
 
   // execute taker trade
   function executeEnd(DC.MultiOrder memory mor, DC.SingleOrder memory sor)
