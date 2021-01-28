@@ -359,6 +359,14 @@ contract TakerOperations_Test {
     dex.simpleMarketOrder{gas: 350_000}(base, quote, takerWants, takerGives);
   }
 
+  function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
+    try dex.simpleMarketOrder(base, quote, 2**160, 1) {
+      TestEvents.fail("TakerWants > 160bits, order should fail");
+    } catch Error(string memory r) {
+      TestEvents.eq(r, "dex/mOrder/takerWants/160bits", "wrong revert reason");
+    }
+  }
+
   function snipe_with_0_wants_ejects_offer_test() public {
     quoteT.approve(address(dex), 1 ether);
     uint mkrBal = baseT.balanceOf(address(mkr));
@@ -373,17 +381,6 @@ contract TakerOperations_Test {
     );
   }
 
-  // function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
-  //   try tkr.marketOrder(2**160, 0) {
-  //     TestEvents.fail("TakerWants > 160bits, order should fail");
-  //   } catch Error(string memory r) {
-  //     TestEvents.eq(
-  //       r,
-  //       "dex/mOrder/takerWants/160bits",
-  //       "wrong revert reason"
-  //     );
-  //   }
-  // }
   //
   // function unsafe_gas_left_fails_order_test() public {
   //   dex.setGasbase(1);
