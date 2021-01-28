@@ -21,6 +21,22 @@ import "./lib/HasAdmin.sol";
  */
 
 abstract contract Dex is HasAdmin {
+  /* Holds data about orders in a struct, used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
+  struct MultiOrder {
+    uint initialWants;
+    uint initialGives;
+    uint totalGot;
+    uint totalGave;
+    bytes32 global;
+    bytes32 local;
+    uint numToPunish;
+    uint[2][] toPunish;
+    uint takerDue;
+    // used as past offer id in internalMarketOrder
+    // used as #successes in internalSnipes
+    uint extraData;
+  }
+
   /* The signature of the low-level swapping function. */
   bytes4 immutable FLASHLOANER;
 
@@ -118,6 +134,21 @@ abstract contract Dex is HasAdmin {
   /* In the Dex, makers and takers call separate functions. Market makers call `newOffer` to fill the book, and takers call functions such as `simpleMarketOrder` to consume it.  */
   //+clear+
 
+  /* Holds data about offers in a struct, used by `newOffer` to avoid stack too deep errors. */
+  struct OfferPack {
+    address base;
+    address quote;
+    uint wants;
+    uint gives;
+    uint id;
+    uint gasreq;
+    uint gasprice;
+    uint pivotId;
+    bytes32 global;
+    bytes32 local;
+    bytes32 oldOffer;
+  }
+
   /* The function `newOffer` is for market makers only; no match with the existing book is done. Makers specify how much `REQ_TOKEN` they `want` and how much `OFR_TOKEN` they are willing to `give`. They also specify how much gas should be given when executing their offer.
 
  _`gasreq` will determine the penalty provision set aside by the Dex from the market maker's `balanceOf` balance._
@@ -140,7 +171,7 @@ abstract contract Dex is HasAdmin {
     uint pivotId
   ) external returns (uint) {
     unlockedOnly(base, quote);
-    DC.OfferPack memory ofp;
+    OfferPack memory ofp;
     ofp.base = base;
     ofp.quote = quote;
     ofp.wants = wants;
@@ -212,7 +243,7 @@ abstract contract Dex is HasAdmin {
     uint offerId
   ) public returns (uint) {
     unlockedOnly(base, quote);
-    DC.OfferPack memory ofp;
+    OfferPack memory ofp;
     ofp.base = base;
     ofp.quote = quote;
     ofp.wants = wants;
@@ -319,7 +350,7 @@ abstract contract Dex is HasAdmin {
     require(uint160(takerWants) == takerWants, "dex/mOrder/takerWants/160bits");
 
     DC.SingleOrder memory sor;
-    DC.MultiOrder memory mor;
+    MultiOrder memory mor;
     sor.base = base;
     sor.quote = quote;
     sor.offerId = offerId;
@@ -355,7 +386,7 @@ abstract contract Dex is HasAdmin {
    * remaining amount wanted reaches 0, or
    * `offerId == 0`, which means we've gone past the end of the book. */
   function internalMarketOrder(
-    DC.MultiOrder memory mor,
+    MultiOrder memory mor,
     DC.SingleOrder memory sor,
     bool proceed
   ) internal {
@@ -477,7 +508,7 @@ abstract contract Dex is HasAdmin {
     gasused = oldGas - gasleft();
   }
 
-  function executeEnd(DC.MultiOrder memory mor, DC.SingleOrder memory sor)
+  function executeEnd(MultiOrder memory mor, DC.SingleOrder memory sor)
     internal
     virtual;
 
@@ -489,7 +520,7 @@ abstract contract Dex is HasAdmin {
   /* offer has been consumed below dust level if (success && deleted) */
   /* impossible because we always delete offers: (success && !deleted) */
   /* a taker fail triggers a revert */
-  function execute(DC.MultiOrder memory mor, DC.SingleOrder memory sor)
+  function execute(MultiOrder memory mor, DC.SingleOrder memory sor)
     internal
     returns (
       bool success,
@@ -659,7 +690,7 @@ abstract contract Dex is HasAdmin {
     locks[base][quote] = LOCKED;
     /* ### Pre-loop Checks */
     //+clear+
-    DC.MultiOrder memory mor;
+    MultiOrder memory mor;
     DC.SingleOrder memory sor;
     sor.base = base;
     sor.quote = quote;
@@ -678,7 +709,7 @@ abstract contract Dex is HasAdmin {
   }
 
   function internalSnipes(
-    DC.MultiOrder memory mor,
+    MultiOrder memory mor,
     DC.SingleOrder memory sor,
     uint[4][] memory targets,
     uint i
@@ -752,7 +783,7 @@ abstract contract Dex is HasAdmin {
   }
 
   function postExecute(
-    DC.MultiOrder memory mor,
+    MultiOrder memory mor,
     DC.SingleOrder memory sor,
     bool success,
     bool executed,
@@ -827,9 +858,7 @@ abstract contract Dex is HasAdmin {
   }
 
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
-  function applyFee(DC.MultiOrder memory mor, DC.SingleOrder memory sor)
-    internal
-  {
+  function applyFee(MultiOrder memory mor, DC.SingleOrder memory sor) internal {
     if (mor.totalGot > 0) {
       uint concreteFee = (mor.totalGot * $$(loc_fee("mor.local"))) / 10_000;
       mor.totalGot -= concreteFee;
@@ -1287,7 +1316,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     emit DexEvents.SetGasmax(value);
   }
 
-  function writeOffer(DC.OfferPack memory ofp, bool update)
+  function writeOffer(OfferPack memory ofp, bool update)
     internal
     returns (uint)
   {
@@ -1450,7 +1479,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   If prices are equal, `findPosition` will put the newest offer last. */
   function findPosition(
     /* This part of the code relies on consumed offers being deleted, otherwise we would blindly insert offers next to garbage old values. */
-    DC.OfferPack memory ofp
+    OfferPack memory ofp
   ) internal view returns (uint, uint) {
     uint pivotId = ofp.pivotId;
     /* optimize for the case wher pivot info is already known */
@@ -1505,7 +1534,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
   */
   function better(
-    DC.OfferPack memory ofp,
+    OfferPack memory ofp,
     bytes32 offer1,
     //uint wants1,
     //uint gives1,
@@ -1576,7 +1605,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 contract FMD is Dex {
   constructor(uint gasprice, uint gasmax) Dex(gasprice, gasmax, true) {}
 
-  function executeEnd(DC.MultiOrder memory mor, DC.SingleOrder memory sor)
+  function executeEnd(MultiOrder memory mor, DC.SingleOrder memory sor)
     internal
     override
   {}
@@ -1588,7 +1617,7 @@ contract FTD is Dex {
   constructor(uint gasprice, uint gasmax) Dex(gasprice, gasmax, false) {}
 
   // execute taker trade
-  function executeEnd(DC.MultiOrder memory mor, DC.SingleOrder memory sor)
+  function executeEnd(MultiOrder memory mor, DC.SingleOrder memory sor)
     internal
     override
   {

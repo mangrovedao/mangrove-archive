@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 
 pragma solidity ^0.7.0;
+pragma abicoder v2;
 
 /* # Dex Summary
    * Each Dex instance is half an offerbook for two ERC20 tokens.
@@ -154,37 +155,6 @@ They have the following fields: */
   //+clear+
   /* A container for `uint` that can be passed to an external library function as a storage reference so that the library can write the `uint` (in Solidity, references to storage value types cannot be passed around). This is used to send a writeable reference to the current best offer to the library functions of `DexLib` (`DexLib` exists to reduce the contract size of `Dex`). */
 
-  /* Holds data about offers in a struct, used by `newOffer` to avoid stack too deep errors. */
-  struct OfferPack {
-    address base;
-    address quote;
-    uint wants;
-    uint gives;
-    uint id;
-    uint gasreq;
-    uint gasprice;
-    uint pivotId;
-    bytes32 global;
-    bytes32 local;
-    bytes32 oldOffer;
-  }
-
-  /* Holds data about orders in a struct, used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
-  struct MultiOrder {
-    uint initialWants;
-    uint initialGives;
-    uint totalGot;
-    uint totalGave;
-    bytes32 global;
-    bytes32 local;
-    uint numToPunish;
-    uint[2][] toPunish;
-    uint takerDue;
-    // used as past offer id in internalMarketOrder
-    // used as #successes in internalSnipes
-    uint extraData;
-  }
-
   /* Holds data about orders in a struct, used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
   struct SingleOrder {
     address base;
@@ -256,4 +226,43 @@ library DexEvents {
 
   /* *Dead offer `offerId` is collected: provision is withdrawn and `offerId` is removed from `offers` and `offerDetails` maps*/
   event DeleteOffer(address base, address quote, uint offerId);
+}
+
+interface IMaker {
+  // Maker sends quote to taker
+  // In normal dex, they already received base
+  // In inverted dex, they did not
+  //function makerTrade(Trade calldata trade) external returns (bytes32);
+
+  // Maker sends quote to taker
+  // In normal dex, they already received base
+  // In inverted dex, they did not
+  function makerTrade(DexCommon.SingleOrder calldata order, address taker)
+    external
+    returns (bytes32);
+
+  // Maker callback after trade
+  function makerPosthook(
+    DexCommon.SingleOrder calldata order,
+    DexCommon.OrderResult calldata result
+  ) external;
+
+  event Execute(
+    address dex,
+    address base,
+    address quote,
+    uint offerId,
+    uint takerWants,
+    uint takerGives
+  );
+}
+
+interface ITaker {
+  // Inverted dex only: taker acquires enough base to pay back quote loan
+  function takerTrade(
+    address base,
+    address quote,
+    uint totalGot,
+    uint totalGives
+  ) external;
 }

@@ -4,56 +4,6 @@ pragma abicoder v2;
 
 import {DexCommon as DC} from "./DexCommon.sol";
 
-interface IMaker {
-  // Maker sends quote to taker
-  // In normal dex, they already received base
-  // In inverted dex, they did not
-  //function makerTrade(Trade calldata trade) external returns (bytes32);
-
-  // Maker sends quote to taker
-  // In normal dex, they already received base
-  // In inverted dex, they did not
-  function makerTrade(DC.SingleOrder calldata order, address taker)
-    external
-    returns (bytes32);
-
-  //struct Posthook {
-  //address base;
-  //address quote;
-  //uint takerWants;
-  //uint takerGives;
-  //uint offerId;
-  //bool offerDeleted;
-  //bool success;
-  //bytes32 makerData;
-  //}
-
-  // Maker callback after trade
-  function makerPosthook(
-    DC.SingleOrder calldata order,
-    DC.OrderResult calldata result
-  ) external;
-
-  event Execute(
-    address dex,
-    address base,
-    address quote,
-    uint offerId,
-    uint takerWants,
-    uint takerGives
-  );
-}
-
-interface ITaker {
-  // Inverted dex only: taker acquires enough base to pay back quote loan
-  function takerTrade(
-    address base,
-    address quote,
-    uint totalGot,
-    uint totalGives
-  ) external;
-}
-
 /* Governance contract interface */
 interface IGovernance {
   function recordTrade(
