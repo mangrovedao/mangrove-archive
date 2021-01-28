@@ -96,7 +96,7 @@ contract MakerPosthook_Test is IMaker {
     DexCommon.OrderResult calldata result
   ) external {
     require(msg.sender == address(this));
-    dex.deleteOffer(base, quote, ofr);
+    dex.retractOffer(base, quote, ofr, true);
   }
 
   function makerPosthook(
@@ -283,7 +283,7 @@ contract MakerPosthook_Test is IMaker {
       "Incorrect maker balance after take"
     );
     TestEvents.expectFrom(address(dex));
+    emit DexEvents.Credit(address(this), mkr_provision);
     emit DexEvents.DeleteOffer(base, quote, ofr);
-    DexEvents.Credit(address(this), mkr_provision);
   }
 }

@@ -207,7 +207,7 @@ contract MakerOperations_Test is IMaker {
     try mkr2.deleteOffer(ofr) {
       TestEvents.fail("mkr2 should not be able to delete mkr's offer");
     } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/deleteOffer/unauthorized", "wrong revert reason");
+      TestEvents.eq(r, "dex/retractOffer/unauthorized", "wrong revert reason");
     }
   }
 

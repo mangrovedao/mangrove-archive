@@ -71,10 +71,6 @@ contract TestMaker is IMaker, Passthrough {
     DC.OrderResult calldata result
   ) external virtual override {}
 
-  function deleteOffer(Dex dex, uint offerId) public {
-    dex.deleteOffer(_base, _quote, offerId);
-  }
-
   function newOffer(
     uint wants,
     uint gives,
@@ -96,8 +92,12 @@ contract TestMaker is IMaker, Passthrough {
     );
   }
 
+  function retractOffer(uint offerId) public {
+    _dex.retractOffer(_base, _quote, offerId, false);
+  }
+
   function deleteOffer(uint offerId) public {
-    _dex.deleteOffer(_base, _quote, offerId);
+    _dex.retractOffer(_base, _quote, offerId, true);
   }
 
   function provisionDex(uint amount) public {

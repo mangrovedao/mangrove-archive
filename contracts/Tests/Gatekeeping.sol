@@ -423,7 +423,7 @@ contract Gatekeeping_Test is IMaker {
   /* Cancel Offer failure */
 
   function retractOfferKO(uint id) external {
-    try dex.retractOffer(base, quote, id) {
+    try dex.retractOffer(base, quote, id, false) {
       TestEvents.fail("retractOffer on same pair should fail");
     } catch Error(string memory reason) {
       TestEvents.revertEq(reason, "dex/reentrancyLocked");
@@ -443,7 +443,7 @@ contract Gatekeeping_Test is IMaker {
     address _quote,
     uint id
   ) external {
-    dex.retractOffer(_base, _quote, id);
+    dex.retractOffer(_base, _quote, id, false);
   }
 
   function retractOffer_on_reentrancy_succeeds_test() public {
@@ -659,7 +659,7 @@ contract Gatekeeping_Test is IMaker {
   function retractOffer_on_closed_ok_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 0, 0, 0);
     dex.kill();
-    dex.retractOffer(base, quote, ofr);
+    dex.retractOffer(base, quote, ofr, false);
   }
 
   function updateOffer_on_closed_fails_test() public {

@@ -161,11 +161,12 @@ abstract contract Dex is HasAdmin {
 
   /* ## Cancel Offer */
   //+clear+
-  /* `cancelOffer` with `erase == false` takes the offer out of the book. However, `erase == true` clears out the offer's entry in `offers` and `offerDetails` -- an erased offer cannot be resurrected. */
+  /* `cancelOffer` with `_delete == false` takes the offer out of the book. However, `_delete == true` clears out the offer's entry in `offers` and `offerDetails` -- a deleted offer cannot be resurrected. */
   function retractOffer(
     address base,
     address quote,
-    uint offerId
+    uint offerId,
+    bool _delete
   ) external {
     unlockedOnly(base, quote);
     bytes32 offer = offers[base][quote][offerId];
@@ -180,39 +181,23 @@ abstract contract Dex is HasAdmin {
       stitchOffers(base, quote, $$(o_prev("offer")), $$(o_next("offer")));
       // set `offer.gives` to 0
       dirtyDeleteOffer(base, quote, offerId, offer, false);
-      emit DexEvents.RetractOffer(base, quote, offerId);
-    }
-  }
-
-  function deleteOffer(
-    address base,
-    address quote,
-    uint offerId
-  ) external {
-    bytes32 offer = offers[base][quote][offerId];
-    bytes32 offerDetail = offerDetails[base][quote][offerId];
-    require(
-      msg.sender == $$(od_maker("offerDetail")),
-      "dex/deleteOffer/unauthorized"
-    );
-    // retracts offer if needed
-    if (isLive(offer)) {
-      unlockedOnly(base, quote); // should not retact offer if pair is locked
-      stitchOffers(base, quote, $$(o_prev("offer")), $$(o_next("offer")));
-      emit DexEvents.RetractOffer(base, quote, offerId);
     }
 
-    /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
-    uint provision =
-      10**9 *
-        $$(o_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
-        ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
-    // log offer deletion
-    emit DexEvents.DeleteOffer(base, quote, offerId);
-    delete offers[base][quote][offerId];
-    delete offerDetails[base][quote][offerId];
-    // credit balanceOf and log transfer
-    creditWei(msg.sender, provision);
+    if (_delete) {
+      /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
+      uint provision =
+        10**9 *
+          $$(o_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
+          ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
+      // log offer deletion
+      delete offers[base][quote][offerId];
+      delete offerDetails[base][quote][offerId];
+      // credit balanceOf and log transfer
+      creditWei(msg.sender, provision);
+      emit DexEvents.DeleteOffer(base, quote, offerId);
+    } else {
+      emit DexEvents.RetractOffer(base, quote, offerId);
+    }
   }
 
   /* ## Update Offer */
