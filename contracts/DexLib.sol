@@ -55,6 +55,8 @@ library DexLib {
      ### balanceOf cons
        * if the ERC20 transfer method has a callback to receiver, the method does not work (the receiver can set its balance to 0 during the callback)
        * if the taker is malicious, they can analyze the maker code. If the maker goes on any dex2, they may execute code provided by the taker. This would reduce the taker balance and make the maker fail. So the taker could steal the maker's balance.
+
+    We choose `transferFrom`.
     */
 
   function invertedFlashloan(DC.SingleOrder calldata sor)
@@ -71,16 +73,11 @@ library DexLib {
     bytes memory cd =
       abi.encodeWithSelector(IMaker.makerTrade.selector, sor, msg.sender);
 
-    uint oldBalance = IERC20(sor.base).balanceOf(msg.sender);
-    /* If the transfer would trigger an overflow, we blame the taker. Since sor.wants is `min(takerWants,offer.gives)`, the taker cannot be tricked into overflow by a maker. This check must be done before the callto maker because an overflow-trggering ERC20 transfer could throw and result in an unjust maker failure. */
-    if (oldBalance + sor.wants < oldBalance) {
-      innerRevert([bytes32("dex/tradeOverflow"), "", ""]);
-    }
     /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + gasbase`. This yul call only retrieves the first byte of the maker's `returndata`. */
     uint gasreq = $$(od_gasreq("sor.offerDetail"));
     address maker = $$(od_maker("sor.offerDetail"));
     bytes memory retdata = new bytes(32);
-    bool success;
+    bool callSuccess;
     bytes32 makerData;
     uint oldGas = gasleft();
     /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of CALL) is $$h$$, the maker will receive at worst $$\textrm{gasreq} - \frac{63h}{64}$$ gas. */
@@ -90,7 +87,7 @@ library DexLib {
     }
 
     assembly {
-      success := call(
+      callSuccess := call(
         gasreq,
         maker,
         0,
@@ -102,18 +99,18 @@ library DexLib {
       makerData := mload(add(retdata, 32))
     }
     gasused = oldGas - gasleft();
-    // An example why this is not safe if ERC20 has a callback:
-    // https://peckshield.medium.com/akropolis-incident-root-cause-analysis-c11ee59e05d4
-    uint newBalance = IERC20(sor.base).balanceOf(msg.sender);
-    /* oldBalance + sor.wants cannot overflow thanks to earlier check */
-    /* `msg.sender == maker` balance might be invariant*/
-    if (!success) {
+
+    if (!callSuccess) {
       innerRevert([bytes32("dex/makerRevert"), bytes32(gasused), makerData]);
-    } else if (
-      (newBalance >= oldBalance + sor.wants) || (msg.sender == maker)
-    ) {
-      // ok
-    } else {
+    }
+
+    //An example why this is not safe if ERC20 has a callback:
+    //https://peckshield.medium.com/akropolis-incident-root-cause-analysis-c11ee59e05d4
+    //uint newBalance = IERC20(sor.base).balanceOf(msg.sender);
+    bool transferSuccess =
+      transferToken(sor.base, maker, msg.sender, sor.wants);
+
+    if (!transferSuccess) {
       innerRevert(
         [bytes32("dex/makerTransferFail"), bytes32(gasused), makerData]
       );

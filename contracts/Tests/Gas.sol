@@ -80,7 +80,6 @@ contract Gas_Test is IMaker {
     returns (bytes32 ret)
   {
     ret; // silence unused function parameter
-    IERC20(order.base).transfer(taker, order.wants);
   }
 
   function makerPosthook(

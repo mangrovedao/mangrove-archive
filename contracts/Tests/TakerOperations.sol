@@ -45,7 +45,9 @@ contract TakerOperations_Test {
     address(mkr).transfer(10 ether);
     address(badmkr).transfer(10 ether);
     mkr.provisionDex(1 ether);
+    mkr.approveDex(baseT, 10 ether);
     badmkr.provisionDex(1 ether);
+    badmkr.approveDex(baseT, 10 ether);
 
     baseT.mint(address(mkr), 5 ether);
     baseT.mint(address(badmkr), 5 ether);
@@ -190,22 +192,16 @@ contract TakerOperations_Test {
     }
   }
 
-  function maker_has_no_base_fails_order_test() public {
+  function maker_has_not_enough_base_fails_order_test() public {
     uint ofr = mkr.newOffer(1 ether, 100 ether, 100_000, 0);
+    // getting rid of base tokens
+    //mkr.transferToken(baseT,address(this),5 ether);
     quoteT.approve(address(dex), 0.5 ether);
     (bool success, , ) =
       dex.snipe(base, quote, ofr, 50 ether, 0.5 ether, 100_000);
     TestEvents.check(!success, "order should fail");
     TestEvents.expectFrom(address(dex));
-    emit DexEvents.MakerFail(
-      base,
-      quote,
-      ofr,
-      50 ether,
-      0.5 ether,
-      false,
-      "testMaker/transferFail"
-    );
+    emit DexEvents.MakerFail(base, quote, ofr, 50 ether, 0.5 ether, false, "");
   }
 
   function maker_revert_is_logged_test() public {

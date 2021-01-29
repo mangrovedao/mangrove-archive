@@ -42,6 +42,7 @@ contract InvertedTakerOperations_Test is ITaker {
 
     address(mkr).transfer(10 ether);
     mkr.provisionDex(1 ether);
+    mkr.approveDex(baseT, 10 ether);
 
     baseT.mint(address(mkr), 5 ether);
     quoteT.mint(address(this), 5 ether);

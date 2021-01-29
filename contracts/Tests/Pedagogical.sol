@@ -208,7 +208,7 @@ contract Maker_basic is TestMaker {
     returns (bytes32 ret)
   {
     ret; // silence compiler warning
-    ERC20(order.base).transfer({recipient: taker, amount: order.wants});
+    //ERC20(order.base).transfer({recipient: taker, amount: order.wants});
   }
 }
 
@@ -242,7 +242,7 @@ contract Maker_compound is TestMaker {
     _compound.redeem({
       token: ERC20(order.base),
       amount: order.wants,
-      to: taker
+      to: address(this)
     });
   }
 }
@@ -262,7 +262,7 @@ contract Maker_callback is TestMaker {
     returns (bytes32 ret)
   {
     ret; // silence compiler warning
-    ERC20(order.base).transfer({recipient: taker, amount: order.wants});
+    //ERC20(order.base).transfer({recipient: taker, amount: order.wants});
   }
 
   uint volume = 1 ether;

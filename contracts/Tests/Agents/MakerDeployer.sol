@@ -52,6 +52,7 @@ contract MakerDeployer {
       makers = new address payable[](k);
       for (uint i = 0; i < k; i++) {
         makers[i] = address(new TestMaker(dex, ERC20(base), ERC20(quote)));
+        TestMaker(makers[i]).approveDex(ERC20(base), 10 ether);
         TestMaker(makers[i]).shouldFail(i == 0); //maker-0 is failer
       }
     }

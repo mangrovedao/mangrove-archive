@@ -82,12 +82,6 @@ contract UniSwapMaker is IMaker {
       order.wants,
       order.gives
     );
-    try ERC20(order.quote).transfer(taker, order.wants) {
-      // try catch useless but clarifies
-      return "OK";
-    } catch {
-      return "FailedTransfer";
-    }
   }
 
   // struct Posthook {

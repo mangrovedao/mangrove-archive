@@ -35,8 +35,12 @@ contract MakerPosthook_Test is IMaker {
     returns (bytes32)
   {
     require(msg.sender == address(dex));
+    bytes memory revData = new bytes(32);
     if (abort) {
-      return ("NOK");
+      assembly {
+        mstore(add(revData, 32), "NOK")
+        revert(add(revData, 32), 32)
+      }
     }
     emit Execute(
       msg.sender,
@@ -46,7 +50,6 @@ contract MakerPosthook_Test is IMaker {
       trade.wants,
       trade.gives
     );
-    TestToken(trade.base).transfer(taker, trade.wants);
     return ("OK");
   }
 
@@ -135,6 +138,8 @@ contract MakerPosthook_Test is IMaker {
 
     tkr = TakerSetup.setup(dex, base, quote);
     Display.register(address(tkr), "Taker");
+
+    baseT.approve(address(dex), 10 ether);
 
     address(tkr).transfer(10 ether);
     quoteT.mint(address(tkr), 1 ether);
@@ -347,7 +352,7 @@ contract MakerPosthook_Test is IMaker {
       ofr,
       1 ether,
       1 ether,
-      false,
+      true,
       bytes32("NOK")
     );
     emit DexEvents.DeleteOffer(base, quote, ofr);

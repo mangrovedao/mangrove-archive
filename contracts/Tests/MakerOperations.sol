@@ -37,12 +37,16 @@ contract MakerOperations_Test is IMaker {
     tkr = TakerSetup.setup(dex, address(base), address(quote));
 
     address(mkr).transfer(10 ether);
+    mkr.approveDex(base, 10 ether);
     address(mkr2).transfer(10 ether);
+    mkr2.approveDex(base, 10 ether);
 
     address(tkr).transfer(10 ether);
 
     quote.mint(address(tkr), 1 ether);
     tkr.approveDex(quote, 1 ether);
+
+    base.approve(address(dex), 10 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "MakerOperations_Test");
@@ -89,7 +93,6 @@ contract MakerOperations_Test is IMaker {
     returns (bytes32 ret)
   {
     ret; // silence unused function parameter warning
-    IERC20(base).transfer(taker, order.wants);
     uint num_args = 8;
     uint selector_bytes = 4;
     uint length = selector_bytes + num_args * 32;
@@ -152,7 +155,7 @@ contract MakerOperations_Test is IMaker {
         0,
         0
       );
-    require(tkr.take(ofr, 0.05 ether), "take must work of test is void");
+    require(tkr.take(ofr, 0.05 ether), "take must work or test is void");
   }
 
   function withdraw_removes_freeWei_and_ethers_test() public {

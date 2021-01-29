@@ -76,6 +76,7 @@ contract AMM_Test {
     (bool success, ) = address(maker).call{gas: gasleft(), value: 10 ether}("");
     require(success);
     maker.provisionDex(10 ether);
+    maker.approveDex(baseT, 10 ether);
     maker.newOffer({
       wants: 1 ether,
       gives: 0.5 ether,

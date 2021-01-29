@@ -46,12 +46,37 @@ contract TestMaker is IMaker, Passthrough {
     _shouldFail = should;
   }
 
+  function approveDex(IERC20 token, uint amount) external {
+    token.approve(address(_dex), amount);
+  }
+
+  function transferToken(
+    IERC20 token,
+    address to,
+    uint amount
+  ) external {
+    token.transfer(to, amount);
+  }
+
   function makerTrade(DC.SingleOrder calldata order, address taker)
     public
     virtual
     override
     returns (bytes32)
   {
+    if (_shouldRevert) {
+      bytes32[1] memory three = [bytes32("testMaker/revert")];
+      assembly {
+        revert(three, 32)
+      }
+    }
+    if (_shouldFail) {
+      bytes32[1] memory fail = [bytes32("testMaker/transferFail")];
+      assembly {
+        revert(fail, 32)
+      }
+      //revert("testMaker/fail");
+    }
     emit Execute(
       msg.sender,
       order.base,
@@ -60,21 +85,6 @@ contract TestMaker is IMaker, Passthrough {
       order.wants,
       order.gives
     );
-    if (_shouldRevert) {
-      bytes32[1] memory three = [bytes32("testMaker/revert")];
-      assembly {
-        revert(three, 32)
-      }
-    }
-    if (!_shouldFail) {
-      try IERC20(order.base).transfer(taker, order.wants) {
-        return "testMaker/ok";
-      } catch {
-        return "testMaker/transferFail";
-      }
-    } else {
-      return "testMaker/fail";
-    }
   }
 
   function makerPosthook(

@@ -33,8 +33,7 @@ contract TestMoriartyMaker is IMaker, Passthrough {
       succeed = false;
     }
     if (_succeed) {
-      bool s = IERC20(order.base).transfer(taker, order.wants);
-      ret = s ? bytes32(0) : bytes32(uint(2));
+      ret = bytes32(0);
     } else {
       assert(false);
     }
