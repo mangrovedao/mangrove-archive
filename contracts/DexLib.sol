@@ -51,9 +51,10 @@ library DexLib {
      ### balanceOf pros:
        * maker may `transferFrom` another address they control; saves gas compared to dex's `transferFrom`
        * maker does not need to `approve` dex
+
      ### balanceOf cons
        * if the ERC20 transfer method has a callback to receiver, the method does not work (the receiver can set its balance to 0 during the callback)
-       * costs more gas to do 2 SLOADS (checking balanceOf twice) than to run the `transfer` ourselves -- if there's only one transfer.
+       * if the taker is malicious, they can analyze the maker code. If the maker goes on any dex2, they may execute code provided by the taker. This would reduce the taker balance and make the maker fail. So the taker could steal the maker's balance.
     */
 
   function invertedFlashloan(DC.SingleOrder calldata sor)
