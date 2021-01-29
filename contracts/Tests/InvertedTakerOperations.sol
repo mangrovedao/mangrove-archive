@@ -4,8 +4,8 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "../Dex.sol";
-import "../DexCommon.sol";
-import {IMaker as IM} from "../interfaces.sol";
+import {IMaker as IM, DexCommon} from "../DexCommon.sol";
+import "../interfaces.sol";
 import "hardhat/console.sol";
 
 import "./Toolbox/TestEvents.sol";
