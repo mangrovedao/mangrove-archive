@@ -25,9 +25,18 @@ contract TestMaker is IMaker, Passthrough {
     _quote = address(quote);
   }
 
-  event Execute(uint takerWants, uint takerGives, uint gasprice, uint offerId);
-
   receive() external payable {}
+
+  function logExecute(
+    address dex,
+    address base,
+    address quote,
+    uint offerId,
+    uint takerWants,
+    uint takerGives
+  ) external {
+    emit Execute(dex, base, quote, offerId, takerWants, takerGives);
+  }
 
   function shouldRevert(bool should) external {
     _shouldRevert = should;
@@ -44,10 +53,12 @@ contract TestMaker is IMaker, Passthrough {
     returns (bytes32)
   {
     emit Execute(
+      msg.sender,
+      order.base,
+      order.quote,
+      order.offerId,
       order.wants,
-      order.gives,
-      DexPack.offer_unpack_gasprice(order.offer),
-      order.offerId
+      order.gives
     );
     if (_shouldRevert) {
       bytes32[1] memory three = [bytes32("testMaker/revert")];
