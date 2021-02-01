@@ -10,6 +10,7 @@ import {DexCommon as DC, DexEvents} from "./DexCommon.sol";
 // The purpose of DexLib is to keep Dex under the [Spurious Dragon](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md) 24kb limit.
 import "./DexLib.sol";
 import "./lib/HasAdmin.sol";
+import {SafeMath as SM} from "./SafeMath.sol";
 
 /* # State variables
    This contract describes an orderbook-based exchange ("Dex") where market makers *do not have to provision their offer*. See `DexCommon.sol` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. The Dex transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
@@ -429,7 +430,7 @@ abstract contract Dex is HasAdmin {
       // those may have been updated by execute, we keep them in stack
       {
         /* it is known statically that initialWants-totalGot does not underflow since 1) totalGot is increase by sor.wants during the loop, 2) sor.wants may be clamped down to offer.gives, 3) and sor.wants was at most initialWants-totalGot from earlier step */
-        uint stillWants = mor.initialWants - mor.totalGot;
+        uint stillWants = SM.sub(mor.initialWants, mor.totalGot);
         uint offerId = sor.offerId;
         uint takerWants = sor.wants;
         uint takerGives = sor.gives;
@@ -490,7 +491,7 @@ abstract contract Dex is HasAdmin {
     address maker = $$(od_maker("sor.offerDetail"));
 
     uint oldGas = gasleft();
-    if (!(oldGas - oldGas / 64 >= gasLeft)) {
+    if (!(SM.sub(oldGas, SM.div(oldGas, 64)) >= gasLeft)) {
       revert("dex/notEnoughGasForMakerPosthook");
     }
 
@@ -549,7 +550,7 @@ abstract contract Dex is HasAdmin {
     {
       uint num = sor.wants * $$(o_wants("sor.offer"));
       uint den = $$(o_gives("sor.offer"));
-      makerWouldWant = num / den + (num % den == 0 ? 0 : 1);
+      makerWouldWant = SM.add(SM.div(num, den), SM.mod(num, den) == 0 ? 0 : 1);
     }
 
     if (makerWouldWant > sor.gives) {
@@ -860,8 +861,9 @@ abstract contract Dex is HasAdmin {
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
   function applyFee(MultiOrder memory mor, DC.SingleOrder memory sor) internal {
     if (mor.totalGot > 0) {
-      uint concreteFee = (mor.totalGot * $$(loc_fee("mor.local"))) / 10_000;
-      mor.totalGot -= concreteFee;
+      uint concreteFee =
+        SM.div(SM.mul(mor.totalGot, $$(loc_fee("mor.local"))), 10_000);
+      mor.totalGot = SM.sub(mor.totalGot, concreteFee);
       bool success =
         DexLib.transferToken(sor.base, msg.sender, admin, concreteFee);
       require(success, "dex/takerFailToPayDex");
@@ -892,9 +894,10 @@ abstract contract Dex is HasAdmin {
 
      */
     uint provision =
-      10**9 *
-        $$(o_gasprice("offer")) *
-        ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
+      SM.mul(
+        SM.mul(10**9, $$(o_gasprice("offer"))),
+        SM.add($$(od_gasreq("offerDetail")), $$(od_gasbase("offerDetail")))
+      );
 
     /* We take as gasprice min(offer.gasprice,config.gasprice) */
     if ($$(o_gasprice("offer")) < gasprice) {
@@ -907,9 +910,12 @@ abstract contract Dex is HasAdmin {
     }
 
     uint takerDue =
-      10**9 * gasprice * (gasused + $$(od_gasbase("offerDetail")));
+      SM.mul(
+        SM.mul(10**9, gasprice),
+        SM.add(gasused, $$(od_gasbase("offerDetail")))
+      );
 
-    creditWei($$(od_maker("offerDetail")), provision - takerDue);
+    creditWei($$(od_maker("offerDetail")), SM.sub(provision, takerDue));
 
     return takerDue;
   }
@@ -1365,8 +1371,10 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isLive` method sound. */
     require(
       ofp.gives >=
-        (ofp.gasreq + $$(loc_gasbase("ofp.local"))) *
-          $$(loc_density("ofp.local")),
+        SM.mul(
+          SM.add(ofp.gasreq, $$(loc_gasbase("ofp.local"))),
+          $$(loc_density("ofp.local"))
+        ),
       "dex/writeOffer/gives/tooLow"
     );
 
@@ -1379,10 +1387,10 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
           msg.sender == $$(od_maker("offerDetail")),
           "dex/updateOffer/unauthorized"
         );
-        oldProvision =
-          10**9 *
-          $$(o_gasprice("ofp.oldOffer")) *
-          ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
+        oldProvision = SM.mul(
+          SM.mul(10**9, $$(o_gasprice("ofp.oldOffer"))),
+          SM.add($$(od_gasreq("offerDetail")), $$(od_gasbase("offerDetail")))
+        );
       }
 
       //TODO check that we're using less gas if those values haven't changed
@@ -1409,11 +1417,17 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
     {
       uint provision =
-        (ofp.gasreq + $$(loc_gasbase("ofp.local"))) * ofp.gasprice * 10**9;
+        SM.mul(
+          SM.mul(
+            SM.add(ofp.gasreq, $$(loc_gasbase("ofp.local"))),
+            ofp.gasprice
+          ),
+          10**9
+        );
       if (provision > oldProvision) {
-        debitWei(msg.sender, provision - oldProvision);
+        debitWei(msg.sender, SM.sub(provision, oldProvision));
       } else if (provision < oldProvision) {
-        creditWei(msg.sender, oldProvision - provision);
+        creditWei(msg.sender, SM.sub(oldProvision, provision));
       }
     }
 
@@ -1547,13 +1561,13 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     } //happens on empty OB
     uint wants2 = ofp.wants;
     uint gives2 = ofp.gives;
-    uint weight1 = wants1 * gives2;
-    uint weight2 = wants2 * gives1;
+    uint weight1 = SM.mul(wants1, gives2);
+    uint weight2 = SM.mul(wants2, gives1);
     if (weight1 == weight2) {
       uint gasreq1 =
         $$(od_gasreq("offerDetails[ofp.base][ofp.quote][offerId1]"));
       uint gasreq2 = ofp.gasreq;
-      return (gives1 * gasreq2 >= gives2 * gasreq1); //density1 is higher
+      return (SM.mul(gives1, gasreq2) >= SM.mul(gives2, gasreq1)); //density1 is higher
     } else {
       return weight1 < weight2; //price1 is lower
     }
@@ -1562,14 +1576,16 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* # Maker debit/credit utility functions */
 
   function debitWei(address maker, uint amount) internal {
-    uint makerBalance = balanceOf[maker];
-    require(makerBalance >= amount, "dex/insufficientProvision");
-    balanceOf[maker] = makerBalance - amount;
+    balanceOf[maker] = SM.sub(
+      balanceOf[maker],
+      amount,
+      "dex/insufficientProvision"
+    );
     emit DexEvents.Debit(maker, amount);
   }
 
   function creditWei(address maker, uint amount) internal {
-    balanceOf[maker] += amount;
+    balanceOf[maker] += SM.add(balanceOf[maker], amount);
     emit DexEvents.Credit(maker, amount);
   }
 
