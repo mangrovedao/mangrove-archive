@@ -1192,6 +1192,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   {
     (bytes32 _global, bytes32 _local) = getConfig(base, quote);
     ret.global = DC.Global({
+      oracle: $$(glo_oracle("_global")),
       gasprice: $$(glo_gasprice("_global")),
       gasmax: $$(glo_gasmax("_global")),
       dead: $$(glo_dead("global")) > 0
@@ -1269,8 +1270,6 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint value
   ) public {
     adminOnly();
-    /* `density > 0` ensures various invariants -- this documentation explains each time how it is relevant. */
-    require(value > 0, "dex/config/density/>0");
     /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
     require(uint32(value) == value, "dex/config/density/32bits");
     //+clear+
@@ -1287,8 +1286,6 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint value
   ) public {
     adminOnly();
-    /* `gasbase > 0` ensures various invariants -- this documentation explains how each time it is relevant */
-    require(value > 0, "dex/config/gasbase/>0");
     /* Checking the size of `gasbase` is necessary to prevent a) data loss when `gasbase` is copied to an `OfferDetail` struct, and b) overflow when `gasbase` is used in calculations. */
     require(uint24(value) == value, "dex/config/gasbase/24bits");
     //+clear+
@@ -1380,12 +1377,14 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       ofp.gasreq <= $$(glo_gasmax("ofp.global")),
       "dex/writeOffer/gasreq/tooHigh"
     );
-    /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. Since `gasbase > 0` and `density > 0`, we also get `gives > 0` which protects from future division by 0 and makes the `isLive` method sound. */
+    /* * Make sure `give > 0` -- division by 0 would throw in several places otherwise, and `isLive` relies on it. */
+    require(ofp.gives > 0, "dex/writeOffer/gives/tooLow");
+    /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. */
     require(
       ofp.gives >=
         (ofp.gasreq + $$(loc_gasbase("ofp.local"))) *
           $$(loc_density("ofp.local")),
-      "dex/writeOffer/gasreq/tooLow"
+      "dex/writeOffer/density/tooLow"
     );
 
     /* First, we write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `balanceOf`. */

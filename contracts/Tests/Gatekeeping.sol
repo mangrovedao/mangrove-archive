@@ -336,7 +336,7 @@ contract Gatekeeping_Test is IMaker {
     try mkr.newOffer(1, 1, cfg.local.density - 1, 0) {
       TestEvents.fail("Offer should not be inserted");
     } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/writeOffer/gasreq/tooLow", "wrong revert reason");
+      TestEvents.eq(r, "dex/writeOffer/density/tooLow", "wrong revert reason");
     }
   }
 

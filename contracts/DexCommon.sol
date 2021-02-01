@@ -126,6 +126,8 @@ They have the following fields: */
 */
   /* Configuration. See DexLib for more information. */
   struct Global {
+    /* The oracle, if nonzero, provides realtime values for `gasprice` and `density` to the dex. */
+    address oracle;
     /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
     uint gasprice;
     /* An offer which asks for more gas than the block limit would live forever on
