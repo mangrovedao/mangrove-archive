@@ -246,7 +246,7 @@ contract MakerOperations_Test is IMaker {
     try mkr.newOffer(1 ether, density - 1, 0, 0) {
       TestEvents.fail("density too low, newOffer should fail");
     } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/writeOffer/gives/tooLow", "wrong revert reason");
+      TestEvents.eq(r, "dex/writeOffer/gasreq/tooLow", "wrong revert reason");
     }
   }
 
