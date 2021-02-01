@@ -180,8 +180,7 @@ abstract contract Dex is HasAdmin {
     ofp.gasreq = gasreq;
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
-    ofp.global = global;
-    ofp.local = locals[base][quote];
+    (ofp.global, ofp.local) = getConfig(base, quote);
     require(uint24(ofp.id) == ofp.id, "dex/offerIdOverflow");
 
     requireActiveMarket(ofp.global, ofp.local);
@@ -252,8 +251,7 @@ abstract contract Dex is HasAdmin {
     ofp.gasreq = gasreq;
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
-    ofp.global = global;
-    ofp.local = locals[base][quote];
+    (ofp.global, ofp.local) = getConfig(base, quote);
     ofp.oldOffer = offers[base][quote][offerId];
     requireActiveMarket(ofp.global, ofp.local);
     return writeOffer(ofp, true);
@@ -265,7 +263,8 @@ abstract contract Dex is HasAdmin {
 
   /* A transfer with enough gas to the Dex will increase the caller's available `balanceOf` balance. _You should send enough gas to execute this function when sending money to the Dex._  */
   function fund(address maker) public payable {
-    requireLiveDex(global);
+    (bytes32 _global, ) = getConfig(address(0), address(0));
+    requireLiveDex(_global);
     creditWei(maker, msg.value);
   }
 
@@ -355,8 +354,7 @@ abstract contract Dex is HasAdmin {
     sor.quote = quote;
     sor.offerId = offerId;
     sor.offer = offers[base][quote][offerId];
-    mor.global = global;
-    mor.local = locals[base][quote];
+    (mor.global, mor.local) = getConfig(base, quote);
     mor.toPunish = new uint[2][](punishLength);
     mor.initialWants = takerWants;
     mor.initialGives = takerGives;
@@ -694,8 +692,7 @@ abstract contract Dex is HasAdmin {
     DC.SingleOrder memory sor;
     sor.base = base;
     sor.quote = quote;
-    mor.global = global;
-    mor.local = locals[base][quote];
+    (mor.global, mor.local) = getConfig(base, quote);
     mor.toPunish = new uint[2][](punishLength);
 
     requireActiveMarket(mor.global, mor.local);
@@ -1083,7 +1080,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint[2][] memory toPunish
   ) internal {
     uint punishIndex;
-    bytes32 _global = global;
+    (bytes32 _global, ) = getConfig(base, quote);
     uint gasprice = $$(glo_gasprice("_global"));
     uint takerDue = 0;
     while (punishIndex < toPunish.length) {
@@ -1191,16 +1188,14 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* should not be called internally, would be a huge memory copying waste */
   function config(address base, address quote)
     external
-    view
     returns (DC.Config memory ret)
   {
-    bytes32 _global = global;
+    (bytes32 _global, bytes32 _local) = getConfig(base, quote);
     ret.global = DC.Global({
       gasprice: $$(glo_gasprice("_global")),
       gasmax: $$(glo_gasmax("_global")),
       dead: $$(glo_dead("global")) > 0
     });
-    bytes32 _local = locals[base][quote];
     ret.local = DC.Local({
       active: $$(loc_active("_local")) > 0,
       gasbase: $$(loc_gasbase("_local")),
@@ -1211,6 +1206,21 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
   /* # Configuration access */
   //+clear+
+  /* getter for global and local config. if global.oracle is != 0, global's gasprice and local's density are overriden with the orale value. */
+  function getConfig(address base, address quote)
+    internal
+    returns (bytes32 _global, bytes32 _local)
+  {
+    _global = global;
+    _local = locals[base][quote];
+    if ($$(glo_oracle("_global")) != address(0)) {
+      (uint gasprice, uint density) =
+        IDexOracle($$(glo_oracle("_global"))).read(base, quote);
+      _global = $$(glo_set("_global", [["gasprice", "gasprice"]]));
+      _local = $$(loc_set("_local", [["density", "density"]]));
+    }
+  }
+
   /* Setter functions for configuration, called by `setConfig` which also exists in Dex. Overloaded by the type of the `value` parameter. See `DexCommon.sol` for more on the `config` and `key` parameters. */
 
   /* ## Locals */
@@ -1252,6 +1262,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   }
 
   /* ### `density` */
+  /* Useless if global.oracle is != 0 */
   function setDensity(
     address base,
     address quote,
@@ -1296,6 +1307,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   }
 
   /* ### `gasprice` */
+  /* Useless if global.oracle is != 0 */
   function setGasprice(uint value) public {
     adminOnly();
     /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */
@@ -1314,6 +1326,12 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     //+clear+
     global = $$(glo_set("global", [["gasmax", "value"]]));
     emit DexEvents.SetGasmax(value);
+  }
+
+  function setOracle(address value) public {
+    adminOnly();
+    global = $$(glo_set("global", [["oracle", "value"]]));
+    emit DexEvents.SetOracle(value);
   }
 
   function writeOffer(OfferPack memory ofp, bool update)

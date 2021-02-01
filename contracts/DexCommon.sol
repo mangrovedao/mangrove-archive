@@ -192,6 +192,7 @@ library DexEvents {
   event SetActive(address base, address quote, bool value);
   event SetFee(address base, address quote, uint value);
   event SetGasbase(uint value);
+  event SetOracle(address value);
   event SetGasmax(uint value);
   event SetDensity(address base, address quote, uint value);
   event SetGasprice(uint value);
@@ -265,4 +266,8 @@ interface ITaker {
     uint totalGot,
     uint totalGives
   ) external;
+}
+
+interface IDexOracle {
+  function read(address base, address quote) external returns (uint, uint);
 }

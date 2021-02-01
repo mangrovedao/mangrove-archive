@@ -61,7 +61,7 @@ library TestUtils {
     address base,
     address quote,
     uint price
-  ) internal view returns (uint) {
+  ) internal returns (uint) {
     return ((price * dex.config(base, quote).local.fee) / 10000);
   }
 
@@ -70,7 +70,7 @@ library TestUtils {
     address base,
     address quote,
     uint gasreq
-  ) internal view returns (uint) {
+  ) internal returns (uint) {
     DC.Config memory config = dex.config(base, quote);
     return ((gasreq + config.local.gasbase) *
       uint(config.global.gasprice) *
@@ -83,7 +83,7 @@ library TestUtils {
     address quote,
     uint gasreq,
     uint gasprice
-  ) internal view returns (uint) {
+  ) internal returns (uint) {
     DC.Config memory config = dex.config(base, quote);
     uint _gp;
     if (config.global.gasprice > gasprice) {
