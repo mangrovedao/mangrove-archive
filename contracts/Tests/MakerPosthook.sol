@@ -325,6 +325,27 @@ contract MakerPosthook_Test is IMaker {
     emit DexEvents.DeleteOffer(base, quote, ofr);
   }
 
+  function update_offer_after_delete_in_posthook_fails_test() public {
+    posthook_bytes = this.deleteOffer_posthook.selector;
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    bool success = tkr.take(ofr, 2 ether);
+    TestEvents.check(success, "Snipe should succeed");
+    try
+      dex.updateOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0, ofr)
+    {
+      TestEvents.fail("Update offer should fail");
+    } catch Error(string memory reason) {
+      TestEvents.eq(
+        reason,
+        "dex/updateOffer/unauthorized",
+        "Unexpected throw message"
+      );
+      TestEvents.expectFrom(address(dex));
+      emit DexEvents.Success(base, quote, ofr, 1 ether, 1 ether);
+      emit DexEvents.DeleteOffer(base, quote, ofr);
+    }
+  }
+
   function delete_offer_after_fail_in_posthook_test() public {
     uint mkr_provision =
       TestUtils.getProvision(dex, base, quote, gasreq, gasprice);

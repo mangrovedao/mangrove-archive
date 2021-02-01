@@ -289,6 +289,65 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
+  function makerWants_wider_than_96_bits_fails_newOffer_test() public {
+    try mkr.newOffer(2**96, 1 ether, 10_000, 0) {
+      TestEvents.fail("Too wide offer should not be inserted");
+    } catch Error(string memory r) {
+      TestEvents.eq(r, "dex/writeOffer/wants/96bits", "wrong revert reason");
+    }
+  }
+
+  function retractOffer_wrong_owner_fails() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
+    try dex.retractOffer(base, quote, ofr, false) {
+      TestEvents.fail("Too wide offer should not be inserted");
+    } catch Error(string memory r) {
+      TestEvents.eq(r, "dex/retractOffer/unauthorized", "wrong revert reason");
+    }
+  }
+
+  function makerGives_wider_than_96_bits_fails_newOffer_test() public {
+    try mkr.newOffer(1, 2**96, 10_000, 0) {
+      TestEvents.fail("Too wide offer should not be inserted");
+    } catch Error(string memory r) {
+      TestEvents.eq(r, "dex/writeOffer/gives/96bits", "wrong revert reason");
+    }
+  }
+
+  function makerGasreq_wider_than_24_bits_fails_newOffer_test() public {
+    try mkr.newOffer(1, 1, 2**24, 0) {
+      TestEvents.fail("Too wide offer should not be inserted");
+    } catch Error(string memory r) {
+      TestEvents.eq(r, "dex/writeOffer/gasreq/24bits", "wrong revert reason");
+    }
+  }
+
+  function makerGasreq_bigger_than_gasmax_fails_newOffer_test() public {
+    DexCommon.Config memory cfg = dex.config(base, quote);
+    try mkr.newOffer(1, 1, cfg.global.gasmax + 1, 0) {
+      TestEvents.fail("Offer should not be inserted");
+    } catch Error(string memory r) {
+      TestEvents.eq(r, "dex/writeOffer/gasreq/tooHigh", "wrong revert reason");
+    }
+  }
+
+  function makerGasreq_lower_than_density_fails_newOffer_test() public {
+    DexCommon.Config memory cfg = dex.config(base, quote);
+    try mkr.newOffer(1, 1, cfg.local.density - 1, 0) {
+      TestEvents.fail("Offer should not be inserted");
+    } catch Error(string memory r) {
+      TestEvents.eq(r, "dex/writeOffer/gasreq/tooLow", "wrong revert reason");
+    }
+  }
+
+  function makerGasprice_wider_than_16_bits_fails_newOffer_test() public {
+    try mkr.newOffer(1, 1, 1, 2**16, 0) {
+      TestEvents.fail("Too wide offer should not be inserted");
+    } catch Error(string memory r) {
+      TestEvents.eq(r, "dex/writeOffer/gasprice/16bits", "wrong revert reason");
+    }
+  }
+
   function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
     try tkr.marketOrder(2**160, 0) {
       TestEvents.fail("takerWants > 160bits, order should fail");
