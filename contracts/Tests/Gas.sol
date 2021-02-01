@@ -87,7 +87,7 @@ contract Gas_Test is IMaker {
     DC.OrderResult calldata result
   ) external override {}
 
-  function update_min_offer_test() public {
+  function update_min_move_0_offer_test() public {
     (Dex dex, , address base, address quote) = getStored();
     uint g = gasleft();
     uint h;
@@ -101,6 +101,33 @@ contract Gas_Test is IMaker {
     uint g = gasleft();
     uint h;
     dex.updateOffer(base, quote, 0.5 ether, 1 ether, 100_001, 0, 1, 1);
+    h = gasleft();
+    console.log("Gas used", g - h);
+  }
+
+  function update_min_move_3_offer_test() public {
+    (Dex dex, , address base, address quote) = getStored();
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    uint g = gasleft();
+    uint h;
+    dex.updateOffer(base, quote, 1.0 ether, 0.1 ether, 100_00, 0, 1, 1);
+    h = gasleft();
+    console.log("Gas used", g - h);
+  }
+
+  function update_min_move_6_offer_test() public {
+    (Dex dex, , address base, address quote) = getStored();
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    uint g = gasleft();
+    uint h;
+    dex.updateOffer(base, quote, 1.0 ether, 0.1 ether, 100_00, 0, 1, 1);
     h = gasleft();
     console.log("Gas used", g - h);
   }
