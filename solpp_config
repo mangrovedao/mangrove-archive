@@ -3,11 +3,6 @@
 
 // note: bug in solpp prevents using 3rd parameter (index parameter) of reduce.
 
-// There is no empty list literal in solpp
-/* $def nil
-filled(0)
-*/
-
 // find an element in a list given a predicate
 /* $def find(l,fn)
 (reduce(l,(acc,val) => (acc[0] ? acc : (fn(val) ? [true,val] : acc)),[false,false]))[1]
