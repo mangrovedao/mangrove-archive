@@ -188,9 +188,9 @@ abstract contract Dex is HasAdmin {
     return writeOffer(ofp, false);
   }
 
-  /* ## Cancel Offer */
+  /* ## Retract Offer */
   //+clear+
-  /* `cancelOffer` with `_delete == false` takes the offer out of the book. However, `_delete == true` clears out the offer's entry in `offers` and `offerDetails` -- a deleted offer cannot be resurrected. */
+  /* `retractOffer` with `_delete == false` takes the offer `offerId` out of the book. However, `_delete == true` also clears out the offer's entry in `offers` and `offerDetails` -- a deleted offer cannot be resurrected. */
   function retractOffer(
     address base,
     address quote,
@@ -1367,7 +1367,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       ofp.gives >=
         (ofp.gasreq + $$(loc_gasbase("ofp.local"))) *
           $$(loc_density("ofp.local")),
-      "dex/writeOffer/gives/tooLow"
+      "dex/writeOffer/gasreq/tooLow"
     );
 
     /* First, we write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `balanceOf`. */
