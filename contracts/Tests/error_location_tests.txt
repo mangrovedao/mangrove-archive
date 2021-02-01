@@ -1,0 +1,31 @@
+"dex/dead" [Gatekeeping]
+"dex/inactive" [Gatekeeping]
+
+"dex/offerIdOverflow" [Missing]
+
+"dex/mOrder/takerWants/160bits" [Gatekeeping]
+
+"dex/config/fee/<=500" [Gatekeeping]
+"dex/config/density/>0" [Gatekeeping]
+"dex/config/density/32bits" [Gatekeeping]
+"dex/config/gasbase/>0" [Gatekeeping]
+"dex/config/gasbase/24bits" [Gatekeeping]
+"dex/config/gasprice/16bits" [Gatekeeping]
+"dex/config/gasmax/24bits" [Gatekeeping]
+
+"dex/writeOffer/wants/96bits" [Gaterkeeping]
+"dex/writeOffer/gives/96bits" [Gaterkeeping]
+"dex/writeOffer/gasreq/24bits" [Gaterkeeping]
+
+"dex/writeOffer/gasprice/16bits" [Gaterkeeping]
+"dex/writeOffer/gasreq/tooHigh" [Gaterkeeping]
+"dex/writeOffer/gives/tooLow" [Gaterkeeping]
+
+"dex/insufficientProvision" [MakerOperations]
+"dex/takerFailToPayMaker" [TakerOperations]
+
+"dex/updateOffer/unauthorized" [MakerPosthook]
+"dex/reentrancyLocked" [Gatekeeping]
+"dex/retractOffer/unauthorized" [Gatekeeping]
+
+"dex/snipes/takerWants/96bits" [Gatekeeping]
