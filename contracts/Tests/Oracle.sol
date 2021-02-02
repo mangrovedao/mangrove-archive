@@ -13,27 +13,7 @@ import "./Toolbox/TestUtils.sol";
 import "./Toolbox/Display.sol";
 
 import "./Agents/TestToken.sol";
-
-contract DexOracle is IDexOracle {
-  uint gasprice;
-  uint density;
-
-  function setGasprice(uint _gasprice) external {
-    gasprice = _gasprice;
-  }
-
-  function setDensity(uint _density) external {
-    density = _density;
-  }
-
-  function read(address base, address quote)
-    external
-    override
-    returns (uint, uint)
-  {
-    return (gasprice, density);
-  }
-}
+import "./Agents/TestOracle.sol";
 
 // In these tests, the testing contract is the market maker.
 contract Oracle_Test {
@@ -85,5 +65,14 @@ contract Oracle_Test {
     oracle.setGasprice(901);
     DC.Config memory config = dex.config(base, quote);
     TestEvents.eq(config.global.gasprice, 901, "gasprice should be set");
+  }
+
+  function invalid_oracle_address_throws_test() public {
+    dex.setOracle(address(42));
+    try dex.config(base, quote) {
+      TestEvents.fail("Call to invalid oracle address should throw");
+    } catch {
+      TestEvents.succeed();
+    }
   }
 }
