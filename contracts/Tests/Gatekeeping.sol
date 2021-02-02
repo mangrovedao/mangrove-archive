@@ -159,11 +159,9 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
-  function zero_density_fails_test() public {
-    try dex.setDensity(base, quote, 0) {
-      TestEvents.fail("zero density should revert");
-    } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/config/density/>0");
+  function set_zero_density_test() public {
+    try dex.setDensity(base, quote, 0) {} catch Error(string memory r) {
+      TestEvents.fail("setting density to 0 should work");
     }
   }
 
@@ -241,14 +239,6 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
-  function set_density_floor_test() public {
-    try dex.setDensity(base, quote, 0) {
-      TestEvents.fail("density below floor should fail");
-    } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/config/density/>0");
-    }
-  }
-
   function set_density_ceiling_test() public {
     try dex.setDensity(base, quote, uint(type(uint32).max) + 1) {
       TestEvents.fail("density above ceiling should fail");
@@ -265,11 +255,9 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
-  function set_gasbase_floor_test() public {
-    try dex.setGasbase(base, quote, 0) {
-      TestEvents.fail("gasprice below floor should fail");
-    } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/config/gasbase/>0");
+  function set_zero_gasbase_test() public {
+    try dex.setGasbase(base, quote, 0) {} catch Error(string memory r) {
+      TestEvents.fail("setting gasprice to 0 should work");
     }
   }
 
