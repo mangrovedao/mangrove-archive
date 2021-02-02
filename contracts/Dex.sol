@@ -6,7 +6,7 @@ pragma abicoder v2;
 // ERC, Maker, Taker interfaces
 import "./interfaces.sol";
 // Types common to main Dex contract and DexLib
-import {DexCommon as DC, DexEvents} from "./DexCommon.sol";
+import {DexCommon as DC, DexEvents, IDexGovernance} from "./DexCommon.sol";
 // The purpose of DexLib is to keep Dex under the [Spurious Dragon](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md) 24kb limit.
 import "./DexLib.sol";
 import "./lib/HasAdmin.sol";
@@ -48,9 +48,9 @@ abstract contract Dex is HasAdmin {
    * `offerDetails[id]` contains the market maker's address (`maker`), the amount of gas required by the offer (`gasreq`) as well cached values for the global `gasbase` and `gasprice` when the offer got created (see `DexCommon` for more on `gasbase` and `gasprice`).
    */
   mapping(address => mapping(address => mapping(uint => bytes32)))
-    private offers;
+    public offers;
   mapping(address => mapping(address => mapping(uint => bytes32)))
-    private offerDetails;
+    public offerDetails;
 
   bytes32 private global;
   mapping(address => mapping(address => bytes32)) private locals;
@@ -585,6 +585,13 @@ abstract contract Dex is HasAdmin {
         sor.gives
       );
 
+      if ($$(glo_notify("mor.global")) > 0) {
+        IDexGovernance($$(glo_governance("mor.global"))).notifySuccess(
+          sor,
+          msg.sender
+        );
+      }
+
       mor.totalGot += sor.wants;
       mor.totalGave += sor.gives;
     } else {
@@ -603,6 +610,10 @@ abstract contract Dex is HasAdmin {
           errorCode == "dex/makerRevert",
           makerData
         );
+
+        if ($$(glo_notify("mor.global")) > 0) {
+          IDexGovernance($$(glo_governance("mor.global"))).notifyFail(sor);
+        }
       } else if (errorCode == "dex/tradeOverflow") {
         revert("dex/tradeOverflow");
       } else if (errorCode == "dex/notEnoughGasForMakerTrade") {
@@ -1192,7 +1203,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   {
     (bytes32 _global, bytes32 _local) = getConfig(base, quote);
     ret.global = DC.Global({
-      oracle: $$(glo_oracle("_global")),
+      governance: $$(glo_governance("_global")),
+      useOracle: $$(glo_useOracle("_global")) > 0,
+      notify: $$(glo_notify("_global")) > 0,
       gasprice: $$(glo_gasprice("_global")),
       gasmax: $$(glo_gasmax("_global")),
       dead: $$(glo_dead("global")) > 0
@@ -1214,9 +1227,9 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   {
     _global = global;
     _local = locals[base][quote];
-    if ($$(glo_oracle("_global")) != address(0)) {
+    if ($$(glo_useOracle("_global")) > 0) {
       (uint gasprice, uint density) =
-        IDexOracle($$(glo_oracle("_global"))).read(base, quote);
+        IDexGovernance($$(glo_governance("_global"))).read(base, quote);
       _global = $$(glo_set("_global", [["gasprice", "gasprice"]]));
       _local = $$(loc_set("_local", [["density", "density"]]));
     }
@@ -1263,7 +1276,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   }
 
   /* ### `density` */
-  /* Useless if global.oracle is != 0 */
+  /* Useless if global.useOracle is != 0 */
   function setDensity(
     address base,
     address quote,
@@ -1304,7 +1317,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   }
 
   /* ### `gasprice` */
-  /* Useless if global.oracle is != 0 */
+  /* Useless if global.useOracle is != 0 */
   function setGasprice(uint value) public {
     adminOnly();
     /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */
@@ -1325,10 +1338,30 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     emit DexEvents.SetGasmax(value);
   }
 
-  function setOracle(address value) public {
+  function setGovernance(address value) public {
     adminOnly();
-    global = $$(glo_set("global", [["oracle", "value"]]));
-    emit DexEvents.SetOracle(value);
+    global = $$(glo_set("global", [["governance", "value"]]));
+    emit DexEvents.SetGovernance(value);
+  }
+
+  function setUseOracle(bool value) public {
+    adminOnly();
+    if (value) {
+      global = $$(glo_set("global", [["useOracle", 1]]));
+    } else {
+      global = $$(glo_set("global", [["useOracle", 0]]));
+    }
+    emit DexEvents.SetUseOracle(value);
+  }
+
+  function setNotify(bool value) public {
+    adminOnly();
+    if (value) {
+      global = $$(glo_set("global", [["notify", 1]]));
+    } else {
+      global = $$(glo_set("global", [["notify", 0]]));
+    }
+    emit DexEvents.SetNotify(value);
   }
 
   function writeOffer(OfferPack memory ofp, bool update)

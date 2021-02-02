@@ -4,23 +4,6 @@ pragma abicoder v2;
 
 import {DexCommon as DC} from "./DexCommon.sol";
 
-/* Governance contract interface */
-interface IGovernance {
-  function recordTrade(
-    address base,
-    address quote,
-    uint takerWants,
-    uint takerGives,
-    address taker,
-    address maker,
-    bool success,
-    uint gasused,
-    uint gasbase,
-    uint gasreq,
-    uint gasprice
-  ) external;
-}
-
 // IERC20 From OpenZeppelin code
 
 /**

@@ -126,8 +126,12 @@ They have the following fields: */
 */
   /* Configuration. See DexLib for more information. */
   struct Global {
-    /* The oracle, if nonzero, provides realtime values for `gasprice` and `density` to the dex. */
-    address oracle;
+    /* The governance, can provide realtime values for `gasprice` and `density` to the dex, and receive liquidity events notifications. */
+    address governance;
+    /* If true, the dex will use the governance address as an oracle for `gasprice` and `density`, for every base/quote pair. */
+    bool useOracle;
+    /* If true, the dex will notify the governance address after every offer execution. */
+    bool notify;
     /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
     uint gasprice;
     /* An offer which asks for more gas than the block limit would live forever on
@@ -194,7 +198,9 @@ library DexEvents {
   event SetActive(address base, address quote, bool value);
   event SetFee(address base, address quote, uint value);
   event SetGasbase(uint value);
-  event SetOracle(address value);
+  event SetGovernance(address value);
+  event SetUseOracle(bool value);
+  event SetNotify(bool value);
   event SetGasmax(uint value);
   event SetDensity(address base, address quote, uint value);
   event SetGasprice(uint value);
@@ -270,6 +276,14 @@ interface ITaker {
   ) external;
 }
 
-interface IDexOracle {
-  function read(address base, address quote) external returns (uint, uint);
+/* Governance contract interface */
+interface IDexGovernance {
+  function notifySuccess(DexCommon.SingleOrder calldata sor, address taker)
+    external;
+
+  function notifyFail(DexCommon.SingleOrder calldata sor) external;
+
+  function read(address base, address quote)
+    external
+    returns (uint gasprice, uint density);
 }

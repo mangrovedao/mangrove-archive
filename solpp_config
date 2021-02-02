@@ -109,10 +109,12 @@ unquote(reduce(values, (acc,fb) => quote(set1_unsafe(acc,struct,fb[0],fb[1])), p
 /* global configuration struct layout
 *************************************/
 /* $def global
-[['oracle',160,'address'], gasprice_field, ['gasmax',24,'uint'],['dead',8,'uint']]
+[['governance',160,'address'], gasprice_field, ['gasmax',24,'uint'],['dead',8,'uint'],['useOracle',8,'uint'], ['notify',8,'uint']]
 */
 
-// $def glo_oracle(ptr) get(ptr,global,'oracle')
+// $def glo_governance(ptr) get(ptr,global,'governance')
+// $def glo_useOracle(ptr) get(ptr,global,'useOracle')
+// $def glo_notify(ptr) get(ptr,global,'notify')
 // $def glo_gasprice(ptr) get(ptr,global,'gasprice')
 // $def glo_gasmax(ptr) get(ptr,global,'gasmax')
 // $def glo_dead(ptr) get(ptr,global,'dead')
