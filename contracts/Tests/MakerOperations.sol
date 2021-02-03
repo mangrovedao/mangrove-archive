@@ -87,13 +87,13 @@ contract MakerOperations_Test is IMaker {
   }
 
   // since we check calldata, execute must be internal
-  function makerTrade(DC.SingleOrder calldata order, address taker)
+  function makerTrade(DC.SingleOrder calldata order)
     external
     override
     returns (bytes32 ret)
   {
     ret; // silence unused function parameter warning
-    uint num_args = 8;
+    uint num_args = 7;
     uint selector_bytes = 4;
     uint length = selector_bytes + num_args * 32;
     TestEvents.eq(
@@ -106,7 +106,6 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(order.quote, address(quote), "wrong quote");
     TestEvents.eq(order.wants, 0.05 ether, "wrong takerWants");
     TestEvents.eq(order.gives, 0.05 ether, "wrong takerGives");
-    TestEvents.eq(taker, address(tkr), "wrong taker");
     TestEvents.eq(
       DexPack.offer_unpack_gasprice(order.offer),
       dex.config(order.base, order.quote).global.gasprice,

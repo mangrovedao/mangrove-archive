@@ -246,7 +246,7 @@ interface IMaker {
   // Maker sends quote to taker
   // In normal dex, they already received base
   // In inverted dex, they did not
-  function makerTrade(DexCommon.SingleOrder calldata order, address taker)
+  function makerTrade(DexCommon.SingleOrder calldata order)
     external
     returns (bytes32);
 

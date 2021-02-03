@@ -58,7 +58,7 @@ contract TestMaker is IMaker, Passthrough {
     token.transfer(to, amount);
   }
 
-  function makerTrade(DC.SingleOrder calldata order, address taker)
+  function makerTrade(DC.SingleOrder calldata order)
     public
     virtual
     override

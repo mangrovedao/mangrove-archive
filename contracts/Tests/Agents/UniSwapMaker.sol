@@ -68,7 +68,7 @@ contract UniSwapMaker is IMaker {
     }
   }
 
-  function makerTrade(DC.SingleOrder calldata order, address taker)
+  function makerTrade(DC.SingleOrder calldata order)
     external
     override
     returns (bytes32)

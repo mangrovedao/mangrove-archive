@@ -202,7 +202,7 @@ contract Maker_basic is TestMaker {
     ERC20 quote
   ) TestMaker(dex, base, quote) {}
 
-  function makerTrade(DC.SingleOrder calldata order, address taker)
+  function makerTrade(DC.SingleOrder calldata order)
     public
     override
     returns (bytes32 ret)
@@ -232,7 +232,7 @@ contract Maker_compound is TestMaker {
     _compound.mint(ERC20(_base), 4 ether);
   }
 
-  function makerTrade(DC.SingleOrder calldata order, address taker)
+  function makerTrade(DC.SingleOrder calldata order)
     public
     override
     returns (bytes32 ret)
@@ -256,7 +256,7 @@ contract Maker_callback is TestMaker {
     ERC20 quote
   ) TestMaker(dex, base, quote) {}
 
-  function makerTrade(DC.SingleOrder calldata order, address taker)
+  function makerTrade(DC.SingleOrder calldata order)
     public
     override
     returns (bytes32 ret)

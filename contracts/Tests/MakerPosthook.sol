@@ -29,7 +29,7 @@ contract MakerPosthook_Test is IMaker {
 
   receive() external payable {}
 
-  function makerTrade(DexCommon.SingleOrder calldata trade, address taker)
+  function makerTrade(DexCommon.SingleOrder calldata trade)
     external
     override
     returns (bytes32)

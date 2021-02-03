@@ -58,7 +58,7 @@ contract OfferManager is IMaker, ITaker {
 
   // Maker side execute for residual offer
 
-  function makerTrade(DC.SingleOrder calldata _order, address taker)
+  function makerTrade(DC.SingleOrder calldata _order)
     external
     override
     returns (bytes32 ret)
@@ -74,24 +74,15 @@ contract OfferManager is IMaker, ITaker {
     if (msg.sender == address(dex)) {
       // if residual of offerId is < dust, offer will be removed and dust lost
       // also freeWeil[this] will increase, offerManager may chose to give it back to owner
-      try IERC20(_order.base).transfer(taker, _order.wants) {
-        address owner =
-          owners[address(dex)][_order.base][_order.quote][_order.offerId];
-        require(owner != address(0), "Unkown owner");
-        try IERC20(_order.quote).transfer(owner, _order.gives) {
-          ret = "OfferManager/transferOK";
-        } catch {
-          ret = "transferToOwnerFail";
-        }
+      address owner =
+        owners[address(dex)][_order.base][_order.quote][_order.offerId];
+      require(owner != address(0), "Unkown owner");
+      try IERC20(_order.quote).transfer(owner, _order.gives) {
+        ret = "OfferManager/transferOK";
       } catch {
-        ret = "transferToTakerFail";
+        ret = "transferToOwnerFail";
       }
-    } else {
-      require(msg.sender == address(invDex), "Invalid msg.sender");
-      try IERC20(_order.base).transfer(taker, _order.wants) {} catch {
-        ret = "transferToTakerFail";
-      }
-    }
+    } else {}
   }
 
   //marketOrder (base,quote) + NewOffer(quote,base)
