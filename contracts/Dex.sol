@@ -78,7 +78,7 @@ abstract contract Dex {
 
        Note: An optimization in the `marketOrder` function relies on reentrancy being forbidden.
    */
-  mapping(address => mapping(address => uint)) private locks;
+  mapping(address => mapping(address => uint)) public locks;
 
   /* `best` is a struct with a single field holding the current best offer id. The id is wrapped in a struct so it can be passed to `DexLib`. */
   mapping(address => mapping(address => uint)) public bests;
@@ -351,7 +351,6 @@ abstract contract Dex {
     /* ### Checks */
     //+clear+
     unlockedOnly(base, quote);
-    locks[base][quote] = LOCKED;
 
     /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
     require(uint160(takerWants) == takerWants, "dex/mOrder/takerWants/160bits");
@@ -380,6 +379,7 @@ abstract contract Dex {
 
     /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. The check is an `if` instead of a `require` so we don't throw on an empty market -- but it also means we treat a bad offer id as a take on an empty market. */
     if (isLive(sor.offer)) {
+      locks[base][quote] = LOCKED;
       internalMarketOrder(mor, sor, mor.initialWants != 0);
     }
     paySender(mor.takerDue);

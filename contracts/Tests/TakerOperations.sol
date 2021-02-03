@@ -395,4 +395,13 @@ contract TakerOperations_Test {
       TestEvents.fail("market order on empty book should not fail");
     }
   }
+
+  function marketOrder_on_empty_book_does_not_leave_lock_on_test() public {
+    dex.simpleMarketOrder(base, quote, 1 ether, 1 ether);
+    TestEvents.less(
+      dex.locks(base, quote),
+      2,
+      "dex should not be locked after marketOrder on empty OB"
+    );
+  }
 }
