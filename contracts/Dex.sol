@@ -875,7 +875,7 @@ abstract contract Dex {
 
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
   function applyFee(MultiOrder memory mor, DC.SingleOrder memory sor) internal {
-    if (mor.totalGot > 0) {
+    if (mor.totalGot > 0 && $$(loc_fee("mor.local")) > 0) {
       uint concreteFee = (mor.totalGot * $$(loc_fee("mor.local"))) / 10_000;
       mor.totalGot -= concreteFee;
       bool success =
