@@ -74,6 +74,14 @@ contract NotAdmin {
   ) public {
     dex.setDensity(base, quote, value);
   }
+
+  function setVault(address value) public {
+    dex.setVault(value);
+  }
+
+  function setMonitor(address value) public {
+    dex.setMonitor(value);
+  }
 }
 
 // In these tests, the testing contract is the market maker.
@@ -189,6 +197,24 @@ contract Gatekeeping_Test is IMaker {
       dex.config(address(0), address(0)).global.dead,
       "dex should still be dead"
     );
+  }
+
+  function only_gov_can_set_vault_test() public {
+    NotAdmin notAdmin = new NotAdmin(dex);
+    try notAdmin.setVault(address(this)) {
+      TestEvents.fail("nonadmin cannot set vault");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/unauthorized");
+    }
+  }
+
+  function only_gov_can_set_monitor_test() public {
+    NotAdmin notAdmin = new NotAdmin(dex);
+    try notAdmin.setMonitor(address(this)) {
+      TestEvents.fail("nonadmin cannot set monitor");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/unauthorized");
+    }
   }
 
   function only_gov_can_set_active_test() public {
