@@ -58,7 +58,7 @@ library TestInsert {
       );
     }
     //Checking offers are correctly positioned (3 > 2 > 1 > 0)
-    uint offerId = dex.bests(address(base), address(quote));
+    uint offerId = dex.best(address(base), address(quote));
     uint expected_maker = 3;
     while (offerId != 0) {
       (DC.Offer memory offer, DC.OfferDetail memory od) =

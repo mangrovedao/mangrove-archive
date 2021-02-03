@@ -15,7 +15,7 @@ library TestFailingMarketOrder {
         wants: 10 ether,
         gives: 30 ether,
         punishLength: 10,
-        offerId: dex.bests(base, quote)
+        offerId: dex.best(base, quote)
       });
     uint failedOffer = 1;
     for (uint i = 0; i < failures.length; i++) {
@@ -101,7 +101,7 @@ library TestFailingMarketOrder {
     TestTaker tkr
   ) external {
     uint tkrBalance = address(tkr).balance;
-    tkr.marketOrderAndRevert(dex.bests(base, quote), 10 ether, 30 ether, 10);
+    tkr.marketOrderAndRevert(dex.best(base, quote), 10 ether, 30 ether, 10);
     TestEvents.check(
       TestUtils.hasOffer(dex, base, quote, 5),
       "Dummy offer should still be in OB"

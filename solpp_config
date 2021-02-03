@@ -123,11 +123,14 @@ unquote(reduce(values, (acc,fb) => quote(set1_unsafe(acc,struct,fb[0],fb[1])), p
 /* local configuration struct layout
 ************************************/
 /* $def local
-[['active',8,'uint'],['fee',16,'uint'],['density',32,'uint'], gasbase_field]
+[['active',8,'uint'],['fee',16,'uint'],['density',32,'uint'], gasbase_field,['best',24,'uint'],['lock',8,'uint'],['lastId',24,'uint']]
 */
 
 // $def loc_active(ptr) get(ptr,local,'active')
 // $def loc_fee(ptr) get(ptr,local,'fee')
 // $def loc_density(ptr) get(ptr,local,'density')
 // $def loc_gasbase(ptr) get(ptr,local,'gasbase')
+// $def loc_best(ptr) get(ptr,local,'best')
+// $def loc_lock(ptr) get(ptr,local,'lock')
+// $def loc_lastId(ptr) get(ptr,local,'lastId')
 // $def loc_set(ptr,values) set(ptr,local,values)

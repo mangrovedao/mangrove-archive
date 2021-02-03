@@ -43,9 +43,6 @@ abstract contract Dex {
   /* The signature of the low-level swapping function. */
   bytes4 immutable FLASHLOANER;
 
-  uint constant LOCKED = 2;
-  uint constant UNLOCKED = 1;
-
   /* * An offer `id` is defined by two structs, `Offer` and `OfferDetail`, defined in `DexCommon.sol`.
    * `offers[id]` contains pointers to the `prev`ious (better) and `next` (worse) offer in the book, as well as the price and volume of the offer (in the form of two absolute quantities, `wants` and `gives`).
    * `offerDetails[id]` contains the market maker's address (`maker`), the amount of gas required by the offer (`gasreq`) as well cached values for the global `gasbase` and `gasprice` when the offer got created (see `DexCommon` for more on `gasbase` and `gasprice`).
@@ -55,8 +52,8 @@ abstract contract Dex {
   mapping(address => mapping(address => mapping(uint => bytes32)))
     public offerDetails;
 
-  bytes32 private global;
-  mapping(address => mapping(address => bytes32)) private locals;
+  bytes32 public global;
+  mapping(address => mapping(address => bytes32)) public locals;
 
   /* * Makers provision their possible penalties in the `balanceOf` mapping.
 
@@ -65,23 +62,6 @@ abstract contract Dex {
        The Dex keeps track of their available balance in the `balanceOf` map, which is decremented every time a maker creates a new offer (new offer creation is in `DexLib`, see `writeOffer`), and modified on offer updates/cancelations/takings.
    */
   mapping(address => uint) public balanceOf;
-
-  /* * `lastId` is a counter for offer ids, incremented every time a new offer is created. It can't go above 2^24-1. */
-  mapping(address => mapping(address => uint)) private lastId;
-
-  /* * If `reentrancyLock` is > 1, orders may not be added nor executed.
-
-       Reentrancy during offer execution is not considered safe:
-       * during execution, an offer could consume other offers further up in the book, effectively frontrunning the taker currently executing the offer.
-       * it could also cancel other offers, creating a discrepancy between the advertised and actual market price at no cost to the maker.
-       * an offer insertion consumes an unbounded amount of gas (because it has to be correctly placed in the book).
-
-       Note: An optimization in the `marketOrder` function relies on reentrancy being forbidden.
-   */
-  mapping(address => mapping(address => uint)) public locks;
-
-  /* `best` is a struct with a single field holding the current best offer id. The id is wrapped in a struct so it can be passed to `DexLib`. */
-  mapping(address => mapping(address => uint)) public bests;
 
   /*
   # Dex Constructor
@@ -116,8 +96,8 @@ abstract contract Dex {
   */
 
   /* `requireNoReentrancyLock` protects modifying the book while an order is in progress. */
-  function unlockedOnly(address base, address quote) internal view {
-    require(locks[base][quote] < LOCKED, "dex/reentrancyLocked");
+  function unlockedOnly(bytes32 local) internal view {
+    require($$(loc_lock("local")) == 0, "dex/reentrancyLocked");
   }
 
   /* * <a id="Dex/definition/requireLiveDex"></a>
@@ -178,21 +158,25 @@ abstract contract Dex {
     uint gasprice,
     uint pivotId
   ) external returns (uint) {
-    unlockedOnly(base, quote);
     OfferPack memory ofp;
     ofp.base = base;
     ofp.quote = quote;
+    bytes32 local;
+    (ofp.global, local) = getConfig(base, quote);
+    ofp.id = 1 + $$(loc_lastId("local"));
+    ofp.local = $$(loc_set("local", [["lastId", "ofp.id"]]));
+    unlockedOnly(ofp.local);
     ofp.wants = wants;
     ofp.gives = gives; // an offer id must never be 0
-    ofp.id = ++lastId[base][quote];
     ofp.gasreq = gasreq;
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
-    (ofp.global, ofp.local) = getConfig(base, quote);
     require(uint24(ofp.id) == ofp.id, "dex/offerIdOverflow");
 
     requireActiveMarket(ofp.global, ofp.local);
-    return writeOffer(ofp, false);
+    writeOffer(ofp, false);
+    locals[ofp.base][ofp.quote] = ofp.local;
+    return ofp.id;
   }
 
   /* ## Retract Offer */
@@ -204,7 +188,8 @@ abstract contract Dex {
     uint offerId,
     bool _delete
   ) external {
-    unlockedOnly(base, quote);
+    (bytes32 _global, bytes32 local) = getConfig(base, quote);
+    unlockedOnly(local);
     bytes32 offer = offers[base][quote][offerId];
     bytes32 offerDetail = offerDetails[base][quote][offerId];
     require(
@@ -214,7 +199,14 @@ abstract contract Dex {
 
     /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *un-live* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
     if (isLive(offer)) {
-      stitchOffers(base, quote, $$(o_prev("offer")), $$(o_next("offer")));
+      local = stitchOffers(
+        base,
+        quote,
+        $$(o_prev("offer")),
+        $$(o_next("offer")),
+        local,
+        true
+      );
       // set `offer.gives` to 0
       dirtyDeleteOffer(base, quote, offerId, offer, false);
     }
@@ -249,8 +241,9 @@ abstract contract Dex {
     uint pivotId,
     uint offerId
   ) public returns (uint) {
-    unlockedOnly(base, quote);
     OfferPack memory ofp;
+    (ofp.global, ofp.local) = getConfig(base, quote);
+    unlockedOnly(ofp.local);
     ofp.base = base;
     ofp.quote = quote;
     ofp.wants = wants;
@@ -259,10 +252,12 @@ abstract contract Dex {
     ofp.gasreq = gasreq;
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
-    (ofp.global, ofp.local) = getConfig(base, quote);
     ofp.oldOffer = offers[base][quote][offerId];
     requireActiveMarket(ofp.global, ofp.local);
-    return writeOffer(ofp, true);
+    if (writeOffer(ofp, true)) {
+      locals[ofp.base][ofp.quote] = ofp.local;
+    }
+    return ofp.id;
   }
 
   /* ## Provisioning
@@ -307,7 +302,7 @@ abstract contract Dex {
       takerWants,
       takerGives,
       0,
-      bests[base][quote]
+      0
     );
   }
 
@@ -348,23 +343,22 @@ abstract contract Dex {
       uint[2][] memory
     )
   {
+    MultiOrder memory mor;
+    (mor.global, mor.local) = getConfig(base, quote);
     /* ### Checks */
     //+clear+
-    unlockedOnly(base, quote);
-
+    unlockedOnly(mor.local);
     /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
     require(uint160(takerWants) == takerWants, "dex/mOrder/takerWants/160bits");
 
     DC.SingleOrder memory sor;
-    MultiOrder memory mor;
     sor.base = base;
     sor.quote = quote;
-    sor.offerId = offerId;
-    sor.offer = offers[base][quote][offerId];
-    (mor.global, mor.local) = getConfig(base, quote);
     mor.toPunish = new uint[2][](punishLength);
     mor.initialWants = takerWants;
     mor.initialGives = takerGives;
+    sor.offerId = offerId == 0 ? $$(loc_best("mor.local")) : offerId;
+    sor.offer = offers[base][quote][sor.offerId];
     mor.extraData = $$(o_prev("sor.offer"));
 
     /* For the market order to even start, the market needs to be both alive (that is, not irreversibly killed following emergency action), and not currently protected from reentrancy. */
@@ -379,7 +373,9 @@ abstract contract Dex {
 
     /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. The check is an `if` instead of a `require` so we don't throw on an empty market -- but it also means we treat a bad offer id as a take on an empty market. */
     if (isLive(sor.offer)) {
-      locks[base][quote] = LOCKED;
+      /* Only set the lock if the order actually happens */
+      mor.local = $$(loc_set("mor.local", [["lock", 1]]));
+      locals[base][quote] = mor.local;
       internalMarketOrder(mor, sor, mor.initialWants != 0);
     }
     paySender(mor.takerDue);
@@ -468,8 +464,16 @@ abstract contract Dex {
       postExecute(mor, sor, success, executed, gasused, makerData);
     } else {
       restrictMemoryArrayLength(mor.toPunish, mor.numToPunish);
-      stitchOffers(sor.base, sor.quote, mor.extraData, sor.offerId);
-      locks[sor.base][sor.quote] = UNLOCKED;
+      mor.local = stitchOffers(
+        sor.base,
+        sor.quote,
+        mor.extraData,
+        sor.offerId,
+        mor.local,
+        false
+      );
+      mor.local = $$(loc_set("mor.local", [["lock", 0]]));
+      locals[sor.base][sor.quote] = mor.local;
       applyFee(mor, sor);
       executeEnd(mor, sor); //noop if classical Dex
     }
@@ -703,15 +707,16 @@ abstract contract Dex {
       uint[2][] memory
     )
   {
-    unlockedOnly(base, quote);
-    locks[base][quote] = LOCKED;
+    MultiOrder memory mor;
+    (mor.global, mor.local) = getConfig(base, quote);
     /* ### Pre-loop Checks */
     //+clear+
-    MultiOrder memory mor;
+    unlockedOnly(mor.local);
+    mor.local = $$(loc_set("mor.local", [["lock", 1]]));
+    locals[base][quote] = mor.local;
     DC.SingleOrder memory sor;
     sor.base = base;
     sor.quote = quote;
-    (mor.global, mor.local) = getConfig(base, quote);
     mor.toPunish = new uint[2][](punishLength);
 
     requireActiveMarket(mor.global, mor.local);
@@ -763,11 +768,13 @@ abstract contract Dex {
         }
 
         if (executed) {
-          stitchOffers(
+          mor.local = stitchOffers(
             sor.base,
             sor.quote,
             $$(o_prev("sor.offer")),
-            $$(o_next("sor.offer"))
+            $$(o_next("sor.offer")),
+            mor.local,
+            false
           );
         }
 
@@ -792,7 +799,8 @@ abstract contract Dex {
     } else {
       /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
       restrictMemoryArrayLength(mor.toPunish, mor.numToPunish);
-      locks[sor.base][sor.quote] = UNLOCKED;
+      mor.local = $$(loc_set("mor.local", [["lock", 0]]));
+      locals[sor.base][sor.quote] = mor.local;
       applyFee(mor, sor);
       executeEnd(mor, sor);
     }
@@ -1099,7 +1107,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint[2][] memory toPunish
   ) internal {
     uint punishIndex;
-    (bytes32 _global, ) = getConfig(base, quote);
+    (bytes32 _global, bytes32 local) = getConfig(base, quote);
     uint gasprice = $$(glo_gasprice("_global"));
     uint takerDue = 0;
     while (punishIndex < toPunish.length) {
@@ -1109,7 +1117,14 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       if (isLive(offer)) {
         bytes32 offerDetail = offerDetails[base][quote][id];
         dirtyDeleteOffer(base, quote, id, offer, true);
-        stitchOffers(base, quote, $$(o_prev("offer")), $$(o_next("offer")));
+        local = stitchOffers(
+          base,
+          quote,
+          $$(o_prev("offer")),
+          $$(o_next("offer")),
+          local,
+          true
+        );
         uint gasused = toPunish[punishIndex][1];
         takerDue += applyPenalty(gasprice, gasused, offer, offerDetail);
       }
@@ -1179,8 +1194,6 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       address
     )
   {
-    unlockedOnly(base, quote);
-    // TODO: Make sure `requireNoReentrancyLock` is necessary here
     bytes32 offer = offers[base][quote][offerId];
     bytes32 offerDetail = offerDetails[base][quote][offerId];
     return (
@@ -1217,8 +1230,21 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       active: $$(loc_active("_local")) > 0,
       gasbase: $$(loc_gasbase("_local")),
       fee: $$(loc_fee("_local")),
-      density: $$(loc_density("_local"))
+      density: $$(loc_density("_local")),
+      best: $$(loc_best("_local")),
+      lock: $$(loc_lock("_local")) > 0,
+      lastId: $$(loc_lastId("_local"))
     });
+  }
+
+  /* Convenience function to get best */
+  function best(address base, address quote) external view returns (uint) {
+    return $$(loc_best("locals[base][quote]"));
+  }
+
+  /* Convenience function to check lock */
+  function lock(address base, address quote) external view returns (bool) {
+    return $$(loc_lock("locals[base][quote]")) > 0;
   }
 
   /* # Configuration access */
@@ -1388,7 +1414,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
   function writeOffer(OfferPack memory ofp, bool update)
     internal
-    returns (uint)
+    returns (bool localDirty)
   {
     /* We check gasprice,gives,wants,gasreq size to avoid checking a high gasprice, then reducing it by packing. */
     require(
@@ -1504,7 +1530,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
           o_set("offers[ofp.base][ofp.quote][prev]", [["next", "ofp.id"]])
         );
       } else {
-        bests[ofp.base][ofp.quote] = ofp.id;
+        ofp.local = $$(loc_set("ofp.local", [["best", "ofp.id"]]));
+        localDirty = true;
       }
 
       /* If the offer is not the last one, we update its successor. */
@@ -1517,12 +1544,18 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
       /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *move* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. A priori, if `writeOffer` is called by `newOffer`, `oldOffer` should be all zeros and thus not live. But that would be assuming a subtle implementation detail of `isLive`, so we add the (currently redundant) check on `update`).
        */
       if (update && isLive(ofp.oldOffer)) {
-        stitchOffers(
+        bytes32 _local = ofp.local;
+        ofp.local = stitchOffers(
           ofp.base,
           ofp.quote,
           $$(o_prev("ofp.oldOffer")),
-          $$(o_next("ofp.oldOffer"))
+          $$(o_next("ofp.oldOffer")),
+          ofp.local,
+          false
         );
+        if (_local != ofp.local) {
+          localDirty = true;
+        }
       }
     }
 
@@ -1540,10 +1573,6 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         )
       );
     offers[ofp.base][ofp.quote][ofp.id] = ofr;
-
-    /* And finally return the newly created offer id to the caller. */
-
-    return ofp.id;
   }
 
   /* `findPosition` takes a price in the form of a `wants/gives` pair, an offer id (`pivotId`) and walks the book from that offer (backward or forward) until the right position for the price `wants/gives` is found. The position is returned as a `(prev,next)` pair, with `prev` or `next` at 0 to mark the beginning/end of the book (no offer ever has id 0).
@@ -1560,7 +1589,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
     if (!isLive(pivot)) {
       // in case pivotId is not or no longer a valid offer
-      pivotId = bests[ofp.base][ofp.quote];
+      pivotId = $$(loc_best("ofp.local"));
       pivot = offers[ofp.base][ofp.quote][pivotId];
     }
 
@@ -1651,19 +1680,24 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     return $$(o_gives("offer")) > 0;
   }
 
-  /* Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer` */
+  /* Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer`. !warning! may make memory copy of local.best stale. returns new local. writes to storage if asked to.  */
   function stitchOffers(
     address base,
     address quote,
     uint pastId,
-    uint futureId
-  ) internal {
+    uint futureId,
+    bytes32 local,
+    bool write
+  ) internal returns (bytes32) {
     if (pastId != 0) {
       offers[base][quote][pastId] = $$(
         o_set("offers[base][quote][pastId]", [["next", "futureId"]])
       );
     } else {
-      bests[base][quote] = futureId;
+      local = $$(loc_set("local", [["best", "futureId"]]));
+      if (write) {
+        locals[base][quote] = local;
+      }
     }
 
     if (futureId != 0) {
@@ -1671,6 +1705,8 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
         o_set("offers[base][quote][futureId]", [["prev", "pastId"]])
       );
     }
+
+    return local;
   }
 }
 

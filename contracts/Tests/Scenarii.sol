@@ -45,7 +45,7 @@ contract Scenarii_Test {
   receive() external payable {}
 
   function saveOffers() internal {
-    uint offerId = dex.bests(address(base), address(quote));
+    uint offerId = dex.best(address(base), address(quote));
     while (offerId != 0) {
       (DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
         dex.getOfferInfo(address(base), address(quote), offerId, true);

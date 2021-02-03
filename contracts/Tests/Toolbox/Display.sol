@@ -242,7 +242,7 @@ library Display {
     address quote,
     uint size
   ) internal {
-    uint offerId = dex.bests(base, quote);
+    uint offerId = dex.config(base, quote).local.best;
 
     uint[] memory wants = new uint[](size);
     uint[] memory gives = new uint[](size);
@@ -269,7 +269,7 @@ library Display {
     address base,
     address quote
   ) internal view {
-    uint offerId = dex.bests(base, quote);
+    uint offerId = dex.best(base, quote);
     TestToken req_tk = TestToken(quote);
     TestToken ofr_tk = TestToken(base);
 
