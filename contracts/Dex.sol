@@ -1131,11 +1131,6 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* ## State
      State getters are available for composing with other contracts & bots. */
   //+clear+
-  // TODO: Make sure `getBest` is necessary.
-  function getBest(address base, address quote) external view returns (uint) {
-    unlockedOnly(base, quote);
-    return bests[base][quote];
-  }
 
   // Read a particular offer's information.
   function getOfferInfo(
