@@ -126,11 +126,11 @@ They have the following fields: */
 */
   /* Configuration. See DexLib for more information. */
   struct Global {
-    /* The governance, can provide realtime values for `gasprice` and `density` to the dex, and receive liquidity events notifications. */
-    address governance;
-    /* If true, the dex will use the governance address as an oracle for `gasprice` and `density`, for every base/quote pair. */
+    /* The monitor, can provide realtime values for `gasprice` and `density` to the dex, and receive liquidity events notifications. */
+    address monitor;
+    /* If true, the dex will use the monitor address as an oracle for `gasprice` and `density`, for every base/quote pair. */
     bool useOracle;
-    /* If true, the dex will notify the governance address after every offer execution. */
+    /* If true, the dex will notify the monitor address after every offer execution. */
     bool notify;
     /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
     uint gasprice;
@@ -199,6 +199,8 @@ library DexEvents {
   event SetFee(address base, address quote, uint value);
   event SetGasbase(uint value);
   event SetGovernance(address value);
+  event SetMonitor(address value);
+  event SetVault(address value);
   event SetUseOracle(bool value);
   event SetNotify(bool value);
   event SetGasmax(uint value);
@@ -276,8 +278,8 @@ interface ITaker {
   ) external;
 }
 
-/* Governance contract interface */
-interface IDexGovernance {
+/* Monitor contract interface */
+interface IDexMonitor {
   function notifySuccess(DexCommon.SingleOrder calldata sor, address taker)
     external;
 

@@ -37,8 +37,8 @@ contract NotAdmin {
     dex.setFee(base, quote, fee);
   }
 
-  function setAdmin(address newAdmin) public {
-    dex.setAdmin(newAdmin);
+  function setGovernance(address newGovernance) public {
+    dex.setGovernance(newGovernance);
   }
 
   function kill() public {
@@ -128,9 +128,9 @@ contract Gatekeeping_Test is IMaker {
 
   /* # Test Config */
 
-  function admin_can_transfer_rights_test() public {
+  function gov_can_transfer_rights_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
-    dex.setAdmin(address(notAdmin));
+    dex.setGovernance(address(notAdmin));
 
     try dex.setFee(base, quote, 0) {
       TestEvents.fail("testing contracts should no longer be admin");
@@ -141,21 +141,21 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
-  function only_admin_can_set_fee_test() public {
+  function only_gov_can_set_fee_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
     try notAdmin.setFee(base, quote, 0) {
       TestEvents.fail("nonadmin cannot set fee");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "HasAdmin/adminOnly");
+      TestEvents.revertEq(r, "dex/unauthorized");
     }
   }
 
-  function only_admin_can_set_density_test() public {
+  function only_gov_can_set_density_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
     try notAdmin.setDensity(base, quote, 0) {
       TestEvents.fail("nonadmin cannot set density");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "HasAdmin/adminOnly");
+      TestEvents.revertEq(r, "dex/unauthorized");
     }
   }
 
@@ -165,12 +165,12 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
-  function only_admin_can_kill_test() public {
+  function only_gov_can_kill_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
     try notAdmin.kill() {
       TestEvents.fail("nonadmin cannot kill");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "HasAdmin/adminOnly");
+      TestEvents.revertEq(r, "dex/unauthorized");
     }
   }
 
@@ -191,39 +191,39 @@ contract Gatekeeping_Test is IMaker {
     );
   }
 
-  function only_admin_can_set_active_test() public {
+  function only_gov_can_set_active_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
     try notAdmin.activate(quote, base, 0, 100, 30_000) {
       TestEvents.fail("nonadmin cannot set active");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "HasAdmin/adminOnly");
+      TestEvents.revertEq(r, "dex/unauthorized");
     }
   }
 
-  function only_admin_can_set_gasprice_test() public {
+  function only_gov_can_set_gasprice_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
     try notAdmin.setGasprice(0) {
       TestEvents.fail("nonadmin cannot set gasprice");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "HasAdmin/adminOnly");
+      TestEvents.revertEq(r, "dex/unauthorized");
     }
   }
 
-  function only_admin_can_set_gasmax_test() public {
+  function only_gov_can_set_gasmax_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
     try notAdmin.setGasmax(0) {
       TestEvents.fail("nonadmin cannot set gasmax");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "HasAdmin/adminOnly");
+      TestEvents.revertEq(r, "dex/unauthorized");
     }
   }
 
-  function only_admin_can_set_gasbase_test() public {
+  function only_gov_can_set_gasbase_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
     try notAdmin.setGasbase(base, quote, 0) {
       TestEvents.fail("nonadmin cannot set gasbase");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "HasAdmin/adminOnly");
+      TestEvents.revertEq(r, "dex/unauthorized");
     }
   }
 

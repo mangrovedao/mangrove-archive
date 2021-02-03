@@ -12,22 +12,22 @@ import "./Toolbox/TestUtils.sol";
 import "./Toolbox/Display.sol";
 
 import "./Agents/TestToken.sol";
-import "./Agents/TestGovernance.sol";
+import "./Agents/TestMonitor.sol";
 
 // In these tests, the testing contract is the market maker.
-contract Governance_Test {
+contract Monitor_Test {
   receive() external payable {}
 
   Dex dex;
   TestMaker mkr;
-  DexGovernance gov;
+  DexMonitor monitor;
   address base;
   address quote;
 
   function a_beforeAll() public {
     TestToken baseT = TokenSetup.setup("A", "$A");
     TestToken quoteT = TokenSetup.setup("B", "$B");
-    gov = new DexGovernance();
+    monitor = new DexMonitor();
     base = address(baseT);
     quote = address(quoteT);
     dex = DexSetup.setup(baseT, quoteT);
@@ -53,13 +53,8 @@ contract Governance_Test {
     Display.register(address(mkr), "maker[$A,$B]");
   }
 
-  function initial_governance_values_test() public {
+  function initial_monitor_values_test() public {
     DC.Config memory config = dex.config(base, quote);
-    TestEvents.eq(
-      config.global.governance,
-      address(0),
-      "initial governance should be 0"
-    );
     TestEvents.check(
       !config.global.useOracle,
       "initial useOracle should be false"
@@ -67,42 +62,42 @@ contract Governance_Test {
     TestEvents.check(!config.global.notify, "initial notify should be false");
   }
 
-  function set_governance_values_test() public {
-    dex.setGovernance(address(gov));
+  function set_monitor_values_test() public {
+    dex.setMonitor(address(monitor));
     dex.setUseOracle(true);
     dex.setNotify(true);
     DC.Config memory config = dex.config(base, quote);
     TestEvents.eq(
-      config.global.governance,
-      address(gov),
-      "governance should be set"
+      config.global.monitor,
+      address(monitor),
+      "monitor should be set"
     );
     TestEvents.check(config.global.useOracle, "useOracle should be set");
     TestEvents.check(config.global.notify, "notify should be set");
   }
 
   function set_oracle_density_with_useOracle_works_test() public {
-    dex.setGovernance(address(gov));
+    dex.setMonitor(address(monitor));
     dex.setUseOracle(true);
     dex.setDensity(base, quote, 898);
-    gov.setDensity(base, quote, 899);
+    monitor.setDensity(base, quote, 899);
     DC.Config memory config = dex.config(base, quote);
     TestEvents.eq(config.local.density, 899, "density should be set oracle");
   }
 
   function set_oracle_density_without_useOracle_fails_test() public {
-    dex.setGovernance(address(gov));
+    dex.setMonitor(address(monitor));
     dex.setDensity(base, quote, 898);
-    gov.setDensity(base, quote, 899);
+    monitor.setDensity(base, quote, 899);
     DC.Config memory config = dex.config(base, quote);
     TestEvents.eq(config.local.density, 898, "density should be set by dex");
   }
 
   function set_oracle_gasprice_with_useOracle_works_test() public {
-    dex.setGovernance(address(gov));
+    dex.setMonitor(address(monitor));
     dex.setUseOracle(true);
     dex.setGasprice(900);
-    gov.setGasprice(901);
+    monitor.setGasprice(901);
     DC.Config memory config = dex.config(base, quote);
     TestEvents.eq(
       config.global.gasprice,
@@ -112,15 +107,15 @@ contract Governance_Test {
   }
 
   function set_oracle_gasprice_without_useOracle_fails_test() public {
-    dex.setGovernance(address(gov));
+    dex.setMonitor(address(monitor));
     dex.setGasprice(900);
-    gov.setGasprice(901);
+    monitor.setGasprice(901);
     DC.Config memory config = dex.config(base, quote);
     TestEvents.eq(config.global.gasprice, 900, "gasprice should be set by dex");
   }
 
   function invalid_oracle_address_throws_test() public {
-    dex.setGovernance(address(42));
+    dex.setMonitor(address(42));
     dex.setUseOracle(true);
     try dex.config(base, quote) {
       TestEvents.fail("Call to invalid oracle address should throw");
@@ -131,7 +126,7 @@ contract Governance_Test {
 
   function notify_works_on_success_when_set_test() public {
     mkr.approveDex(ERC20(base), 1 ether);
-    dex.setGovernance(address(gov));
+    dex.setMonitor(address(monitor));
     dex.setNotify(true);
     uint ofrId = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     bytes32 offer = dex.offers(base, quote, ofrId);
@@ -150,12 +145,12 @@ contract Governance_Test {
         offerDetail: dex.offerDetails(base, quote, ofrId)
       });
 
-    TestEvents.expectFrom(address(gov));
-    emit L.GovSuccess(order, address(this));
+    TestEvents.expectFrom(address(monitor));
+    emit L.TradeSuccess(order, address(this));
   }
 
   function notify_works_on_fail_when_set_test() public {
-    dex.setGovernance(address(gov));
+    dex.setMonitor(address(monitor));
     dex.setNotify(true);
     uint ofrId = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     bytes32 offer = dex.offers(base, quote, ofrId);
@@ -174,7 +169,7 @@ contract Governance_Test {
         offerDetail: dex.offerDetails(base, quote, ofrId)
       });
 
-    TestEvents.expectFrom(address(gov));
-    emit L.GovFail(order);
+    TestEvents.expectFrom(address(monitor));
+    emit L.TradeFail(order);
   }
 }

@@ -6,11 +6,11 @@ pragma abicoder v2;
 import "../../DexCommon.sol";
 
 library L {
-  event GovSuccess(DexCommon.SingleOrder order, address taker);
-  event GovFail(DexCommon.SingleOrder order);
+  event TradeSuccess(DexCommon.SingleOrder order, address taker);
+  event TradeFail(DexCommon.SingleOrder order);
 }
 
-contract DexGovernance is IDexGovernance {
+contract DexMonitor is IDexMonitor {
   uint gasprice;
   mapping(address => mapping(address => uint)) private densities;
 
@@ -38,10 +38,10 @@ contract DexGovernance is IDexGovernance {
     external
     override
   {
-    emit L.GovSuccess(sor, taker);
+    emit L.TradeSuccess(sor, taker);
   }
 
   function notifyFail(DexCommon.SingleOrder calldata sor) external override {
-    emit L.GovFail(sor);
+    emit L.TradeFail(sor);
   }
 }

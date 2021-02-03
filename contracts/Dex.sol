@@ -6,10 +6,9 @@ pragma abicoder v2;
 // ERC, Maker, Taker interfaces
 import "./interfaces.sol";
 // Types common to main Dex contract and DexLib
-import {DexCommon as DC, DexEvents, IDexGovernance} from "./DexCommon.sol";
+import {DexCommon as DC, DexEvents, IDexMonitor} from "./DexCommon.sol";
 // The purpose of DexLib is to keep Dex under the [Spurious Dragon](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md) 24kb limit.
 import "./DexLib.sol";
-import "./lib/HasAdmin.sol";
 
 /* # State variables
    This contract describes an orderbook-based exchange ("Dex") where market makers *do not have to provision their offer*. See `DexCommon.sol` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. The Dex transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
@@ -20,7 +19,7 @@ import "./lib/HasAdmin.sol";
    The state variables are:
  */
 
-abstract contract Dex is HasAdmin {
+abstract contract Dex {
   /* Holds data about orders in a struct, used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
   struct MultiOrder {
     uint initialWants;
@@ -36,6 +35,10 @@ abstract contract Dex is HasAdmin {
     // used as #successes in internalSnipes
     uint extraData;
   }
+
+  /* The governance address */
+  address public governance;
+  address public vault;
 
   /* The signature of the low-level swapping function. */
   bytes4 immutable FLASHLOANER;
@@ -90,8 +93,13 @@ abstract contract Dex is HasAdmin {
     uint gasmax,
     /* determines whether the taker or maker does the flashlend */
     bool takerLends
-  ) HasAdmin() {
+  ) {
     emit DexEvents.NewDex();
+
+    governance = msg.sender;
+    emit DexEvents.SetGovernance(msg.sender);
+
+    setVault(msg.sender);
     setGasprice(gasprice);
     setGasmax(gasmax);
     /* In a 'normal' mode of operation, takers lend the liquidity to the maker. */
@@ -586,7 +594,7 @@ abstract contract Dex is HasAdmin {
       );
 
       if ($$(glo_notify("mor.global")) > 0) {
-        IDexGovernance($$(glo_governance("mor.global"))).notifySuccess(
+        IDexMonitor($$(glo_monitor("mor.global"))).notifySuccess(
           sor,
           msg.sender
         );
@@ -612,7 +620,7 @@ abstract contract Dex is HasAdmin {
         );
 
         if ($$(glo_notify("mor.global")) > 0) {
-          IDexGovernance($$(glo_governance("mor.global"))).notifyFail(sor);
+          IDexMonitor($$(glo_monitor("mor.global"))).notifyFail(sor);
         }
       } else if (errorCode == "dex/tradeOverflow") {
         revert("dex/tradeOverflow");
@@ -871,7 +879,7 @@ abstract contract Dex is HasAdmin {
       uint concreteFee = (mor.totalGot * $$(loc_fee("mor.local"))) / 10_000;
       mor.totalGot -= concreteFee;
       bool success =
-        DexLib.transferToken(sor.base, msg.sender, admin, concreteFee);
+        DexLib.transferToken(sor.base, msg.sender, vault, concreteFee);
       require(success, "dex/takerFailToPayDex");
     }
   }
@@ -939,7 +947,7 @@ abstract contract Dex is HasAdmin {
      **Incentive issue**: if the gas price increases enough after an offer has been created, there may not be an immediately profitable way to remove the fake offers. In that case, we count on 3 factors to keep the book clean:
      1. Gas price eventually comes down.
      2. Other market makers want to keep the Dex attractive and maintain their offer flow.
-     3. Dex administrators (who may collect a fee) want to keep the Dex attractive and maximize exchange volume.
+     3. Dex governance (who may collect a fee) wants to keep the Dex attractive and maximize exchange volume.
 
 We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` so bots do not have to run their own contracts. They work by executing a sequence of offers, then reverting all the trades (whatever happened). The revert data contains the list of failed offers, which are then punished. */
 
@@ -1203,7 +1211,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   {
     (bytes32 _global, bytes32 _local) = getConfig(base, quote);
     ret.global = DC.Global({
-      governance: $$(glo_governance("_global")),
+      monitor: $$(glo_monitor("_global")),
       useOracle: $$(glo_useOracle("_global")) > 0,
       notify: $$(glo_notify("_global")) > 0,
       gasprice: $$(glo_gasprice("_global")),
@@ -1229,7 +1237,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     _local = locals[base][quote];
     if ($$(glo_useOracle("_global")) > 0) {
       (uint gasprice, uint density) =
-        IDexGovernance($$(glo_governance("_global"))).read(base, quote);
+        IDexMonitor($$(glo_monitor("_global"))).read(base, quote);
       _global = $$(glo_set("_global", [["gasprice", "gasprice"]]));
       _local = $$(loc_set("_local", [["density", "density"]]));
     }
@@ -1246,7 +1254,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint density,
     uint gasbase
   ) public {
-    adminOnly();
+    authOnly();
     locals[base][quote] = $$(loc_set("locals[base][quote]", [["active", 1]]));
     setFee(base, quote, fee);
     setDensity(base, quote, density);
@@ -1255,7 +1263,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   }
 
   function deactivate(address base, address quote) public {
-    adminOnly();
+    authOnly();
     locals[base][quote] = $$(loc_set("locals[base][quote]", [["active", 0]]));
     emit DexEvents.SetActive(base, quote, true);
   }
@@ -1266,7 +1274,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     address quote,
     uint value
   ) public {
-    adminOnly();
+    authOnly();
     /* `fee` is in basis points, i.e. in percents of a percent. */
     require(value <= 500, "dex/config/fee/<=500"); // at most 5%
     locals[base][quote] = $$(
@@ -1282,7 +1290,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     address quote,
     uint value
   ) public {
-    adminOnly();
+    authOnly();
     /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
     require(uint32(value) == value, "dex/config/density/32bits");
     //+clear+
@@ -1298,7 +1306,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     address quote,
     uint value
   ) public {
-    adminOnly();
+    authOnly();
     /* Checking the size of `gasbase` is necessary to prevent a) data loss when `gasbase` is copied to an `OfferDetail` struct, and b) overflow when `gasbase` is used in calculations. */
     require(uint24(value) == value, "dex/config/gasbase/24bits");
     //+clear+
@@ -1311,7 +1319,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* ## Globals */
   /* ### `kill` */
   function kill() public {
-    adminOnly();
+    authOnly();
     global = $$(glo_set("global", [["dead", 1]]));
     emit DexEvents.Kill();
   }
@@ -1319,7 +1327,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   /* ### `gasprice` */
   /* Useless if global.useOracle is != 0 */
   function setGasprice(uint value) public {
-    adminOnly();
+    authOnly();
     /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */
     require(uint16(value) == value, "dex/config/gasprice/16bits");
     //+clear+
@@ -1330,7 +1338,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 
   /* ### `gasmax` */
   function setGasmax(uint value) public {
-    adminOnly();
+    authOnly();
     /* Since any new `gasreq` is bounded above by `config.gasmax`, this check implies that all offers' `gasreq` is 24 bits wide at most. */
     require(uint24(value) == value, "dex/config/gasmax/24bits");
     //+clear+
@@ -1339,13 +1347,32 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   }
 
   function setGovernance(address value) public {
-    adminOnly();
-    global = $$(glo_set("global", [["governance", "value"]]));
+    authOnly();
+    governance = value;
     emit DexEvents.SetGovernance(value);
   }
 
+  function setVault(address value) public {
+    authOnly();
+    vault = value;
+    emit DexEvents.SetVault(value);
+  }
+
+  function setMonitor(address value) public {
+    authOnly();
+    global = $$(glo_set("global", [["monitor", "value"]]));
+    emit DexEvents.SetMonitor(value);
+  }
+
+  function authOnly() internal view {
+    require(
+      msg.sender == governance || msg.sender == address(this),
+      "dex/unauthorized"
+    );
+  }
+
   function setUseOracle(bool value) public {
-    adminOnly();
+    authOnly();
     if (value) {
       global = $$(glo_set("global", [["useOracle", 1]]));
     } else {
@@ -1355,7 +1382,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
   }
 
   function setNotify(bool value) public {
-    adminOnly();
+    authOnly();
     if (value) {
       global = $$(glo_set("global", [["notify", 1]]));
     } else {

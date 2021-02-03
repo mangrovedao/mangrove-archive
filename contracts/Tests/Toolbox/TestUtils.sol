@@ -52,8 +52,8 @@ library TestUtils {
     return dex.bests(base, quote) == 0;
   }
 
-  function adminOf(Dex dex) internal view returns (address) {
-    return dex.admin();
+  function adminOf(Dex dex) internal returns (address) {
+    return dex.governance();
   }
 
   function getFee(
