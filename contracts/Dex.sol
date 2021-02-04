@@ -34,6 +34,7 @@ abstract contract Dex {
     // used as past offer id in internalMarketOrder
     // used as #successes in internalSnipes
     uint extraData;
+    address taker;
   }
 
   /* The governance address */
@@ -72,7 +73,8 @@ abstract contract Dex {
     uint gasprice,
     uint gasmax,
     /* determines whether the taker or maker does the flashlend */
-    bool takerLends
+    bool takerLends,
+    string memory contractName
   ) {
     emit DexEvents.NewDex();
 
@@ -87,6 +89,22 @@ abstract contract Dex {
     FLASHLOANER = takerLends
       ? DexLib.flashloan.selector
       : DexLib.invertedFlashloan.selector;
+
+    uint chainId;
+    assembly {
+      chainId := chainid()
+    }
+    DOMAIN_SEPARATOR = keccak256(
+      abi.encode(
+        keccak256(
+          "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+        ),
+        keccak256(bytes(contractName)),
+        keccak256(bytes("1")),
+        chainId,
+        address(this)
+      )
+    );
   }
 
   /*
@@ -296,14 +314,135 @@ abstract contract Dex {
     uint takerWants,
     uint takerGives
   ) external returns (uint takerGot, uint takerGave) {
-    (takerGot, takerGave, ) = marketOrder(
+    (takerGot, takerGave, ) = generalMarketOrder(
       base,
       quote,
       takerWants,
       takerGives,
       0,
-      0
+      0,
+      msg.sender
     );
+  }
+
+  /* taker allowances: base => quote => taker => sender => allowance */
+  mapping(address => mapping(address => mapping(address => mapping(address => uint))))
+    public allowances;
+  /* permit nonces */
+  mapping(address => uint) nonces;
+
+  function updateAllowance(
+    address base,
+    address quote,
+    address taker,
+    uint takerGave
+  ) internal {
+    uint allowed = allowances[base][quote][taker][msg.sender];
+    require(allowed > takerGave, "dex/lowAllowance");
+    allowances[base][quote][taker][msg.sender] = allowed - takerGave;
+  }
+
+  //initialized in constructor
+  bytes32 public immutable DOMAIN_SEPARATOR;
+  // keccak256("Permit(address base,address quote,address taker,address sender,uint256 amount,uint256 expiry,uint256 nonce)");
+  bytes32 public constant PERMIT_TYPEHASH =
+    0x17a32460f8ed1b6b681cae250706af2a994f0a49f9f87e61c7e4fac936375f5e;
+
+  /* Adapted from from Uniswap v2 contract */
+  function permit(
+    address base,
+    address quote,
+    address taker,
+    address sender,
+    uint amount,
+    uint expiry,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+  ) external {
+    require(expiry >= block.timestamp, "dex/permit/expired");
+
+    uint nonce = nonces[taker]++;
+    bytes32 digest =
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          DOMAIN_SEPARATOR,
+          keccak256(
+            abi.encode(
+              PERMIT_TYPEHASH,
+              base,
+              quote,
+              taker,
+              sender,
+              amount,
+              expiry,
+              nonce
+            )
+          )
+        )
+      );
+    address recoveredAddress = ecrecover(digest, v, r, s);
+    require(
+      recoveredAddress != address(0) && recoveredAddress == taker,
+      "dex/permit/invalidSignature"
+    );
+
+    allowances[base][quote][taker][sender] = amount;
+    emit DexEvents.Approval(base, quote, taker, sender, amount);
+  }
+
+  function permittedMarketOrder(
+    address base,
+    address quote,
+    uint takerWants,
+    uint takerGives,
+    address taker
+  )
+    external
+    returns (
+      uint takerGot,
+      uint takerGave,
+      uint[2][] memory toPunish
+    )
+  {
+    (takerGot, takerGave, toPunish) = generalMarketOrder(
+      base,
+      quote,
+      takerWants,
+      takerGives,
+      0,
+      0,
+      taker
+    );
+    updateAllowance(base, quote, taker, takerGave);
+  }
+
+  function marketOrder(
+    address base,
+    address quote,
+    uint takerWants,
+    uint takerGives,
+    uint punishLength,
+    uint offerId
+  )
+    external
+    returns (
+      uint,
+      uint,
+      uint[2][] memory
+    )
+  {
+    return
+      generalMarketOrder(
+        base,
+        quote,
+        takerWants,
+        takerGives,
+        punishLength,
+        offerId,
+        msg.sender
+      );
   }
 
   /* The lower-level `marketOrder` can:
@@ -321,7 +460,7 @@ abstract contract Dex {
   //+ignore+ not work, you'll just be asking for a ~0 price.
 
   /* During execution, we store some values in a memory struct to avoid solc's [stack too deep errors](https://medium.com/coinmonks/stack-too-deep-error-in-solidity-608d1bd6a1ea) that can occur when too many local variables are used. */
-  function marketOrder(
+  function generalMarketOrder(
     /*   ### Arguments */
     /* A taker calling this function wants to receive `takerWants` `OFR_TOKEN` in return
        for at most `takerGives` `REQ_TOKEN`.
@@ -333,9 +472,10 @@ abstract contract Dex {
     uint takerWants,
     uint takerGives,
     uint punishLength,
-    uint offerId
+    uint offerId,
+    address taker
   )
-    public
+    internal
     returns (
       /* The return value is used for book cleaning: it contains a list (of length `2 * punishLength`) of the offers that failed during the market order, along with the gas they used before failing. */
       uint,
@@ -357,6 +497,7 @@ abstract contract Dex {
     mor.toPunish = new uint[2][](punishLength);
     mor.initialWants = takerWants;
     mor.initialGives = takerGives;
+    mor.taker = taker;
     sor.offerId = offerId == 0 ? $$(loc_best("mor.local")) : offerId;
     sor.offer = offers[base][quote][sor.offerId];
     mor.extraData = $$(o_prev("sor.offer"));
@@ -518,7 +659,9 @@ abstract contract Dex {
     internal
     virtual;
 
-  function executeCallback(DC.SingleOrder memory sor) internal virtual;
+  function executeCallback(MultiOrder memory mor, DC.SingleOrder memory sor)
+    internal
+    virtual;
 
   /* We could make `execute` part of DexLib to reduce Dex contract size, but we make heavy use of the memory struct `sor` to modify data that will then be used by the caller (`internalSnipes` or `internalMarketOrder`). */
   /* maker has failed iff (!success && deleted) */
@@ -578,7 +721,7 @@ abstract contract Dex {
     */
     bytes memory retdata;
     (success, retdata) = address(DexLib).delegatecall(
-      abi.encodeWithSelector(FLASHLOANER, sor)
+      abi.encodeWithSelector(FLASHLOANER, sor, mor.taker)
     );
 
     /* Revert if FLASHLOANER reverted. **Danger**: if a well-crafted offer/maker pair can force a revert of FLASHLOANER, the Dex will be stuck. */
@@ -596,7 +739,7 @@ abstract contract Dex {
       if ($$(glo_notify("mor.global")) > 0) {
         IDexMonitor($$(glo_monitor("mor.global"))).notifySuccess(
           sor,
-          msg.sender
+          mor.taker
         );
       }
 
@@ -658,6 +801,34 @@ abstract contract Dex {
   //+clear+
   /* `snipe` takes a single offer from the book, at whatever price is induced by the offer. */
 
+  function permittedSnipe(
+    address base,
+    address quote,
+    uint offerId,
+    uint takerWants,
+    uint takerGives,
+    uint gasreq,
+    address taker
+  )
+    external
+    returns (
+      bool success,
+      uint takerGot,
+      uint takerGave
+    )
+  {
+    (success, takerGot, takerGave) = generalSnipe(
+      base,
+      quote,
+      offerId,
+      takerWants,
+      takerGives,
+      gasreq,
+      taker
+    );
+    updateAllowance(base, quote, taker, takerGave);
+  }
+
   function snipe(
     address base,
     address quote,
@@ -673,11 +844,81 @@ abstract contract Dex {
       uint
     )
   {
+    return
+      generalSnipe(
+        base,
+        quote,
+        offerId,
+        takerWants,
+        takerGives,
+        gasreq,
+        msg.sender
+      );
+  }
+
+  function generalSnipe(
+    address base,
+    address quote,
+    uint offerId,
+    uint takerWants,
+    uint takerGives,
+    uint gasreq,
+    address taker
+  )
+    internal
+    returns (
+      bool,
+      uint,
+      uint
+    )
+  {
     uint[4][] memory targets = new uint[4][](1);
     targets[0] = [offerId, takerWants, takerGives, gasreq];
     (uint successes, uint takerGot, uint takerGave, ) =
-      snipes(base, quote, targets, 1);
+      generalSnipes(base, quote, targets, 1, taker);
     return (successes == 1, takerGot, takerGave);
+  }
+
+  function permittedSnipes(
+    address base,
+    address quote,
+    uint[4][] memory targets,
+    uint punishLength,
+    address taker
+  )
+    external
+    returns (
+      uint successes,
+      uint takerGot,
+      uint takerGave,
+      uint[2][] memory toPunish
+    )
+  {
+    (successes, takerGot, takerGave, toPunish) = generalSnipes(
+      base,
+      quote,
+      targets,
+      punishLength,
+      taker
+    );
+    updateAllowance(base, quote, taker, takerGave);
+  }
+
+  function snipes(
+    address base,
+    address quote,
+    uint[4][] memory targets,
+    uint punishLength
+  )
+    external
+    returns (
+      uint,
+      uint,
+      uint,
+      uint[2][] memory
+    )
+  {
+    return generalSnipes(base, quote, targets, punishLength, msg.sender);
   }
 
   //+clear+
@@ -689,13 +930,14 @@ abstract contract Dex {
     `marketOrder`). Returns an array of size at most
     twice `punishLength` containing info on failed offers. Only existing offers can fail: if an offerId is invalid, it will just be skipped. **You should probably set `punishLength` to 1.**
       */
-  function snipes(
+  function generalSnipes(
     address base,
     address quote,
     uint[4][] memory targets,
-    uint punishLength
+    uint punishLength,
+    address taker
   )
-    public
+    internal
     returns (
       uint,
       uint,
@@ -714,6 +956,7 @@ abstract contract Dex {
     sor.base = base;
     sor.quote = quote;
     mor.toPunish = new uint[2][](punishLength);
+    mor.taker = taker;
 
     requireActiveMarket(mor.global, mor.local);
 
@@ -811,7 +1054,7 @@ abstract contract Dex {
     bytes32 makerData
   ) internal {
     if (success) {
-      executeCallback(sor);
+      executeCallback(mor, sor);
     }
 
     {
@@ -883,7 +1126,7 @@ abstract contract Dex {
       uint concreteFee = (mor.totalGot * $$(loc_fee("mor.local"))) / 10_000;
       mor.totalGot -= concreteFee;
       bool success =
-        DexLib.transferToken(sor.base, msg.sender, vault, concreteFee);
+        DexLib.transferToken(sor.base, mor.taker, vault, concreteFee);
       require(success, "dex/takerFailToPayDex");
     }
   }
@@ -965,7 +1208,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint[4][] calldata targets,
     uint punishLength
   ) external {
-    /* We do not directly call `snipes` because we want to revert all the offer executions before returning. So we call an intermediate function, `internalPunishingSnipes` (we don't `call` to preserve the calling context, in partiular `msg.sender`). */
+    /* We do not directly call `snipes` because we want to revert all the offer executions before returning. So we delegatecall an intermediate function, `internalPunishingSnipes` (we could `call` since we don't need msg.sender at this point). */
     (bool noRevert, bytes memory retdata) =
       address(this).delegatecall(
         abi.encodeWithSelector(
@@ -991,7 +1234,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     }
   }
 
-  /* Sandwiched between `punishingSnipes` and `snipes`, the function `internalPunishingSnipes` runs a sequence of snipes, reverts it, and sends up the list of failed offers. If it catches a revert inside `snipes`, it returns normally a `bytes` array with the raw revert data in it. Again, we use `delegatecall` to preseve `msg.sender`. */
+  /* Sandwiched between `punishingSnipes` and `snipes`, the function `internalPunishingSnipes` runs a sequence of snipes, reverts it, and sends up the list of failed offers. If it catches a revert inside `snipes`, it returns normally a `bytes` array with the raw revert data in it. */
   //TODO explain why it's safe to call from outside
   function internalPunishingSnipes(
     address base,
@@ -1033,7 +1276,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     uint takerGives,
     uint punishLength
   ) external {
-    /* We do not directly call `marketOrder` because we want to revert all the offer executions before returning. So we delegatecall an intermediate function, `internalPunishingMarketOrder`. Again, we use `delegatecall` to preserve `msg.sender`. */
+    /* We do not directly call `marketOrder` because we want to revert all the offer executions before returning. So we delegatecall an intermediate function, `internalPunishingMarketOrder`. */
     (bool noRevert, bytes memory retdata) =
       address(this).delegatecall(
         abi.encodeWithSelector(
@@ -1061,7 +1304,7 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
     }
   }
 
-  /* Sandwiched between `punishingMarketOrder` and `marketOrder`, the function `internalPunishingMarketOrder` runs a market order, reverts it, and sends up the list of failed offers. If it catches a revert inside `marketOrder`, it returns normally a `bytes` array with the raw revert data in it. Again, we use `delegatecall` to preserve `msg.sender`. */
+  /* Sandwiched between `punishingMarketOrder` and `marketOrder`, the function `internalPunishingMarketOrder` runs a market order, reverts it, and sends up the list of failed offers. If it catches a revert inside `marketOrder`, it returns normally a `bytes` array with the raw revert data in it. */
   function internalPunishingMarketOrder(
     address base,
     address quote,
@@ -1707,25 +1950,28 @@ We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` 
 }
 
 contract FMD is Dex {
-  constructor(uint gasprice, uint gasmax) Dex(gasprice, gasmax, true) {}
+  constructor(uint gasprice, uint gasmax) Dex(gasprice, gasmax, true, "FMD") {}
 
   function executeEnd(MultiOrder memory mor, DC.SingleOrder memory sor)
     internal
     override
   {}
 
-  function executeCallback(DC.SingleOrder memory sor) internal override {}
+  function executeCallback(MultiOrder memory mor, DC.SingleOrder memory sor)
+    internal
+    override
+  {}
 }
 
 contract FTD is Dex {
-  constructor(uint gasprice, uint gasmax) Dex(gasprice, gasmax, false) {}
+  constructor(uint gasprice, uint gasmax) Dex(gasprice, gasmax, false, "FTD") {}
 
   // execute taker trade
   function executeEnd(MultiOrder memory mor, DC.SingleOrder memory sor)
     internal
     override
   {
-    ITaker(msg.sender).takerTrade(
+    ITaker(mor.taker).takerTrade(
       sor.base,
       sor.quote,
       mor.totalGot,
@@ -1743,11 +1989,14 @@ contract FTD is Dex {
      2) is OK, but has an extra CALL cost on top of the token transfer, one for each maker. This is unavoidable anyway when calling makerTrade (since the maker must be able to execute arbitrary code at that moment), but we can skip it here.
      3) is the cheapest, but it has the drawbacks of `transferFrom`: money must end up owned by the taker, and taker needs to `approve` Dex
    */
-  function executeCallback(DC.SingleOrder memory sor) internal override {
+  function executeCallback(MultiOrder memory mor, DC.SingleOrder memory sor)
+    internal
+    override
+  {
     bool success =
       DexLib.transferToken(
         sor.quote,
-        msg.sender,
+        mor.taker,
         $$(od_maker("sor.offerDetail")),
         $$(o_gives("sor.offer"))
       );
