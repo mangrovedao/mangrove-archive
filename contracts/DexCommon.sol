@@ -190,7 +190,6 @@ Note: An optimization in the `marketOrder` function relies on reentrancy being f
   }
 
   struct OrderResult {
-    address taker;
     bool success;
     bytes32 makerData;
   }
