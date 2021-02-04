@@ -224,6 +224,15 @@ library DexEvents {
     bytes32 makerData
   );
 
+  /* Permit */
+  event Approval(
+    address base,
+    address quote,
+    address taker,
+    address sender,
+    uint amount
+  );
+
   /* * Dex closure */
   event Kill();
 

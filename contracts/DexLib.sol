@@ -18,7 +18,7 @@ library DexLib {
      2. Runs `offerDetail.maker`'s `execute` function.
      3. Returns the result of the operations, with optional makerData to help the maker debug.
    */
-  function flashloan(DC.SingleOrder calldata sor)
+  function flashloan(DC.SingleOrder calldata sor, address taker)
     external
     returns (uint gasused)
   {
@@ -27,12 +27,12 @@ library DexLib {
     if (
       transferToken(
         sor.quote,
-        msg.sender,
+        taker,
         $$(od_maker("sor.offerDetail")),
         sor.gives
       )
     ) {
-      gasused = makerExecute(sor);
+      gasused = makerExecute(sor, taker);
     } else {
       innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
     }
@@ -41,7 +41,7 @@ library DexLib {
   /*
      `invertedFlashloan` is for the 'arbitrage' mode of operation. It:
      0. Calls the maker's `execute` function. If successful (tokens have been sent to taker):
-     2. Runs `msg.sender`'s `execute` function.
+     2. Runs `taker`'s `execute` function.
      4. Returns the results ofthe operations, with optional makerData to help the maker debug.
 
      There are two ways to do the flashloan:
@@ -59,14 +59,14 @@ library DexLib {
     We choose `transferFrom`.
     */
 
-  function invertedFlashloan(DC.SingleOrder calldata sor)
+  function invertedFlashloan(DC.SingleOrder calldata sor, address taker)
     external
     returns (uint gasused)
   {
-    gasused = makerExecute(sor);
+    gasused = makerExecute(sor, taker);
   }
 
-  function makerExecute(DC.SingleOrder calldata sor)
+  function makerExecute(DC.SingleOrder calldata sor, address taker)
     internal
     returns (uint gasused)
   {
@@ -105,9 +105,7 @@ library DexLib {
 
     //An example why this is not safe if ERC20 has a callback:
     //https://peckshield.medium.com/akropolis-incident-root-cause-analysis-c11ee59e05d4
-    //uint newBalance = IERC20(sor.base).balanceOf(msg.sender);
-    bool transferSuccess =
-      transferToken(sor.base, maker, msg.sender, sor.wants);
+    bool transferSuccess = transferToken(sor.base, maker, taker, sor.wants);
 
     if (!transferSuccess) {
       innerRevert(
