@@ -158,8 +158,8 @@ library DexSetup {
     TestEvents.not0x(address(quote));
     dex = new FMD({gasprice: 40, gasmax: 1_000_000});
 
-    dex.activate(address(base), address(quote), 0, 100, 30_000);
-    dex.activate(address(quote), address(base), 0, 100, 30_000);
+    dex.activate(address(base), address(quote), 0, 100, 80_000);
+    dex.activate(address(quote), address(base), 0, 100, 80_000);
 
     return dex;
   }
@@ -174,15 +174,15 @@ library DexSetup {
     if (inverted) {
       dex = new FTD({gasprice: 40, gasmax: 1_000_000});
 
-      dex.activate(address(base), address(quote), 0, 100, 30_000);
-      dex.activate(address(quote), address(base), 0, 100, 30_000);
+      dex.activate(address(base), address(quote), 0, 100, 80_000);
+      dex.activate(address(quote), address(base), 0, 100, 80_000);
 
       return dex;
     } else {
       dex = new FMD({gasprice: 40, gasmax: 1_000_000});
 
-      dex.activate(address(base), address(quote), 0, 100, 30_000);
-      dex.activate(address(quote), address(base), 0, 100, 30_000);
+      dex.activate(address(base), address(quote), 0, 100, 80_000);
+      dex.activate(address(quote), address(base), 0, 100, 80_000);
 
       return dex;
     }

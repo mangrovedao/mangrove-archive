@@ -10,7 +10,7 @@ import "../../Dex.sol";
 contract UniSwapMaker is IMaker {
   Dex dex;
   address private admin;
-  uint gasreq = 70_000;
+  uint gasreq = 80_000;
   uint share;
   uint fee; // per 1000
   uint ofr0;
