@@ -176,7 +176,6 @@ They have the following fields: */
   }
 
   struct OrderResult {
-    address taker;
     bool success;
     bytes32 makerData;
   }

@@ -482,11 +482,7 @@ abstract contract Dex {
     bytes32 makerData
   ) internal returns (uint gasused) {
     DC.OrderResult memory res =
-      DC.OrderResult({
-        taker: msg.sender,
-        success: success,
-        makerData: makerData
-      });
+      DC.OrderResult({success: success, makerData: makerData});
 
     bytes memory cd =
       abi.encodeWithSelector(IMaker.makerPosthook.selector, sor, res);
