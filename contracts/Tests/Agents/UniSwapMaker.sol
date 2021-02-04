@@ -5,58 +5,36 @@ pragma abicoder v2;
 import "../../ERC20.sol";
 import "../../Dex.sol";
 
-// struct Trade {
-//   address base;
-//   address quote;
-//   uint takerWants;
-//   uint takerGives;
-//   address taker;
-//   uint offerGasprice;
-//   uint offerGasreq;
-//   uint offerId;
-//   uint offerWants;
-//   uint offerGives;
-//   bool offerWillDelete;
-// }
-//
-//
-// event Execute(
-//   address dex,
-//   address base,
-//   address quote,
-//   uint offerId,
-//   uint takerWants,
-//   uint takerGives
-// );
-
 // Dex must be provisioned in the name of UniSwapMaker
 // UniSwapMaker must have ERC20 credit in tk0 and tk1 and these credits should not be shared (since contract is memoryless)
 contract UniSwapMaker is IMaker {
   Dex dex;
   address private admin;
-  uint gasreq = 100_000;
-  uint fraction;
-  uint fee;
-
-  mapping(uint => uint) percentile;
+  uint gasreq = 70_000;
+  uint share;
+  uint fee; // per 1000
+  uint ofr0;
+  uint ofr1;
 
   constructor(
     Dex _dex,
-    uint _fraction,
+    uint _share,
     uint _fee
   ) {
+    require(_fee < 1000 && _share > 1, "Invalid parameters");
     admin = msg.sender;
     dex = _dex; // FMD or FTD
-    fraction = _fraction;
+    share = _share;
     fee = _fee;
   }
 
   receive() external payable {}
 
-  function setParams(uint _fee, uint _fraction) external {
+  function setParams(uint _fee, uint _share) external {
+    require(_fee < 1000 && _share > 1, "Invalid parameters");
     if (msg.sender == admin) {
       fee = _fee;
-      fraction = _fraction;
+      share = _share;
     }
   }
 
@@ -76,44 +54,33 @@ contract UniSwapMaker is IMaker {
     require(msg.sender == address(dex), "Illegal call");
     emit Execute(
       msg.sender,
-      order.base, // takerGives
-      order.quote, // takerWants
+      order.base, // takerWants
+      order.quote, // takerGives
       order.offerId,
       order.wants,
       order.gives
     );
   }
 
-  // struct Posthook {
-  //   address base;
-  //   address quote;
-  //   uint takerWants;
-  //   uint takerGives;
-  //   uint offerId;
-  //   bool offerDeleted;
-  // }
-
+  // newPrice(makerWants,makerGives)
   function newPrice(ERC20 tk, ERC20 _tk) internal view returns (uint, uint) {
-    uint newGives = _tk.balanceOf(address(this)) / fraction;
-    uint x = (fraction * fee) / 1000;
-    uint newWants = (tk.balanceOf(address(this)) * x) / (1 + x);
+    uint poolWants = tk.balanceOf(address(this));
+    uint poolGives = _tk.balanceOf(address(this));
+
+    uint newGives = poolGives / share; // share = 100 for 1%
+    uint x = (newGives * poolWants) / (poolGives - newGives); // forces newGives < poolGives
+    uint newWants = (1000 * x) / (1000 - fee); // fee < 1000
     return (newWants, newGives);
   }
 
-  function newOffer(
-    address base,
-    address quote,
-    uint pivotId_bq,
-    uint pivotId_qb
-  ) public {
-    (uint bq_wants, uint bq_gives) = newPrice(ERC20(base), ERC20(quote));
-    (uint qb_wants, uint qb_gives) = newPrice(ERC20(quote), ERC20(base));
-    uint newOfrId_bq =
-      dex.newOffer(base, quote, bq_wants, bq_gives, gasreq, 0, pivotId_bq);
-    uint newOfrId_qb =
-      dex.newOffer(quote, base, qb_wants, qb_gives, gasreq, 0, pivotId_qb);
-    newOfrId_bq; // should be recorded as step i of price curve discretization
-    newOfrId_qb; // should be recorded as step i of price curve discretization
+  function newOffer(address tk0, address tk1) public {
+    ERC20(tk0).approve(address(dex), 2**256 - 1);
+    ERC20(tk1).approve(address(dex), 2**256 - 1);
+
+    (uint wants0, uint gives1) = newPrice(ERC20(tk0), ERC20(tk1));
+    (uint wants1, uint gives0) = newPrice(ERC20(tk1), ERC20(tk0)); // natural pair
+    ofr0 = dex.newOffer(tk0, tk1, wants0, gives1, gasreq, 0, 0);
+    ofr1 = dex.newOffer(tk1, tk0, wants1, gives0, gasreq, 0, 0); // natural OB
   }
 
   function makerPosthook(DC.SingleOrder calldata order, DC.OrderResult calldata)
@@ -121,22 +88,26 @@ contract UniSwapMaker is IMaker {
     override
   {
     // taker has paid maker
+    require(msg.sender == address(dex));
     (uint newWants, uint newGives) =
       newPrice(ERC20(order.quote), ERC20(order.base));
-    uint pivotId;
-    pivotId = 0;
+
     dex.updateOffer(
       order.base,
       order.quote,
       newWants,
       newGives,
       gasreq,
-      0,
-      pivotId,
-      order.offerId
+      0, // gasprice
+      0, // best pivot
+      order.offerId // the offer that was executed
     );
     // for all pairs in opposite Dex:
-    pivotId = 0; // if offerId = n, try to reenter at position offer[n+1]
+    uint OFR = ofr0;
+    if (order.offerId == ofr0) {
+      OFR = ofr1;
+    }
+
     (newWants, newGives) = newPrice(ERC20(order.base), ERC20(order.quote));
     dex.updateOffer(
       order.quote,
@@ -145,8 +116,8 @@ contract UniSwapMaker is IMaker {
       newGives,
       gasreq,
       0,
-      pivotId,
-      order.offerId
+      OFR,
+      OFR
     );
   }
 }

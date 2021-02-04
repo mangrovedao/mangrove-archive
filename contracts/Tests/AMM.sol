@@ -203,5 +203,30 @@ contract AMM_Test {
     check_logs(address(mgr), true);
   }
 
-  function uniswap_like_maker_test() public {}
+  function uniswap_like_maker_test() public {
+    UniSwapMaker amm = new UniSwapMaker(dex, 100, 3);
+    Display.register(address(amm), "UnisWapMaker");
+    Display.register(address(this), "TestRunner");
+    quoteT.mint(address(amm), 1000 ether);
+    baseT.mint(address(amm), 1000 ether);
+    dex.fund{value: 5 ether}(address(amm));
+    quoteT.mint(address(this), 5 ether);
+    quoteT.approve(address(dex), 2**256 - 1);
+    baseT.mint(address(this), 5 ether);
+    baseT.approve(address(dex), 2**256 - 1);
+
+    amm.newOffer(address(baseT), address(quoteT));
+
+    Display.logOfferBook(dex, address(baseT), address(quoteT), 1);
+    Display.logOfferBook(dex, address(quoteT), address(baseT), 1);
+
+    uint gas = gasleft();
+    (uint takerGot, uint takerGave) =
+      dex.simpleMarketOrder(address(baseT), address(quoteT), 3, 2**256 - 1);
+    uint _gas = gas - gasleft();
+    console.log("Gas used in the order:", _gas);
+
+    Display.logOfferBook(dex, address(baseT), address(quoteT), 1);
+    Display.logOfferBook(dex, address(quoteT), address(baseT), 1);
+  }
 }
