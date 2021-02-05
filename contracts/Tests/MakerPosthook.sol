@@ -245,6 +245,37 @@ contract MakerPosthook_Test is IMaker {
     );
   }
 
+  function treat_fail_at_posthook(
+    DexCommon.SingleOrder calldata,
+    DexCommon.OrderResult calldata res
+  ) external {
+    TestEvents.check(!res.success, "Offer should be marked as failed");
+    TestEvents.check(res.makerData == "NOK", "Incorrect maker data");
+  }
+
+  function failed_offer_is_not_executed_test() public {
+    posthook_bytes = this.treat_fail_at_posthook.selector;
+    uint balMaker = baseT.balanceOf(address(this));
+    uint balTaker = quoteT.balanceOf(address(tkr));
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    abort = true;
+
+    bool success = tkr.take(ofr, 1 ether);
+    TestEvents.check(!success, "Snipe should fail");
+    TestEvents.eq(
+      baseT.balanceOf(address(this)),
+      balMaker,
+      "Maker should not have been debited of her base tokens"
+    );
+    TestEvents.eq(
+      quoteT.balanceOf(address(tkr)),
+      balTaker,
+      "Taker should not have been debited of her quote tokens"
+    );
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.MakerFail(base, quote, ofr, 1 ether, 1 ether, true, "NOK");
+  }
+
   function update_offer_with_more_gasprice_test() public {
     uint mkr_provision =
       TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
@@ -378,5 +409,34 @@ contract MakerPosthook_Test is IMaker {
     );
     emit DexEvents.DeleteOffer(base, quote, ofr);
     DexEvents.Credit(address(this), refund);
+  }
+
+  function reverting_posthook(
+    DexCommon.SingleOrder calldata order,
+    DexCommon.OrderResult calldata
+  ) external {
+    assert(false);
+  }
+
+  function reverting_posthook_does_not_revert_offer_test() public {
+    uint mkr_provision =
+      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
+    uint balMaker = baseT.balanceOf(address(this));
+    uint balTaker = quoteT.balanceOf(address(tkr));
+    posthook_bytes = this.reverting_posthook.selector;
+
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    bool success = tkr.take(ofr, 1 ether);
+    TestEvents.check(success, "snipe should succeed");
+    TestEvents.eq(
+      balMaker - 1 ether,
+      baseT.balanceOf(address(this)),
+      "Incorrect maker balance"
+    );
+    TestEvents.eq(
+      balTaker - 1 ether,
+      quoteT.balanceOf(address(tkr)),
+      "Incorrect taker balance"
+    );
   }
 }
