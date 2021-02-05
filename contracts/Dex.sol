@@ -29,9 +29,8 @@ abstract contract Dex {
     bytes32 global;
     bytes32 local;
     uint takerDue;
-    // used as past offer id in internalMarketOrder
     // used as #successes in internalSnipes
-    uint extraData;
+    uint snipeSuccesses;
     address taker;
   }
 
@@ -446,7 +445,6 @@ abstract contract Dex {
     mor.initialWants = takerWants;
     mor.initialGives = takerGives;
     mor.taker = taker;
-    mor.extraData = $$(o_prev("sor.offer"));
 
     /* For the market order to even start, the market needs to be both alive (that is, not irreversibly killed following emergency action), and not currently protected from reentrancy. */
     requireActiveMarket(mor.global, mor.local);
@@ -493,7 +491,7 @@ abstract contract Dex {
       /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
 
          Let _r~1~_, ..., _r~n~_ the successive values taken by `offer` each time the current while loop's test is executed.
-         Also, let _r~0~_ = `offers[mor.extraData]` (where `extraData` is `pastOfferId`) be the offer immediately better
+         Also, let _r~0~_ = `offers[0]`be the offer immediately better
          than _r~1~_.
          After the market order loop ends, we will restore the doubly linked
          list by connecting _r~0~_ to _r~n~_ through their `prev`/`next`
@@ -542,7 +540,7 @@ abstract contract Dex {
 
       postExecute(mor, sor, success, executed, gasused, makerData);
     } else {
-      stitchOffers(sor.base, sor.quote, mor.extraData, sor.offerId);
+      stitchOffers(sor.base, sor.quote, 0, sor.offerId);
       locks[sor.base][sor.quote] = UNLOCKED;
       applyFee(mor, sor);
       executeEnd(mor, sor); //noop if classical Dex
@@ -881,7 +879,7 @@ abstract contract Dex {
 
     internalSnipes(mor, sor, targets, 0);
     paySender(mor.takerDue);
-    return (mor.extraData, mor.totalGot, mor.totalGave);
+    return (mor.snipeSuccesses, mor.totalGot, mor.totalGave);
   }
 
   function internalSnipes(
@@ -917,7 +915,7 @@ abstract contract Dex {
         (success, executed, gasused, makerData) = execute(mor, sor);
 
         if (success) {
-          mor.extraData += 1;
+          mor.snipeSuccesses += 1;
         }
 
         if (executed) {
