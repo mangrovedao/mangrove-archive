@@ -231,17 +231,4 @@ contract DeepCollect_Test {
       tkr
     );
   }
-
-  function punishing_snipes_test() public {
-    TestFailingMarketOrder.snipesAndRevert(
-      dex,
-      address(base),
-      address(quote),
-      tkr
-    );
-  }
-
-  function punishing_market_order_test() public {
-    TestFailingMarketOrder.moAndRevert(dex, address(base), address(quote), tkr);
-  }
 }

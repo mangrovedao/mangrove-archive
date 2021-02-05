@@ -104,38 +104,8 @@ contract TestTaker is ITaker {
   function marketOrderWithFail(
     uint wants,
     uint gives,
-    uint punishLength,
     uint offerId
-  )
-    external
-    returns (
-      uint,
-      uint,
-      uint[2][] memory
-    )
-  {
-    return _dex.marketOrder(_base, _quote, wants, gives, punishLength, offerId);
-  }
-
-  function snipesAndRevert(uint[4][] calldata targets, uint punishLength)
-    external
-  {
-    _dex.punishingSnipes(_base, _quote, targets, punishLength);
-  }
-
-  function marketOrderAndRevert(
-    uint fromOfferId,
-    uint takerWants,
-    uint takerGives,
-    uint punishLength
-  ) external {
-    _dex.punishingMarketOrder(
-      _base,
-      _quote,
-      fromOfferId,
-      takerWants,
-      takerGives,
-      punishLength
-    );
+  ) external returns (uint, uint) {
+    return _dex.marketOrder(_base, _quote, wants, gives, offerId);
   }
 }

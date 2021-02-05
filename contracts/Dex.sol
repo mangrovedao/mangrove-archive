@@ -28,8 +28,6 @@ abstract contract Dex {
     uint totalGave;
     bytes32 global;
     bytes32 local;
-    uint numToPunish;
-    uint[2][] toPunish;
     uint takerDue;
     // used as past offer id in internalMarketOrder
     // used as #successes in internalSnipes
@@ -319,12 +317,11 @@ abstract contract Dex {
     uint takerWants,
     uint takerGives
   ) external returns (uint takerGot, uint takerGave) {
-    (takerGot, takerGave, ) = generalMarketOrder(
+    (takerGot, takerGave) = generalMarketOrder(
       base,
       quote,
       takerWants,
       takerGives,
-      0,
       bests[base][quote],
       msg.sender
     );
@@ -403,20 +400,12 @@ abstract contract Dex {
     uint takerWants,
     uint takerGives,
     address taker
-  )
-    external
-    returns (
-      uint takerGot,
-      uint takerGave,
-      uint[2][] memory toPunish
-    )
-  {
-    (takerGot, takerGave, toPunish) = generalMarketOrder(
+  ) external returns (uint takerGot, uint takerGave) {
+    (takerGot, takerGave) = generalMarketOrder(
       base,
       quote,
       takerWants,
       takerGives,
-      0,
       bests[base][quote],
       taker
     );
@@ -428,30 +417,20 @@ abstract contract Dex {
     address quote,
     uint takerWants,
     uint takerGives,
-    uint punishLength,
     uint offerId
-  )
-    external
-    returns (
-      uint,
-      uint,
-      uint[2][] memory
-    )
-  {
+  ) external returns (uint, uint) {
     return
       generalMarketOrder(
         base,
         quote,
         takerWants,
         takerGives,
-        punishLength,
         offerId,
         msg.sender
       );
   }
 
   /* The lower-level `marketOrder` can:
-   * collect a list of failed offers for further processing (see [punishment for failing offers](#dex.sol-punishment-for-failing-offers)).
    * start walking the OB from any offerId (`0` to start from the best offer).
    */
   //+ignore+ ask for a volume by setting takerWants to however much you want and
@@ -469,25 +448,14 @@ abstract contract Dex {
     /*   ### Arguments */
     /* A taker calling this function wants to receive `takerWants` `OFR_TOKEN` in return
        for at most `takerGives` `REQ_TOKEN`.
-
-       A regular market order will have `punishLength = 0`, and `offerId = 0`. Any other `punishLength` and `offerId` are for book cleaning (see [`punishingMarketOrder`](#Dex/definition/punishingMarketOrder)).
      */
     address base,
     address quote,
     uint takerWants,
     uint takerGives,
-    uint punishLength,
     uint offerId,
     address taker
-  )
-    internal
-    returns (
-      /* The return value is used for book cleaning: it contains a list (of length `2 * punishLength`) of the offers that failed during the market order, along with the gas they used before failing. */
-      uint,
-      uint,
-      uint[2][] memory
-    )
-  {
+  ) internal returns (uint, uint) {
     /* ### Checks */
     //+clear+
     unlockedOnly(base, quote);
@@ -502,7 +470,6 @@ abstract contract Dex {
     sor.offerId = offerId;
     sor.offer = offers[base][quote][offerId];
     (mor.global, mor.local) = getConfig(base, quote);
-    mor.toPunish = new uint[2][](punishLength);
     mor.initialWants = takerWants;
     mor.initialGives = takerGives;
     mor.taker = taker;
@@ -516,7 +483,6 @@ abstract contract Dex {
     /* * will maintain remaining `takerWants` and `takerGives` values. Their initial ratio is the average price the taker will accept. Better prices may be found early in the book, and worse ones later.
      * will not set `prev`/`next` pointers to their correct locations at each offer taken (this is an optimization enabled by forbidding reentrancy).
      * after consuming a segment of offers, will connect the `prev` and `next` neighbors of the segment's ends.
-     * Will maintain an array of pairs `(offerId, gasused)` to identify failed offers. Look at [punishment for failing offers](#dex.sol-punishment-for-failing-offers) for more information. Since there are no extensible in-memory arrays, `punishLength` should be an upper bound on the number of failed offers. */
 
     /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. The check is an `if` instead of a `require` so we don't throw on an empty market -- but it also means we treat a bad offer id as a take on an empty market. */
     if (isLive(sor.offer)) {
@@ -524,7 +490,7 @@ abstract contract Dex {
       internalMarketOrder(mor, sor, mor.initialWants != 0);
     }
     paySender(mor.takerDue);
-    return (mor.totalGot, mor.totalGave, mor.toPunish);
+    return (mor.totalGot, mor.totalGave);
   }
 
   /* ### Main loop */
@@ -551,10 +517,6 @@ abstract contract Dex {
 
       /* it is crucial that a false success value means that the error is the maker's fault */
       (success, executed, gasused, makerData) = execute(mor, sor);
-      /* if maker failed, we increase the failure number -- even past mor.numToPunish so the decrement count after the call stack has popped is correct. */
-      if (!success && executed) {
-        mor.numToPunish = mor.numToPunish + 1;
-      }
 
       /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
 
@@ -608,7 +570,6 @@ abstract contract Dex {
 
       postExecute(mor, sor, success, executed, gasused, makerData);
     } else {
-      restrictMemoryArrayLength(mor.toPunish, mor.numToPunish);
       stitchOffers(sor.base, sor.quote, mor.extraData, sor.offerId);
       locks[sor.base][sor.quote] = UNLOCKED;
       applyFee(mor, sor);
@@ -870,8 +831,8 @@ abstract contract Dex {
   {
     uint[4][] memory targets = new uint[4][](1);
     targets[0] = [offerId, takerWants, takerGives, gasreq];
-    (uint successes, uint takerGot, uint takerGave, ) =
-      generalSnipes(base, quote, targets, 1, taker);
+    (uint successes, uint takerGot, uint takerGave) =
+      generalSnipes(base, quote, targets, taker);
     return (successes == 1, takerGot, takerGave);
   }
 
@@ -879,22 +840,19 @@ abstract contract Dex {
     address base,
     address quote,
     uint[4][] memory targets,
-    uint punishLength,
     address taker
   )
     external
     returns (
       uint successes,
       uint takerGot,
-      uint takerGave,
-      uint[2][] memory toPunish
+      uint takerGave
     )
   {
-    (successes, takerGot, takerGave, toPunish) = generalSnipes(
+    (successes, takerGot, takerGave) = generalSnipes(
       base,
       quote,
       targets,
-      punishLength,
       taker
     );
     updateAllowance(base, quote, taker, takerGave);
@@ -903,42 +861,34 @@ abstract contract Dex {
   function snipes(
     address base,
     address quote,
-    uint[4][] memory targets,
-    uint punishLength
+    uint[4][] memory targets
   )
     external
     returns (
       uint,
       uint,
-      uint,
-      uint[2][] memory
+      uint
     )
   {
-    return generalSnipes(base, quote, targets, punishLength, msg.sender);
+    return generalSnipes(base, quote, targets, msg.sender);
   }
 
   //+clear+
   /*
-     From an array of _n_ `(offerId, takerWants,takerGives,gasreq)` pairs (encoded as a `uint[2][]` of size _2n_)
+     From an array of _n_ `(offerId, takerWants,takerGives,gasreq)` pairs (encoded as a `uint[4][]` of size _n_)
      execute each snipe in sequence.
-
-     Also accepts an optional `punishLength` (as in
-    `marketOrder`). Returns an array of size at most
-    twice `punishLength` containing info on failed offers. Only existing offers can fail: if an offerId is invalid, it will just be skipped. **You should probably set `punishLength` to 1.**
       */
   function generalSnipes(
     address base,
     address quote,
     uint[4][] memory targets,
-    uint punishLength,
     address taker
   )
     internal
     returns (
       uint,
       uint,
-      uint,
-      uint[2][] memory
+      uint
     )
   {
     unlockedOnly(base, quote);
@@ -950,7 +900,6 @@ abstract contract Dex {
     sor.base = base;
     sor.quote = quote;
     (mor.global, mor.local) = getConfig(base, quote);
-    mor.toPunish = new uint[2][](punishLength);
     mor.taker = taker;
 
     requireActiveMarket(mor.global, mor.local);
@@ -960,7 +909,7 @@ abstract contract Dex {
 
     internalSnipes(mor, sor, targets, 0);
     paySender(mor.takerDue);
-    return (mor.extraData, mor.totalGot, mor.totalGave, mor.toPunish);
+    return (mor.extraData, mor.totalGot, mor.totalGave);
   }
 
   function internalSnipes(
@@ -974,7 +923,7 @@ abstract contract Dex {
       sor.offer = offers[sor.base][sor.quote][sor.offerId];
       sor.offerDetail = offerDetails[sor.base][sor.quote][sor.offerId];
 
-      /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). If the taker wants the entire order to fail if at least one offer id is invalid, it suffices to set `punishLength > 0` and check the length of the return value. We also check that `gasreq` is not worse than specified. A taker who does not care about `gasreq` can specify any amount larger than $2^{24}-1$. */
+      /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). We also check that `gasreq` is not worse than specified. A taker who does not care about `gasreq` can specify any amount larger than $2^{24}-1$. */
       if (
         !isLive(sor.offer) || $$(od_gasreq("sor.offerDetail")) > targets[i][3]
       ) {
@@ -997,8 +946,6 @@ abstract contract Dex {
 
         if (success) {
           mor.extraData += 1;
-        } else if (executed) {
-          mor.numToPunish = mor.numToPunish + 1;
         }
 
         if (executed) {
@@ -1030,7 +977,6 @@ abstract contract Dex {
       }
     } else {
       /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
-      restrictMemoryArrayLength(mor.toPunish, mor.numToPunish);
       locks[sor.base][sor.quote] = UNLOCKED;
       applyFee(mor, sor);
       executeEnd(mor, sor);
@@ -1075,25 +1021,6 @@ abstract contract Dex {
         sor.offer,
         sor.offerDetail
       );
-
-      mor.numToPunish = mor.numToPunish - 1;
-
-      if (mor.numToPunish < mor.toPunish.length) {
-        mor.toPunish[mor.numToPunish] = [sor.offerId, gasused];
-      }
-    }
-  }
-
-  /* The `toPunish` array initially has size `punishLength`. To remember the number of failures actually stored in `toPunish` (which can be strictly less than `punishLength`), we store `numToPunish` in the length field of `toPunish`. This also saves on the amount of memory copied in the return value.
-
-     The line below is hackish though, and we may want to just return a `(uint,uint[2][])` pair.
-   */
-  function restrictMemoryArrayLength(uint[2][] memory ary, uint length)
-    internal
-    pure
-  {
-    assembly {
-      mstore(ary, length)
     }
   }
 
@@ -1125,7 +1052,7 @@ abstract contract Dex {
 
   /* ## Penalties */
   //+clear+
-  /* After any offer executes, or after calling a punishment function, `applyPenalty` sends part of the provisioned penalty to the maker, and part to the taker. */
+  /* After any offer executes, `applyPenalty` sends part of the provisioned penalty to the maker, and part to the taker. */
   function applyPenalty(
     uint gasprice,
     uint gasused,
@@ -1176,10 +1103,10 @@ abstract contract Dex {
     }
   }
 
-  /* # Punishment for failing offers */
+  /* # Penalty for failing offers */
   //+clear+
 
-  /* Offers are just promises. They can fail. Penalty provisioning discourages from failing too much: we ask makers to provision more ETH than the expected gas cost of executing their offer and punish them accoridng to wasted gas.
+  /* Offers are just promises. They can fail. Penalty provisioning discourages from failing too much: we ask makers to provision more ETH than the expected gas cost of executing their offer and penalize them accoridng to wasted gas.
 
      Under normal circumstances, we should expect to see bots with a profit expectation dry-running offers locally and executing `snipe` on failing offers, collecting the penalty. The result should be a mostly clean book for actual takers (i.e. a book with only successful offers).
 
@@ -1187,183 +1114,6 @@ abstract contract Dex {
      1. Gas price eventually comes down.
      2. Other market makers want to keep the Dex attractive and maintain their offer flow.
      3. Dex governance (who may collect a fee) wants to keep the Dex attractive and maximize exchange volume.
-
-We introduce convenience functions `punishingMarketOrder` and `punishingSnipes` so bots do not have to run their own contracts. They work by executing a sequence of offers, then reverting all the trades (whatever happened). The revert data contains the list of failed offers, which are then punished. */
-
-  /* ## Snipes */
-  //+clear+
-  /* Run and revert a sequence of snipes so as to collect `offerId`s that are failing.
-   `punishLength` is the number of failing offers one is trying to catch. */
-  function punishingSnipes(
-    address base,
-    address quote,
-    uint[4][] calldata targets,
-    uint punishLength
-  ) external {
-    /* We do not directly call `snipes` because we want to revert all the offer executions before returning. So we delegatecall an intermediate function, `internalPunishingSnipes` (we could `call` since we don't need msg.sender at this point). */
-    (bool noRevert, bytes memory retdata) =
-      address(this).delegatecall(
-        abi.encodeWithSelector(
-          this.internalPunishingSnipes.selector,
-          base,
-          quote,
-          targets,
-          punishLength
-        )
-      );
-
-    /* To avoid spurious capture of reverts (for instance a failed `require` in the pre-execution checks),
-       `internalPunishingSnipes` returns normally with revert data if it detects a revert.
-       So:
-         * If `internalPunishingSnipes` returns normally, then _the sniping **did** revert_ and `retdata` is the revert data. In that case we "re-throw".
-         * If it reverts, then _the sniping **did not** revert_ and `retdata` is an array of failed offers. We punish those offers. */
-    if (noRevert) {
-      evmRevert(abi.decode(retdata, (bytes)));
-    } else {
-      (, , , uint[2][] memory toPunish) =
-        abi.decode(retdata, (uint, uint, uint, uint[2][]));
-      punish(base, quote, toPunish);
-    }
-  }
-
-  /* Sandwiched between `punishingSnipes` and `snipes`, the function `internalPunishingSnipes` runs a sequence of snipes, reverts it, and sends up the list of failed offers. If it catches a revert inside `snipes`, it returns normally a `bytes` array with the raw revert data in it. */
-  //TODO explain why it's safe to call from outside
-  function internalPunishingSnipes(
-    address base,
-    address quote,
-    uint[4][] calldata targets,
-    uint punishLength
-  ) external returns (bytes memory retdata) {
-    bool noRevert;
-    (noRevert, retdata) = address(this).delegatecall(
-      abi.encodeWithSelector(
-        this.snipes.selector,
-        base,
-        quote,
-        targets,
-        punishLength
-      )
-    );
-
-    /*
-     * If `snipes` returns normally, then _the sniping **did not** revert_ and `retdata` is an array of failed offers. In that case we revert.
-     * If it reverts, then _the sniping **did** revert_ and `retdata` is the revert data. In that case we return normally. */
-    if (noRevert) {
-      evmRevert(retdata);
-    } else {
-      return retdata;
-    }
-  }
-
-  /* ## Market order */
-  //+clear+
-
-  /* <a id="Dex/definition/punishingMarketOrder"></a> Run and revert a market order so as to collect `offerId`s that are failing.
-   `punishLength` is the number of failing offers one is trying to catch. */
-  function punishingMarketOrder(
-    address base,
-    address quote,
-    uint fromOfferId,
-    uint takerWants,
-    uint takerGives,
-    uint punishLength
-  ) external {
-    /* We do not directly call `marketOrder` because we want to revert all the offer executions before returning. So we delegatecall an intermediate function, `internalPunishingMarketOrder`. */
-    (bool noRevert, bytes memory retdata) =
-      address(this).delegatecall(
-        abi.encodeWithSelector(
-          this.internalPunishingMarketOrder.selector,
-          base,
-          quote,
-          fromOfferId,
-          takerWants,
-          takerGives,
-          punishLength
-        )
-      );
-
-    /* To avoid spurious capture of reverts (for instance a failed `require` in the pre-execution checks),
-       `internalPunishingMarketOrder` returns normally with revert data if it detects a revert.
-       So:
-         * If `internalPunishingMarketOrder` returns normally, then _the market order **did** revert_ and `retdata` is the revert data. In that case we "re-throw".
-         * If it reverts, then _the market order **did not** revert_ and `retdata` is an array of failed offers. We punish those offers. */
-    if (noRevert) {
-      evmRevert(abi.decode(retdata, (bytes)));
-    } else {
-      (, , uint[2][] memory toPunish) =
-        abi.decode(retdata, (uint, uint, uint[2][]));
-      punish(base, quote, toPunish);
-    }
-  }
-
-  /* Sandwiched between `punishingMarketOrder` and `marketOrder`, the function `internalPunishingMarketOrder` runs a market order, reverts it, and sends up the list of failed offers. If it catches a revert inside `marketOrder`, it returns normally a `bytes` array with the raw revert data in it. */
-  function internalPunishingMarketOrder(
-    address base,
-    address quote,
-    uint offerId,
-    uint takerWants,
-    uint takerGives,
-    uint punishLength
-  ) external returns (bytes memory retdata) {
-    bool noRevert;
-    (noRevert, retdata) = address(this).delegatecall(
-      abi.encodeWithSelector(
-        this.marketOrder.selector,
-        base,
-        quote,
-        takerWants,
-        takerGives,
-        punishLength,
-        offerId
-      )
-    );
-
-    /*
-     * If `marketOrder` returns normally, then _the market order **did not** revert_ and `retdata` is an array of failed offers. In that case we revert.
-     * If it reverts, then _the market order **did** revert_ and `retdata` is the revert data. In that case we return normally. */
-    if (noRevert) {
-      evmRevert(retdata);
-    } else {
-      return retdata;
-    }
-  }
-
-  /* ## Low-level punish */
-  //+clear+
-  /* Given a sequence of `(offerId, gasused)` pairs, `punish` assumes they have failed and
-     executes `applyPenalty` on them.  */
-  function punish(
-    address base,
-    address quote,
-    uint[2][] memory toPunish
-  ) internal {
-    uint punishIndex;
-    (bytes32 _global, ) = getConfig(base, quote);
-    uint gasprice = $$(glo_gasprice("_global"));
-    uint takerDue = 0;
-    while (punishIndex < toPunish.length) {
-      uint id = toPunish[punishIndex][0];
-      /* We read `offer` and `offerDetail` before calling `dirtyDeleteOffer`, since after that they will be erased. */
-      bytes32 offer = offers[base][quote][id];
-      if (isLive(offer)) {
-        bytes32 offerDetail = offerDetails[base][quote][id];
-        dirtyDeleteOffer(base, quote, id, offer, true);
-        stitchOffers(base, quote, $$(o_prev("offer")), $$(o_next("offer")));
-        uint gasused = toPunish[punishIndex][1];
-        takerDue += applyPenalty(gasprice, gasused, offer, offerDetail);
-      }
-      punishIndex++;
-    }
-    paySender(takerDue);
-  }
-
-  /* Given some `bytes`, `evmRevert` reverts the current call with the raw bytes as revert data. The length prefix is omitted. Prevents abi-encoding of solidity-revert's string argument.  */
-  function evmRevert(bytes memory data) internal pure {
-    uint length = data.length;
-    assembly {
-      revert(add(data, 32), length)
-    }
-  }
 
   /* # Get/set state
 

@@ -379,7 +379,7 @@ contract Gatekeeping_Test is IMaker {
       type(uint96).max,
       type(uint).max
     ];
-    try dex.snipes(base, quote, targets, 0) {
+    try dex.snipes(base, quote, targets) {
       TestEvents.fail("Snipes with takerWants > 96bits should fail");
     } catch Error(string memory reason) {
       TestEvents.revertEq(reason, "dex/snipes/takerWants/96bits");
