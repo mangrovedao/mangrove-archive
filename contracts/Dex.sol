@@ -155,7 +155,7 @@ abstract contract Dex {
   /* # Maker operations
      ## New Offer */
   //+clear+
-  /* In the Dex, makers and takers call separate functions. Market makers call `newOffer` to fill the book, and takers call functions such as `simpleMarketOrder` to consume it.  */
+  /* In the Dex, makers and takers call separate functions. Market makers call `newOffer` to fill the book, and takers call functions such as `marketOrder` to consume it.  */
   //+clear+
 
   /* Holds data about offers in a struct, used by `newOffer` to avoid stack too deep errors. */
@@ -310,22 +310,6 @@ abstract contract Dex {
 
   /* ## Market Order */
   //+clear+
-  /*  `simpleMarketOrder` walks the book and takes offers up to a certain volume of `OFR_TOKEN` and for a maximum average price. */
-  function simpleMarketOrder(
-    address base,
-    address quote,
-    uint takerWants,
-    uint takerGives
-  ) external returns (uint takerGot, uint takerGave) {
-    (takerGot, takerGave) = generalMarketOrder(
-      base,
-      quote,
-      takerWants,
-      takerGives,
-      bests[base][quote],
-      msg.sender
-    );
-  }
 
   /* taker allowances: base => quote => taker => sender => allowance */
   mapping(address => mapping(address => mapping(address => mapping(address => uint))))
@@ -406,7 +390,6 @@ abstract contract Dex {
       quote,
       takerWants,
       takerGives,
-      bests[base][quote],
       taker
     );
     updateAllowance(base, quote, taker, takerGave);
@@ -416,22 +399,13 @@ abstract contract Dex {
     address base,
     address quote,
     uint takerWants,
-    uint takerGives,
-    uint offerId
+    uint takerGives
   ) external returns (uint, uint) {
-    return
-      generalMarketOrder(
-        base,
-        quote,
-        takerWants,
-        takerGives,
-        offerId,
-        msg.sender
-      );
+    return generalMarketOrder(base, quote, takerWants, takerGives, msg.sender);
   }
 
   /* The lower-level `marketOrder` can:
-   * start walking the OB from any offerId (`0` to start from the best offer).
+   * start walking the OB from best offer
    */
   //+ignore+ ask for a volume by setting takerWants to however much you want and
   //+ignore+ takerGive to max_uint. Any price will be accepted.
@@ -453,7 +427,6 @@ abstract contract Dex {
     address quote,
     uint takerWants,
     uint takerGives,
-    uint offerId,
     address taker
   ) internal returns (uint, uint) {
     /* ### Checks */
@@ -467,8 +440,8 @@ abstract contract Dex {
     MultiOrder memory mor;
     sor.base = base;
     sor.quote = quote;
-    sor.offerId = offerId;
-    sor.offer = offers[base][quote][offerId];
+    sor.offerId = bests[base][quote];
+    sor.offer = offers[base][quote][sor.offerId];
     (mor.global, mor.local) = getConfig(base, quote);
     mor.initialWants = takerWants;
     mor.initialGives = takerGives;
@@ -482,13 +455,12 @@ abstract contract Dex {
     /* The market order will operate as follows : it will go through offers from best to worse, starting from `offerId`, and: */
     /* * will maintain remaining `takerWants` and `takerGives` values. Their initial ratio is the average price the taker will accept. Better prices may be found early in the book, and worse ones later.
      * will not set `prev`/`next` pointers to their correct locations at each offer taken (this is an optimization enabled by forbidding reentrancy).
-     * after consuming a segment of offers, will connect the `prev` and `next` neighbors of the segment's ends.
+     * after consuming a segment of offers, will connect the `prev` and `next` neighbors of the segment's ends. */
 
-    /* This check is subtle. We believe the only check that is really necessary here is `offerId != 0`, because any other wrong offerId would point to an empty offer, which would be detected upon division by `offer.gives` in the main loop (triggering a revert). However, with `offerId == 0`, we skip the main loop and try to stitch `pastOfferId` with `offerId`. Basically at this point we're "trusting" `offerId`. This sets `best = 0` and breaks the offer book if it wasn't empty. Out of caution we do a more general check and make sure that the offer exists. The check is an `if` instead of a `require` so we don't throw on an empty market -- but it also means we treat a bad offer id as a take on an empty market. */
-    if (isLive(sor.offer)) {
-      locks[base][quote] = LOCKED;
-      internalMarketOrder(mor, sor, mor.initialWants != 0);
-    }
+    /* It is OK to enter the internal market order if the OB is empty, see the stitchOffer call to see why stitchOffer will operate on an offerId == 0 which will reset the OB to empty. */
+    locks[base][quote] = LOCKED;
+    /* first condition means taker wants nothing, and calling internalMarketOrder in that case would execute the first offer for nothig. Second condition means OB is empty and we can't call the offer 0 (its maker is the address 0). */
+    internalMarketOrder(mor, sor, mor.initialWants != 0 && sor.offerId != 0);
     paySender(mor.takerDue);
     return (mor.totalGot, mor.totalGave);
   }
@@ -1641,6 +1613,7 @@ abstract contract Dex {
   }
 
   /* Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer` */
+  /* !warning! calling with pastId=0 will set futureId as the best. So with pastId=0, futureId=0, it sets the OB to empty and loses track of existing offers. */
   function stitchOffers(
     address base,
     address quote,

@@ -222,7 +222,7 @@ contract AMM_Test {
 
     uint gas = gasleft();
     (uint takerGot, uint takerGave) =
-      dex.simpleMarketOrder(address(baseT), address(quoteT), 3, 2**256 - 1);
+      dex.marketOrder(address(baseT), address(quoteT), 3, 2**256 - 1);
     uint _gas = gas - gasleft();
     console.log("Gas used in the order:", _gas);
 

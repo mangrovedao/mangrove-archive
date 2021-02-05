@@ -163,7 +163,7 @@ contract Gas_Test is IMaker {
     (Dex dex, TestTaker tkr, address base, address quote) = getStored();
     uint g = gasleft();
     uint h;
-    tkr.simpleMarketOrder(dex, base, quote, 1 ether, 1 ether);
+    tkr.marketOrder(dex, base, quote, 1 ether, 1 ether);
     h = gasleft();
     console.log("Gas used", g - h);
   }
@@ -179,7 +179,7 @@ contract Gas_Test is IMaker {
     _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
     uint g = gasleft();
     uint h;
-    tkr.simpleMarketOrder(dex, base, quote, 2 ether, 2 ether);
+    tkr.marketOrder(dex, base, quote, 2 ether, 2 ether);
     h = gasleft();
     console.log("Gas used", g - h);
   }

@@ -150,7 +150,7 @@ contract TakerOperations_Test {
     quoteT.approve(address(dex), 1 ether);
     uint balTaker = baseT.balanceOf(address(this));
     uint balMaker = quoteT.balanceOf(address(mkr));
-    try dex.simpleMarketOrder(base, quote, 1 ether, 1 ether) returns (
+    try dex.marketOrder(base, quote, 1 ether, 1 ether) returns (
       uint takerGot,
       uint takerGave
     ) {
@@ -306,8 +306,7 @@ contract TakerOperations_Test {
     quoteT.approve(address(dex), 1 ether);
     mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 0);
     mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 1);
-    (uint takerGot, ) =
-      dex.simpleMarketOrder(base, quote, 0.15 ether, 0.15 ether);
+    (uint takerGot, ) = dex.marketOrder(base, quote, 0.15 ether, 0.15 ether);
     TestEvents.eq(
       takerGot,
       0.15 ether,
@@ -329,7 +328,7 @@ contract TakerOperations_Test {
     // first two offers are at right price
     uint takerWants = 2 * (0.1 ether + 0.1 ether);
     uint takerGives = 2 * (0.1 ether + 0.2 ether);
-    dex.simpleMarketOrder{gas: 350_000}(base, quote, takerWants, takerGives);
+    dex.marketOrder{gas: 350_000}(base, quote, takerWants, takerGives);
   }
 
   // ! unreliable test, depends on gas use
@@ -341,7 +340,7 @@ contract TakerOperations_Test {
     // first two offers are at right price
     uint takerWants = 0.1 ether + 0.05 ether;
     uint takerGives = 0.1 ether + 0.1 ether;
-    dex.simpleMarketOrder{gas: 350_000}(base, quote, takerWants, takerGives);
+    dex.marketOrder{gas: 350_000}(base, quote, takerWants, takerGives);
   }
 
   function market_order_stops_for_filled_after_offer_test() public {
@@ -352,11 +351,11 @@ contract TakerOperations_Test {
     // first two offers are at right price
     uint takerWants = 0.1 ether + 0.1 ether;
     uint takerGives = 0.1 ether + 0.2 ether;
-    dex.simpleMarketOrder{gas: 350_000}(base, quote, takerWants, takerGives);
+    dex.marketOrder{gas: 350_000}(base, quote, takerWants, takerGives);
   }
 
   function takerWants_wider_than_160_bits_fails_marketOrder_test() public {
-    try dex.simpleMarketOrder(base, quote, 2**160, 1) {
+    try dex.marketOrder(base, quote, 2**160, 1) {
       TestEvents.fail("TakerWants > 160bits, order should fail");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/mOrder/takerWants/160bits", "wrong revert reason");
@@ -389,7 +388,7 @@ contract TakerOperations_Test {
   }
 
   function marketOrder_on_empty_book_returns_test() public {
-    try dex.simpleMarketOrder(base, quote, 1 ether, 1 ether) {
+    try dex.marketOrder(base, quote, 1 ether, 1 ether) {
       TestEvents.succeed();
     } catch Error(string memory r) {
       TestEvents.fail("market order on empty book should not fail");
@@ -397,7 +396,7 @@ contract TakerOperations_Test {
   }
 
   function marketOrder_on_empty_book_does_not_leave_lock_on_test() public {
-    dex.simpleMarketOrder(base, quote, 1 ether, 1 ether);
+    dex.marketOrder(base, quote, 1 ether, 1 ether);
     TestEvents.less(
       dex.locks(base, quote),
       2,

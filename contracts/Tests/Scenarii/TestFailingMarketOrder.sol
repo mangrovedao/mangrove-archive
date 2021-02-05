@@ -10,11 +10,7 @@ library TestFailingMarketOrder {
     address quote,
     TestTaker taker
   ) external {
-    taker.marketOrderWithFail({
-      wants: 10 ether,
-      gives: 30 ether,
-      offerId: dex.bests(base, quote)
-    });
+    taker.marketOrderWithFail({wants: 10 ether, gives: 30 ether});
     TestEvents.check(
       TestUtils.isEmptyOB(dex, base, quote),
       "Offer book should be empty"

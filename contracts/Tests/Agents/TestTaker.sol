@@ -88,24 +88,23 @@ contract TestTaker is ITaker {
   ) external pure override {}
 
   function marketOrder(uint wants, uint gives) external returns (uint, uint) {
-    return _dex.simpleMarketOrder(_base, _quote, wants, gives);
+    return _dex.marketOrder(_base, _quote, wants, gives);
   }
 
-  function simpleMarketOrder(
+  function marketOrder(
     Dex __dex,
     address __base,
     address __quote,
     uint takerWants,
     uint takerGives
   ) external returns (uint, uint) {
-    return __dex.simpleMarketOrder(__base, __quote, takerWants, takerGives);
+    return __dex.marketOrder(__base, __quote, takerWants, takerGives);
   }
 
-  function marketOrderWithFail(
-    uint wants,
-    uint gives,
-    uint offerId
-  ) external returns (uint, uint) {
-    return _dex.marketOrder(_base, _quote, wants, gives, offerId);
+  function marketOrderWithFail(uint wants, uint gives)
+    external
+    returns (uint, uint)
+  {
+    return _dex.marketOrder(_base, _quote, wants, gives);
   }
 }

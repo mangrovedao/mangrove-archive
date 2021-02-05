@@ -574,7 +574,7 @@ contract Gatekeeping_Test is IMaker {
   /* Market Order failure */
 
   function marketOrderKO() external {
-    try dex.simpleMarketOrder(base, quote, 0.2 ether, 0.2 ether) {
+    try dex.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
       TestEvents.fail("marketOrder on same pair should fail");
     } catch Error(string memory reason) {
       TestEvents.revertEq(reason, "dex/reentrancyLocked");
@@ -590,9 +590,9 @@ contract Gatekeeping_Test is IMaker {
   /* Market Order Success */
 
   function marketOrderOK(address _base, address _quote) external {
-    try
-      dex.simpleMarketOrder(_base, _quote, 0.5 ether, 0.5 ether)
-    {} catch Error(string memory r) {
+    try dex.marketOrder(_base, _quote, 0.5 ether, 0.5 ether) {} catch Error(
+      string memory r
+    ) {
       console.log("ERR", r);
     }
   }

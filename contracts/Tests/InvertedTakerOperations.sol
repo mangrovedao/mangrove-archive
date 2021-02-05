@@ -99,7 +99,7 @@ contract InvertedTakerOperations_Test is ITaker {
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.checkPay.selector;
     toPay = 0.2 ether;
-    (, uint gave) = dex.simpleMarketOrder(base, quote, 0.2 ether, 0.2 ether);
+    (, uint gave) = dex.marketOrder(base, quote, 0.2 ether, 0.2 ether);
     TestEvents.eq(
       quoteBalance - gave,
       quoteT.balanceOf(address(this)),
@@ -131,8 +131,7 @@ contract InvertedTakerOperations_Test is ITaker {
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.reenter.selector;
-    (uint got, uint gave) =
-      dex.simpleMarketOrder(base, quote, 0.1 ether, 0.1 ether);
+    (uint got, uint gave) = dex.marketOrder(base, quote, 0.1 ether, 0.1 ether);
     TestEvents.eq(
       quoteBalance - gave - 0.1 ether,
       quoteT.balanceOf(address(this)),
