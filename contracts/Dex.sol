@@ -180,10 +180,10 @@ abstract contract Dex {
     ofp.base = base;
     ofp.quote = quote;
     bytes32 local;
-    (ofp.global, local) = getConfig(base, quote);
-    ofp.id = 1 + $$(loc_lastId("local"));
-    ofp.local = $$(loc_set("local", [["lastId", "ofp.id"]]));
+    (ofp.global, ofp.local) = getConfig(base, quote);
     unlockedOnly(ofp.local);
+    ofp.id = 1 + $$(loc_lastId("ofp.local"));
+    ofp.local = $$(loc_set("ofp.local", [["lastId", "ofp.id"]]));
     ofp.wants = wants;
     ofp.gives = gives; // an offer id must never be 0
     ofp.gasreq = gasreq;
@@ -192,6 +192,7 @@ abstract contract Dex {
     require(uint24(ofp.id) == ofp.id, "dex/offerIdOverflow");
 
     requireActiveMarket(ofp.global, ofp.local);
+    /* writeOffer may modify ofp.best */
     writeOffer(ofp, false);
     locals[ofp.base][ofp.quote] = ofp.local;
     return ofp.id;
