@@ -326,7 +326,7 @@ abstract contract Dex {
     );
   }
 
-  /* taker allowances: base => quote => taker => sender => allowance */
+  /* taker allowances: base => quote => taker => spender => allowance */
   mapping(address => mapping(address => mapping(address => mapping(address => uint))))
     public allowances;
   /* permit nonces */
@@ -345,7 +345,7 @@ abstract contract Dex {
 
   //initialized in constructor
   bytes32 public immutable DOMAIN_SEPARATOR;
-  // keccak256("Permit(address base,address quote,address taker,address sender,uint256 amount,uint256 expiry,uint256 nonce)");
+  // keccak256("Permit(address base,address quote,address taker,address spender,uint256 amount,uint256 deadline,uint256 nonce)");
   bytes32 public constant PERMIT_TYPEHASH =
     0x17a32460f8ed1b6b681cae250706af2a994f0a49f9f87e61c7e4fac936375f5e;
 
@@ -354,14 +354,14 @@ abstract contract Dex {
     address base,
     address quote,
     address taker,
-    address sender,
+    address spender,
     uint amount,
-    uint expiry,
+    uint deadline,
     uint8 v,
     bytes32 r,
     bytes32 s
   ) external {
-    require(expiry >= block.timestamp, "dex/permit/expired");
+    require(deadline >= block.timestamp, "dex/permit/expired");
 
     uint nonce = nonces[taker]++;
     bytes32 digest =
@@ -375,9 +375,9 @@ abstract contract Dex {
               base,
               quote,
               taker,
-              sender,
+              spender,
               amount,
-              expiry,
+              deadline,
               nonce
             )
           )
@@ -389,8 +389,8 @@ abstract contract Dex {
       "dex/permit/invalidSignature"
     );
 
-    allowances[base][quote][taker][sender] = amount;
-    emit DexEvents.Approval(base, quote, taker, sender, amount);
+    allowances[base][quote][taker][spender] = amount;
+    emit DexEvents.Approval(base, quote, taker, spender, amount);
   }
 
   function permittedMarketOrder(
