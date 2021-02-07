@@ -173,6 +173,8 @@ They have the following fields: */
     uint gives;
     /* only populated when necessary */
     bytes32 offerDetail;
+    bytes32 global;
+    bytes32 local;
   }
 
   struct OrderResult {

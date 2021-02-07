@@ -133,6 +133,7 @@ contract Monitor_Test {
     (bool success, , ) =
       dex.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000);
     TestEvents.check(success, "snipe should succeed");
+    (bytes32 _global, bytes32 _local) = dex.getConfig(base, quote);
 
     DC.SingleOrder memory order =
       DC.SingleOrder({
@@ -142,7 +143,9 @@ contract Monitor_Test {
         offer: offer,
         wants: 0.04 ether,
         gives: 0.04 ether, // wants has been updated to offer price
-        offerDetail: dex.offerDetails(base, quote, ofrId)
+        offerDetail: dex.offerDetails(base, quote, ofrId),
+        global: _global,
+        local: _local
       });
 
     TestEvents.expectFrom(address(monitor));
@@ -158,6 +161,8 @@ contract Monitor_Test {
       dex.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000);
     TestEvents.check(!success, "snipe should fail");
 
+    (bytes32 _global, bytes32 _local) = dex.getConfig(base, quote);
+
     DC.SingleOrder memory order =
       DC.SingleOrder({
         base: base,
@@ -166,7 +171,9 @@ contract Monitor_Test {
         offer: offer,
         wants: 0.04 ether,
         gives: 0.04 ether, // gives has been updated to offer price
-        offerDetail: dex.offerDetails(base, quote, ofrId)
+        offerDetail: dex.offerDetails(base, quote, ofrId),
+        global: _global,
+        local: _local
       });
 
     TestEvents.expectFrom(address(monitor));

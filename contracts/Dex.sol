@@ -26,8 +26,6 @@ abstract contract Dex {
     uint initialGives;
     uint totalGot;
     uint totalGave;
-    bytes32 global;
-    bytes32 local;
     uint takerDue;
     // used as #successes in internalSnipes
     uint snipeSuccesses;
@@ -441,13 +439,13 @@ abstract contract Dex {
     sor.quote = quote;
     sor.offerId = bests[base][quote];
     sor.offer = offers[base][quote][sor.offerId];
-    (mor.global, mor.local) = getConfig(base, quote);
+    (sor.global, sor.local) = getConfig(base, quote);
     mor.initialWants = takerWants;
     mor.initialGives = takerGives;
     mor.taker = taker;
 
     /* For the market order to even start, the market needs to be both alive (that is, not irreversibly killed following emergency action), and not currently protected from reentrancy. */
-    requireActiveMarket(mor.global, mor.local);
+    requireActiveMarket(sor.global, sor.local);
 
     /* ### Initialization */
     /* The market order will operate as follows : it will go through offers from best to worse, starting from `offerId`, and: */
@@ -663,8 +661,8 @@ abstract contract Dex {
         sor.gives
       );
 
-      if ($$(glo_notify("mor.global")) > 0) {
-        IDexMonitor($$(glo_monitor("mor.global"))).notifySuccess(
+      if ($$(glo_notify("sor.global")) > 0) {
+        IDexMonitor($$(glo_monitor("sor.global"))).notifySuccess(
           sor,
           mor.taker
         );
@@ -689,8 +687,8 @@ abstract contract Dex {
           makerData
         );
 
-        if ($$(glo_notify("mor.global")) > 0) {
-          IDexMonitor($$(glo_monitor("mor.global"))).notifyFail(sor);
+        if ($$(glo_notify("sor.global")) > 0) {
+          IDexMonitor($$(glo_monitor("sor.global"))).notifyFail(sor);
         }
       } else if (errorCode == "dex/tradeOverflow") {
         revert("dex/tradeOverflow");
@@ -869,10 +867,10 @@ abstract contract Dex {
     DC.SingleOrder memory sor;
     sor.base = base;
     sor.quote = quote;
-    (mor.global, mor.local) = getConfig(base, quote);
+    (sor.global, sor.local) = getConfig(base, quote);
     mor.taker = taker;
 
-    requireActiveMarket(mor.global, mor.local);
+    requireActiveMarket(sor.global, sor.local);
 
     /* ### Main loop */
     //+clear+
@@ -986,7 +984,7 @@ abstract contract Dex {
 
     if (!success && executed) {
       mor.takerDue += applyPenalty(
-        $$(glo_gasprice("mor.global")),
+        $$(glo_gasprice("sor.global")),
         gasused,
         sor.offer,
         sor.offerDetail
@@ -1011,8 +1009,8 @@ abstract contract Dex {
 
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
   function applyFee(MultiOrder memory mor, DC.SingleOrder memory sor) internal {
-    if (mor.totalGot > 0 && $$(loc_fee("mor.local")) > 0) {
-      uint concreteFee = (mor.totalGot * $$(loc_fee("mor.local"))) / 10_000;
+    if (mor.totalGot > 0 && $$(loc_fee("sor.local")) > 0) {
+      uint concreteFee = (mor.totalGot * $$(loc_fee("sor.local"))) / 10_000;
       mor.totalGot -= concreteFee;
       bool success =
         DexLib.transferToken(sor.base, mor.taker, vault, concreteFee);
@@ -1184,7 +1182,7 @@ abstract contract Dex {
   //+clear+
   /* getter for global and local config. if global.oracle is != 0, global's gasprice and local's density are overriden with the orale value. */
   function getConfig(address base, address quote)
-    internal
+    public
     returns (bytes32 _global, bytes32 _local)
   {
     _global = global;

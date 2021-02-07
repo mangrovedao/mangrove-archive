@@ -93,7 +93,7 @@ contract MakerOperations_Test is IMaker {
     returns (bytes32 ret)
   {
     ret; // silence unused function parameter warning
-    uint num_args = 7;
+    uint num_args = 9;
     uint selector_bytes = 4;
     uint length = selector_bytes + num_args * 32;
     TestEvents.eq(
