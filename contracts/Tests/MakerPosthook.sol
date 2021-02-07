@@ -23,7 +23,7 @@ contract MakerPosthook_Test is IMaker {
   uint gasreq = 200_000;
   uint ofr;
   bytes4 posthook_bytes;
-  uint gasprice = 50; // will cover for a gasprice of 50 gwei/gas uint
+  uint _gasprice = 50; // will cover for a gasprice of 50 gwei/gas uint
   uint weiBalMaker;
   bool abort = false;
 
@@ -64,7 +64,7 @@ contract MakerPosthook_Test is IMaker {
       1 ether,
       1 ether,
       gasreq,
-      gasprice,
+      _gasprice,
       order.offerId,
       order.offerId
     );
@@ -81,7 +81,7 @@ contract MakerPosthook_Test is IMaker {
       1 ether,
       1 ether,
       gasreq,
-      gasprice,
+      _gasprice,
       order.offerId,
       order.offerId
     );
@@ -120,7 +120,10 @@ contract MakerPosthook_Test is IMaker {
       !TestUtils.hasOffer(dex, order.base, order.quote, order.offerId),
       "Offer was not removed after take"
     );
-    address(this).call(abi.encodeWithSelector(posthook_bytes, order, result));
+    bool noRevert;
+    (noRevert, ) = address(this).call(
+      abi.encodeWithSelector(posthook_bytes, order, result)
+    );
   }
 
   function a_beforeAll() public {
@@ -154,10 +157,10 @@ contract MakerPosthook_Test is IMaker {
 
   function renew_offer_after_partial_fill_test() public {
     uint mkr_provision =
-      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
+      TestUtils.getProvision(dex, base, quote, gasreq, _gasprice);
     posthook_bytes = this.renew_offer_at_posthook.selector;
 
-    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
 
     TestEvents.eq(
       dex.balanceOf(address(this)),
@@ -183,16 +186,16 @@ contract MakerPosthook_Test is IMaker {
       base,
       quote,
       address(this),
-      DexPack.writeOffer_pack(1 ether, 1 ether, gasprice, gasreq, ofr)
+      DexPack.writeOffer_pack(1 ether, 1 ether, _gasprice, gasreq, ofr)
     );
   }
 
   function renew_offer_after_complete_fill_test() public {
     uint mkr_provision =
-      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
+      TestUtils.getProvision(dex, base, quote, gasreq, _gasprice);
     posthook_bytes = this.renew_offer_at_posthook.selector;
 
-    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
 
     TestEvents.eq(
       dex.balanceOf(address(this)),
@@ -218,14 +221,14 @@ contract MakerPosthook_Test is IMaker {
       base,
       quote,
       address(this),
-      DexPack.writeOffer_pack(1 ether, 1 ether, gasprice, gasreq, ofr)
+      DexPack.writeOffer_pack(1 ether, 1 ether, _gasprice, gasreq, ofr)
     );
   }
 
   function renew_offer_after_failed_execution_test() public {
     posthook_bytes = this.renew_offer_at_posthook.selector;
 
-    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
     abort = true;
 
     bool success = tkr.take(ofr, 2 ether);
@@ -241,7 +244,7 @@ contract MakerPosthook_Test is IMaker {
       base,
       quote,
       address(this),
-      DexPack.writeOffer_pack(1 ether, 1 ether, gasprice, gasreq, ofr)
+      DexPack.writeOffer_pack(1 ether, 1 ether, _gasprice, gasreq, ofr)
     );
   }
 
@@ -278,7 +281,7 @@ contract MakerPosthook_Test is IMaker {
 
   function update_offer_with_more_gasprice_test() public {
     uint mkr_provision =
-      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
+      TestUtils.getProvision(dex, base, quote, gasreq, _gasprice);
     uint standard_provision = TestUtils.getProvision(dex, base, quote, gasreq);
     posthook_bytes = this.update_gas_offer_at_posthook.selector;
     // provision for dex.global.gasprice
@@ -308,7 +311,7 @@ contract MakerPosthook_Test is IMaker {
       base,
       quote,
       address(this),
-      DexPack.writeOffer_pack(1 ether, 1 ether, gasprice, gasreq, ofr)
+      DexPack.writeOffer_pack(1 ether, 1 ether, _gasprice, gasreq, ofr)
     );
   }
 
@@ -317,7 +320,7 @@ contract MakerPosthook_Test is IMaker {
   {
     posthook_bytes = this.failer_posthook.selector;
 
-    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
 
     bool success =
       tkr.snipe(dex, base, quote, ofr, 1 ether, 1 ether, gasreq - 1);
@@ -328,16 +331,16 @@ contract MakerPosthook_Test is IMaker {
     public
   {
     posthook_bytes = this.failer_posthook.selector;
-    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
     bool success = tkr.snipe(dex, base, quote, ofr, 1.1 ether, 1 ether, gasreq);
     TestEvents.check(!success, "Snipe should fail");
   }
 
   function delete_offer_in_posthook_test() public {
     uint mkr_provision =
-      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
+      TestUtils.getProvision(dex, base, quote, gasreq, _gasprice);
     posthook_bytes = this.deleteOffer_posthook.selector;
-    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
     TestEvents.eq(
       dex.balanceOf(address(this)),
       weiBalMaker - mkr_provision, // maker has provision for his gasprice
@@ -384,11 +387,11 @@ contract MakerPosthook_Test is IMaker {
 
   function update_offer_after_delete_in_posthook_fails_test() public {
     posthook_bytes = this.deleteOffer_posthook.selector;
-    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
     bool success = tkr.take(ofr, 2 ether);
     TestEvents.check(success, "Snipe should succeed");
     try
-      dex.updateOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0, ofr)
+      dex.updateOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0, ofr)
     {
       TestEvents.fail("Update offer should fail");
     } catch Error(string memory reason) {
@@ -405,9 +408,9 @@ contract MakerPosthook_Test is IMaker {
 
   function delete_offer_after_fail_in_posthook_test() public {
     uint mkr_provision =
-      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
+      TestUtils.getProvision(dex, base, quote, gasreq, _gasprice);
     posthook_bytes = this.deleteOffer_posthook.selector;
-    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
     TestEvents.eq(
       dex.balanceOf(address(this)),
       weiBalMaker - mkr_provision, // maker has provision for his gasprice

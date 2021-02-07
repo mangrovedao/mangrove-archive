@@ -28,6 +28,7 @@ contract DexMonitor is IDexMonitor {
 
   function read(address base, address quote)
     external
+    view
     override
     returns (uint, uint)
   {

@@ -207,8 +207,7 @@ contract AMM_Test {
     Display.logOfferBook(dex, address(tk0), address(tk1), 1);
     Display.logOfferBook(dex, address(tk1), address(tk0), 1);
 
-    (uint takerGot, uint takerGave) =
-      dex.marketOrder(address(tk0), address(tk1), 3 ether, 2**256 - 1);
+    dex.marketOrder(address(tk0), address(tk1), 3 ether, 2**256 - 1);
 
     Display.logOfferBook(dex, address(tk0), address(tk1), 1);
     Display.logOfferBook(dex, address(tk1), address(tk0), 1);

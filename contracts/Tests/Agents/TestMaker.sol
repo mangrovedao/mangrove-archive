@@ -62,8 +62,9 @@ contract TestMaker is IMaker, Passthrough {
     public
     virtual
     override
-    returns (bytes32)
+    returns (bytes32 avoid_compilation_warning)
   {
+    avoid_compilation_warning;
     if (_shouldRevert) {
       bytes32[1] memory three = [bytes32("testMaker/revert")];
       assembly {

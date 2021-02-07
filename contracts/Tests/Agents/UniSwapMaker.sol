@@ -49,8 +49,9 @@ contract UniSwapMaker is IMaker {
   function makerTrade(DC.SingleOrder calldata order)
     external
     override
-    returns (bytes32)
+    returns (bytes32 avoid_compilation_warning)
   {
+    avoid_compilation_warning;
     require(msg.sender == address(dex), "Illegal call");
     emit Execute(
       msg.sender,

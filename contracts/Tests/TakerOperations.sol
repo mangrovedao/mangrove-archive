@@ -390,7 +390,7 @@ contract TakerOperations_Test {
   function marketOrder_on_empty_book_returns_test() public {
     try dex.marketOrder(base, quote, 1 ether, 1 ether) {
       TestEvents.succeed();
-    } catch Error(string memory r) {
+    } catch Error(string memory) {
       TestEvents.fail("market order on empty book should not fail");
     }
   }

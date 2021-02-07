@@ -168,7 +168,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function set_zero_density_test() public {
-    try dex.setDensity(base, quote, 0) {} catch Error(string memory r) {
+    try dex.setDensity(base, quote, 0) {} catch Error(string memory) {
       TestEvents.fail("setting density to 0 should work");
     }
   }
@@ -282,7 +282,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function set_zero_gasbase_test() public {
-    try dex.setGasbase(base, quote, 0) {} catch Error(string memory r) {
+    try dex.setGasbase(base, quote, 0) {} catch Error(string memory) {
       TestEvents.fail("setting gasprice to 0 should work");
     }
   }
@@ -392,7 +392,7 @@ contract Gatekeeping_Test is IMaker {
   bytes posthook_cb;
 
   // maker's trade fn for the dex
-  function makerTrade(DC.SingleOrder calldata order)
+  function makerTrade(DC.SingleOrder calldata)
     external
     override
     returns (bytes32 ret)

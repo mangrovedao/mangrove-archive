@@ -202,8 +202,9 @@ contract Maker_basic is TestMaker {
     ERC20 quote
   ) TestMaker(dex, base, quote) {}
 
-  function makerTrade(DC.SingleOrder calldata order)
+  function makerTrade(DC.SingleOrder calldata)
     public
+    pure
     override
     returns (bytes32 ret)
   {
@@ -256,8 +257,9 @@ contract Maker_callback is TestMaker {
     ERC20 quote
   ) TestMaker(dex, base, quote) {}
 
-  function makerTrade(DC.SingleOrder calldata order)
+  function makerTrade(DC.SingleOrder calldata)
     public
+    pure
     override
     returns (bytes32 ret)
   {

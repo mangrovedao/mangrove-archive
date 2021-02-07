@@ -116,7 +116,7 @@ contract InvertedTakerOperations_Test is ITaker {
   function reenter(
     address _base,
     address _quote,
-    uint totalGives
+    uint
   ) external {
     takerTrade_bytes = this.noop.selector;
     skipCheck = true;

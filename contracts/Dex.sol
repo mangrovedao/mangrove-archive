@@ -85,7 +85,7 @@ abstract contract Dex {
   A new Dex instance manages one side of a book; it offers `OFR_TOKEN` in return for `REQ_TOKEN`. To initialize a new instance, the deployer must provide initial configuration (see `DexCommon.sol` for more on configuration parameters):
   */
   constructor(
-    uint gasprice,
+    uint _gasprice,
     uint gasmax,
     /* determines whether the taker or maker does the flashlend */
     bool takerLends,
@@ -97,7 +97,7 @@ abstract contract Dex {
     emit DexEvents.SetGovernance(msg.sender);
 
     setVault(msg.sender);
-    setGasprice(gasprice);
+    setGasprice(_gasprice);
     setGasmax(gasmax);
     /* In a 'normal' mode of operation, takers lend the liquidity to the maker. */
     /* In an 'arbitrage' mode of operation, takers come ask the makers for liquidity. */

@@ -52,7 +52,7 @@ library TestUtils {
     return dex.bests(base, quote) == 0;
   }
 
-  function adminOf(Dex dex) internal returns (address) {
+  function adminOf(Dex dex) internal view returns (address) {
     return dex.governance();
   }
 

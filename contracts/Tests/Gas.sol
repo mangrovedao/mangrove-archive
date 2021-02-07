@@ -74,8 +74,9 @@ contract Gas_Test is IMaker {
     return (_dex, _tkr, _base, _quote);
   }
 
-  function makerTrade(DC.SingleOrder calldata order)
+  function makerTrade(DC.SingleOrder calldata)
     external
+    pure
     override
     returns (bytes32 ret)
   {
