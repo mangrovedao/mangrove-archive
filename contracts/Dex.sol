@@ -330,7 +330,7 @@ abstract contract Dex {
   mapping(address => mapping(address => mapping(address => mapping(address => uint))))
     public allowances;
   /* permit nonces */
-  mapping(address => uint) nonces;
+  mapping(address => uint) public nonces;
 
   function updateAllowance(
     address base,
@@ -349,7 +349,7 @@ abstract contract Dex {
   bytes32 public constant PERMIT_TYPEHASH =
     0x17a32460f8ed1b6b681cae250706af2a994f0a49f9f87e61c7e4fac936375f5e;
 
-  /* Adapted from from Uniswap v2 contract */
+  /* Adapted from Uniswap v2 contract */
   function permit(
     address base,
     address quote,
