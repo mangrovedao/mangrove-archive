@@ -356,6 +356,32 @@ contract MakerPosthook_Test is IMaker {
     emit DexEvents.DeleteOffer(base, quote, ofr);
   }
 
+  function balance_after_fail_and_delete_test() public {
+    uint mkr_provision =
+      TestUtils.getProvision(dex, base, quote, gasreq, gasprice);
+    uint tkr_weis = address(tkr).balance;
+    posthook_bytes = this.deleteOffer_posthook.selector;
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
+    TestEvents.eq(
+      dex.balanceOf(address(this)),
+      weiBalMaker - mkr_provision, // maker has provision for his gasprice
+      "Incorrect maker balance before take"
+    );
+    abort = true;
+    bool success = tkr.take(ofr, 2 ether);
+    TestEvents.check(!success, "Snipe should fail");
+    uint penalty = weiBalMaker - dex.balanceOf(address(this));
+    TestEvents.eq(
+      penalty,
+      address(tkr).balance - tkr_weis,
+      "Incorrect overall balance after penalty for taker"
+    );
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.MakerFail(base, quote, ofr, 1 ether, 1 ether, true, "NOK");
+    emit DexEvents.DeleteOffer(base, quote, ofr);
+    emit DexEvents.Credit(address(this), mkr_provision - penalty);
+  }
+
   function update_offer_after_delete_in_posthook_fails_test() public {
     posthook_bytes = this.deleteOffer_posthook.selector;
     ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, gasprice, 0);
