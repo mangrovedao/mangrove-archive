@@ -242,9 +242,9 @@ library DexEvents {
   event Approval(
     address base,
     address quote,
-    address taker,
-    address sender,
-    uint amount
+    address owner,
+    address spender,
+    uint value
   );
 
   /* * Dex closure */
