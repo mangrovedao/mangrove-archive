@@ -194,11 +194,12 @@ library MakerSetup {
     Dex dex,
     address base,
     address quote,
-    bool shouldFail
+    uint failer // 1 shouldFail, 2 shouldRevert
   ) external returns (TestMaker) {
     TestMaker tm = new TestMaker(dex, IERC20(base), IERC20(quote));
-    tm.shouldFail(shouldFail);
-    return tm;
+    tm.shouldFail(failer == 1);
+    tm.shouldRevert(failer == 2);
+    return (tm);
   }
 
   function setup(

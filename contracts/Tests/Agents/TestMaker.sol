@@ -66,17 +66,10 @@ contract TestMaker is IMaker, Passthrough {
   {
     avoid_compilation_warning;
     if (_shouldRevert) {
-      bytes32[1] memory three = [bytes32("testMaker/revert")];
+      bytes32[1] memory revert_msg = [bytes32("testMaker/revert")];
       assembly {
-        revert(three, 32)
+        revert(revert_msg, 32)
       }
-    }
-    if (_shouldFail) {
-      bytes32[1] memory fail = [bytes32("testMaker/transferFail")];
-      assembly {
-        revert(fail, 32)
-      }
-      //revert("testMaker/fail");
     }
     emit Execute(
       msg.sender,
@@ -86,6 +79,14 @@ contract TestMaker is IMaker, Passthrough {
       order.wants,
       order.gives
     );
+    if (_shouldFail) {
+      IERC20(order.base).approve(address(_dex), 0);
+      bytes32[1] memory refuse_msg = [bytes32("testMaker/transferFail")];
+      assembly {
+        return(refuse_msg, 32)
+      }
+      //revert("testMaker/fail");
+    }
   }
 
   function makerPosthook(

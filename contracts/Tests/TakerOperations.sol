@@ -28,7 +28,8 @@ contract TakerOperations_Test {
   address quote;
   Dex dex;
   TestMaker mkr;
-  TestMaker badmkr;
+  TestMaker refusemkr;
+  TestMaker failmkr;
 
   receive() external payable {}
 
@@ -38,19 +39,27 @@ contract TakerOperations_Test {
     base = address(baseT);
     quote = address(quoteT);
     dex = DexSetup.setup(baseT, quoteT);
-    mkr = MakerSetup.setup(dex, base, quote);
 
-    badmkr = MakerSetup.setup(dex, base, quote, true);
+    mkr = MakerSetup.setup(dex, base, quote);
+    refusemkr = MakerSetup.setup(dex, base, quote, 1);
+    failmkr = MakerSetup.setup(dex, base, quote, 2);
 
     address(mkr).transfer(10 ether);
-    address(badmkr).transfer(10 ether);
+    address(refusemkr).transfer(10 ether);
+    address(failmkr).transfer(10 ether);
+
     mkr.provisionDex(1 ether);
     mkr.approveDex(baseT, 10 ether);
-    badmkr.provisionDex(1 ether);
-    badmkr.approveDex(baseT, 10 ether);
+
+    refusemkr.provisionDex(1 ether);
+    refusemkr.approveDex(baseT, 10 ether);
+    failmkr.provisionDex(1 ether);
+    failmkr.approveDex(baseT, 10 ether);
 
     baseT.mint(address(mkr), 5 ether);
-    baseT.mint(address(badmkr), 5 ether);
+    baseT.mint(address(failmkr), 5 ether);
+    baseT.mint(address(refusemkr), 5 ether);
+
     quoteT.mint(address(this), 5 ether);
     quoteT.mint(address(this), 5 ether);
 
@@ -59,31 +68,76 @@ contract TakerOperations_Test {
     Display.register(base, "$A");
     Display.register(quote, "$B");
     Display.register(address(dex), "dex");
+
     Display.register(address(mkr), "maker");
-    Display.register(address(badmkr), "bad maker");
+    Display.register(address(failmkr), "reverting maker");
+    Display.register(address(refusemkr), "refusing maker");
   }
 
   function taker_reimbursed_if_maker_doesnt_pay_test() public {
+    uint mkr_provision = TestUtils.getProvision(dex, base, quote, 50_000);
     quoteT.approve(address(dex), 1 ether);
-    uint ofr = badmkr.newOffer(1 ether, 1 ether, 50_000, 0);
-    uint before = quoteT.balanceOf(address(this));
-    dex.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000);
+    uint ofr = refusemkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    uint beforeQuote = quoteT.balanceOf(address(this));
+    uint beforeWei = address(this).balance;
+    (bool success, uint takerGot, uint takerGave) =
+      dex.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000);
+    uint penalty = address(this).balance - beforeWei;
+    TestEvents.check(penalty > 0, "Taker should have been compensated");
+    TestEvents.check(!success, "Snipe should fail");
     TestEvents.check(
-      before <= quoteT.balanceOf(address(this)),
+      takerGot == takerGave && takerGave == 0,
+      "Incorrect transaction information"
+    );
+    TestEvents.check(
+      beforeQuote == quoteT.balanceOf(address(this)),
       "taker balance should not be lower if maker doesn't pay back"
     );
+    TestEvents.expectFrom(address(dex));
+    DexEvents.MakerFail(
+      base,
+      quote,
+      ofr,
+      address(refusemkr),
+      1 ether,
+      1 ether,
+      false,
+      "testMaker/transferFail"
+    );
+    DexEvents.Credit(address(refusemkr), mkr_provision - penalty);
   }
 
   function taker_reimbursed_if_maker_reverts_test() public {
+    uint mkr_provision = TestUtils.getProvision(dex, base, quote, 50_000);
     quoteT.approve(address(dex), 1 ether);
-    uint ofr = badmkr.newOffer(1 ether, 1 ether, 50_000, 0);
-    badmkr.shouldRevert(true);
-    uint before = quoteT.balanceOf(address(this));
-    dex.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000);
+    uint ofr = failmkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    uint beforeQuote = quoteT.balanceOf(address(this));
+    uint beforeWei = address(this).balance;
+    (bool success, uint takerGot, uint takerGave) =
+      dex.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000);
+    uint penalty = address(this).balance - beforeWei;
+    TestEvents.check(penalty > 0, "Taker should have been compensated");
+    TestEvents.check(!success, "Snipe should fail");
     TestEvents.check(
-      before <= quoteT.balanceOf(address(this)),
+      takerGot == takerGave && takerGave == 0,
+      "Incorrect transaction information"
+    );
+    TestEvents.check(
+      beforeQuote == quoteT.balanceOf(address(this)),
       "taker balance should not be lower if maker doesn't pay back"
     );
+    TestEvents.expectFrom(address(dex));
+    DexEvents.MakerFail(
+      base,
+      quote,
+      ofr,
+      address(failmkr),
+      1 ether,
+      1 ether,
+      true,
+      "testMaker/revert"
+    );
+    DexEvents.Credit(address(failmkr), mkr_provision - penalty);
   }
 
   function taker_hasnt_approved_base_fails_order_with_fee_test() public {
@@ -201,7 +255,16 @@ contract TakerOperations_Test {
       dex.snipe(base, quote, ofr, 50 ether, 0.5 ether, 100_000);
     TestEvents.check(!success, "order should fail");
     TestEvents.expectFrom(address(dex));
-    emit DexEvents.MakerFail(base, quote, ofr, 50 ether, 0.5 ether, false, "");
+    emit DexEvents.MakerFail(
+      base,
+      quote,
+      ofr,
+      address(mkr),
+      50 ether,
+      0.5 ether,
+      false,
+      ""
+    );
   }
 
   function maker_revert_is_logged_test() public {
@@ -214,6 +277,7 @@ contract TakerOperations_Test {
       base,
       quote,
       ofr,
+      address(mkr),
       1 ether,
       1 ether,
       true,

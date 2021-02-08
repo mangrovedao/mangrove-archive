@@ -32,8 +32,8 @@ contract MakerOperations_Test is IMaker {
     base = TokenSetup.setup("A", "$A");
     quote = TokenSetup.setup("B", "$B");
     dex = DexSetup.setup(base, quote);
-    mkr = MakerSetup.setup(dex, address(base), address(quote), false);
-    mkr2 = MakerSetup.setup(dex, address(base), address(quote), false);
+    mkr = MakerSetup.setup(dex, address(base), address(quote));
+    mkr2 = MakerSetup.setup(dex, address(base), address(quote));
     tkr = TakerSetup.setup(dex, address(base), address(quote));
 
     address(mkr).transfer(10 ether);
