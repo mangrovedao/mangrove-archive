@@ -283,16 +283,7 @@ contract MakerPosthook_Test is IMaker {
       "Taker should not have been debited of her quote tokens"
     );
     TestEvents.expectFrom(address(dex));
-    emit DexEvents.MakerFail(
-      base,
-      quote,
-      ofr,
-      address(this),
-      1 ether,
-      1 ether,
-      true,
-      "NOK"
-    );
+    emit DexEvents.MakerFail(base, quote, ofr, 1 ether, 1 ether, true, "NOK");
   }
 
   function update_offer_with_more_gasprice_test() public {
@@ -375,7 +366,7 @@ contract MakerPosthook_Test is IMaker {
       "Incorrect maker balance after take"
     );
     TestEvents.expectFrom(address(dex));
-    emit DexEvents.Success(base, quote, ofr, address(this), 1 ether, 1 ether);
+    emit DexEvents.Success(base, quote, ofr, 1 ether, 1 ether);
     emit DexEvents.Credit(address(this), mkr_provision);
     emit DexEvents.DeleteOffer(base, quote, ofr);
   }
@@ -401,16 +392,7 @@ contract MakerPosthook_Test is IMaker {
       "Incorrect overall balance after penalty for taker"
     );
     TestEvents.expectFrom(address(dex));
-    emit DexEvents.MakerFail(
-      base,
-      quote,
-      ofr,
-      address(this),
-      1 ether,
-      1 ether,
-      true,
-      "NOK"
-    );
+    emit DexEvents.MakerFail(base, quote, ofr, 1 ether, 1 ether, true, "NOK");
     emit DexEvents.DeleteOffer(base, quote, ofr);
     emit DexEvents.Credit(address(this), mkr_provision - penalty);
   }
@@ -433,7 +415,7 @@ contract MakerPosthook_Test is IMaker {
         "Unexpected throw message"
       );
       TestEvents.expectFrom(address(dex));
-      emit DexEvents.Success(base, quote, ofr, address(this), 1 ether, 1 ether);
+      emit DexEvents.Success(base, quote, ofr, 1 ether, 1 ether);
       emit DexEvents.DeleteOffer(base, quote, ofr);
     }
   }
@@ -504,7 +486,6 @@ contract MakerPosthook_Test is IMaker {
       base,
       quote,
       ofr,
-      address(this),
       1 ether,
       1 ether,
       true,

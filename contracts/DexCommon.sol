@@ -227,7 +227,6 @@ library DexEvents {
     address base,
     address quote,
     uint offerId,
-    address maker,
     uint takerWants,
     uint takerGives
   );
@@ -235,7 +234,6 @@ library DexEvents {
     address base,
     address quote,
     uint offerId,
-    address maker,
     uint takerWants,
     uint takerGives,
     bool reverted,

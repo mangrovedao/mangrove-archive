@@ -143,8 +143,8 @@ contract InvertedTakerOperations_Test is ITaker {
       "Incorrect transfer (got) during reentrancy"
     );
     TestEvents.expectFrom(address(dex));
-    emit DexEvents.Success(base, quote, 1, address(mkr), 0.1 ether, 0.1 ether);
-    emit DexEvents.Success(base, quote, 2, address(mkr), 0.1 ether, 0.1 ether);
+    emit DexEvents.Success(base, quote, 1, 0.1 ether, 0.1 ether);
+    emit DexEvents.Success(base, quote, 2, 0.1 ether, 0.1 ether);
     TestEvents.expectFrom(address(mkr));
     mkr.logExecute(address(dex), base, quote, 1, 0.1 ether, 0.1 ether);
     mkr.logExecute(address(dex), base, quote, 2, 0.1 ether, 0.1 ether);
