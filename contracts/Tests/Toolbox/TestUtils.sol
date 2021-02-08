@@ -49,7 +49,7 @@ library TestUtils {
     address base,
     address quote
   ) internal view returns (bool) {
-    return dex.bests(base, quote) == 0;
+    return dex.best(base, quote) == 0;
   }
 
   function adminOf(Dex dex) internal view returns (address) {

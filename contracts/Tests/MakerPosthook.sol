@@ -26,6 +26,7 @@ contract MakerPosthook_Test is IMaker {
   uint _gasprice = 50; // will cover for a gasprice of 50 gwei/gas uint
   uint weiBalMaker;
   bool abort = false;
+  bool called;
 
   receive() external payable {}
 
@@ -58,6 +59,7 @@ contract MakerPosthook_Test is IMaker {
     DexCommon.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
+    called = true;
     dex.updateOffer(
       order.base,
       order.quote,
@@ -75,6 +77,7 @@ contract MakerPosthook_Test is IMaker {
     DexCommon.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
+    called = true;
     dex.updateOffer(
       order.base,
       order.quote,
@@ -92,6 +95,7 @@ contract MakerPosthook_Test is IMaker {
     DexCommon.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
+    called = true;
     TestEvents.fail("Posthook should not be called");
   }
 
@@ -100,6 +104,7 @@ contract MakerPosthook_Test is IMaker {
     DexCommon.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
+    called = true;
     uint bal = dex.balanceOf(address(this));
     dex.retractOffer(base, quote, ofr, true);
     if (abort) {
@@ -161,7 +166,6 @@ contract MakerPosthook_Test is IMaker {
     posthook_bytes = this.renew_offer_at_posthook.selector;
 
     ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
-
     TestEvents.eq(
       dex.balanceOf(address(this)),
       weiBalMaker - mkr_provision, // maker has provision for his gasprice
@@ -170,6 +174,7 @@ contract MakerPosthook_Test is IMaker {
 
     bool success = tkr.take(ofr, 0.5 ether);
     TestEvents.check(success, "Snipe should succeed");
+    TestEvents.check(called, "PostHook not called");
 
     TestEvents.eq(
       dex.balanceOf(address(this)),
@@ -204,6 +209,7 @@ contract MakerPosthook_Test is IMaker {
     );
 
     bool success = tkr.take(ofr, 2 ether);
+    TestEvents.check(called, "PostHook not called");
     TestEvents.check(success, "Snipe should succeed");
 
     TestEvents.eq(
@@ -233,6 +239,7 @@ contract MakerPosthook_Test is IMaker {
 
     bool success = tkr.take(ofr, 2 ether);
     TestEvents.check(!success, "Snipe should fail");
+    TestEvents.check(called, "PostHook not called");
 
     TestEvents.eq(
       TestUtils.getOfferInfo(dex, base, quote, TestUtils.Info.makerGives, ofr),
@@ -304,6 +311,7 @@ contract MakerPosthook_Test is IMaker {
 
     bool success = tkr.take(ofr, 2 ether);
     TestEvents.check(success, "Snipe should succeed");
+    TestEvents.check(called, "PostHook not called");
 
     TestEvents.eq(
       dex.balanceOf(address(this)),
@@ -333,6 +341,7 @@ contract MakerPosthook_Test is IMaker {
 
     bool success =
       tkr.snipe(dex, base, quote, ofr, 1 ether, 1 ether, gasreq - 1);
+    TestEvents.check(!called, "PostHook was called");
     TestEvents.check(!success, "Snipe should fail");
   }
 
@@ -343,6 +352,7 @@ contract MakerPosthook_Test is IMaker {
     ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
     bool success = tkr.snipe(dex, base, quote, ofr, 1.1 ether, 1 ether, gasreq);
     TestEvents.check(!success, "Snipe should fail");
+    TestEvents.check(!called, "PostHook was called");
   }
 
   function delete_offer_in_posthook_test() public {
@@ -357,6 +367,8 @@ contract MakerPosthook_Test is IMaker {
     );
     bool success = tkr.take(ofr, 2 ether);
     TestEvents.check(success, "Snipe should succeed");
+    TestEvents.check(called, "PostHook not called");
+
     TestEvents.eq(
       dex.balanceOf(address(this)),
       weiBalMaker, // provision returned to taker
@@ -407,6 +419,8 @@ contract MakerPosthook_Test is IMaker {
     posthook_bytes = this.deleteOffer_posthook.selector;
     ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
     bool success = tkr.take(ofr, 2 ether);
+    TestEvents.check(called, "PostHook not called");
+
     TestEvents.check(success, "Snipe should succeed");
     try
       dex.updateOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0, ofr)
@@ -424,6 +438,45 @@ contract MakerPosthook_Test is IMaker {
     }
   }
 
+  function check_best_in_posthook(
+    DexCommon.SingleOrder calldata order,
+    DexCommon.OrderResult calldata result
+  ) external {
+    called = true;
+    DexCommon.Config memory cfg = dex.config(order.base, order.quote);
+    TestEvents.eq(cfg.local.best, ofr, "Incorrect best offer id in posthook");
+  }
+
+  function best_in_posthook_is_correct_test() public {
+    dex.newOffer(base, quote, 2 ether, 1 ether, gasreq, _gasprice, 0);
+    ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
+    uint best =
+      dex.newOffer(base, quote, 0.5 ether, 1 ether, gasreq, _gasprice, 0);
+    posthook_bytes = this.check_best_in_posthook.selector;
+    bool success = tkr.take(best, 1 ether);
+    TestEvents.check(called, "PostHook not called");
+    TestEvents.check(success, "Snipe should succeed");
+  }
+
+  function check_lastId_in_posthook(
+    DexCommon.SingleOrder calldata order,
+    DexCommon.OrderResult calldata result
+  ) external {
+    called = true;
+    DexCommon.Config memory cfg = dex.config(order.base, order.quote);
+    TestEvents.eq(cfg.local.lastId, ofr, "Incorrect last offer id in posthook");
+  }
+
+  function lastId_in_posthook_is_correct_test() public {
+    dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
+    ofr = dex.newOffer(base, quote, 0.5 ether, 1 ether, gasreq, _gasprice, 0);
+    posthook_bytes = this.check_lastId_in_posthook.selector;
+    bool success = tkr.take(ofr, 1 ether);
+    TestEvents.check(called, "PostHook not called");
+    TestEvents.check(success, "Snipe should succeed");
+    DexCommon.Config memory cfg = dex.config(base, quote);
+  }
+
   function delete_offer_after_fail_in_posthook_test() public {
     uint mkr_provision =
       TestUtils.getProvision(dex, base, quote, gasreq, _gasprice);
@@ -436,6 +489,8 @@ contract MakerPosthook_Test is IMaker {
     );
     abort = true; // maker should fail
     bool success = tkr.take(ofr, 2 ether);
+    TestEvents.check(called, "PostHook not called");
+
     TestEvents.check(!success, "Snipe should fail");
 
     TestEvents.less(

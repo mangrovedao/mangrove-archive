@@ -200,6 +200,8 @@ contract TakerOperations_Test {
 
   function simple_marketOrder_test() public {
     mkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    console.log("best", dex.best(base, quote));
+    Display.logOfferBook(dex, base, quote, 5); // taker has more A
     baseT.approve(address(dex), 1 ether);
     quoteT.approve(address(dex), 1 ether);
     uint balTaker = baseT.balanceOf(address(this));
@@ -432,7 +434,7 @@ contract TakerOperations_Test {
     uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 0);
     (bool success, , ) = dex.snipe(base, quote, ofr, 0, 1 ether, 50_000);
     TestEvents.check(success, "snipe should succeed");
-    TestEvents.eq(dex.bests(base, quote), 0, "offer should be gone");
+    TestEvents.eq(dex.best(base, quote), 0, "offer should be gone");
     TestEvents.eq(
       baseT.balanceOf(address(mkr)),
       mkrBal,
@@ -461,9 +463,8 @@ contract TakerOperations_Test {
 
   function marketOrder_on_empty_book_does_not_leave_lock_on_test() public {
     dex.marketOrder(base, quote, 1 ether, 1 ether);
-    TestEvents.less(
-      dex.locks(base, quote),
-      2,
+    TestEvents.check(
+      !dex.lock(base, quote),
       "dex should not be locked after marketOrder on empty OB"
     );
   }

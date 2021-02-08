@@ -446,14 +446,14 @@ contract Gatekeeping_Test is IMaker {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 200_000, 0, 0);
     trade_cb = abi.encodeWithSelector(this.newOfferOK.selector, quote, base);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    require(dex.bests(quote, base) == 1, "newOffer on swapped pair must work");
+    require(dex.best(quote, base) == 1, "newOffer on swapped pair must work");
   }
 
   function newOffer_on_posthook_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 200_000, 0, 0);
     posthook_cb = abi.encodeWithSelector(this.newOfferOK.selector, base, quote);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    require(dex.bests(base, quote) == 2, "newOffer on posthook must work");
+    require(dex.best(base, quote) == 2, "newOffer on posthook must work");
   }
 
   /* Update offer failure */
@@ -552,7 +552,7 @@ contract Gatekeeping_Test is IMaker {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
     require(
-      dex.bests(quote, base) == 0,
+      dex.best(quote, base) == 0,
       "retractOffer on swapped pair must work"
     );
   }
@@ -568,7 +568,7 @@ contract Gatekeeping_Test is IMaker {
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    require(dex.bests(base, quote) == 0, "retractOffer on posthook must work");
+    require(dex.best(base, quote) == 0, "retractOffer on posthook must work");
   }
 
   /* Market Order failure */
@@ -607,7 +607,7 @@ contract Gatekeeping_Test is IMaker {
     trade_cb = abi.encodeWithSelector(this.marketOrderOK.selector, quote, base);
     require(tkr.take(ofr, 0.1 ether), "take must succeed or test is void");
     require(
-      dex.bests(quote, base) == 0,
+      dex.best(quote, base) == 0,
       "2nd market order must have emptied dex"
     );
   }
@@ -622,7 +622,7 @@ contract Gatekeeping_Test is IMaker {
     );
     require(tkr.take(ofr, 0.6 ether), "take must succeed or test is void");
     require(
-      dex.bests(base, quote) == 0,
+      dex.best(base, quote) == 0,
       "2nd market order must have emptied dex"
     );
   }
@@ -666,7 +666,7 @@ contract Gatekeeping_Test is IMaker {
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0, 0);
     require(tkr.take(ofr, 0.1 ether), "take must succeed or test is void");
-    require(dex.bests(quote, base) == 0, "snipe in swapped pair must work");
+    require(dex.best(quote, base) == 0, "snipe in swapped pair must work");
   }
 
   function snipes_on_posthook_succeeds_test() public {
@@ -680,7 +680,7 @@ contract Gatekeeping_Test is IMaker {
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    require(dex.bests(base, quote) == 0, "snipe in posthook must work");
+    require(dex.best(base, quote) == 0, "snipe in posthook must work");
   }
 
   function newOffer_on_closed_fails_test() public {

@@ -149,6 +149,20 @@ They have the following fields: */
     uint density;
     /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at leat `gasbase` gas. Should only be updated when opcode prices change. */
     uint gasbase;
+    /* * If `lock` is true, orders may not be added nor executed.
+
+       Reentrancy during offer execution is not considered safe:
+     * during execution, an offer could consume other offers further up in the book, effectively frontrunning the taker currently executing the offer.
+     * it could also cancel other offers, creating a discrepancy between the advertised and actual market price at no cost to the maker.
+     * an offer insertion consumes an unbounded amount of gas (because it has to be correctly placed in the book).
+
+Note: An optimization in the `marketOrder` function relies on reentrancy being forbidden.
+     */
+    bool lock;
+    /* `best` a holds the current best offer id. Has size of an id field. ! danger ! reading best inside a lock may give you a stale value. */
+    uint best;
+    /* * `lastId` is a counter for offer ids, incremented every time a new offer is created. It can't go above 2^24-1. */
+    uint lastId;
   }
 
   struct Config {
@@ -232,9 +246,9 @@ library DexEvents {
   event Approval(
     address base,
     address quote,
-    address taker,
-    address sender,
-    uint amount
+    address owner,
+    address spender,
+    uint value
   );
 
   /* * Dex closure */
