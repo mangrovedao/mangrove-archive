@@ -440,7 +440,7 @@ contract MakerPosthook_Test is IMaker {
 
   function check_best_in_posthook(
     DexCommon.SingleOrder calldata order,
-    DexCommon.OrderResult calldata result
+    DexCommon.OrderResult calldata
   ) external {
     called = true;
     DexCommon.Config memory cfg = dex.config(order.base, order.quote);
@@ -460,7 +460,7 @@ contract MakerPosthook_Test is IMaker {
 
   function check_lastId_in_posthook(
     DexCommon.SingleOrder calldata order,
-    DexCommon.OrderResult calldata result
+    DexCommon.OrderResult calldata
   ) external {
     called = true;
     DexCommon.Config memory cfg = dex.config(order.base, order.quote);
@@ -474,7 +474,6 @@ contract MakerPosthook_Test is IMaker {
     bool success = tkr.take(ofr, 1 ether);
     TestEvents.check(called, "PostHook not called");
     TestEvents.check(success, "Snipe should succeed");
-    DexCommon.Config memory cfg = dex.config(base, quote);
   }
 
   function delete_offer_after_fail_in_posthook_test() public {

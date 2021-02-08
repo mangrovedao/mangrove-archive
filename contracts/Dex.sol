@@ -109,7 +109,7 @@ abstract contract Dex {
   */
 
   /* `requireNoReentrancyLock` protects modifying the book while an order is in progress. */
-  function unlockedOnly(bytes32 local) internal view {
+  function unlockedOnly(bytes32 local) internal pure {
     require($$(loc_lock("local")) == 0, "dex/reentrancyLocked");
   }
 
@@ -174,7 +174,6 @@ abstract contract Dex {
     OfferPack memory ofp;
     ofp.base = base;
     ofp.quote = quote;
-    bytes32 local;
     (ofp.global, ofp.local) = getConfig(base, quote);
     unlockedOnly(ofp.local);
     ofp.id = 1 + $$(loc_lastId("ofp.local"));
@@ -202,7 +201,7 @@ abstract contract Dex {
     uint offerId,
     bool _delete
   ) external {
-    (bytes32 _global, bytes32 local) = getConfig(base, quote);
+    (, bytes32 local) = getConfig(base, quote);
     unlockedOnly(local);
     bytes32 offer = offers[base][quote][offerId];
     bytes32 offerDetail = offerDetails[base][quote][offerId];
