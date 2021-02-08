@@ -11,38 +11,32 @@ contract UniSwapMaker is IMaker {
   Dex dex;
   address private admin;
   uint gasreq = 80_000;
-  uint share; // [1,100] for 1/1 to 1/100
-  uint fee; // per 1000
-  uint ofr0;
-  uint ofr1;
+  uint8 share; // [1,100] for 1/1 to 1/100
+  uint8 fee; // per 1000
+  uint24 ofr0;
+  uint24 ofr1;
 
   constructor(
     Dex _dex,
     uint _share,
     uint _fee
   ) {
-    require(_fee < 1000 && _share > 1, "Invalid parameters");
+    require(_share > 1, "Invalid parameters");
+    require(uint8(_fee) == _fee && uint8(_share) == _share);
     admin = msg.sender;
     dex = _dex; // FMD or FTD
-    share = _share;
-    fee = _fee;
+    share = uint8(_share);
+    fee = uint8(_fee);
   }
 
   receive() external payable {}
 
   function setParams(uint _fee, uint _share) external {
-    require(_fee < 1000 && _share > 1, "Invalid parameters");
+    require(_share > 1, "Invalid parameters");
+    require(uint8(_fee) == _fee && uint8(_share) == _share);
     if (msg.sender == admin) {
-      fee = _fee;
-      share = _share;
-    }
-  }
-
-  function withdraw(address recipient, uint amount) external {
-    if (msg.sender == admin) {
-      bool noRevert;
-      (noRevert, ) = address(recipient).call{value: amount}("");
-      require(noRevert);
+      fee = uint8(_fee);
+      share = uint8(_share);
     }
   }
 
@@ -80,8 +74,8 @@ contract UniSwapMaker is IMaker {
 
     (uint wants0, uint gives1) = newPrice(pool0, pool1);
     (uint wants1, uint gives0) = newPrice(pool1, pool0);
-    ofr0 = dex.newOffer(tk0, tk1, wants0, gives1, gasreq, 0, 0);
-    ofr1 = dex.newOffer(tk1, tk0, wants1, gives0, gasreq, 0, 0); // natural OB
+    ofr0 = uint24(dex.newOffer(tk0, tk1, wants0, gives1, gasreq, 0, 0));
+    ofr1 = uint24(dex.newOffer(tk1, tk0, wants1, gives0, gasreq, 0, 0)); // natural OB
   }
 
   function makerPosthook(DC.SingleOrder calldata order, DC.OrderResult calldata)
