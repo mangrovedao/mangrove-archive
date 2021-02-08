@@ -134,6 +134,7 @@ contract Monitor_Test {
       dex.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000);
     TestEvents.check(success, "snipe should succeed");
     (bytes32 _global, bytes32 _local) = dex.getConfig(base, quote);
+    _local = $$(loc_set("_local", [["best", 1], ["lock", 1]]));
 
     DC.SingleOrder memory order =
       DC.SingleOrder({
@@ -162,6 +163,8 @@ contract Monitor_Test {
     TestEvents.check(!success, "snipe should fail");
 
     (bytes32 _global, bytes32 _local) = dex.getConfig(base, quote);
+    // config sent during maker callback has stale best and, is locked
+    _local = $$(loc_set("_local", [["best", 1], ["lock", 1]]));
 
     DC.SingleOrder memory order =
       DC.SingleOrder({
@@ -177,6 +180,6 @@ contract Monitor_Test {
       });
 
     TestEvents.expectFrom(address(monitor));
-    emit L.TradeFail(order);
+    emit L.TradeFail(order, address(this));
   }
 }

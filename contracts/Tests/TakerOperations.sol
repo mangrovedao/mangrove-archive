@@ -98,9 +98,10 @@ contract TakerOperations_Test {
       base,
       quote,
       ofr,
+      address(this),
       1 ether,
       1 ether,
-      false,
+      "dex/makerTransferFail",
       "testMaker/transferFail"
     );
     DexEvents.Credit(address(refusemkr), mkr_provision - penalty);
@@ -130,9 +131,10 @@ contract TakerOperations_Test {
       base,
       quote,
       ofr,
+      address(this),
       1 ether,
       1 ether,
-      true,
+      "dex/makerRevert",
       "testMaker/revert"
     );
     DexEvents.Credit(address(failmkr), mkr_provision - penalty);
@@ -255,7 +257,16 @@ contract TakerOperations_Test {
       dex.snipe(base, quote, ofr, 50 ether, 0.5 ether, 100_000);
     TestEvents.check(!success, "order should fail");
     TestEvents.expectFrom(address(dex));
-    emit DexEvents.MakerFail(base, quote, ofr, 50 ether, 0.5 ether, false, "");
+    emit DexEvents.MakerFail(
+      base,
+      quote,
+      ofr,
+      address(this),
+      50 ether,
+      0.5 ether,
+      "dex/makerTransferFail",
+      ""
+    );
   }
 
   function maker_revert_is_logged_test() public {
@@ -268,9 +279,10 @@ contract TakerOperations_Test {
       base,
       quote,
       ofr,
+      address(this),
       1 ether,
       1 ether,
-      true,
+      "dex/makerRevert",
       "testMaker/revert"
     );
   }

@@ -7,7 +7,7 @@ import "../../DexCommon.sol";
 
 library L {
   event TradeSuccess(DexCommon.SingleOrder order, address taker);
-  event TradeFail(DexCommon.SingleOrder order);
+  event TradeFail(DexCommon.SingleOrder order, address taker);
 }
 
 contract DexMonitor is IDexMonitor {
@@ -42,7 +42,10 @@ contract DexMonitor is IDexMonitor {
     emit L.TradeSuccess(sor, taker);
   }
 
-  function notifyFail(DexCommon.SingleOrder calldata sor) external override {
-    emit L.TradeFail(sor);
+  function notifyFail(DexCommon.SingleOrder calldata sor, address taker)
+    external
+    override
+  {
+    emit L.TradeFail(sor, taker);
   }
 }

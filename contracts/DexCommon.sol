@@ -194,6 +194,7 @@ Note: An optimization in the `marketOrder` function relies on reentrancy being f
   struct OrderResult {
     bool success;
     bytes32 makerData;
+    bytes32 errorCode;
   }
 }
 
@@ -227,6 +228,7 @@ library DexEvents {
     address base,
     address quote,
     uint offerId,
+    address taker,
     uint takerWants,
     uint takerGives
   );
@@ -234,9 +236,10 @@ library DexEvents {
     address base,
     address quote,
     uint offerId,
+    address taker,
     uint takerWants,
     uint takerGives,
-    bool reverted,
+    bytes32 errorCode,
     bytes32 makerData
   );
 
@@ -307,7 +310,8 @@ interface IDexMonitor {
   function notifySuccess(DexCommon.SingleOrder calldata sor, address taker)
     external;
 
-  function notifyFail(DexCommon.SingleOrder calldata sor) external;
+  function notifyFail(DexCommon.SingleOrder calldata sor, address taker)
+    external;
 
   function read(address base, address quote)
     external

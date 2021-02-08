@@ -472,6 +472,7 @@ abstract contract Dex {
       bool success;
       uint gasused;
       bytes32 makerData;
+      bytes32 errorCode;
       /* `executed` is false if offer could not be executed against 2nd and 3rd argument of execute. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
       // reduce stack size for recursion
 
@@ -481,7 +482,7 @@ abstract contract Dex {
       sor.offerDetail = offerDetails[sor.base][sor.quote][sor.offerId];
 
       /* it is crucial that a false success value means that the error is the maker's fault */
-      (success, executed, gasused, makerData) = execute(mor, sor);
+      (success, executed, gasused, makerData, errorCode) = execute(mor, sor);
 
       /* Finally, update `offerId`/`offer` to the next available offer _only if the current offer was deleted_.
 
@@ -533,7 +534,7 @@ abstract contract Dex {
         sor.offerDetail = offerDetail;
       }
 
-      postExecute(mor, sor, success, executed, gasused, makerData);
+      postExecute(mor, sor, success, executed, gasused, makerData, errorCode);
     } else {
       sor.local = stitchOffers(
         sor.base,
@@ -554,13 +555,20 @@ abstract contract Dex {
     DC.SingleOrder memory sor,
     uint gasLeft,
     bool success,
-    bytes32 makerData
+    bytes32 makerData,
+    bytes32 errorCode
   ) internal returns (uint gasused) {
-    DC.OrderResult memory res =
-      DC.OrderResult({success: success, makerData: makerData});
-
+    // At this point, errorCode can only be "dex/makerRevert" or "dex/makerTransferFail"
     bytes memory cd =
-      abi.encodeWithSelector(IMaker.makerPosthook.selector, sor, res);
+      abi.encodeWithSelector(
+        IMaker.makerPosthook.selector,
+        sor,
+        DC.OrderResult({
+          success: success,
+          makerData: makerData,
+          errorCode: errorCode
+        })
+      );
 
     bytes memory retdata = new bytes(32);
 
@@ -605,7 +613,8 @@ abstract contract Dex {
       bool success,
       bool executed,
       uint gasused,
-      bytes32 makerData
+      bytes32 makerData,
+      bytes32 errorCode
     )
   {
     /* #### `makerWouldWant` */
@@ -632,7 +641,7 @@ abstract contract Dex {
     }
 
     if (makerWouldWant > sor.gives) {
-      return (false, false, 0, bytes32(0));
+      return (false, false, 0, bytes32(0), bytes32(0));
     }
 
     executed = true;
@@ -662,6 +671,7 @@ abstract contract Dex {
         sor.base,
         sor.quote,
         sor.offerId,
+        mor.taker,
         sor.wants,
         sor.gives
       );
@@ -677,7 +687,7 @@ abstract contract Dex {
       mor.totalGave += sor.gives;
     } else {
       /* This short reason string should not be exploitable by maker/taker! */
-      bytes32 errorCode;
+      /* Note that in the tests, the literals are bytes32, while as revert arguments, they are string. */
       (errorCode, gasused, makerData) = innerDecode(retdata);
       if (
         errorCode == "dex/makerRevert" || errorCode == "dex/makerTransferFail"
@@ -686,14 +696,15 @@ abstract contract Dex {
           sor.base,
           sor.quote,
           sor.offerId,
+          mor.taker,
           sor.wants,
           sor.gives,
-          errorCode == "dex/makerRevert",
+          errorCode,
           makerData
         );
 
         if ($$(glo_notify("sor.global")) > 0) {
-          IDexMonitor($$(glo_monitor("sor.global"))).notifyFail(sor);
+          IDexMonitor($$(glo_monitor("sor.global"))).notifyFail(sor, mor.taker);
         }
       } else if (errorCode == "dex/tradeOverflow") {
         revert("dex/tradeOverflow");
@@ -908,6 +919,7 @@ abstract contract Dex {
         uint gasused;
         bool executed;
         bytes32 makerData;
+        bytes32 errorCode;
 
         require(
           uint96(targets[i][1]) == targets[i][1],
@@ -917,7 +929,7 @@ abstract contract Dex {
         sor.gives = targets[i][2];
 
         // ! warning ! updates sor.wants, sor.gives
-        (success, executed, gasused, makerData) = execute(mor, sor);
+        (success, executed, gasused, makerData, errorCode) = execute(mor, sor);
 
         if (success) {
           mor.snipeSuccesses += 1;
@@ -950,7 +962,7 @@ abstract contract Dex {
           sor.offerDetail = offerDetail;
         }
 
-        postExecute(mor, sor, success, executed, gasused, makerData);
+        postExecute(mor, sor, success, executed, gasused, makerData, errorCode);
       }
     } else {
       /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
@@ -967,11 +979,15 @@ abstract contract Dex {
     bool success,
     bool executed,
     uint gasused,
-    bytes32 makerData
+    bytes32 makerData,
+    bytes32 errorCode
   ) internal {
+    // transfer back to taker in FTD
     if (success) {
       executeCallback(mor, sor);
     }
+
+    // log/notify success/fail, we do it here so config is up to date
 
     {
       uint gasreq = $$(od_gasreq("sor.offerDetail"));
@@ -983,7 +999,8 @@ abstract contract Dex {
             sor,
             gasused > gasreq ? 0 : gasreq - gasused,
             success,
-            makerData
+            makerData,
+            errorCode
           );
 
         if (gasused > gasreq) {

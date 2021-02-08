@@ -100,8 +100,22 @@ contract AMM_Test {
 
   function check_logs(address mgr, bool inverted) internal {
     TestEvents.expectFrom(address(dex));
-    emit DexEvents.Success(address(tk0), address(tk1), 3, 1 ether, 0.5 ether);
-    emit DexEvents.Success(address(tk0), address(tk1), 2, 0.8 ether, 1 ether);
+    emit DexEvents.Success(
+      address(tk0),
+      address(tk1),
+      3,
+      address(mgr),
+      1 ether,
+      0.5 ether
+    );
+    emit DexEvents.Success(
+      address(tk0),
+      address(tk1),
+      2,
+      address(mgr),
+      0.8 ether,
+      1 ether
+    );
     Dex DEX = dex;
     if (inverted) {
       TestEvents.expectFrom(address(invDex));
@@ -119,7 +133,14 @@ contract AMM_Test {
         1
       )
     );
-    emit DexEvents.Success(address(tk1), address(tk0), 1, 1.2 ether, 1.2 ether);
+    emit DexEvents.Success(
+      address(tk1),
+      address(tk0),
+      1,
+      address(mgr),
+      1.2 ether,
+      1.2 ether
+    );
     TestEvents.expectFrom(address(dex));
 
     emit DexEvents.WriteOffer(
