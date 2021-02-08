@@ -352,7 +352,7 @@ abstract contract Dex {
   bytes32 public immutable DOMAIN_SEPARATOR;
   // keccak256("Permit(address base,address quote,address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
   bytes32 public constant PERMIT_TYPEHASH =
-    0x17a32460f8ed1b6b681cae250706af2a994f0a49f9f87e61c7e4fac936375f5e;
+    0xb7bf278e51ab1478b10530c0300f911d9ed3562fc93ab5e6593368fe23c077a2;
 
   /* Adapted from Uniswap v2 contract */
   function permit(

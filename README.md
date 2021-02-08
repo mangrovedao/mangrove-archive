@@ -28,6 +28,12 @@ console.log("Message %s number %d",s,d);
 npx hardhat test-solidity --show-events
 ```
 
+- Run test for `permit` function, which needs js instrumentation (cannot do reasonably it in pure solidity)
+
+```
+npx hardhat run scripts/permit.js
+```
+
 - See a Solidity stack trace on reverts
 
 #### More on tests
