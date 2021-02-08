@@ -54,7 +54,8 @@ contract AMM_Test {
     returns (
       OfferManager,
       TestDelegateTaker,
-      TestDelegateTaker
+      TestDelegateTaker,
+      TestMaker
     )
   {
     OfferManager mgr = new OfferManager(dex, invDex);
@@ -95,16 +96,20 @@ contract AMM_Test {
       gasreq: 90_000,
       pivotId: 72
     });
-    return (mgr, tkr, _tkr);
+    return (mgr, tkr, _tkr, maker);
   }
 
-  function check_logs(address mgr, bool inverted) internal {
+  function check_logs(
+    address mgr,
+    address maker,
+    bool inverted
+  ) internal {
     TestEvents.expectFrom(address(dex));
     emit DexEvents.Success(
       address(tk0),
       address(tk1),
       3,
-      mgr,
+      maker,
       1 ether,
       0.5 ether
     );
@@ -112,7 +117,7 @@ contract AMM_Test {
       address(tk0),
       address(tk1),
       2,
-      mgr,
+      maker,
       0.8 ether,
       1 ether
     );
@@ -124,7 +129,7 @@ contract AMM_Test {
     emit DexEvents.WriteOffer(
       address(tk1),
       address(tk0),
-      address(mgr),
+      mgr,
       DexPack.writeOffer_pack(
         1.2 ether,
         1.2 ether,
@@ -158,8 +163,12 @@ contract AMM_Test {
   }
 
   function offer_manager_test() public {
-    (OfferManager mgr, TestDelegateTaker tkr, TestDelegateTaker _tkr) =
-      prepare_offer_manager();
+    (
+      OfferManager mgr,
+      TestDelegateTaker tkr,
+      TestDelegateTaker _tkr,
+      TestMaker maker
+    ) = prepare_offer_manager();
     tk1.mint(address(tkr), 5 ether);
     tk0.mint(address(_tkr), 5 ether);
 
@@ -178,12 +187,16 @@ contract AMM_Test {
     Display.logOfferBook(dex, address(tk1), address(tk0), 2);
     Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
 
-    check_logs(address(mgr), false);
+    check_logs(address(mgr), address(maker), false);
   }
 
   function inverted_offer_manager_test() public {
-    (OfferManager mgr, TestDelegateTaker tkr, TestDelegateTaker _tkr) =
-      prepare_offer_manager();
+    (
+      OfferManager mgr,
+      TestDelegateTaker tkr,
+      TestDelegateTaker _tkr,
+      TestMaker maker
+    ) = prepare_offer_manager();
 
     tk1.mint(address(tkr), 5 ether);
     //tk0.mint(address(_taker), 5 ether);
@@ -203,7 +216,7 @@ contract AMM_Test {
     Display.logOfferBook(dex, address(tk0), address(tk1), 5);
     Display.logOfferBook(invDex, address(tk1), address(tk0), 2);
     Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
-    check_logs(address(mgr), true);
+    check_logs(address(mgr), address(maker), true);
   }
 
   function uniswap_like_maker_test() public {
