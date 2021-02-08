@@ -657,6 +657,7 @@ abstract contract Dex {
         sor.base,
         sor.quote,
         sor.offerId,
+        $$(od_maker("sor.offerDetail")),
         sor.wants,
         sor.gives
       );
@@ -681,6 +682,7 @@ abstract contract Dex {
           sor.base,
           sor.quote,
           sor.offerId,
+          $$(od_maker("sor.offerDetail")),
           sor.wants,
           sor.gives,
           errorCode == "dex/makerRevert",
