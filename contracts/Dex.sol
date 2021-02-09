@@ -220,8 +220,10 @@ abstract contract Dex {
         local,
         true
       );
-      // set `offer.gives` to 0
-      dirtyDeleteOffer(base, quote, offerId, offer, false);
+      if (!_delete) {
+        // set `offer.gives` to 0
+        dirtyDeleteOffer(base, quote, offerId, offer, false);
+      }
     }
 
     if (_delete) {
