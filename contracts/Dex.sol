@@ -26,7 +26,7 @@ abstract contract Dex {
     uint initialGives;
     uint totalGot;
     uint totalGave;
-    uint takerDue;
+    uint totalPenalty;
     // used as #successes in internalSnipes
     uint snipeSuccesses;
     address taker;
@@ -458,7 +458,7 @@ abstract contract Dex {
     locals[base][quote] = sor.local;
     /* first condition means taker wants nothing, and calling internalMarketOrder in that case would execute the first offer for nothig. Second condition means OB is empty and we can't call the offer 0 (its maker is the address 0). */
     internalMarketOrder(mor, sor, mor.initialWants != 0 && sor.offerId != 0);
-    paySender(mor.takerDue);
+    sendPenalty(mor.totalPenalty);
     return (mor.totalGot, mor.totalGave);
   }
 
@@ -898,7 +898,7 @@ abstract contract Dex {
     sor.local = $$(loc_set("sor.local", [["lock", 1]]));
     locals[base][quote] = sor.local;
     internalSnipes(mor, sor, targets, 0);
-    paySender(mor.takerDue);
+    sendPenalty(mor.totalPenalty);
     return (mor.snipeSuccesses, mor.totalGot, mor.totalGave);
   }
 
@@ -1014,7 +1014,7 @@ abstract contract Dex {
     }
 
     if (!success && executed) {
-      mor.takerDue += applyPenalty(
+      mor.totalPenalty += applyPenalty(
         $$(glo_gasprice("sor.global")),
         gasused,
         sor.offer,
@@ -1087,15 +1087,14 @@ abstract contract Dex {
       gasused = $$(od_gasreq("offerDetail"));
     }
 
-    uint takerDue =
-      10**9 * gasprice * (gasused + $$(od_gasbase("offerDetail")));
+    uint penalty = 10**9 * gasprice * (gasused + $$(od_gasbase("offerDetail")));
 
-    creditWei($$(od_maker("offerDetail")), provision - takerDue);
+    creditWei($$(od_maker("offerDetail")), provision - penalty);
 
-    return takerDue;
+    return penalty;
   }
 
-  function paySender(uint amount) internal {
+  function sendPenalty(uint amount) internal {
     if (amount > 0) {
       bool noRevert;
       (noRevert, ) = msg.sender.call{gas: 0, value: amount}("");
