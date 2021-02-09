@@ -215,14 +215,17 @@ abstract contract Dex {
 
     /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *un-live* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. */
     if (isLive(offer)) {
+      bytes32 oldLocal = local;
       local = stitchOffers(
         base,
         quote,
         $$(o_prev("offer")),
         $$(o_next("offer")),
-        local,
-        true
+        local
       );
+      if (oldLocal != local) {
+        locals[base][quote] = local;
+      }
       if (!_delete) {
         // set `offer.gives` to 0
         dirtyDeleteOffer(base, quote, offerId, offer, false);
@@ -272,7 +275,9 @@ abstract contract Dex {
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
     ofp.oldOffer = offers[base][quote][offerId];
-    if (writeOffer(ofp, true)) {
+    bytes32 oldLocal = ofp.local;
+    writeOffer(ofp, true);
+    if (oldLocal != ofp.local) {
       locals[ofp.base][ofp.quote] = ofp.local;
     }
     return ofp.id;
@@ -540,14 +545,7 @@ abstract contract Dex {
 
       postExecute(mor, sor, success, executed, gasused, makerData, errorCode);
     } else {
-      sor.local = stitchOffers(
-        sor.base,
-        sor.quote,
-        0,
-        sor.offerId,
-        sor.local,
-        false
-      );
+      sor.local = stitchOffers(sor.base, sor.quote, 0, sor.offerId, sor.local);
       sor.local = $$(loc_set("sor.local", [["lock", 0]]));
       locals[sor.base][sor.quote] = sor.local;
       applyFee(mor, sor);
@@ -945,8 +943,7 @@ abstract contract Dex {
             sor.quote,
             $$(o_prev("sor.offer")),
             $$(o_next("sor.offer")),
-            sor.local,
-            false
+            sor.local
           );
         }
 
@@ -1384,10 +1381,7 @@ abstract contract Dex {
     emit DexEvents.SetNotify(value);
   }
 
-  function writeOffer(OfferPack memory ofp, bool update)
-    internal
-    returns (bool localDirty)
-  {
+  function writeOffer(OfferPack memory ofp, bool update) internal {
     /* We check gasprice,gives,wants,gasreq size to avoid checking a high gasprice, then reducing it by packing. */
     require(
       uint16(ofp.gasprice) == ofp.gasprice,
@@ -1503,7 +1497,6 @@ abstract contract Dex {
         );
       } else {
         ofp.local = $$(loc_set("ofp.local", [["best", "ofp.id"]]));
-        localDirty = true;
       }
 
       /* If the offer is not the last one, we update its successor. */
@@ -1516,18 +1509,13 @@ abstract contract Dex {
       /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). Here, we are about to *move* the offer, so we start by taking it out of the book. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have moved. A priori, if `writeOffer` is called by `newOffer`, `oldOffer` should be all zeros and thus not live. But that would be assuming a subtle implementation detail of `isLive`, so we add the (currently redundant) check on `update`).
        */
       if (update && isLive(ofp.oldOffer)) {
-        bytes32 _local = ofp.local;
         ofp.local = stitchOffers(
           ofp.base,
           ofp.quote,
           $$(o_prev("ofp.oldOffer")),
           $$(o_next("ofp.oldOffer")),
-          ofp.local,
-          false
+          ofp.local
         );
-        if (_local != ofp.local) {
-          localDirty = true;
-        }
       }
     }
 
@@ -1654,14 +1642,13 @@ abstract contract Dex {
 
   /* Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer` */
   /* !warning! calling with pastId=0 will set futureId as the best. So with pastId=0, futureId=0, it sets the OB to empty and loses track of existing offers. */
-  /* !warning! may make memory copy of local.best stale. returns new local. writes to storage if asked to.  */
+  /* !warning! may make memory copy of local.best stale. returns new local. */
   function stitchOffers(
     address base,
     address quote,
     uint pastId,
     uint futureId,
-    bytes32 local,
-    bool write
+    bytes32 local
   ) internal returns (bytes32) {
     if (pastId != 0) {
       offers[base][quote][pastId] = $$(
@@ -1669,9 +1656,6 @@ abstract contract Dex {
       );
     } else {
       local = $$(loc_set("local", [["best", "futureId"]]));
-      if (write) {
-        locals[base][quote] = local;
-      }
     }
 
     if (futureId != 0) {
