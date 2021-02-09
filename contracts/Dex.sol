@@ -313,7 +313,7 @@ abstract contract Dex {
   /* ## Market Order */
   //+clear+
 
-  function permittedMarketOrder(
+  function marketOrderFor(
     address base,
     address quote,
     uint takerWants,
@@ -755,7 +755,7 @@ abstract contract Dex {
   //+clear+
   /* `snipe` takes a single offer from the book, at whatever price is induced by the offer. */
 
-  function permittedSnipe(
+  function snipeFor(
     address base,
     address quote,
     uint offerId,
@@ -833,7 +833,7 @@ abstract contract Dex {
     return (successes == 1, takerGot, takerGave);
   }
 
-  function permittedSnipes(
+  function snipesFor(
     address base,
     address quote,
     uint[4][] memory targets,
