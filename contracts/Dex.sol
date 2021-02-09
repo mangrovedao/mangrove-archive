@@ -397,6 +397,17 @@ abstract contract Dex {
     emit DexEvents.Approval(base, quote, owner, spender, value);
   }
 
+  function approve(
+    address base,
+    address quote,
+    address spender,
+    uint value
+  ) external returns (bool) {
+    allowances[base][quote][msg.sender][spender] = value;
+    emit DexEvents.Approval(base, quote, msg.sender, spender, value);
+    return true;
+  }
+
   function marketOrder(
     address base,
     address quote,
