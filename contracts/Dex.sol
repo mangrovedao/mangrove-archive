@@ -172,21 +172,24 @@ abstract contract Dex {
     uint pivotId
   ) external returns (uint) {
     OfferPack memory ofp;
-    ofp.base = base;
-    ofp.quote = quote;
     (ofp.global, ofp.local) = getConfig(base, quote);
     unlockedOnly(ofp.local);
+    requireActiveMarket(ofp.global, ofp.local);
+
     ofp.id = 1 + $$(loc_lastId("ofp.local"));
+    require(uint24(ofp.id) == ofp.id, "dex/offerIdOverflow");
+
     ofp.local = $$(loc_set("ofp.local", [["lastId", "ofp.id"]]));
+
+    ofp.base = base;
+    ofp.quote = quote;
     ofp.wants = wants;
     ofp.gives = gives; // an offer id must never be 0
     ofp.gasreq = gasreq;
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
-    require(uint24(ofp.id) == ofp.id, "dex/offerIdOverflow");
 
-    requireActiveMarket(ofp.global, ofp.local);
-    /* writeOffer may modify ofp.best */
+    /* writeOffer may modify ofp.local.best */
     writeOffer(ofp, false);
     locals[ofp.base][ofp.quote] = ofp.local;
     return ofp.id;
@@ -259,6 +262,7 @@ abstract contract Dex {
     OfferPack memory ofp;
     (ofp.global, ofp.local) = getConfig(base, quote);
     unlockedOnly(ofp.local);
+    requireActiveMarket(ofp.global, ofp.local);
     ofp.base = base;
     ofp.quote = quote;
     ofp.wants = wants;
@@ -268,7 +272,6 @@ abstract contract Dex {
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
     ofp.oldOffer = offers[base][quote][offerId];
-    requireActiveMarket(ofp.global, ofp.local);
     if (writeOffer(ofp, true)) {
       locals[ofp.base][ofp.quote] = ofp.local;
     }
