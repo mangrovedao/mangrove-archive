@@ -319,7 +319,7 @@ abstract contract Dex {
       takerGives,
       taker
     );
-    deduceSenderAllowance(base, quote, taker, takerGave);
+    deductSenderAllowance(base, quote, taker, takerGave);
   }
 
   /* taker allowances: base => quote => owner => spender => allowance */
@@ -328,7 +328,7 @@ abstract contract Dex {
   /* permit nonces */
   mapping(address => uint) public nonces;
 
-  function deduceSenderAllowance(
+  function deductSenderAllowance(
     address base,
     address quote,
     address owner,
@@ -630,7 +630,7 @@ abstract contract Dex {
 
    Our solution is to make sure that the price of a partially filled offer can only improve. When a snipe can specifies a wants and a gives, it accepts any offer price better than `wants/gives`.
 
-   To do that, we round up the amount required by the maker. That amount will later be deduced from the offer's total volume.
+   To do that, we round up the amount required by the maker. That amount will later be deducted from the offer's total volume.
        */
     uint makerWouldWant;
 
@@ -768,7 +768,7 @@ abstract contract Dex {
       gasreq,
       taker
     );
-    deduceSenderAllowance(base, quote, taker, takerGave);
+    deductSenderAllowance(base, quote, taker, takerGave);
   }
 
   function snipe(
@@ -840,7 +840,7 @@ abstract contract Dex {
       targets,
       taker
     );
-    deduceSenderAllowance(base, quote, taker, takerGave);
+    deductSenderAllowance(base, quote, taker, takerGave);
   }
 
   function snipes(
