@@ -3,10 +3,10 @@ pragma solidity ^0.7.0;
 
 library DexPack {
 
-  // $for ns in [['writeOffer',writeOffer],['offer',offer],['offerDetail',offerDetail],['global',global],['local',local]]
+  // $for ns in structs
   // prettier-ignore
   function $$(ns[0])_pack($$(join(map(ns[1],(fb) => `$${fb[2]} __$${fb[0]}`),', '))) internal pure returns (bytes32) {
-    return $$(set_unsafe('bytes32(0)',ns[1],map(ns[1], (fb) => [fb[0],`__$${fb[0]}`])));
+    return $$(make(ns[1],map(ns[1], (fb) => [fb[0],`__$${fb[0]}`])));
   }
 
   // prettier-ignore

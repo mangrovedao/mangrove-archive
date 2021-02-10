@@ -110,7 +110,7 @@ abstract contract Dex {
 
   /* `requireNoReentrancyLock` protects modifying the book while an order is in progress. */
   function unlockedOnly(bytes32 local) internal pure {
-    require($$(loc_lock("local")) == 0, "dex/reentrancyLocked");
+    require($$(local_lock("local")) == 0, "dex/reentrancyLocked");
   }
 
   /* * <a id="Dex/definition/requireLiveDex"></a>
@@ -120,13 +120,13 @@ abstract contract Dex {
        * Creating a new offerX
    */
   function requireLiveDex(bytes32 _global) internal pure {
-    require($$(glo_dead("_global")) == 0, "dex/dead");
+    require($$(global_dead("_global")) == 0, "dex/dead");
   }
 
   /* TODO documentation */
   function requireActiveMarket(bytes32 _global, bytes32 _local) internal pure {
     requireLiveDex(_global);
-    require($$(loc_active("_local")) > 0, "dex/inactive");
+    require($$(local_active("_local")) > 0, "dex/inactive");
   }
 
   /* # Maker operations
@@ -176,10 +176,10 @@ abstract contract Dex {
     unlockedOnly(ofp.local);
     requireActiveMarket(ofp.global, ofp.local);
 
-    ofp.id = 1 + $$(loc_lastId("ofp.local"));
+    ofp.id = 1 + $$(local_lastId("ofp.local"));
     require(uint24(ofp.id) == ofp.id, "dex/offerIdOverflow");
 
-    ofp.local = $$(loc_set("ofp.local", [["lastId", "ofp.id"]]));
+    ofp.local = $$(set_local("ofp.local", [["lastId", "ofp.id"]]));
 
     ofp.base = base;
     ofp.quote = quote;
@@ -209,7 +209,7 @@ abstract contract Dex {
     bytes32 offer = offers[base][quote][offerId];
     bytes32 offerDetail = offerDetails[base][quote][offerId];
     require(
-      msg.sender == $$(od_maker("offerDetail")),
+      msg.sender == $$(offerDetail_maker("offerDetail")),
       "dex/retractOffer/unauthorized"
     );
 
@@ -219,8 +219,8 @@ abstract contract Dex {
       local = stitchOffers(
         base,
         quote,
-        $$(o_prev("offer")),
-        $$(o_next("offer")),
+        $$(offer_prev("offer")),
+        $$(offer_next("offer")),
         local
       );
       if (oldLocal != local) {
@@ -236,8 +236,9 @@ abstract contract Dex {
       /* Without a cast to `uint`, the operations convert to the larger type (gasprice) and may truncate */
       uint provision =
         10**9 *
-          $$(o_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
-          ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
+          $$(offer_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
+          ($$(offerDetail_gasreq("offerDetail")) +
+            $$(offerDetail_gasbase("offerDetail")));
       // log offer deletion
       delete offers[base][quote][offerId];
       delete offerDetails[base][quote][offerId];
@@ -451,7 +452,7 @@ abstract contract Dex {
     sor.base = base;
     sor.quote = quote;
     (sor.global, sor.local) = getConfig(base, quote);
-    sor.offerId = $$(loc_best("sor.local"));
+    sor.offerId = $$(local_best("sor.local"));
     sor.offer = offers[base][quote][sor.offerId];
 
     MultiOrder memory mor;
@@ -470,7 +471,7 @@ abstract contract Dex {
      * after consuming a segment of offers, will connect the `prev` and `next` neighbors of the segment's ends. */
 
     /* It is OK to enter the internal market order if the OB is empty, see the stitchOffer call to see why stitchOffer will operate on an offerId == 0 which will reset the OB to empty. */
-    sor.local = $$(loc_set("sor.local", [["lock", 1]]));
+    sor.local = $$(set_local("sor.local", [["lock", 1]]));
     locals[base][quote] = sor.local;
     /* first condition means taker wants nothing, and calling internalMarketOrder in that case would execute the first offer for nothig. Second condition means OB is empty and we can't call the offer 0 (its maker is the address 0). */
     internalMarketOrder(mor, sor, mor.initialWants != 0 && sor.offerId != 0);
@@ -533,7 +534,7 @@ abstract contract Dex {
 
         if (executed) {
           // note that internalMarketOrder may be called twice with same offerId, but in that case proceed will be false!
-          sor.offerId = $$(o_next("sor.offer"));
+          sor.offerId = $$(offer_next("sor.offer"));
           sor.offer = offers[sor.base][sor.quote][sor.offerId];
         }
 
@@ -557,7 +558,7 @@ abstract contract Dex {
       postExecute(mor, sor, success, executed, gasused, makerData, errorCode);
     } else {
       sor.local = stitchOffers(sor.base, sor.quote, 0, sor.offerId, sor.local);
-      sor.local = $$(loc_set("sor.local", [["lock", 0]]));
+      sor.local = $$(set_local("sor.local", [["lock", 0]]));
       locals[sor.base][sor.quote] = sor.local;
       applyFee(mor, sor);
       executeEnd(mor, sor); //noop if classical Dex
@@ -585,7 +586,7 @@ abstract contract Dex {
 
     bytes memory retdata = new bytes(32);
 
-    address maker = $$(od_maker("sor.offerDetail"));
+    address maker = $$(offerDetail_maker("sor.offerDetail"));
 
     uint oldGas = gasleft();
     if (!(oldGas - oldGas / 64 >= gasLeft)) {
@@ -648,8 +649,8 @@ abstract contract Dex {
 
     /* round up ratio */
     {
-      uint num = sor.wants * $$(o_wants("sor.offer"));
-      uint den = $$(o_gives("sor.offer"));
+      uint num = sor.wants * $$(offer_wants("sor.offer"));
+      uint den = $$(offer_gives("sor.offer"));
       makerWouldWant = num / den + (num % den == 0 ? 0 : 1);
     }
 
@@ -660,9 +661,9 @@ abstract contract Dex {
     executed = true;
 
     /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So: `takerWants`,`takerGives` are the residual of how much the taker wants to trade overall, while `sor.wants`,`sor.gives` are how much the taker will trade with the current offer. */
-    if ($$(o_gives("sor.offer")) < sor.wants) {
-      sor.wants = $$(o_gives("sor.offer"));
-      sor.gives = $$(o_wants("sor.offer"));
+    if ($$(offer_gives("sor.offer")) < sor.wants) {
+      sor.wants = $$(offer_gives("sor.offer"));
+      sor.gives = $$(offer_wants("sor.offer"));
     } else {
       sor.gives = makerWouldWant;
     }
@@ -689,8 +690,8 @@ abstract contract Dex {
         sor.gives
       );
 
-      if ($$(glo_notify("sor.global")) > 0) {
-        IDexMonitor($$(glo_monitor("sor.global"))).notifySuccess(
+      if ($$(global_notify("sor.global")) > 0) {
+        IDexMonitor($$(global_monitor("sor.global"))).notifySuccess(
           sor,
           mor.taker
         );
@@ -716,8 +717,11 @@ abstract contract Dex {
           makerData
         );
 
-        if ($$(glo_notify("sor.global")) > 0) {
-          IDexMonitor($$(glo_monitor("sor.global"))).notifyFail(sor, mor.taker);
+        if ($$(global_notify("sor.global")) > 0) {
+          IDexMonitor($$(global_monitor("sor.global"))).notifyFail(
+            sor,
+            mor.taker
+          );
         }
       } else if (errorCode == "dex/tradeOverflow") {
         revert("dex/tradeOverflow");
@@ -904,7 +908,7 @@ abstract contract Dex {
     /* ### Main loop */
     //+clear+
 
-    sor.local = $$(loc_set("sor.local", [["lock", 1]]));
+    sor.local = $$(set_local("sor.local", [["lock", 1]]));
     locals[base][quote] = sor.local;
     internalSnipes(mor, sor, targets, 0);
     sendPenalty(mor.totalPenalty);
@@ -924,7 +928,8 @@ abstract contract Dex {
 
       /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below). We also check that `gasreq` is not worse than specified. A taker who does not care about `gasreq` can specify any amount larger than $2^{24}-1$. */
       if (
-        !isLive(sor.offer) || $$(od_gasreq("sor.offerDetail")) > targets[i][3]
+        !isLive(sor.offer) ||
+        $$(offerDetail_gasreq("sor.offerDetail")) > targets[i][3]
       ) {
         internalSnipes(mor, sor, targets, i + 1);
       } else {
@@ -952,8 +957,8 @@ abstract contract Dex {
           sor.local = stitchOffers(
             sor.base,
             sor.quote,
-            $$(o_prev("sor.offer")),
-            $$(o_next("sor.offer")),
+            $$(offer_prev("sor.offer")),
+            $$(offer_next("sor.offer")),
             sor.local
           );
         }
@@ -978,7 +983,7 @@ abstract contract Dex {
       }
     } else {
       /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
-      sor.local = $$(loc_set("sor.local", [["lock", 0]]));
+      sor.local = $$(set_local("sor.local", [["lock", 0]]));
       locals[sor.base][sor.quote] = sor.local;
       applyFee(mor, sor);
       executeEnd(mor, sor);
@@ -1002,7 +1007,7 @@ abstract contract Dex {
     // log/notify success/fail, we do it here so config is up to date
 
     {
-      uint gasreq = $$(od_gasreq("sor.offerDetail"));
+      uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
 
       if (executed) {
         gasused =
@@ -1023,7 +1028,7 @@ abstract contract Dex {
 
     if (!success && executed) {
       mor.totalPenalty += applyPenalty(
-        $$(glo_gasprice("sor.global")),
+        $$(global_gasprice("sor.global")),
         gasused,
         sor.offer,
         sor.offerDetail
@@ -1039,17 +1044,17 @@ abstract contract Dex {
     bytes32 offer,
     bool deprovision
   ) internal {
-    offer = $$(o_set("offer", [["gives", 0]]));
+    offer = $$(set_offer("offer", [["gives", 0]]));
     if (deprovision) {
-      offer = $$(o_set("offer", [["gasprice", 0]]));
+      offer = $$(set_offer("offer", [["gasprice", 0]]));
     }
     offers[base][quote][offerId] = offer;
   }
 
   /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `OFR_TOKEN` transferred to them. */
   function applyFee(MultiOrder memory mor, DC.SingleOrder memory sor) internal {
-    if (mor.totalGot > 0 && $$(loc_fee("sor.local")) > 0) {
-      uint concreteFee = (mor.totalGot * $$(loc_fee("sor.local"))) / 10_000;
+    if (mor.totalGot > 0 && $$(local_fee("sor.local")) > 0) {
+      uint concreteFee = (mor.totalGot * $$(local_fee("sor.local"))) / 10_000;
       mor.totalGot -= concreteFee;
       bool success =
         DexLib.transferToken(sor.base, mor.taker, vault, concreteFee);
@@ -1082,22 +1087,24 @@ abstract contract Dex {
      */
     uint provision =
       10**9 *
-        $$(o_gasprice("offer")) *
-        ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
+        $$(offer_gasprice("offer")) *
+        ($$(offerDetail_gasreq("offerDetail")) +
+          $$(offerDetail_gasbase("offerDetail")));
 
     /* We take as gasprice min(offer.gasprice,config.gasprice) */
-    if ($$(o_gasprice("offer")) < gasprice) {
-      gasprice = $$(o_gasprice("offer"));
+    if ($$(offer_gasprice("offer")) < gasprice) {
+      gasprice = $$(offer_gasprice("offer"));
     }
 
     /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible (e.g. with `gasreq = 0`). */
-    if ($$(od_gasreq("offerDetail")) < gasused) {
-      gasused = $$(od_gasreq("offerDetail"));
+    if ($$(offerDetail_gasreq("offerDetail")) < gasused) {
+      gasused = $$(offerDetail_gasreq("offerDetail"));
     }
 
-    uint penalty = 10**9 * gasprice * (gasused + $$(od_gasbase("offerDetail")));
+    uint penalty =
+      10**9 * gasprice * (gasused + $$(offerDetail_gasbase("offerDetail")));
 
-    creditWei($$(od_maker("offerDetail")), provision - penalty);
+    creditWei($$(offerDetail_maker("offerDetail")), provision - penalty);
 
     return penalty;
   }
@@ -1140,11 +1147,11 @@ abstract contract Dex {
   {
     _global = global;
     _local = locals[base][quote];
-    if ($$(glo_useOracle("_global")) > 0) {
+    if ($$(global_useOracle("_global")) > 0) {
       (uint gasprice, uint density) =
-        IDexMonitor($$(glo_monitor("_global"))).read(base, quote);
-      _global = $$(glo_set("_global", [["gasprice", "gasprice"]]));
-      _local = $$(loc_set("_local", [["density", "density"]]));
+        IDexMonitor($$(global_monitor("_global"))).read(base, quote);
+      _global = $$(set_global("_global", [["gasprice", "gasprice"]]));
+      _local = $$(set_local("_local", [["density", "density"]]));
     }
   }
 
@@ -1160,7 +1167,7 @@ abstract contract Dex {
     uint gasbase
   ) public {
     authOnly();
-    locals[base][quote] = $$(loc_set("locals[base][quote]", [["active", 1]]));
+    locals[base][quote] = $$(set_local("locals[base][quote]", [["active", 1]]));
     setFee(base, quote, fee);
     setDensity(base, quote, density);
     setGasbase(base, quote, gasbase);
@@ -1169,7 +1176,7 @@ abstract contract Dex {
 
   function deactivate(address base, address quote) public {
     authOnly();
-    locals[base][quote] = $$(loc_set("locals[base][quote]", [["active", 0]]));
+    locals[base][quote] = $$(set_local("locals[base][quote]", [["active", 0]]));
     emit DexEvents.SetActive(base, quote, true);
   }
 
@@ -1183,7 +1190,7 @@ abstract contract Dex {
     /* `fee` is in basis points, i.e. in percents of a percent. */
     require(value <= 500, "dex/config/fee/<=500"); // at most 5%
     locals[base][quote] = $$(
-      loc_set("locals[base][quote]", [["fee", "value"]])
+      set_local("locals[base][quote]", [["fee", "value"]])
     );
     emit DexEvents.SetFee(base, quote, value);
   }
@@ -1200,7 +1207,7 @@ abstract contract Dex {
     require(uint32(value) == value, "dex/config/density/32bits");
     //+clear+
     locals[base][quote] = $$(
-      loc_set("locals[base][quote]", [["density", "value"]])
+      set_local("locals[base][quote]", [["density", "value"]])
     );
     emit DexEvents.SetDensity(base, quote, value);
   }
@@ -1216,7 +1223,7 @@ abstract contract Dex {
     require(uint24(value) == value, "dex/config/gasbase/24bits");
     //+clear+
     locals[base][quote] = $$(
-      loc_set("locals[base][quote]", [["gasbase", "value"]])
+      set_local("locals[base][quote]", [["gasbase", "value"]])
     );
     emit DexEvents.SetGasbase(value);
   }
@@ -1225,7 +1232,7 @@ abstract contract Dex {
   /* ### `kill` */
   function kill() public {
     authOnly();
-    global = $$(glo_set("global", [["dead", 1]]));
+    global = $$(set_global("global", [["dead", 1]]));
     emit DexEvents.Kill();
   }
 
@@ -1237,7 +1244,7 @@ abstract contract Dex {
     require(uint16(value) == value, "dex/config/gasprice/16bits");
     //+clear+
 
-    global = $$(glo_set("global", [["gasprice", "value"]]));
+    global = $$(set_global("global", [["gasprice", "value"]]));
     emit DexEvents.SetGasprice(value);
   }
 
@@ -1247,7 +1254,7 @@ abstract contract Dex {
     /* Since any new `gasreq` is bounded above by `config.gasmax`, this check implies that all offers' `gasreq` is 24 bits wide at most. */
     require(uint24(value) == value, "dex/config/gasmax/24bits");
     //+clear+
-    global = $$(glo_set("global", [["gasmax", "value"]]));
+    global = $$(set_global("global", [["gasmax", "value"]]));
     emit DexEvents.SetGasmax(value);
   }
 
@@ -1265,7 +1272,7 @@ abstract contract Dex {
 
   function setMonitor(address value) public {
     authOnly();
-    global = $$(glo_set("global", [["monitor", "value"]]));
+    global = $$(set_global("global", [["monitor", "value"]]));
     emit DexEvents.SetMonitor(value);
   }
 
@@ -1279,9 +1286,9 @@ abstract contract Dex {
   function setUseOracle(bool value) public {
     authOnly();
     if (value) {
-      global = $$(glo_set("global", [["useOracle", 1]]));
+      global = $$(set_global("global", [["useOracle", 1]]));
     } else {
-      global = $$(glo_set("global", [["useOracle", 0]]));
+      global = $$(set_global("global", [["useOracle", 0]]));
     }
     emit DexEvents.SetUseOracle(value);
   }
@@ -1289,9 +1296,9 @@ abstract contract Dex {
   function setNotify(bool value) public {
     authOnly();
     if (value) {
-      global = $$(glo_set("global", [["notify", 1]]));
+      global = $$(set_global("global", [["notify", 1]]));
     } else {
-      global = $$(glo_set("global", [["notify", 0]]));
+      global = $$(set_global("global", [["notify", 0]]));
     }
     emit DexEvents.SetNotify(value);
   }
@@ -1307,14 +1314,14 @@ abstract contract Dex {
     require(uint24(ofp.gasreq) == ofp.gasreq, "dex/writeOffer/gasreq/24bits");
 
     /* gasprice given by maker will be bounded below by internal gasprice estimate at offer write time. with a large enough overapproximation of the gasprice, the maker can regularly update their offer without updating it.  */
-    if (ofp.gasprice < $$(glo_gasprice("ofp.global"))) {
-      ofp.gasprice = $$(glo_gasprice("ofp.global"));
+    if (ofp.gasprice < $$(global_gasprice("ofp.global"))) {
+      ofp.gasprice = $$(global_gasprice("ofp.global"));
     }
 
     {
       bytes32 writeOfferData =
         $$(
-          wo_make(
+          make_writeOffer(
             [
               ["wants", "ofp.wants"],
               ["gives", "ofp.gives"],
@@ -1336,7 +1343,7 @@ abstract contract Dex {
     //+clear+
     /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `provision` (see below). */
     require(
-      ofp.gasreq <= $$(glo_gasmax("ofp.global")),
+      ofp.gasreq <= $$(global_gasmax("ofp.global")),
       "dex/writeOffer/gasreq/tooHigh"
     );
     /* * Make sure `give > 0` -- division by 0 would throw in several places otherwise, and `isLive` relies on it. */
@@ -1344,8 +1351,8 @@ abstract contract Dex {
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `OFR_TOKEN` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. */
     require(
       ofp.gives >=
-        (ofp.gasreq + $$(loc_gasbase("ofp.local"))) *
-          $$(loc_density("ofp.local")),
+        (ofp.gasreq + $$(local_gasbase("ofp.local"))) *
+          $$(local_density("ofp.local")),
       "dex/writeOffer/density/tooLow"
     );
 
@@ -1355,25 +1362,26 @@ abstract contract Dex {
       bytes32 offerDetail = offerDetails[ofp.base][ofp.quote][ofp.id];
       if (update) {
         require(
-          msg.sender == $$(od_maker("offerDetail")),
+          msg.sender == $$(offerDetail_maker("offerDetail")),
           "dex/updateOffer/unauthorized"
         );
         oldProvision =
           10**9 *
-          $$(o_gasprice("ofp.oldOffer")) *
-          ($$(od_gasreq("offerDetail")) + $$(od_gasbase("offerDetail")));
+          $$(offer_gasprice("ofp.oldOffer")) *
+          ($$(offerDetail_gasreq("offerDetail")) +
+            $$(offerDetail_gasbase("offerDetail")));
       }
 
       //TODO check that we're using less gas if those values haven't changed
       if (
         /* It is currently not possible for a new offer to fail the 3 last tests, but it may in the future, so we make sure we're semantically correct by checking for `!update`. */
         !update ||
-        $$(od_gasreq("offerDetail")) != ofp.gasreq ||
-        $$(od_gasbase("offerDetail")) != $$(loc_gasbase("ofp.local"))
+        $$(offerDetail_gasreq("offerDetail")) != ofp.gasreq ||
+        $$(offerDetail_gasbase("offerDetail")) != $$(local_gasbase("ofp.local"))
       ) {
-        uint gasbase = $$(loc_gasbase("ofp.local"));
+        uint gasbase = $$(local_gasbase("ofp.local"));
         offerDetails[ofp.base][ofp.quote][ofp.id] = $$(
-          od_make(
+          make_offerDetail(
             [
               ["maker", "uint(msg.sender)"],
               ["gasreq", "ofp.gasreq"],
@@ -1388,7 +1396,7 @@ abstract contract Dex {
 
     {
       uint provision =
-        (ofp.gasreq + $$(loc_gasbase("ofp.local"))) * ofp.gasprice * 10**9;
+        (ofp.gasreq + $$(local_gasbase("ofp.local"))) * ofp.gasprice * 10**9;
       if (provision > oldProvision) {
         debitWei(msg.sender, provision - oldProvision);
       } else if (provision < oldProvision) {
@@ -1408,16 +1416,16 @@ abstract contract Dex {
     if (!(next == ofp.id || prev == ofp.id)) {
       if (prev != 0) {
         offers[ofp.base][ofp.quote][prev] = $$(
-          o_set("offers[ofp.base][ofp.quote][prev]", [["next", "ofp.id"]])
+          set_offer("offers[ofp.base][ofp.quote][prev]", [["next", "ofp.id"]])
         );
       } else {
-        ofp.local = $$(loc_set("ofp.local", [["best", "ofp.id"]]));
+        ofp.local = $$(set_local("ofp.local", [["best", "ofp.id"]]));
       }
 
       /* If the offer is not the last one, we update its successor. */
       if (next != 0) {
         offers[ofp.base][ofp.quote][next] = $$(
-          o_set("offers[ofp.base][ofp.quote][next]", [["prev", "ofp.id"]])
+          set_offer("offers[ofp.base][ofp.quote][next]", [["prev", "ofp.id"]])
         );
       }
 
@@ -1427,8 +1435,8 @@ abstract contract Dex {
         ofp.local = stitchOffers(
           ofp.base,
           ofp.quote,
-          $$(o_prev("ofp.oldOffer")),
-          $$(o_next("ofp.oldOffer")),
+          $$(offer_prev("ofp.oldOffer")),
+          $$(offer_next("ofp.oldOffer")),
           ofp.local
         );
       }
@@ -1437,7 +1445,7 @@ abstract contract Dex {
     /* With the `prev`/`next` in hand, we store the offer in the `offers` and `offerDetails` maps. Note that by `Dex`'s `newOffer` function, `offerId` will always fit in 24 bits (if there is an update, `offerDetails[offerId]` must be owned by `msg.sender`, os `offerId` has the right width). */
     bytes32 ofr =
       $$(
-        o_make(
+        make_offer(
           [
             ["prev", "prev"],
             ["next", "next"],
@@ -1464,15 +1472,15 @@ abstract contract Dex {
 
     if (!isLive(pivot)) {
       // in case pivotId is not or no longer a valid offer
-      pivotId = $$(loc_best("ofp.local"));
+      pivotId = $$(local_best("ofp.local"));
       pivot = offers[ofp.base][ofp.quote][pivotId];
     }
 
     // pivot better than `wants/gives`, we follow next
     if (better(ofp, pivot, pivotId)) {
       bytes32 pivotNext;
-      while ($$(o_next("pivot")) != 0) {
-        uint pivotNextId = $$(o_next("pivot"));
+      while ($$(offer_next("pivot")) != 0) {
+        uint pivotNextId = $$(offer_next("pivot"));
         pivotNext = offers[ofp.base][ofp.quote][pivotNextId];
         if (better(ofp, pivotNext, pivotNextId)) {
           pivotId = pivotNextId;
@@ -1482,13 +1490,13 @@ abstract contract Dex {
         }
       }
       // this is also where we end up with an empty book
-      return (pivotId, $$(o_next("pivot")));
+      return (pivotId, $$(offer_next("pivot")));
 
       // pivot strictly worse than `wants/gives`, we follow prev
     } else {
       bytes32 pivotPrev;
-      while ($$(o_prev("pivot")) != 0) {
-        uint pivotPrevId = $$(o_prev("pivot"));
+      while ($$(offer_prev("pivot")) != 0) {
+        uint pivotPrevId = $$(offer_prev("pivot"));
         pivotPrev = offers[ofp.base][ofp.quote][pivotPrevId];
         if (better(ofp, pivotPrev, pivotPrevId)) {
           break;
@@ -1497,7 +1505,7 @@ abstract contract Dex {
           pivot = pivotPrev;
         }
       }
-      return ($$(o_prev("pivot")), pivotId);
+      return ($$(offer_prev("pivot")), pivotId);
     }
   }
 
@@ -1516,8 +1524,8 @@ abstract contract Dex {
     //uint gives1,
     uint offerId1
   ) internal view returns (bool) {
-    uint wants1 = $$(o_wants("offer1"));
-    uint gives1 = $$(o_gives("offer1"));
+    uint wants1 = $$(offer_wants("offer1"));
+    uint gives1 = $$(offer_gives("offer1"));
     if (offerId1 == 0) {
       return false;
     } //happens on empty OB
@@ -1527,7 +1535,7 @@ abstract contract Dex {
     uint weight2 = wants2 * gives1;
     if (weight1 == weight2) {
       uint gasreq1 =
-        $$(od_gasreq("offerDetails[ofp.base][ofp.quote][offerId1]"));
+        $$(offerDetail_gasreq("offerDetails[ofp.base][ofp.quote][offerId1]"));
       uint gasreq2 = ofp.gasreq;
       return (gives1 * gasreq2 >= gives2 * gasreq1); //density1 is higher
     } else {
@@ -1552,7 +1560,7 @@ abstract contract Dex {
   /* The Dex holds a `uint => Offer` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an uninitialized struct. A common way to check for initialization is to add an `exists` field to the struct. In our case, an invariant of the Dex is: on an existing offer, `offer.gives > 0`. So we just check the `gives` field. */
   /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). */
   function isLive(bytes32 offer) public pure returns (bool) {
-    return $$(o_gives("offer")) > 0;
+    return $$(offer_gives("offer")) > 0;
   }
 
   /* Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer` */
@@ -1567,15 +1575,15 @@ abstract contract Dex {
   ) internal returns (bytes32) {
     if (pastId != 0) {
       offers[base][quote][pastId] = $$(
-        o_set("offers[base][quote][pastId]", [["next", "futureId"]])
+        set_offer("offers[base][quote][pastId]", [["next", "futureId"]])
       );
     } else {
-      local = $$(loc_set("local", [["best", "futureId"]]));
+      local = $$(set_local("local", [["best", "futureId"]]));
     }
 
     if (futureId != 0) {
       offers[base][quote][futureId] = $$(
-        o_set("offers[base][quote][futureId]", [["prev", "pastId"]])
+        set_offer("offers[base][quote][futureId]", [["prev", "pastId"]])
       );
     }
 
@@ -1631,8 +1639,8 @@ contract FTD is Dex {
       DexLib.transferToken(
         sor.quote,
         mor.taker,
-        $$(od_maker("sor.offerDetail")),
-        $$(o_gives("sor.offer"))
+        $$(offerDetail_maker("sor.offerDetail")),
+        $$(offer_gives("sor.offer"))
       );
     require(success, "dex/takerFailToPayMaker");
   }

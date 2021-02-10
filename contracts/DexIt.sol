@@ -18,21 +18,21 @@ library DexIt {
   ) external returns (DC.Config memory ret) {
     (bytes32 _global, bytes32 _local) = dex.getConfig(base, quote);
     ret.global = DC.Global({
-      monitor: $$(glo_monitor("_global")),
-      useOracle: $$(glo_useOracle("_global")) > 0,
-      notify: $$(glo_notify("_global")) > 0,
-      gasprice: $$(glo_gasprice("_global")),
-      gasmax: $$(glo_gasmax("_global")),
-      dead: $$(glo_dead("_global")) > 0
+      monitor: $$(global_monitor("_global")),
+      useOracle: $$(global_useOracle("_global")) > 0,
+      notify: $$(global_notify("_global")) > 0,
+      gasprice: $$(global_gasprice("_global")),
+      gasmax: $$(global_gasmax("_global")),
+      dead: $$(global_dead("_global")) > 0
     });
     ret.local = DC.Local({
-      active: $$(loc_active("_local")) > 0,
-      gasbase: $$(loc_gasbase("_local")),
-      fee: $$(loc_fee("_local")),
-      density: $$(loc_density("_local")),
-      best: $$(loc_best("_local")),
-      lock: $$(loc_lock("_local")) > 0,
-      lastId: $$(loc_lastId("_local"))
+      active: $$(local_active("_local")) > 0,
+      gasbase: $$(local_gasbase("_local")),
+      fee: $$(local_fee("_local")),
+      density: $$(local_density("_local")),
+      best: $$(local_best("_local")),
+      lock: $$(local_lock("_local")) > 0,
+      lastId: $$(local_lastId("_local"))
     });
   }
 
@@ -54,20 +54,20 @@ library DexIt {
     bool exists = dex.isLive(offer);
     DC.Offer memory offerStruct =
       DC.Offer({
-        prev: $$(o_prev("offer")),
-        next: $$(o_next("offer")),
-        wants: $$(o_wants("offer")),
-        gives: $$(o_gives("offer")),
-        gasprice: $$(o_gasprice("offer"))
+        prev: $$(offer_prev("offer")),
+        next: $$(offer_next("offer")),
+        wants: $$(offer_wants("offer")),
+        gives: $$(offer_gives("offer")),
+        gasprice: $$(offer_gasprice("offer"))
       });
 
     bytes32 offerDetail = dex.offerDetails(base, quote, offerId);
 
     DC.OfferDetail memory offerDetailStruct =
       DC.OfferDetail({
-        maker: $$(od_maker("offerDetail")),
-        gasreq: $$(od_gasreq("offerDetail")),
-        gasbase: $$(od_gasbase("offerDetail"))
+        maker: $$(offerDetail_maker("offerDetail")),
+        gasreq: $$(offerDetail_gasreq("offerDetail")),
+        gasbase: $$(offerDetail_gasbase("offerDetail"))
       });
     return (exists, offerStruct, offerDetailStruct);
   }
@@ -79,7 +79,7 @@ library DexIt {
     address quote
   ) internal view returns (uint) {
     bytes32 local = dex.locals(base, quote);
-    return $$(loc_best("local"));
+    return $$(local_best("local"));
   }
 
   /* Convenience function to check whether given pair is locked */
@@ -89,7 +89,7 @@ library DexIt {
     address quote
   ) internal view returns (bool) {
     bytes32 local = dex.locals(base, quote);
-    return $$(loc_lock("local")) > 0;
+    return $$(local_lock("local")) > 0;
   }
 
   /*To be used to revert a makerTrade function with data to pass to posthook */

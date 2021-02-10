@@ -28,7 +28,7 @@ library DexLib {
       transferToken(
         sor.quote,
         taker,
-        $$(od_maker("sor.offerDetail")),
+        $$(offerDetail_maker("sor.offerDetail")),
         sor.gives
       )
     ) {
@@ -73,8 +73,8 @@ library DexLib {
     bytes memory cd = abi.encodeWithSelector(IMaker.makerTrade.selector, sor);
 
     /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + gasbase`. This yul call only retrieves the first byte of the maker's `returndata`. */
-    uint gasreq = $$(od_gasreq("sor.offerDetail"));
-    address maker = $$(od_maker("sor.offerDetail"));
+    uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
+    address maker = $$(offerDetail_maker("sor.offerDetail"));
     bytes memory retdata = new bytes(32);
     bool callSuccess;
     bytes32 makerData;

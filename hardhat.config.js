@@ -72,7 +72,7 @@ module.exports = {
     artifacts: "./build",
   },
   solpp: {
-    includes: ["./solpp_config"],
+    defs: require("./structs.js"),
   },
   logFormatters: {
     Success: (log, rawLog, originator, formatArg) => {
