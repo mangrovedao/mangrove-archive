@@ -1130,31 +1130,6 @@ abstract contract Dex {
   //+ignore+TODO low gascost bookkeeping methods
   //+ignore+updateOffer(constant price)
   //+ignore+updateOffer(change price)
-  /* # Configuration */
-  /* should not be called internally, would be a huge memory copying waste */
-  function config(address base, address quote)
-    external
-    returns (DC.Config memory ret)
-  {
-    (bytes32 _global, bytes32 _local) = getConfig(base, quote);
-    ret.global = DC.Global({
-      monitor: $$(glo_monitor("_global")),
-      useOracle: $$(glo_useOracle("_global")) > 0,
-      notify: $$(glo_notify("_global")) > 0,
-      gasprice: $$(glo_gasprice("_global")),
-      gasmax: $$(glo_gasmax("_global")),
-      dead: $$(glo_dead("global")) > 0
-    });
-    ret.local = DC.Local({
-      active: $$(loc_active("_local")) > 0,
-      gasbase: $$(loc_gasbase("_local")),
-      fee: $$(loc_fee("_local")),
-      density: $$(loc_density("_local")),
-      best: $$(loc_best("_local")),
-      lock: $$(loc_lock("_local")) > 0,
-      lastId: $$(loc_lastId("_local"))
-    });
-  }
 
   /* # Configuration access */
   //+clear+

@@ -108,7 +108,7 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(order.gives, 0.05 ether, "wrong takerGives");
     TestEvents.eq(
       DexPack.offer_unpack_gasprice(order.offer),
-      dex.config(order.base, order.quote).global.gasprice,
+      DexIt.getConfig(dex, order.base, order.quote).global.gasprice,
       "wrong gasprice"
     );
     TestEvents.eq(
@@ -282,7 +282,8 @@ contract MakerOperations_Test is IMaker {
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     uint ofr1 = mkr.newOffer(1.1 ether, 1 ether, 100_000, 0);
     uint ofr2 = mkr.newOffer(1.1 ether, 1 ether, 50_000, 0);
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg =
+      DexIt.getConfig(dex, address(base), address(quote));
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
     (
       bool exists,

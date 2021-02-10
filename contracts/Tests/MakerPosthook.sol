@@ -3,6 +3,7 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "../Dex.sol";
+import "../DexIt.sol";
 import "../DexCommon.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
@@ -36,12 +37,8 @@ contract MakerPosthook_Test is IMaker {
     returns (bytes32)
   {
     require(msg.sender == address(dex));
-    bytes memory revData = new bytes(32);
     if (abort) {
-      assembly {
-        mstore(add(revData, 32), "NOK")
-        revert(add(revData, 32), 32)
-      }
+      DexIt.tradeRevert("NOK");
     }
     emit Execute(
       msg.sender,
@@ -51,7 +48,8 @@ contract MakerPosthook_Test is IMaker {
       trade.wants,
       trade.gives
     );
-    return ("OK");
+    //MakerTrade.returnWithData("OK");
+    return "OK";
   }
 
   function renew_offer_at_posthook(
@@ -443,7 +441,7 @@ contract MakerPosthook_Test is IMaker {
     DexCommon.OrderResult calldata
   ) external {
     called = true;
-    DexCommon.Config memory cfg = dex.config(order.base, order.quote);
+    DexCommon.Config memory cfg = DexIt.getConfig(dex, order.base, order.quote);
     TestEvents.eq(cfg.local.best, ofr, "Incorrect best offer id in posthook");
   }
 
@@ -463,7 +461,7 @@ contract MakerPosthook_Test is IMaker {
     DexCommon.OrderResult calldata
   ) external {
     called = true;
-    DexCommon.Config memory cfg = dex.config(order.base, order.quote);
+    DexCommon.Config memory cfg = DexIt.getConfig(dex, order.base, order.quote);
     TestEvents.eq(cfg.local.lastId, ofr, "Incorrect last offer id in posthook");
   }
 

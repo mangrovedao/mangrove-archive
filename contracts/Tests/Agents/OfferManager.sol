@@ -3,9 +3,11 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "../../Dex.sol";
+import "../../DexIt.sol";
 import "../../interfaces.sol";
 import "../../DexCommon.sol";
 import "hardhat/console.sol";
+
 import {DexCommon as DC} from "../Toolbox/Display.sol";
 
 contract OfferManager is IMaker, ITaker {
@@ -115,7 +117,7 @@ contract OfferManager is IMaker, ITaker {
       } else {
         _DEX = dex;
       }
-      DC.Config memory config = _DEX.config(base, quote);
+      DC.Config memory config = DexIt.getConfig(_DEX, base, quote);
       require(
         msg.value >= gas_to_execute * uint(config.global.gasprice) * 10**9,
         "Insufficent funds to delegate order"
