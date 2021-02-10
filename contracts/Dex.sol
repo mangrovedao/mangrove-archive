@@ -1127,67 +1127,6 @@ abstract contract Dex {
      State getters are available for composing with other contracts & bots. */
   //+clear+
 
-  // Read a particular offer's information.
-  function getOfferInfo(
-    address base,
-    address quote,
-    uint offerId,
-    bool structured
-  ) external view returns (DC.Offer memory, DC.OfferDetail memory) {
-    structured; // silence warning about unused variable
-    bytes32 offer = offers[base][quote][offerId];
-    DC.Offer memory offerStruct =
-      DC.Offer({
-        prev: $$(o_prev("offer")),
-        next: $$(o_next("offer")),
-        wants: $$(o_wants("offer")),
-        gives: $$(o_gives("offer")),
-        gasprice: $$(o_gasprice("offer"))
-      });
-
-    bytes32 offerDetail = offerDetails[base][quote][offerId];
-
-    DC.OfferDetail memory offerDetailStruct =
-      DC.OfferDetail({
-        maker: $$(od_maker("offerDetail")),
-        gasreq: $$(od_gasreq("offerDetail")),
-        gasbase: $$(od_gasbase("offerDetail"))
-      });
-    return (offerStruct, offerDetailStruct);
-  }
-
-  function getOfferInfo(
-    address base,
-    address quote,
-    uint offerId
-  )
-    external
-    view
-    returns (
-      bool,
-      uint,
-      uint,
-      uint,
-      uint,
-      uint,
-      uint,
-      address
-    )
-  {
-    bytes32 offer = offers[base][quote][offerId];
-    bytes32 offerDetail = offerDetails[base][quote][offerId];
-    return (
-      isLive(offer),
-      $$(o_wants("offer")),
-      $$(o_gives("offer")),
-      $$(o_next("offer")),
-      $$(od_gasreq("offerDetail")),
-      $$(od_gasbase("offerDetail")), // global gasbase at offer creation time
-      $$(o_gasprice("offer")), // global gasprice at offer creation time
-      $$(od_maker("offerDetail"))
-    );
-  }
-
   //+ignore+TODO low gascost bookkeeping methods
   //+ignore+updateOffer(constant price)
   //+ignore+updateOffer(change price)
@@ -1215,16 +1154,6 @@ abstract contract Dex {
       lock: $$(loc_lock("_local")) > 0,
       lastId: $$(loc_lastId("_local"))
     });
-  }
-
-  /* Convenience function to get best */
-  function best(address base, address quote) external view returns (uint) {
-    return $$(loc_best("locals[base][quote]"));
-  }
-
-  /* Convenience function to check lock */
-  function lock(address base, address quote) external view returns (bool) {
-    return $$(loc_lock("locals[base][quote]")) > 0;
   }
 
   /* # Configuration access */
@@ -1647,7 +1576,7 @@ abstract contract Dex {
 
   /* The Dex holds a `uint => Offer` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an uninitialized struct. A common way to check for initialization is to add an `exists` field to the struct. In our case, an invariant of the Dex is: on an existing offer, `offer.gives > 0`. So we just check the `gives` field. */
   /* An important invariant is that an offer is 'live' iff (gives > 0) iff (the offer is in the book). */
-  function isLive(bytes32 offer) internal pure returns (bool) {
+  function isLive(bytes32 offer) public pure returns (bool) {
     return $$(o_gives("offer")) > 0;
   }
 

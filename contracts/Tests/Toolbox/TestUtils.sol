@@ -11,6 +11,8 @@ import "../Agents/TestToken.sol";
 import "./TestEvents.sol";
 import "./Display.sol";
 
+import "../../DexIt.sol";
+
 library TestUtils {
   struct Balances {
     uint dexBalanceWei;
@@ -49,7 +51,7 @@ library TestUtils {
     address base,
     address quote
   ) internal view returns (bool) {
-    return dex.best(base, quote) == 0;
+    return DexIt.getBest(dex, base, quote) == 0;
   }
 
   function adminOf(Dex dex) internal view returns (address) {
@@ -101,8 +103,11 @@ library TestUtils {
     Info infKey,
     uint offerId
   ) internal view returns (uint) {
-    (DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
-      dex.getOfferInfo(base, quote, offerId, true);
+    (bool exists, DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
+      DexIt.getOfferInfo(dex, base, quote, offerId);
+    if (!exists) {
+      return 0;
+    }
     if (infKey == Info.makerWants) {
       return offer.wants;
     }
@@ -134,7 +139,8 @@ library TestUtils {
     address quote,
     uint offerId
   ) internal view returns (address) {
-    (, DC.OfferDetail memory od) = dex.getOfferInfo(base, quote, offerId, true);
+    (, , DC.OfferDetail memory od) =
+      DexIt.getOfferInfo(dex, base, quote, offerId);
     return od.maker;
   }
 }

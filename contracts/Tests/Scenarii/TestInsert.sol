@@ -58,11 +58,11 @@ library TestInsert {
       );
     }
     //Checking offers are correctly positioned (3 > 2 > 1 > 0)
-    uint offerId = dex.best(address(base), address(quote));
+    uint offerId = DexIt.getBest(dex, address(base), address(quote));
     uint expected_maker = 3;
     while (offerId != 0) {
-      (DC.Offer memory offer, DC.OfferDetail memory od) =
-        dex.getOfferInfo(address(base), address(quote), offerId, true);
+      (, DC.Offer memory offer, DC.OfferDetail memory od) =
+        DexIt.getOfferInfo(dex, address(base), address(quote), offerId);
       TestEvents.eq(
         od.maker,
         address(makers.getMaker(expected_maker)),

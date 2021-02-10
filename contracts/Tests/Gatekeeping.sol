@@ -446,14 +446,20 @@ contract Gatekeeping_Test is IMaker {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 200_000, 0, 0);
     trade_cb = abi.encodeWithSelector(this.newOfferOK.selector, quote, base);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    require(dex.best(quote, base) == 1, "newOffer on swapped pair must work");
+    require(
+      DexIt.getBest(dex, quote, base) == 1,
+      "newOffer on swapped pair must work"
+    );
   }
 
   function newOffer_on_posthook_succeeds_test() public {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 200_000, 0, 0);
     posthook_cb = abi.encodeWithSelector(this.newOfferOK.selector, base, quote);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    require(dex.best(base, quote) == 2, "newOffer on posthook must work");
+    require(
+      DexIt.getBest(dex, base, quote) == 2,
+      "newOffer on posthook must work"
+    );
   }
 
   /* Update offer failure */
@@ -494,8 +500,8 @@ contract Gatekeeping_Test is IMaker {
     );
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 400_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    (, DC.OfferDetail memory od) =
-      dex.getOfferInfo(quote, base, other_ofr, true);
+    (, , DC.OfferDetail memory od) =
+      DexIt.getOfferInfo(dex, quote, base, other_ofr);
     require(od.gasreq == 35_000, "updateOffer on swapped pair must work");
   }
 
@@ -509,8 +515,8 @@ contract Gatekeeping_Test is IMaker {
     );
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 300_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    (, DC.OfferDetail memory od) =
-      dex.getOfferInfo(base, quote, other_ofr, true);
+    (, , DC.OfferDetail memory od) =
+      DexIt.getOfferInfo(dex, base, quote, other_ofr);
     require(od.gasreq == 35_000, "updateOffer on posthook must work");
   }
 
@@ -552,7 +558,7 @@ contract Gatekeeping_Test is IMaker {
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
     require(
-      dex.best(quote, base) == 0,
+      DexIt.getBest(dex, quote, base) == 0,
       "retractOffer on swapped pair must work"
     );
   }
@@ -568,7 +574,10 @@ contract Gatekeeping_Test is IMaker {
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 90_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    require(dex.best(base, quote) == 0, "retractOffer on posthook must work");
+    require(
+      DexIt.getBest(dex, base, quote) == 0,
+      "retractOffer on posthook must work"
+    );
   }
 
   /* Market Order failure */
@@ -607,7 +616,7 @@ contract Gatekeeping_Test is IMaker {
     trade_cb = abi.encodeWithSelector(this.marketOrderOK.selector, quote, base);
     require(tkr.take(ofr, 0.1 ether), "take must succeed or test is void");
     require(
-      dex.best(quote, base) == 0,
+      DexIt.getBest(dex, quote, base) == 0,
       "2nd market order must have emptied dex"
     );
   }
@@ -622,7 +631,7 @@ contract Gatekeeping_Test is IMaker {
     );
     require(tkr.take(ofr, 0.6 ether), "take must succeed or test is void");
     require(
-      dex.best(base, quote) == 0,
+      DexIt.getBest(dex, base, quote) == 0,
       "2nd market order must have emptied dex"
     );
   }
@@ -666,7 +675,10 @@ contract Gatekeeping_Test is IMaker {
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0, 0);
     require(tkr.take(ofr, 0.1 ether), "take must succeed or test is void");
-    require(dex.best(quote, base) == 0, "snipe in swapped pair must work");
+    require(
+      DexIt.getBest(dex, quote, base) == 0,
+      "snipe in swapped pair must work"
+    );
   }
 
   function snipes_on_posthook_succeeds_test() public {
@@ -680,7 +692,10 @@ contract Gatekeeping_Test is IMaker {
 
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 190_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    require(dex.best(base, quote) == 0, "snipe in posthook must work");
+    require(
+      DexIt.getBest(dex, base, quote) == 0,
+      "snipe in posthook must work"
+    );
   }
 
   function newOffer_on_closed_fails_test() public {

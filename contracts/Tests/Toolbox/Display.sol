@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "hardhat/console.sol";
-import "../../Dex.sol";
+import "../../DexIt.sol";
 import "../Agents/TestToken.sol";
 
 library Display {
@@ -242,7 +242,7 @@ library Display {
     address quote,
     uint size
   ) internal {
-    uint offerId = dex.config(base, quote).local.best;
+    uint offerId = DexIt.getBest(dex, base, quote);
 
     uint[] memory wants = new uint[](size);
     uint[] memory gives = new uint[](size);
@@ -251,8 +251,8 @@ library Display {
     uint[] memory gasreqs = new uint[](size);
     uint c = 0;
     while ((offerId != 0) && (c < size)) {
-      (DC.Offer memory offer, DC.OfferDetail memory od) =
-        dex.getOfferInfo(base, quote, offerId, true);
+      (, DC.Offer memory offer, DC.OfferDetail memory od) =
+        DexIt.getOfferInfo(dex, base, quote, offerId);
       wants[c] = offer.wants;
       gives[c] = offer.gives;
       makerAddr[c] = od.maker;
@@ -269,32 +269,19 @@ library Display {
     address base,
     address quote
   ) internal view {
-    uint offerId = dex.best(base, quote);
+    uint offerId = DexIt.getBest(dex, base, quote);
     TestToken req_tk = TestToken(quote);
     TestToken ofr_tk = TestToken(base);
 
     console.log("-----Best offer: %d-----", offerId);
     while (offerId != 0) {
-      (
-        ,
-        /* bool exists */
-        // silence warning about unused argument
-        uint wants,
-        uint gives,
-        uint nextId, // silence warning about unused argument // silence warning about unused argument // silence warning about unused argument // silence warning about unused argument /* uint gasreq */ /* uint minFinishGas */
-        ,
-        ,
-        ,
-
-      ) =
-        /* uint gasprice */
-        /* address makerAddr */
-        dex.getOfferInfo(base, quote, offerId);
+      (, DexCommon.Offer memory ofr, ) =
+        DexIt.getOfferInfo(dex, base, quote, offerId);
       console.log(
         "[offer %d] %s/%s",
         offerId,
-        toEthUnits(wants, req_tk.symbol()),
-        toEthUnits(gives, ofr_tk.symbol())
+        toEthUnits(ofr.wants, req_tk.symbol()),
+        toEthUnits(ofr.gives, ofr_tk.symbol())
       );
       // console.log(
       //   "(%d gas, %d to finish, %d penalty)",
@@ -303,7 +290,7 @@ library Display {
       //   gasprice
       // );
       // console.log(name(makerAddr));
-      offerId = nextId;
+      offerId = ofr.next;
     }
     console.log("-----------------------");
   }

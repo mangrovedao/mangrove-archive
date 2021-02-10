@@ -276,4 +276,18 @@ contract MakerOperations_Test is IMaker {
       "mkr balance must not change"
     );
   }
+
+  function update_to_worst_price_correctly_places_offer_test() public {
+    mkr.provisionDex(1 ether);
+    uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
+    uint ofr1 = mkr.newOffer(1.1 ether, 1 ether, 100_000, 0);
+    uint ofr2 = mkr.newOffer(1.1 ether, 1 ether, 50_000, 0);
+    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
+    (
+      bool exists,
+      DexCommon.Offer memory offer,
+      DexCommon.OfferDetail memory od
+    ) = DexIt.getOfferInfo(dex, address(base), address(quote), ofr0);
+  }
 }

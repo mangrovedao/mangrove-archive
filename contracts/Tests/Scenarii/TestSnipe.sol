@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
+pragma abicoder v2;
+
 import "../Toolbox/TestUtils.sol";
 
 library TestSnipe {
@@ -72,8 +74,8 @@ library TestSnipe {
       "incorrect maker B balance"
     );
     // Testing residual offer
-    (bool exists, , , , , , , ) =
-      dex.getOfferInfo(address(base), address(quote), snipedId);
-    TestEvents.check(!exists, "Offer should not have a residual");
+    (, DexCommon.Offer memory ofr, ) =
+      DexIt.getOfferInfo(dex, address(base), address(quote), snipedId);
+    TestEvents.check(ofr.gives == 0, "Offer should not have a residual");
   }
 }

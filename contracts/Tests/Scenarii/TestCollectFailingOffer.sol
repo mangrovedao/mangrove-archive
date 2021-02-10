@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
+pragma abicoder v2;
 import "../Toolbox/TestUtils.sol";
 
 library TestCollectFailingOffer {
@@ -25,10 +26,15 @@ library TestCollectFailingOffer {
       TestEvents.eq(takerGave, 0, "Failed offer should declare 0 takerGave");
       // failingOffer should have been removed from Dex
       {
-        (bool exists, , , , , , , ) =
-          dex.getOfferInfo(address(base), address(quote), failingOfferId);
+        (bool exists, , ) =
+          DexIt.getOfferInfo(
+            dex,
+            address(base),
+            address(quote),
+            failingOfferId
+          );
         TestEvents.check(
-          !exists,
+          (!exists),
           "Failing offer should have been removed from Dex"
         );
       }
