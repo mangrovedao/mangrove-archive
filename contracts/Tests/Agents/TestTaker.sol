@@ -27,6 +27,10 @@ contract TestTaker is ITaker {
     token.approve(address(_dex), amount);
   }
 
+  function approveSpender(address spender, uint amount) external {
+    _dex.approve(_base, _quote, spender, amount);
+  }
+
   function take(uint offerId, uint takerWants) external returns (bool success) {
     //uint taken = TestEvents.min(makerGives, takerWants);
     (success, , ) = _dex.snipe(

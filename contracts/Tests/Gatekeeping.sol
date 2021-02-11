@@ -386,6 +386,91 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
+  function initial_allowance_is_zero_test() public {
+    TestEvents.eq(
+      dex.allowances(base, quote, address(tkr), address(this)),
+      0,
+      "initial allowance should be 0"
+    );
+  }
+
+  function cannot_snipeFor_for_without_allowance_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    try
+      dex.snipeFor(base, quote, ofr, 1 ether, 1 ether, 300_000, address(tkr))
+    {
+      TestEvents.fail("snipeFor should fail without allowance");
+    } catch Error(string memory reason) {
+      TestEvents.revertEq(reason, "dex/lowAllowance");
+    }
+  }
+
+  function can_snipeFor_for_with_allowance_test() public {
+    TestToken(base).mint(address(mkr), 1 ether);
+    mkr.approveDex(TestToken(base), 1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    tkr.approveSpender(address(this), 1.2 ether);
+    (bool success, , ) =
+      dex.snipeFor(base, quote, ofr, 1 ether, 1 ether, 300_000, address(tkr));
+    TestEvents.check(success, "snipeFor should succeed");
+    TestEvents.eq(
+      dex.allowances(base, quote, address(tkr), address(this)),
+      0.2 ether,
+      "allowance should have correctly reduced"
+    );
+  }
+
+  function cannot_snipesFor_for_without_allowance_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, type(uint96).max, type(uint96).max, type(uint).max];
+    try dex.snipesFor(base, quote, targets, address(tkr)) {
+      TestEvents.fail("snipesFor should fail without allowance");
+    } catch Error(string memory reason) {
+      TestEvents.revertEq(reason, "dex/lowAllowance");
+    }
+  }
+
+  function can_snipesFor_for_with_allowance_test() public {
+    TestToken(base).mint(address(mkr), 1 ether);
+    mkr.approveDex(TestToken(base), 1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    tkr.approveSpender(address(this), 1.2 ether);
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, type(uint96).max, type(uint96).max, type(uint).max];
+    (uint successes, , ) = dex.snipesFor(base, quote, targets, address(tkr));
+    TestEvents.eq(successes, 1, "snipesFor should have 1 success");
+    TestEvents.eq(
+      dex.allowances(base, quote, address(tkr), address(this)),
+      0.2 ether,
+      "allowance should have correctly reduced"
+    );
+  }
+
+  function cannot_marketOrderFor_for_without_allowance_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    try dex.marketOrderFor(base, quote, 1 ether, 1 ether, address(tkr)) {
+      TestEvents.fail("marketOrderfor should fail without allowance");
+    } catch Error(string memory reason) {
+      TestEvents.revertEq(reason, "dex/lowAllowance");
+    }
+  }
+
+  function can_marketOrderFor_for_with_allowance_test() public {
+    TestToken(base).mint(address(mkr), 1 ether);
+    mkr.approveDex(TestToken(base), 1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    tkr.approveSpender(address(this), 1.2 ether);
+    (uint takerGot, ) =
+      dex.marketOrderFor(base, quote, 1 ether, 1 ether, address(tkr));
+    console.log(takerGot);
+    TestEvents.eq(
+      dex.allowances(base, quote, address(tkr), address(this)),
+      0.2 ether,
+      "allowance should have correctly reduced"
+    );
+  }
+
   /* # Internal IMaker setup */
 
   bytes trade_cb;
