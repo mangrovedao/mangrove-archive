@@ -311,7 +311,7 @@ contract Gatekeeping_Test is IMaker {
     }
   }
 
-  function retractOffer_wrong_owner_fails() public {
+  function retractOffer_wrong_owner_fails_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
     try dex.retractOffer(base, quote, ofr, false) {
       TestEvents.fail("Too wide offer should not be inserted");
