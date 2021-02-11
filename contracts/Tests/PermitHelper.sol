@@ -81,7 +81,11 @@ contract PermitHelper is IMaker {
   function no_allowance() external {
     try dex.snipeFor(base, quote, 1, 1 ether, 1 ether, 300_000, msg.sender) {
       revert("snipeFor without allowance should revert");
-    } catch Error(string memory) {}
+    } catch Error(string memory reason) {
+      if (keccak256(bytes(reason)) != keccak256("dex/lowAllowance")) {
+        revert("revert when no allowance should be due to no allowance");
+      }
+    }
   }
 
   function wrong_permit(
