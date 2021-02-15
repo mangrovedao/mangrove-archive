@@ -347,7 +347,9 @@ contract Gatekeeping_Test is IMaker {
 
   function makerGasreq_at_gasmax_succeeds_newOffer_test() public {
     DexCommon.Config memory cfg = dex.config(base, quote);
-    try mkr.newOffer(1, 1, cfg.global.gasmax, 0) returns (uint ofr) {
+    try mkr.newOffer(1 ether, 1 ether, cfg.global.gasmax, 0) returns (
+      uint ofr
+    ) {
       (bool exists, , ) = dex.offerInfo(base, quote, ofr);
       TestEvents.check(exists, "Offer should have been inserted");
     } catch {
@@ -357,7 +359,8 @@ contract Gatekeeping_Test is IMaker {
 
   function makerGasreq_lower_than_density_fails_newOffer_test() public {
     DexCommon.Config memory cfg = dex.config(base, quote);
-    try mkr.newOffer(1, 1, cfg.local.density - 1, 0) {
+    uint amount = (1 + cfg.local.gasbase) * cfg.local.density;
+    try mkr.newOffer(amount - 1, amount - 1, 1, 0) {
       TestEvents.fail("Offer should not be inserted");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/writeOffer/density/tooLow", "wrong revert reason");
@@ -366,7 +369,8 @@ contract Gatekeeping_Test is IMaker {
 
   function makerGasreq_at_density_suceeds_test() public {
     DexCommon.Config memory cfg = dex.config(base, quote);
-    try mkr.newOffer(1, 1, cfg.local.density, 0) returns (uint ofr) {
+    uint amount = (1 + cfg.local.gasbase) * cfg.local.density;
+    try mkr.newOffer(amount, amount, 1, 0) returns (uint ofr) {
       (bool exists, , ) = dex.offerInfo(base, quote, ofr);
       TestEvents.check(exists, "Offer should have been inserted");
     } catch {
