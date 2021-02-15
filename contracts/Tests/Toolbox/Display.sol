@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "hardhat/console.sol";
-import "../../DexIt.sol";
+import "../../Dex.sol";
 import "../Agents/TestToken.sol";
 
 library Display {
@@ -242,7 +242,7 @@ library Display {
     address quote,
     uint size
   ) internal {
-    uint offerId = DexIt.getBest(dex, base, quote);
+    uint offerId = dex.best(base, quote);
 
     uint[] memory wants = new uint[](size);
     uint[] memory gives = new uint[](size);
@@ -252,7 +252,7 @@ library Display {
     uint c = 0;
     while ((offerId != 0) && (c < size)) {
       (, DC.Offer memory offer, DC.OfferDetail memory od) =
-        DexIt.getOfferInfo(dex, base, quote, offerId);
+        dex.offerInfo(base, quote, offerId);
       wants[c] = offer.wants;
       gives[c] = offer.gives;
       makerAddr[c] = od.maker;
@@ -269,14 +269,13 @@ library Display {
     address base,
     address quote
   ) internal view {
-    uint offerId = DexIt.getBest(dex, base, quote);
+    uint offerId = dex.best(base, quote);
     TestToken req_tk = TestToken(quote);
     TestToken ofr_tk = TestToken(base);
 
     console.log("-----Best offer: %d-----", offerId);
     while (offerId != 0) {
-      (, DexCommon.Offer memory ofr, ) =
-        DexIt.getOfferInfo(dex, base, quote, offerId);
+      (, DexCommon.Offer memory ofr, ) = dex.offerInfo(base, quote, offerId);
       console.log(
         "[offer %d] %s/%s",
         offerId,

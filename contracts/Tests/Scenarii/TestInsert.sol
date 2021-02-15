@@ -35,7 +35,7 @@ library TestInsert {
     offerOf[0] = makers.getMaker(0).newOffer({ //failer offer 4
       wants: 20 ether,
       gives: 10 ether,
-      gasreq: DexIt.getConfig(dex, address(base), address(quote)).global.gasmax,
+      gasreq: dex.config(address(base), address(quote)).global.gasmax,
       pivotId: 0
     });
     //Display.printOfferBook(dex);
@@ -58,11 +58,11 @@ library TestInsert {
       );
     }
     //Checking offers are correctly positioned (3 > 2 > 1 > 0)
-    uint offerId = DexIt.getBest(dex, address(base), address(quote));
+    uint offerId = dex.best(address(base), address(quote));
     uint expected_maker = 3;
     while (offerId != 0) {
       (, DC.Offer memory offer, DC.OfferDetail memory od) =
-        DexIt.getOfferInfo(dex, address(base), address(quote), offerId);
+        dex.offerInfo(address(base), address(quote), offerId);
       TestEvents.eq(
         od.maker,
         address(makers.getMaker(expected_maker)),

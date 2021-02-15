@@ -27,12 +27,7 @@ library TestCollectFailingOffer {
       // failingOffer should have been removed from Dex
       {
         (bool exists, , ) =
-          DexIt.getOfferInfo(
-            dex,
-            address(base),
-            address(quote),
-            failingOfferId
-          );
+          dex.offerInfo(address(base), address(quote), failingOfferId);
         TestEvents.check(
           (!exists),
           "Failing offer should have been removed from Dex"

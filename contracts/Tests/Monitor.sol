@@ -54,7 +54,7 @@ contract Monitor_Test {
   }
 
   function initial_monitor_values_test() public {
-    DC.Config memory config = DexIt.getConfig(dex, base, quote);
+    DC.Config memory config = dex.config(base, quote);
     TestEvents.check(
       !config.global.useOracle,
       "initial useOracle should be false"
@@ -66,7 +66,7 @@ contract Monitor_Test {
     dex.setMonitor(address(monitor));
     dex.setUseOracle(true);
     dex.setNotify(true);
-    DC.Config memory config = DexIt.getConfig(dex, base, quote);
+    DC.Config memory config = dex.config(base, quote);
     TestEvents.eq(
       config.global.monitor,
       address(monitor),
@@ -81,7 +81,7 @@ contract Monitor_Test {
     dex.setUseOracle(true);
     dex.setDensity(base, quote, 898);
     monitor.setDensity(base, quote, 899);
-    DC.Config memory config = DexIt.getConfig(dex, base, quote);
+    DC.Config memory config = dex.config(base, quote);
     TestEvents.eq(config.local.density, 899, "density should be set oracle");
   }
 
@@ -89,7 +89,7 @@ contract Monitor_Test {
     dex.setMonitor(address(monitor));
     dex.setDensity(base, quote, 898);
     monitor.setDensity(base, quote, 899);
-    DC.Config memory config = DexIt.getConfig(dex, base, quote);
+    DC.Config memory config = dex.config(base, quote);
     TestEvents.eq(config.local.density, 898, "density should be set by dex");
   }
 
@@ -98,7 +98,7 @@ contract Monitor_Test {
     dex.setUseOracle(true);
     dex.setGasprice(900);
     monitor.setGasprice(901);
-    DC.Config memory config = DexIt.getConfig(dex, base, quote);
+    DC.Config memory config = dex.config(base, quote);
     TestEvents.eq(
       config.global.gasprice,
       901,
@@ -110,14 +110,14 @@ contract Monitor_Test {
     dex.setMonitor(address(monitor));
     dex.setGasprice(900);
     monitor.setGasprice(901);
-    DC.Config memory config = DexIt.getConfig(dex, base, quote);
+    DC.Config memory config = dex.config(base, quote);
     TestEvents.eq(config.global.gasprice, 900, "gasprice should be set by dex");
   }
 
   function invalid_oracle_address_throws_test() public {
     dex.setMonitor(address(42));
     dex.setUseOracle(true);
-    try DexIt.getConfig(dex, base, quote) {
+    try dex.config(base, quote) {
       TestEvents.fail("Call to invalid oracle address should throw");
     } catch {
       TestEvents.succeed();

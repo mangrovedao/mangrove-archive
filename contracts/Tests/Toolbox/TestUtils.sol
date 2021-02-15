@@ -11,8 +11,6 @@ import "../Agents/TestToken.sol";
 import "./TestEvents.sol";
 import "./Display.sol";
 
-import "../../DexIt.sol";
-
 library TestUtils {
   struct Balances {
     uint dexBalanceWei;
@@ -51,7 +49,7 @@ library TestUtils {
     address base,
     address quote
   ) internal view returns (bool) {
-    return DexIt.getBest(dex, base, quote) == 0;
+    return dex.best(base, quote) == 0;
   }
 
   function adminOf(Dex dex) internal view returns (address) {
@@ -64,7 +62,7 @@ library TestUtils {
     address quote,
     uint price
   ) internal returns (uint) {
-    return ((price * DexIt.getConfig(dex, base, quote).local.fee) / 10000);
+    return ((price * dex.config(base, quote).local.fee) / 10000);
   }
 
   function getProvision(
@@ -73,7 +71,7 @@ library TestUtils {
     address quote,
     uint gasreq
   ) internal returns (uint) {
-    DC.Config memory config = DexIt.getConfig(dex, base, quote);
+    DC.Config memory config = dex.config(base, quote);
     return ((gasreq + config.local.gasbase) *
       uint(config.global.gasprice) *
       10**9);
@@ -86,7 +84,7 @@ library TestUtils {
     uint gasreq,
     uint gasprice
   ) internal returns (uint) {
-    DC.Config memory config = DexIt.getConfig(dex, base, quote);
+    DC.Config memory config = dex.config(base, quote);
     uint _gp;
     if (config.global.gasprice > gasprice) {
       _gp = uint(config.global.gasprice);
@@ -104,7 +102,7 @@ library TestUtils {
     uint offerId
   ) internal view returns (uint) {
     (bool exists, DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
-      DexIt.getOfferInfo(dex, base, quote, offerId);
+      dex.offerInfo(base, quote, offerId);
     if (!exists) {
       return 0;
     }
@@ -139,8 +137,7 @@ library TestUtils {
     address quote,
     uint offerId
   ) internal view returns (address) {
-    (, , DC.OfferDetail memory od) =
-      DexIt.getOfferInfo(dex, base, quote, offerId);
+    (, , DC.OfferDetail memory od) = dex.offerInfo(base, quote, offerId);
     return od.maker;
   }
 }

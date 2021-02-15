@@ -4,7 +4,6 @@ pragma abicoder v2;
 import "./Passthrough.sol";
 import "../../interfaces.sol";
 import "../../Dex.sol";
-import "../../DexIt.sol";
 
 contract TestMoriartyMaker is IMaker, Passthrough {
   Dex dex;
@@ -55,8 +54,8 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
     dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
     dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
-    uint density = DexIt.getConfig(dex, base, quote).local.density;
-    uint gasbase = DexIt.getConfig(dex, base, quote).local.gasbase;
+    uint density = dex.config(base, quote).local.density;
+    uint gasbase = dex.config(base, quote).local.gasbase;
     dummy = dex.newOffer({
       base: base,
       quote: quote,

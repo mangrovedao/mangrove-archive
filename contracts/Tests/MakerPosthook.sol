@@ -441,7 +441,7 @@ contract MakerPosthook_Test is IMaker {
     DexCommon.OrderResult calldata
   ) external {
     called = true;
-    DexCommon.Config memory cfg = DexIt.getConfig(dex, order.base, order.quote);
+    DexCommon.Config memory cfg = dex.config(order.base, order.quote);
     TestEvents.eq(cfg.local.best, ofr, "Incorrect best offer id in posthook");
   }
 
@@ -461,7 +461,7 @@ contract MakerPosthook_Test is IMaker {
     DexCommon.OrderResult calldata
   ) external {
     called = true;
-    DexCommon.Config memory cfg = DexIt.getConfig(dex, order.base, order.quote);
+    DexCommon.Config memory cfg = dex.config(order.base, order.quote);
     TestEvents.eq(cfg.local.lastId, ofr, "Incorrect last offer id in posthook");
   }
 
