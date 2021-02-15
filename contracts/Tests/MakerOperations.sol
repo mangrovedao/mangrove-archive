@@ -342,7 +342,7 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(ofr1, best, "Best offer should have changed");
   }
 
-  function update_offer_price_becomes_best_test() public {
+  function update_offer_price_with_self_as_pivot_becomes_best_test() public {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     uint ofr1 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
@@ -353,18 +353,66 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(ofr1, best, "Best offer should have changed");
   }
 
-  function update_offer_density_becomes_best_test() public {
+  function update_offer_density_with_self_as_pivot_becomes_best_test() public {
+    mkr.provisionDex(10 ether);
+    uint ofr0 = mkr.newOffer(1.0 ether, 1.0 ether, 100_000, 0);
+    uint ofr1 = mkr.newOffer(1.0 ether, 1.0 ether, 100_000, 0);
+    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
+    mkr.updateOffer(1.0 ether, 1.0 ether, 99_999, ofr1, ofr1);
+    uint best = dex.config(address(base), address(quote)).local.best;
+    Display.logOfferBook(dex, address(base), address(quote), 2);
+    TestEvents.eq(best, ofr1, "Best offer should have changed");
+  }
+
+  function update_offer_price_with_best_as_pivot_becomes_best_test() public {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     uint ofr1 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     DexCommon.Config memory cfg = dex.config(address(base), address(quote));
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
-    mkr.updateOffer(1.0 ether, 1.0 ether, 99_999, ofr1, ofr1);
+    mkr.updateOffer(1.0 ether, 1.0 ether + 1, 100_000, ofr0, ofr1);
     uint best = dex.config(address(base), address(quote)).local.best;
+    TestEvents.eq(ofr1, best, "Best offer should have changed");
+  }
+
+  function update_offer_density_with_best_as_pivot_becomes_best_test() public {
+    mkr.provisionDex(10 ether);
+    uint ofr0 = mkr.newOffer(1.0 ether, 1.0 ether, 100_000, 0);
+    uint ofr1 = mkr.newOffer(1.0 ether, 1.0 ether, 100_000, 0);
+    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
+    mkr.updateOffer(1.0 ether, 1.0 ether, 99_999, ofr0, ofr1);
+    uint best = dex.config(address(base), address(quote)).local.best;
+    Display.logOfferBook(dex, address(base), address(quote), 2);
     TestEvents.eq(best, ofr1, "Best offer should have changed");
   }
 
-  function update_offer_price_changes_prevnext_test() public {
+  function update_offer_price_with_best_as_pivot_changes_prevnext_test()
+    public
+  {
+    mkr.provisionDex(10 ether);
+    uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
+    uint ofr = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
+    uint ofr1 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
+    uint ofr2 = mkr.newOffer(1.1 ether, 1 ether, 100_000, 0);
+    uint ofr3 = mkr.newOffer(1.2 ether, 1 ether, 100_000, 0);
+
+    (bool exists, DexCommon.Offer memory offer, ) =
+      dex.offerInfo(address(base), address(quote), ofr);
+    TestEvents.check(exists, "Insertion error");
+    TestEvents.eq(offer.prev, ofr0, "Wrong prev offer");
+    TestEvents.eq(offer.next, ofr1, "Wrong next offer");
+    mkr.updateOffer(1.1 ether, 1.0 ether, 100_000, ofr0, ofr);
+    (exists, offer, ) = dex.offerInfo(address(base), address(quote), ofr);
+    TestEvents.check(exists, "Update error");
+    TestEvents.eq(offer.prev, ofr2, "Wrong prev offer after update");
+    TestEvents.eq(offer.next, ofr3, "Wrong next offer after update");
+  }
+
+  function update_offer_price_with_self_as_pivot_changes_prevnext_test()
+    public
+  {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     uint ofr = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
@@ -384,7 +432,31 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(offer.next, ofr3, "Wrong next offer after update");
   }
 
-  function update_offer_density_changes_prevnext_test() public {
+  function update_offer_density_with_best_as_pivot_changes_prevnext_test()
+    public
+  {
+    mkr.provisionDex(10 ether);
+    uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
+    uint ofr = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
+    uint ofr1 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
+    uint ofr2 = mkr.newOffer(1.0 ether, 1 ether, 100_001, 0);
+    uint ofr3 = mkr.newOffer(1.0 ether, 1 ether, 100_002, 0);
+
+    (bool exists, DexCommon.Offer memory offer, ) =
+      dex.offerInfo(address(base), address(quote), ofr);
+    TestEvents.check(exists, "Insertion error");
+    TestEvents.eq(offer.prev, ofr0, "Wrong prev offer");
+    TestEvents.eq(offer.next, ofr1, "Wrong next offer");
+    mkr.updateOffer(1.0 ether, 1.0 ether, 100_001, ofr0, ofr);
+    (exists, offer, ) = dex.offerInfo(address(base), address(quote), ofr);
+    TestEvents.check(exists, "Update error");
+    TestEvents.eq(offer.prev, ofr2, "Wrong prev offer after update");
+    TestEvents.eq(offer.next, ofr3, "Wrong next offer after update");
+  }
+
+  function update_offer_density_with_self_as_pivot_changes_prevnext_test()
+    public
+  {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     uint ofr = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
