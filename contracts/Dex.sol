@@ -1429,6 +1429,14 @@ abstract contract Dex {
       "dex/writeOffer/density/tooLow"
     );
 
+    /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
+
+       `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. 
+
+    !warning! `findPosition` will call `better`, which may read `offerDetails`. So it is important to find the offer position _before_ we update its `offerDetail` in storage. We waste 1 read in that case but we deem that the code would get too ugly if we passed the old offerDetail as argument to `findPosition` and `better` to save 1 read in that specific case.  */
+
+    (uint prev, uint next) = findPosition(ofp);
+
     /* First, we write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `balanceOf`. */
     uint oldProvision;
     {
@@ -1476,11 +1484,6 @@ abstract contract Dex {
         creditWei(msg.sender, oldProvision - provision);
       }
     }
-
-    /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
-
-       `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. */
-    (uint prev, uint next) = findPosition(ofp);
     /* Then we place the offer in the book at the position found by `findPosition`.
 
        If the offer is not the best one, we update its predecessor; otherwise we update the `best` value. */
