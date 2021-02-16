@@ -4,15 +4,15 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "hardhat/console.sol";
-import "../DexPack.sol";
-import "./Toolbox/TestEvents.sol";
-import "./Toolbox/TestUtils.sol";
-import "./Toolbox/Display.sol";
+import "../../DexPack.sol";
+import "../Toolbox/TestEvents.sol";
+import "../Toolbox/TestUtils.sol";
+import "../Toolbox/Display.sol";
 
-import "./Agents/TestToken.sol";
-import "./Agents/TestDelegateTaker.sol";
-import "./Agents/OfferManager.sol";
-import "./Agents/UniSwapMaker.sol";
+import "../Agents/TestToken.sol";
+import "../Agents/TestDelegateTaker.sol";
+import "../Agents/OfferManager.sol";
+import "../Agents/UniSwapMaker.sol";
 
 contract AMM_Test {
   Dex dex;

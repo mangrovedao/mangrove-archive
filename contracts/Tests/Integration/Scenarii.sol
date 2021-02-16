@@ -8,24 +8,24 @@ pragma abicoder v2;
 //import "../interfaces.sol";
 import "hardhat/console.sol";
 
-import "./Toolbox/TestEvents.sol";
-import "./Toolbox/TestUtils.sol";
-import "./Toolbox/Display.sol";
+import "../Toolbox/TestEvents.sol";
+import "../Toolbox/TestUtils.sol";
+import "../Toolbox/Display.sol";
 
-import "./Agents/TestToken.sol";
-import "./Agents/TestMaker.sol";
-import "./Agents/TestMoriartyMaker.sol";
-import "./Agents/MakerDeployer.sol";
-import "./Agents/TestTaker.sol";
-import "./Agents/TestDelegateTaker.sol";
-import "./Agents/OfferManager.sol";
+import "../Agents/TestToken.sol";
+import "../Agents/TestMaker.sol";
+import "../Agents/TestMoriartyMaker.sol";
+import "../Agents/MakerDeployer.sol";
+import "../Agents/TestTaker.sol";
+import "../Agents/TestDelegateTaker.sol";
+import "../Agents/OfferManager.sol";
 
-import "./Scenarii/TestCancelOffer.sol";
-import "./Scenarii/TestCollectFailingOffer.sol";
-import "./Scenarii/TestInsert.sol";
-import "./Scenarii/TestSnipe.sol";
-import "./Scenarii/TestFailingMarketOrder.sol";
-import "./Scenarii/TestMarketOrder.sol";
+import "./TestCancelOffer.sol";
+import "./TestCollectFailingOffer.sol";
+import "./TestInsert.sol";
+import "./TestSnipe.sol";
+import "./TestFailingMarketOrder.sol";
+import "./TestMarketOrder.sol";
 
 // Pretest libraries are for deploying large contracts independently.
 // Otherwise bytecode can be too large. See EIP 170 for more on size limit:
