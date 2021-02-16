@@ -14,7 +14,7 @@ library DexLib {
   //+clear+
   /*
      `flashloan` is for the 'normal' mode of operation. It:
-     1. Flashloans `takerGives` `REQ_TOKEN` from the taker to the maker and returns false if the loan fails.
+     1. Flashloans `takerGives` `quote` from the taker to the maker and returns false if the loan fails.
      2. Runs `offerDetail.maker`'s `execute` function.
      3. Returns the result of the operations, with optional makerData to help the maker debug.
    */
@@ -136,13 +136,4 @@ library DexLib {
     (bool noRevert, bytes memory data) = tokenAddress.call(cd);
     return (noRevert && (data.length == 0 || abi.decode(data, (bool))));
   }
-
-  /* # New offer */
-  //+clear+
-
-  /* <a id="DexLib/definition/newOffer"></a> When a maker posts a new offer or updates an existing one, the offer gets automatically inserted at the correct location in the book, starting from a maker-supplied `pivotId` parameter. The extra `storage` parameters are sent to `DexLib` by `Dex` so that it can write to `Dex`'s storage.
-
-  Code in this function is weirdly structured; this is necessary to avoid "stack too deep" errors.
-
-  */
 }

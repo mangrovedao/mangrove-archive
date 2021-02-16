@@ -332,7 +332,7 @@ contract Gatekeeping_Test is IMaker {
     try mkr.newOffer(1, 1, 2**24, 0) {
       TestEvents.fail("Too wide offer should not be inserted");
     } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/writeOffer/gasreq/24bits", "wrong revert reason");
+      TestEvents.eq(r, "dex/writeOffer/gasreq/tooHigh", "wrong revert reason");
     }
   }
 
