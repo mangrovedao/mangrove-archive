@@ -38,6 +38,7 @@ contract InvertedTakerOperations_Test is ITaker {
     base = address(baseT);
     quote = address(quoteT);
     dex = DexSetup.setup(baseT, quoteT, true);
+
     mkr = MakerSetup.setup(dex, base, quote);
 
     address(mkr).transfer(10 ether);
@@ -91,7 +92,7 @@ contract InvertedTakerOperations_Test is ITaker {
       address(this).call(
         abi.encodeWithSelector(takerTrade_bytes, _base, _quote, totalGives)
       );
-    require(success);
+    require(success, "TradeFail");
   }
 
   function taker_gets_sum_of_borrows_in_execute_test() public {
@@ -105,6 +106,79 @@ contract InvertedTakerOperations_Test is ITaker {
       quoteT.balanceOf(address(this)),
       "totalGave should be sum of taker flashborrows"
     );
+  }
+
+  function revertTrade(
+    address,
+    address,
+    uint
+  ) external {
+    require(false);
+  }
+
+  function taker_reverts_during_trade_test() public {
+    uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
+    uint _ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
+    takerTrade_bytes = this.revertTrade.selector;
+    skipCheck = true;
+    try dex.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
+      TestEvents.fail("Market order should have reverted");
+    } catch Error(string memory reason) {
+      TestEvents.eq("TradeFail", reason, "Unexpected throw");
+      TestEvents.check(
+        TestUtils.hasOffer(dex, address(base), address(quote), ofr),
+        "Offer 1 should be present"
+      );
+      TestEvents.check(
+        TestUtils.hasOffer(dex, address(base), address(quote), _ofr),
+        "Offer 2 should be present"
+      );
+    }
+  }
+
+  function refuseFeeTrade(
+    address base,
+    address,
+    uint
+  ) external {
+    ERC20(base).approve(address(dex), 0);
+  }
+
+  function refusePayTrade(
+    address base,
+    address,
+    uint
+  ) external {
+    ERC20(quote).approve(address(dex), 0);
+  }
+
+  function taker_refuses_to_pay_fee_during_trade_test() public {
+    dex.setFee(base, quote, 30); //0.3%
+    uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
+    takerTrade_bytes = this.refuseFeeTrade.selector;
+    try dex.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
+      TestEvents.fail("Market order should have reverted");
+    } catch Error(string memory reason) {
+      TestEvents.eq(
+        reason,
+        "dex/takerFailToPayDex",
+        "Unexpected throw message"
+      );
+    }
+  }
+
+  function taker_refuses_to_deliver_during_trade_test() public {
+    uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
+    takerTrade_bytes = this.refusePayTrade.selector;
+    try dex.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
+      TestEvents.fail("Market order should have reverted");
+    } catch Error(string memory reason) {
+      TestEvents.eq(
+        reason,
+        "dex/takerFailToPayMaker",
+        "Unexpected throw message"
+      );
+    }
   }
 
   function noop(
