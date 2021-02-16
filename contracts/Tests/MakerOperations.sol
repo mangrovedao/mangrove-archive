@@ -203,11 +203,133 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(mkr.freeWei(), bal, "delete has not restored balance");
   }
 
+  function delete_offer_log_test() public {
+    mkr.provisionDex(1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 2300, 0);
+    mkr.deleteOffer(ofr);
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.DeleteOffer(address(base), address(quote), ofr);
+  }
+
+  function retract_offer_log_test() public {
+    mkr.provisionDex(1 ether);
+    uint ofr = mkr.newOffer(0.9 ether, 1 ether, 2300, 100);
+    mkr.retractOffer(ofr);
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.RetractOffer(address(base), address(quote), ofr);
+  }
+
+  function retract_offer_maintains_balance_test() public {
+    mkr.provisionDex(1 ether);
+    uint bal = mkr.freeWei();
+    uint prov =
+      TestUtils.getProvision(dex, address(base), address(quote), 2300);
+    mkr.retractOffer(mkr.newOffer(1 ether, 1 ether, 2300, 0));
+    TestEvents.eq(mkr.freeWei(), bal - prov, "unexpected maker balance");
+  }
+
+  function retract_middle_offer_leaves_a_valid_book_test() public {
+    mkr.provisionDex(10 ether);
+    uint ofr0 = mkr.newOffer(0.9 ether, 1 ether, 2300, 100);
+    uint ofr =
+      mkr.newOffer({
+        wants: 1 ether,
+        gives: 1 ether,
+        gasreq: 2300,
+        gasprice: 100,
+        pivotId: 0
+      });
+    uint ofr1 = mkr.newOffer(1.1 ether, 1 ether, 2300, 100);
+
+    mkr.retractOffer(ofr);
+    (bool exists, DC.Offer memory offer, ) =
+      dex.offerInfo(address(base), address(quote), ofr);
+    TestEvents.check(!exists, "Offer was not removed from OB");
+    TestEvents.eq(offer.prev, ofr0, "Invalid prev");
+    TestEvents.eq(offer.next, ofr1, "Invalid next");
+    TestEvents.eq(offer.gives, 0, "offer gives was not set to 0");
+    TestEvents.eq(offer.gasprice, 100, "offer gasprice is incorrect");
+
+    (bool exists0, DC.Offer memory offer0, ) =
+      dex.offerInfo(address(base), address(quote), offer.prev);
+    (bool exists1, DC.Offer memory offer1, ) =
+      dex.offerInfo(address(base), address(quote), offer.next);
+    TestEvents.check(exists0 && exists1, "Invalid OB");
+    TestEvents.eq(offer1.prev, ofr0, "Invalid snitching for ofr1");
+    TestEvents.eq(offer0.next, ofr1, "Invalid snitching for ofr0");
+  }
+
+  function retract_best_offer_leaves_a_valid_book_test() public {
+    mkr.provisionDex(10 ether);
+    uint ofr =
+      mkr.newOffer({
+        wants: 1 ether,
+        gives: 1 ether,
+        gasreq: 2300,
+        gasprice: 100,
+        pivotId: 0
+      });
+    uint ofr1 = mkr.newOffer(1.1 ether, 1 ether, 2300, 100);
+    mkr.retractOffer(ofr);
+    (bool exists, DC.Offer memory offer, ) =
+      dex.offerInfo(address(base), address(quote), ofr);
+    TestEvents.check(!exists, "Offer was not removed from OB");
+    TestEvents.eq(offer.prev, 0, "Invalid prev");
+    TestEvents.eq(offer.next, ofr1, "Invalid next");
+    TestEvents.eq(offer.gives, 0, "offer gives was not set to 0");
+    TestEvents.eq(offer.gasprice, 100, "offer gasprice is incorrect");
+
+    (bool exists1, DC.Offer memory offer1, ) =
+      dex.offerInfo(address(base), address(quote), offer.next);
+    TestEvents.check(exists1, "Invalid OB");
+    TestEvents.eq(offer1.prev, 0, "Invalid snitching for ofr1");
+    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    TestEvents.eq(cfg.local.best, ofr1, "Invalid best after retract");
+  }
+
+  function retract_worst_offer_leaves_a_valid_book_test() public {
+    mkr.provisionDex(10 ether);
+    uint ofr =
+      mkr.newOffer({
+        wants: 1 ether,
+        gives: 1 ether,
+        gasreq: 2300,
+        gasprice: 100,
+        pivotId: 0
+      });
+    uint ofr0 = mkr.newOffer(0.9 ether, 1 ether, 2300, 100);
+    mkr.retractOffer(ofr);
+    (bool exists, DC.Offer memory offer, ) =
+      dex.offerInfo(address(base), address(quote), ofr);
+    TestEvents.check(!exists, "Offer was not removed from OB");
+    TestEvents.eq(offer.prev, ofr0, "Invalid prev");
+    TestEvents.eq(offer.next, 0, "Invalid next");
+    TestEvents.eq(offer.gives, 0, "offer gives was not set to 0");
+    TestEvents.eq(offer.gasprice, 100, "offer gasprice is incorrect");
+
+    (bool exists0, DC.Offer memory offer0, ) =
+      dex.offerInfo(address(base), address(quote), offer.prev);
+    TestEvents.check(exists0, "Invalid OB");
+    TestEvents.eq(offer0.next, 0, "Invalid snitching for ofr0");
+    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    TestEvents.eq(cfg.local.best, ofr0, "Invalid best after retract");
+  }
+
   function delete_wrong_offer_fails_test() public {
     mkr.provisionDex(1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 2300, 0);
     try mkr2.deleteOffer(ofr) {
       TestEvents.fail("mkr2 should not be able to delete mkr's offer");
+    } catch Error(string memory r) {
+      TestEvents.eq(r, "dex/retractOffer/unauthorized", "wrong revert reason");
+    }
+  }
+
+  function retract_wrong_offer_fails_test() public {
+    mkr.provisionDex(1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 2300, 0);
+    try mkr2.retractOffer(ofr) {
+      TestEvents.fail("mkr2 should not be able to retract mkr's offer");
     } catch Error(string memory r) {
       TestEvents.eq(r, "dex/retractOffer/unauthorized", "wrong revert reason");
     }
