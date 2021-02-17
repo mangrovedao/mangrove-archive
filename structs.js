@@ -41,12 +41,13 @@ const id_field = (name) => {
 /* ## `Offer` */
 //+clear+
 /* `Offer`s hold the doubly-linked list pointers as well as price and volume information. 256 bits wide, so one storage read is enough. They have the following fields: */
-/* Offers are stored in a doubly-linked list, with all relevant offer data stored in structs `Offer` and `OfferDetail`. Functions often require only one of those structs to do their work. */
 //+clear+
 const structs = {
   offer: [
-    /* * `prev` points to the next best offer, and `next` points to the next worse. The best offer's `prev` is 0, and the last offer's `next` is 0 as well. _24 bits wide_. */
+    /* * `prev` points to immediately better offer. The best offer's `prev` is 0. _24 bits wide_. */
+
     id_field("prev"),
+    /* * `next` points to the immediately worse offer. The worst offer's `next` is 0. _24 bits wide_. */
     id_field("next"),
     /* * `gives` is the amount of `base` the offer will give if successfully executed.
     _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
@@ -72,9 +73,9 @@ They have the following fields: */
   */
     fields.gasreq,
     /*
-     * `gasbase` represents the gas overhead used by processing the offer
-       inside the Dex. The gas considered 'used' by an offer is at least
-       `gasbase`, and at most `gasreq + gasbase`.
+       * `gasbase` represents the gas overhead used by processing the offer
+      inside the Dex. The gas considered 'used' by an offer is always considered
+      together with `gasbase`.
 
          If an offer fails, `gasprice` wei is taken from the
          provision per unit of gas used. `gasprice` should approximate the average gas
@@ -102,10 +103,10 @@ They have the following fields: */
     fields.gasbase,
   ],
 
-  /* ## Configuration
-   All configuration information of the Dex is in a `Config` struct. Configuration fields are:
+  /* ## Configuration and state
+   Most configuration and state information for a `base`,`quote` pair is either in a `global` struct (common to all pairs), or in a `local` struct. All state variable can be found at the beginning of the `Dex` contract in `Dex.sol`. Configuration fields are:
 */
-  /* ### Global Configuration. */
+  /* ### Global Configuration */
   global: [
     /* * The `monitor` can provide realtime values for `gasprice` and `density` to the dex, and receive liquidity events notifications. */
     { name: "monitor", bits: 160, type: "address" },
@@ -130,10 +131,8 @@ They have the following fields: */
     { name: "fee", bits: 16, type: "uint" },
     /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `base` per gas requested. For instance, if `density == 10`, `gasbase == 5000` an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `base`. */
     { name: "density", bits: 32, type: "uint" },
-    /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at leat `gasbase` gas. Should only be updated when opcode prices change. */
+    /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at least `gasbase` gas. Local to a pair because the costs of calling `base` and `quote`'s `transferFrom` are part of `gasbase`. Should only be updated when ERC20 contracts change or when opcode prices change. */
     fields.gasbase,
-    /* `best` a holds the current best offer id. Has size of an id field. ! danger ! reading best inside a lock may give you a stale value. */
-    { name: "best", bits: 24, type: "uint" },
     /* * If `lock` is true, orders may not be added nor executed.
 
        Reentrancy during offer execution is not considered safe:
@@ -144,8 +143,10 @@ They have the following fields: */
 Note: An optimization in the `marketOrder` function relies on reentrancy being forbidden.
      */
     { name: "lock", bits: 8, type: "uint" },
-    /* * `lastId` is a counter for offer ids, incremented every time a new offer is created. It can't go above 2^24-1. */
-    { name: "lastId", bits: 24, type: "uint" },
+    /* * `best` holds the current best offer id. Has size of an id field. *Danger*: reading best inside a lock may give you a stale value. */
+    id_field("best"),
+    /* * `last` is a counter for offer ids, incremented every time a new offer is created. It can't go above $2^{24}-1$. */
+    id_field("last"),
   ],
 
   /* ## WriteOffer */

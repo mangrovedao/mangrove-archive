@@ -27,6 +27,15 @@ contract TestMaker is IMaker, Passthrough {
 
   receive() external payable {}
 
+  event Execute(
+    address dex,
+    address base,
+    address quote,
+    uint offerId,
+    uint takerWants,
+    uint takerGives
+  );
+
   function logExecute(
     address dex,
     address base,

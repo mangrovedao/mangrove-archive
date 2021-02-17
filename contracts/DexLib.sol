@@ -79,8 +79,8 @@ library DexLib {
     bool callSuccess;
     bytes32 makerData;
     uint oldGas = gasleft();
-    /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of CALL) is $$h$$, the maker will receive at worst $$\textrm{gasreq} - \frac{63h}{64}$$ gas. */
-    /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether 63/64(gasleft-gasbase) > gasreq. If no, we'd know by induction that there is enough gas left to apply fees, stitch offers, etc (or could revert safely if no offer has been taken yet). */
+    /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of `CALL`) is $h$, the maker will receive at worst $\textrm{gasreq} - \frac{63h}{64}$ gas. */
+    /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether `63/64(gasleft-gasbase) > gasreq`. If no, we'd know by induction that there is enough gas left to apply fees, stitch offers, etc (or could revert safely if no offer has been taken yet). */
     if (!(oldGas - oldGas / 64 >= gasreq)) {
       innerRevert([bytes32("dex/notEnoughGasForMakerTrade"), "", ""]);
     }
@@ -103,8 +103,6 @@ library DexLib {
       innerRevert([bytes32("dex/makerRevert"), bytes32(gasused), makerData]);
     }
 
-    //An example why this is not safe if ERC20 has a callback:
-    //https://peckshield.medium.com/akropolis-incident-root-cause-analysis-c11ee59e05d4
     bool transferSuccess = transferToken(sor.base, maker, taker, sor.wants);
 
     if (!transferSuccess) {

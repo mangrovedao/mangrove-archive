@@ -29,6 +29,15 @@ contract MakerPosthook_Test is IMaker {
   bool abort = false;
   bool called;
 
+  event Execute(
+    address dex,
+    address base,
+    address quote,
+    uint offerId,
+    uint takerWants,
+    uint takerGives
+  );
+
   receive() external payable {}
 
   function makerTrade(DexCommon.SingleOrder calldata trade)
@@ -462,7 +471,7 @@ contract MakerPosthook_Test is IMaker {
   ) external {
     called = true;
     DexCommon.Config memory cfg = dex.config(order.base, order.quote);
-    TestEvents.eq(cfg.local.lastId, ofr, "Incorrect last offer id in posthook");
+    TestEvents.eq(cfg.local.last, ofr, "Incorrect last offer id in posthook");
   }
 
   function lastId_in_posthook_is_correct_test() public {

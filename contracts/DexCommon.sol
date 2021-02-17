@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 /* # Structs
-/* The structs defined in `structs.js` have their counterpart as solidity structs that are easy to manipulate for outside contracts / callers of view functions. */
+The structs defined in `structs.js` have their counterpart as solidity structs that are easy to manipulate for outside contracts / callers of view functions. */
 library DexCommon {
   struct Offer {
     uint prev;
@@ -35,7 +35,7 @@ library DexCommon {
     uint gasbase;
     bool lock;
     uint best;
-    uint lastId;
+    uint last;
   }
 
   struct Config {
@@ -47,17 +47,16 @@ library DexCommon {
    Some miscellaneous things useful to both `Dex` and `DexLib`:*/
   //+clear+
 
-  /* Holds data about orders in a struct, used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
+  /* `SingleOrder` holds data about an order-offer match in a struct. Used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
   struct SingleOrder {
     address base;
     address quote;
     uint offerId;
     bytes32 offer;
-    /* will evolve over time, initially the wants/gives from the taker's pov,
-       then actual wants/give depending on how much the offer is ready */
+    /* `wants`/`gives` mutate over execution. Initially the `wants`/`gives` from the taker's pov, then actual `wants`/`gives` adjusted by offer's price and volume. */
     uint wants;
     uint gives;
-    /* only populated when necessary */
+    /* `offerDetail` is only populated when necessary. */
     bytes32 offerDetail;
     bytes32 global;
     bytes32 local;
@@ -71,12 +70,10 @@ library DexCommon {
 }
 
 /* # Events
-The events emitted for use by various bots are listed here: */
+The events emitted for use by bots are listed here: */
 library DexEvents {
   /* * Emitted at the creation of the new Dex contract on the pair (`quote`, `base`)*/
   event NewDex();
-
-  event TestEvent(uint);
 
   /* * Dex adds or removes wei from `maker`'s account */
   event Credit(address maker, uint amount);
@@ -115,7 +112,7 @@ library DexEvents {
     bytes32 makerData
   );
 
-  /* * Permit */
+  /* * After `permit` and `approve` */
   event Approval(
     address base,
     address quote,
@@ -127,8 +124,7 @@ library DexEvents {
   /* * Dex closure */
   event Kill();
 
-  /* * A new offer was inserted into book.
-   `maker` is the address of the contract that implements the offer. */
+  /* * An offer was created or updated. */
   event WriteOffer(address base, address quote, address maker, bytes32 data);
 
   /* * `offerId` was present and is now removed from the book. */
@@ -150,20 +146,11 @@ interface IMaker {
     DexCommon.SingleOrder calldata order,
     DexCommon.OrderResult calldata result
   ) external;
-
-  event Execute(
-    address dex,
-    address base,
-    address quote,
-    uint offerId,
-    uint takerWants,
-    uint takerGives
-  );
 }
 
 /* # ITaker interface */
 interface ITaker {
-  // Inverted dex only: taker acquires enough base to pay back quote loan
+  /* FTD only: call to taker after loans went through */
   function takerTrade(
     address base,
     address quote,
@@ -172,7 +159,8 @@ interface ITaker {
   ) external;
 }
 
-/* # Monitor interface */
+/* # Monitor interface
+If enabled, the monitor receives notification after each offer execution and is read for each pair's `gasprice` and `density`. */
 interface IDexMonitor {
   function notifySuccess(DexCommon.SingleOrder calldata sor, address taker)
     external;

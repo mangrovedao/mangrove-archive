@@ -58,6 +58,14 @@ contract OfferManager is IMaker, ITaker {
   }
 
   // Maker side execute for residual offer
+  event Execute(
+    address dex,
+    address base,
+    address quote,
+    uint offerId,
+    uint takerWants,
+    uint takerGives
+  );
 
   function makerTrade(DC.SingleOrder calldata _order)
     external

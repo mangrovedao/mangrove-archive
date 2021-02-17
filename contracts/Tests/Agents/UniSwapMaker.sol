@@ -40,6 +40,15 @@ contract UniSwapMaker is IMaker {
     }
   }
 
+  event Execute(
+    address dex,
+    address base,
+    address quote,
+    uint offerId,
+    uint takerWants,
+    uint takerGives
+  );
+
   function makerTrade(DC.SingleOrder calldata order)
     external
     override
