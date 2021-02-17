@@ -48,7 +48,7 @@ contract TakerOperations_Test {
     address(refusemkr).transfer(10 ether);
     address(failmkr).transfer(10 ether);
 
-    mkr.provisionDex(1 ether);
+    mkr.provisionDex(10 ether);
     mkr.approveDex(baseT, 10 ether);
 
     refusemkr.provisionDex(1 ether);
@@ -105,6 +105,23 @@ contract TakerOperations_Test {
       "testMaker/transferFail"
     );
     DexEvents.Credit(address(refusemkr), mkr_provision - penalty);
+  }
+
+  function taker_collects_failing_offer_test() public {
+    quoteT.approve(address(dex), 1 ether);
+    uint ofr = failmkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    uint beforeWei = address(this).balance;
+    (bool success, uint takerGot, uint takerGave) =
+      dex.snipe(base, quote, ofr, 0 ether, 1 ether, 100_000);
+    TestEvents.check(!success, "Snipe should fail");
+    TestEvents.check(
+      takerGot == takerGave && takerGave == 0,
+      "Transaction data should be 0"
+    );
+    TestEvents.check(
+      address(this).balance > beforeWei,
+      "Taker was not compensated"
+    );
   }
 
   function taker_reimbursed_if_maker_reverts_test() public {
@@ -177,12 +194,17 @@ contract TakerOperations_Test {
   }
 
   function simple_snipe_test() public {
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
-    baseT.approve(address(dex), 1 ether);
-    quoteT.approve(address(dex), 1 ether);
+    uint ofr = mkr.newOffer(1.1 ether, 1 ether, 50_000, 0);
+    baseT.approve(address(dex), 10 ether);
+    quoteT.approve(address(dex), 10 ether);
     uint balTaker = baseT.balanceOf(address(this));
     uint balMaker = quoteT.balanceOf(address(mkr));
-    try dex.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000) {
+    try dex.snipe(base, quote, ofr, 1 ether, 1.1 ether, 50_000) returns (
+      bool success,
+      uint takerGot,
+      uint takerGave
+    ) {
+      TestEvents.check(success, "Snipe should succeed");
       TestEvents.eq(
         baseT.balanceOf(address(this)) - balTaker,
         1 ether,
@@ -190,8 +212,19 @@ contract TakerOperations_Test {
       );
       TestEvents.eq(
         quoteT.balanceOf(address(mkr)) - balMaker,
-        1 ether,
+        1.1 ether,
         "Incorrect delivered amount (maker)"
+      );
+      TestEvents.eq(takerGot, 1 ether, "Incorrect transaction information");
+      TestEvents.eq(takerGave, 1.1 ether, "Incorrect transaction information");
+      TestEvents.expectFrom(address(dex));
+      emit DexEvents.Success(
+        base,
+        quote,
+        ofr,
+        address(this),
+        1 ether,
+        1.1 ether
       );
     } catch {
       TestEvents.fail("Snipe should succeed");
@@ -199,35 +232,36 @@ contract TakerOperations_Test {
   }
 
   function simple_marketOrder_test() public {
-    mkr.newOffer(1 ether, 1 ether, 50_000, 0);
-    console.log("best", dex.best(base, quote));
-    Display.logOfferBook(dex, base, quote, 5); // taker has more A
-    baseT.approve(address(dex), 1 ether);
-    quoteT.approve(address(dex), 1 ether);
+    mkr.newOffer(1.1 ether, 1 ether, 50_000, 0);
+    mkr.newOffer(1.2 ether, 1 ether, 50_000, 0);
+
+    baseT.approve(address(dex), 10 ether);
+    quoteT.approve(address(dex), 10 ether);
     uint balTaker = baseT.balanceOf(address(this));
     uint balMaker = quoteT.balanceOf(address(mkr));
-    try dex.marketOrder(base, quote, 1 ether, 1 ether) returns (
+
+    try dex.marketOrder(base, quote, 2 ether, 4 ether) returns (
       uint takerGot,
       uint takerGave
     ) {
       TestEvents.eq(
         takerGot,
-        1 ether,
+        2 ether,
         "Incorrect declared delivered amount (taker)"
       );
       TestEvents.eq(
         takerGave,
-        1 ether,
+        2.3 ether,
         "Incorrect declared delivered amount (maker)"
       );
       TestEvents.eq(
         baseT.balanceOf(address(this)) - balTaker,
-        1 ether,
+        2 ether,
         "Incorrect delivered amount (taker)"
       );
       TestEvents.eq(
         quoteT.balanceOf(address(mkr)) - balMaker,
-        1 ether,
+        2.3 ether,
         "Incorrect delivered amount (maker)"
       );
     } catch {
