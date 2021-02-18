@@ -275,7 +275,7 @@ library Display {
 
     console.log("-----Best offer: %d-----", offerId);
     while (offerId != 0) {
-      (, DexCommon.Offer memory ofr, ) = dex.offerInfo(base, quote, offerId);
+      (, DC.Offer memory ofr, ) = dex.offerInfo(base, quote, offerId);
       console.log(
         "[offer %d] %s/%s",
         offerId,

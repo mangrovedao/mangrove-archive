@@ -4,10 +4,11 @@ pragma abicoder v2;
 
 import "../../Dex.sol";
 import "../../interfaces.sol";
-import "../../DexCommon.sol";
+//import "../../DexCommon.sol";
+import {DexCommon as DC, DexEvents, IDexMonitor} from "../../DexCommon.sol";
 import "hardhat/console.sol";
 
-import {DexCommon as DC} from "../Toolbox/Display.sol";
+import "../Toolbox/Display.sol";
 
 contract OfferManager is IMaker, ITaker {
   // erc_addr -> owner_addr -> balance

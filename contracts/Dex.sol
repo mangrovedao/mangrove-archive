@@ -2,9 +2,14 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {DexCommon as DC, DexEvents, IDexMonitor} from "./DexCommon.sol";
-// DexLib contains low-level offer execution code.
-import "./DexLib.sol";
+import {
+  ITaker,
+  IMaker,
+  DexCommon as DC,
+  DexEvents,
+  IDexMonitor
+} from "./DexCommon.sol";
+import "./interfaces.sol";
 
 /*
    This contract describes an orderbook-based exchange ("Dex") where market makers *do not have to provision their offer*. See `structs.js` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. In the normal mode of operation ('Flash Maker'), the Dex transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
@@ -88,8 +93,8 @@ abstract contract Dex {
     /* In FMD, takers lend the liquidity to the maker. */
     /* In FTD, takers come ask the makers for liquidity. */
     FLASHLOANER = takerLends
-      ? DexLib.flashloan.selector
-      : DexLib.invertedFlashloan.selector;
+      ? Dex.flashloan.selector
+      : Dex.invertedFlashloan.selector;
 
     /* Initialize [EIP712](https://eips.ethereum.org/EIPS/eip-712) `DOMAIN_SEPARATOR`. */
     uint chainId;
@@ -1167,12 +1172,12 @@ abstract contract Dex {
       sor.gives = makerWouldWant;
     }
 
-    /* The flashloan is executed by delegatecall to `FLASHLOANER`. If the call reverts, it means the maker failed to send back `sor.wants` `base` to the taker.
-
-    Note that any spurious exception due to an error in Dex code will be falsely blamed on the Maker, and its provision for the offer will be unfairly taken away.
-    */
+    /* The flashloan is executed by call to `FLASHLOANER`. If the call reverts, it means the maker failed to send back `sor.wants` `base` to the taker. Notes :
+     * `msg.sender` is the Dex itself in those calls -- all operations related to the actual caller should be done outside of this call.
+     * any spurious exception due to an error in Dex code will be falsely blamed on the Maker, and its provision for the offer will be unfairly taken away.
+     */
     bytes memory retdata;
-    (success, retdata) = address(DexLib).delegatecall(
+    (success, retdata) = address(this).call(
       abi.encodeWithSelector(FLASHLOANER, sor, mor.taker)
     );
 
@@ -1337,26 +1342,6 @@ abstract contract Dex {
     gasused = oldGas - gasleft();
   }
 
-  /* ## Other functions */
-
-  /* Regular solidity reverts prepend the string argument with a [function signature](https://docs.soliditylang.org/en/v0.7.6/control-structures.html#revert). Since we wish transfer data through a revert, `DexLib.sol` has an `innerRevert` function which does a low-level revert with only the required data. The function below decodes this data. */
-  function innerDecode(bytes memory data)
-    internal
-    pure
-    returns (
-      bytes32 errorCode,
-      uint gasused,
-      bytes32 makerData
-    )
-  {
-    /* The `data` pointer if of the form `[3,errorCode,gasused,makerData]` where each array element is contiguous and has size 256 bits. 3 is added by solidity as the length of the rest of the data. */
-    assembly {
-      errorCode := mload(add(data, 32))
-      gasused := mload(add(data, 64))
-      makerData := mload(add(data, 96))
-    }
-  }
-
   /* # Low-level offer deletion */
 
   /* When an offer is deleted, it is marked as such by setting `gives` to 0. Note that provision accounting in the Dex aims to minimize writes. Each maker `fund`s the Dex to increase its balance. When an offer is created/updated, we compute how much should be reserved to pay for possible penalties. That amount can always be recomputed with `offer.gasprice * (offerDetail.gasreq * offerDetail.gasbase)`. The balance is updated to reflect the remaining available ethers.
@@ -1381,8 +1366,7 @@ abstract contract Dex {
     if (mor.totalGot > 0 && $$(local_fee("sor.local")) > 0) {
       uint concreteFee = (mor.totalGot * $$(local_fee("sor.local"))) / 10_000;
       mor.totalGot -= concreteFee;
-      bool success =
-        DexLib.transferToken(sor.base, mor.taker, vault, concreteFee);
+      bool success = transferToken(sor.base, mor.taker, vault, concreteFee);
       require(success, "dex/takerFailToPayDex");
     }
   }
@@ -1721,6 +1705,159 @@ abstract contract Dex {
     allowances[base][quote][owner][msg.sender] = allowed - amount;
   }
 
+  /* # Flashloans */
+  //+clear+
+  /* ## Flashloan */
+  /*
+     `flashloan` is for the 'normal' mode of operation. It:
+     1. Flashloans `takerGives` `quote` from the taker to the maker and returns false if the loan fails.
+     2. Runs `offerDetail.maker`'s `execute` function.
+     3. Returns the result of the operations, with optional makerData to help the maker debug.
+   */
+  function flashloan(DC.SingleOrder calldata sor, address taker)
+    external
+    returns (uint gasused)
+  {
+    /* `flashloan` must be used with a call (hence the `external` modifier) so its effect can be reverted. But a call from the outside would be fatal. */
+    require(msg.sender == address(this), "dex/flashloan/protected");
+    /* the transfer from taker to maker must be in this function
+       so that any issue with the maker also reverts the flashloan */
+    if (
+      transferToken(
+        sor.quote,
+        taker,
+        $$(offerDetail_maker("sor.offerDetail")),
+        sor.gives
+      )
+    ) {
+      gasused = makerExecute(sor, taker);
+    } else {
+      innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
+    }
+  }
+
+  /* ## Inverted Flashloan */
+  /*
+     `invertedFlashloan` is for the 'arbitrage' mode of operation. It:
+     0. Calls the maker's `execute` function. If successful (tokens have been sent to taker):
+     2. Runs `taker`'s `execute` function.
+     4. Returns the results ofthe operations, with optional makerData to help the maker debug.
+
+     There are two ways to do the flashloan:
+     1. balanceOf before/after
+     2. run transferFrom ourselves.
+
+     ### balanceOf pros:
+       * maker may `transferFrom` another address they control; saves gas compared to dex's `transferFrom`
+       * maker does not need to `approve` dex
+
+     ### balanceOf cons
+       * if the ERC20 transfer method has a callback to receiver, the method does not work (the receiver can set its balance to 0 during the callback)
+       * if the taker is malicious, they can analyze the maker code. If the maker goes on any dex2, they may execute code provided by the taker. This would reduce the taker balance and make the maker fail. So the taker could steal the maker's balance.
+
+    We choose `transferFrom`.
+    */
+
+  function invertedFlashloan(DC.SingleOrder calldata sor, address taker)
+    external
+    returns (uint gasused)
+  {
+    /* `invertedFlashloan` must be used with a call (hence the `external` modifier) so its effect can be reverted. But a call from the outside would be fatal. */
+    require(msg.sender == address(this), "dex/invertedFlashloan/protected");
+    gasused = makerExecute(sor, taker);
+  }
+
+  /* ## Maker Execute */
+
+  function makerExecute(DC.SingleOrder calldata sor, address taker)
+    internal
+    returns (uint gasused)
+  {
+    bytes memory cd = abi.encodeWithSelector(IMaker.makerTrade.selector, sor);
+
+    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + gasbase`. This yul call only retrieves the first byte of the maker's `returndata`. */
+    uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
+    address maker = $$(offerDetail_maker("sor.offerDetail"));
+    bytes memory retdata = new bytes(32);
+    bool callSuccess;
+    bytes32 makerData;
+    uint oldGas = gasleft();
+    /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of `CALL`) is $h$, the maker will receive at worst $\textrm{gasreq} - \frac{63h}{64}$ gas. */
+    /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether `63/64(gasleft-gasbase) > gasreq`. If no, we'd know by induction that there is enough gas left to apply fees, stitch offers, etc (or could revert safely if no offer has been taken yet). */
+    if (!(oldGas - oldGas / 64 >= gasreq)) {
+      innerRevert([bytes32("dex/notEnoughGasForMakerTrade"), "", ""]);
+    }
+
+    assembly {
+      callSuccess := call(
+        gasreq,
+        maker,
+        0,
+        add(cd, 32),
+        mload(cd),
+        add(retdata, 32),
+        32
+      )
+      makerData := mload(add(retdata, 32))
+    }
+    gasused = oldGas - gasleft();
+
+    if (!callSuccess) {
+      innerRevert([bytes32("dex/makerRevert"), bytes32(gasused), makerData]);
+    }
+
+    bool transferSuccess = transferToken(sor.base, maker, taker, sor.wants);
+
+    if (!transferSuccess) {
+      innerRevert(
+        [bytes32("dex/makerTransferFail"), bytes32(gasused), makerData]
+      );
+    }
+  }
+
+  /* ## Misc. functions */
+
+  /* Regular solidity reverts prepend the string argument with a [function signature](https://docs.soliditylang.org/en/v0.7.6/control-structures.html#revert). Since we wish transfer data through a revert, the `innerRevert` function does a low-level revert with only the required data. `innerCode` decodes this data. */
+  function innerDecode(bytes memory data)
+    internal
+    pure
+    returns (
+      bytes32 errorCode,
+      uint gasused,
+      bytes32 makerData
+    )
+  {
+    /* The `data` pointer is of the form `[3,errorCode,gasused,makerData]` where each array element is contiguous and has size 256 bits. 3 is added by solidity as the length of the rest of the data. */
+    assembly {
+      errorCode := mload(add(data, 32))
+      gasused := mload(add(data, 64))
+      makerData := mload(add(data, 96))
+    }
+  }
+
+  function innerRevert(bytes32[3] memory data) internal pure {
+    assembly {
+      revert(data, 96)
+    }
+  }
+
+  /* `transferToken` is adapted from [existing code](https://soliditydeveloper.com/safe-erc20) and in particular avoids the
+  "no return value" bug. It never throws and returns true iff the transfer was successful according to `tokenAddress`.
+
+    Note that any spurious exception due to an error in Dex code will be falsely blamed on `from`.
+  */
+  function transferToken(
+    address tokenAddress,
+    address from,
+    address to,
+    uint value
+  ) internal returns (bool) {
+    bytes memory cd =
+      abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, value);
+    (bool noRevert, bytes memory data) = tokenAddress.call(cd);
+    return (noRevert && (data.length == 0 || abi.decode(data, (bool))));
+  }
+
   /* # Abstract functions */
 
   function executeEnd(MultiOrder memory mor, DC.SingleOrder memory sor)
@@ -1779,7 +1916,7 @@ So :
     override
   {
     bool success =
-      DexLib.transferToken(
+      transferToken(
         sor.quote,
         mor.taker,
         $$(offerDetail_maker("sor.offerDetail")),

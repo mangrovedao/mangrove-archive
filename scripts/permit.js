@@ -15,12 +15,7 @@
 async function main() {
   const ethers = hre.ethers;
 
-  const DexLib = await ethers.getContractFactory("DexLib");
-  const dexLib = await DexLib.deploy();
-
-  const DexSetup = await ethers.getContractFactory("DexSetup", {
-    libraries: { DexLib: dexLib.address },
-  });
+  const DexSetup = await ethers.getContractFactory("DexSetup");
   const dexSetup = await DexSetup.deploy();
 
   const TokenSetup = await ethers.getContractFactory("TokenSetup");
@@ -131,7 +126,7 @@ async function main() {
 
 main()
   .then(() => {
-    console.info("No revert occurred.");
+    console.info("OK. No revert occurred.");
     process.exit(0);
   })
   .catch((error) => {
