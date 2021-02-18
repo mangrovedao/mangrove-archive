@@ -1,11 +1,14 @@
 /* # Dex Summary
-   * Each Dex instance is half an offerbook for two ERC20 tokens.
+   * The Dex holds offer books for `base`,`quote` pairs.
+   * Offers are sorted in a doubly linked list.
    * Each offer promises `base` and requests `quote`.
    * Each offer has an attached `maker` address.
-   * When an offer is executed, we:
+   * In the normal operation mode (called FMD for Flash Maker Dex), when an offer is executed, we:
      1. Flashloan some `quote` to the offer's `maker`.
      2. Call an arbitrary `execute` function on that address.
      3. Transfer back some `base`.
+     4. Call back the `maker` so they can update their offers.
+   * There is an inverted operation mode (called FTD for Flash Taker Dex), the flashloan is reversed (from the maker to the taker).
    * Offer are just promises. They can fail.
    * If an offer fails to transfer the right amount back, the loan is reverted.
    * A penalty mechanism incentivizes keepers to keep the book clean of failing offers.

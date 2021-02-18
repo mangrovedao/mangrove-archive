@@ -9,7 +9,7 @@ import "./DexLib.sol";
 /*
    This contract describes an orderbook-based exchange ("Dex") where market makers *do not have to provision their offer*. See `structs.js` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. In the normal mode of operation ('Flash Maker'), the Dex transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
 
-   There is one Dex contract that manages all tradeable pairs. This reduces deployment costs for new pairs and makes pooling maker provisions easier.
+   There is one Dex contract that manages all tradeable pairs. This reduces deployment costs for new pairs and makes it easier to have maker provisions for all pairs in the same place.
 
    There is a secondary mode of operation ('Flash Taker') in which the _maker_ flashloans the sold amount to the taker.
 
