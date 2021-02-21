@@ -943,7 +943,9 @@ abstract contract Dex {
       }
 
       /* After an offer execution, we may run callbacks and increase the total penalty. As that part is common to market orders and snipes, it lives in its own `postExecute` function. */
-      postExecute(mor, sor, success, executed, gasused, makerData, errorCode);
+      if (executed) {
+        postExecute(mor, sor, success, gasused, makerData, errorCode);
+      }
       /* #### Case 2 : End of market order */
       /* If `proceed` is false, the taker has gotten its requested volume, or we have reached the end of the book, we conclude the market order. */
     } else {
@@ -1105,7 +1107,9 @@ abstract contract Dex {
         }
 
         /* After an offer execution, we may run callbacks and increase the total penalty. As that part is common to market orders and snipes, it lives in its own `postExecute` function. */
-        postExecute(mor, sor, success, executed, gasused, makerData, errorCode);
+        if (executed) {
+          postExecute(mor, sor, success, gasused, makerData, errorCode);
+        }
       }
       /* #### Case 2 : End of snipes */
     } else {
@@ -1258,7 +1262,6 @@ abstract contract Dex {
     MultiOrder memory mor,
     DC.SingleOrder memory sor,
     bool success,
-    bool executed,
     uint gasused,
     bytes32 makerData,
     bytes32 errorCode
@@ -1267,27 +1270,23 @@ abstract contract Dex {
       executeCallback(mor, sor);
     }
 
-    {
-      uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
+    uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
 
-      if (executed) {
-        gasused =
-          gasused +
-          makerPosthook(
-            sor,
-            gasused > gasreq ? 0 : gasreq - gasused,
-            success,
-            makerData,
-            errorCode
-          );
-
-        if (gasused > gasreq) {
-          gasused = gasreq;
-        }
-      }
+    /* We are about to call back the maker, giving it its unused gas (`gasreq - gasused`). Since the gas used so far may exceed `gasreq`, we prevent underflow in the subtraction below by bounding `gasused` above with `gasreq`. We could have decided not to call back the maker at all when there is no gas left, but we do it for uniformity. */
+    if (gasused > gasreq) {
+      gasused = gasreq;
     }
 
-    if (!success && executed) {
+    gasused =
+      gasused +
+      makerPosthook(sor, gasreq - gasused, success, makerData, errorCode);
+
+    /* Once again, the gas used may exceed `gasreq`. Since penalties extracted depend on `gasused` and the maker has at most provisioned for `gasreq` being used, we prevent fund leaks by bounding `gasused` once more. */
+    if (gasused > gasreq) {
+      gasused = gasreq;
+    }
+
+    if (!success) {
       mor.totalPenalty += applyPenalty(
         $$(global_gasprice("sor.global")),
         gasused,
