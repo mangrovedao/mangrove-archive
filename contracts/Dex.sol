@@ -1920,7 +1920,7 @@ So :
         sor.quote,
         mor.taker,
         $$(offerDetail_maker("sor.offerDetail")),
-        $$(offer_gives("sor.offer"))
+        sor.gives
       );
     require(success, "dex/takerFailToPayMaker");
   }

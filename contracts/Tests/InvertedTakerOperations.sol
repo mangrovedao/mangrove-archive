@@ -223,4 +223,28 @@ contract InvertedTakerOperations_Test is ITaker {
     mkr.logExecute(address(dex), base, quote, 1, 0.1 ether, 0.1 ether);
     mkr.logExecute(address(dex), base, quote, 2, 0.1 ether, 0.1 ether);
   }
+
+  function taker_pays_back_correct_amount_1_test() public {
+    uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
+    uint bal = quoteT.balanceOf(address(this));
+    takerTrade_bytes = this.noop.selector;
+    dex.snipe(base, quote, ofr, 0.05 ether, 0.05 ether, 100_000);
+    TestEvents.eq(
+      quoteT.balanceOf(address(this)),
+      bal - 0.05 ether,
+      "wrong taker balance"
+    );
+  }
+
+  function taker_pays_back_correct_amount_2_test() public {
+    uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
+    uint bal = quoteT.balanceOf(address(this));
+    takerTrade_bytes = this.noop.selector;
+    dex.snipe(base, quote, ofr, 0.02 ether, 0.05 ether, 100_000);
+    TestEvents.eq(
+      quoteT.balanceOf(address(this)),
+      bal - 0.02 ether,
+      "wrong taker balance"
+    );
+  }
 }
