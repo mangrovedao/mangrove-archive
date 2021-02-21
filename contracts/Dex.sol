@@ -1126,10 +1126,10 @@ abstract contract Dex {
     * `gasused` is the gas consumed by the execution
     * `makerData` is the data returned after executing the offer
     * `errorCode` is the internal dex error code
-    * `!success && executed`: offer has failed
+    * `success -> executed`
     * `success && executed`: offer has succeeded
-    * `!success && !executed`: offer has not been executed
-    * `success && !deleted`: impossible */
+    * `!success && executed`: offer has failed
+    * `!success && !executed`: offer has not been executed */
   function execute(MultiOrder memory mor, DC.SingleOrder memory sor)
     internal
     returns (
@@ -1249,9 +1249,9 @@ abstract contract Dex {
   }
 
   /* ## Post execute */
-  /* After successfully executing an offer (whether in a market order or in snipes), we
+  /* After executing an offer (whether in a market order or in snipes), we
      1. FTD only, if execution successful: transfer the correct amount back to the maker.
-     2. If offer was executed: call the maker's posthook and sum the total gas used.
+     2. If offer was executed: call the maker's posthook and sum the total gas used. In FTD, the posthook is called with the amount already in the maker's hands.
      3. If offer failed: sum total penalty due to taker and give remainder to maker.
    */
   function postExecute(
@@ -1382,7 +1382,7 @@ abstract contract Dex {
      3. Dex governance (who may collect a fee) wants to keep the Dex attractive and maximize exchange volume.
 
   //+clear+
-  /* After an offer failed, part of its provision is given back to the maker and the rest is stored to be sent to the taker after the entire order completes.
+  /* After an offer failed, part of its provision is given back to the maker and the rest is stored to be sent to the taker after the entire order completes. In `applyPenalty`, we _only_ credit the maker with its excess provision. So it looks like the maker is gaining something. In fact they're just getting back a fraction of what they provisioned earlier.
   /*
      Penalty application summary:
 
