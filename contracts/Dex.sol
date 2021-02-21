@@ -318,7 +318,7 @@ abstract contract Dex {
     uint gasprice,
     uint pivotId,
     uint offerId
-  ) public returns (uint) {
+  ) external returns (uint) {
     OfferPack memory ofp;
     (ofp.global, ofp.local) = getConfig(base, quote);
     unlockedMarketOnly(ofp.local);
