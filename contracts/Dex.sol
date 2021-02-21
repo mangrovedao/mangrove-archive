@@ -951,7 +951,13 @@ abstract contract Dex {
     } else {
       /* During the market order, all executed offers have been removed from the book. We end by stitching together the `best` offer pointer and the new best offer. */
       sor.local = stitchOffers(sor.base, sor.quote, 0, sor.offerId, sor.local);
-      /* Now that the market order is over, we can lift the lock on the book. */
+      /* Now that the market order is over, we can lift the lock on the book. In the same operation we 
+
+      * lift the reentrancy lock, and
+      * update the storage
+
+      so we are free from out of order storage writes.
+      */
       sor.local = $$(set_local("sor.local", [["lock", 0]]));
       locals[sor.base][sor.quote] = sor.local;
 
@@ -1113,7 +1119,12 @@ abstract contract Dex {
       }
       /* #### Case 2 : End of snipes */
     } else {
-      /* Now that the market order is over, we can lift the lock on the book. */
+      /* Now that the snipes is over, we can lift the lock on the book. In the same operation we 
+      * lift the reentrancy lock, and
+      * update the storage
+
+      so we are free from out of order storage writes.
+      */
       sor.local = $$(set_local("sor.local", [["lock", 0]]));
       locals[sor.base][sor.quote] = sor.local;
       /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
@@ -1416,6 +1427,7 @@ abstract contract Dex {
     uint penalty =
       10**9 * gasprice * (gasused + $$(offerDetail_gasbase("offerDetail")));
 
+    /* Here we write to storage the new maker balance. This occurs _after_ possible reentrant calls. How do we know we're not crediting twice the same amounts? Because the `offer`'s provision was set to 0 in storage (through `dirtyDeleteOffer`) before the reentrant calls. In this function, we are working with cached copies of the offer as it was before it was consumed. */
     creditWei($$(offerDetail_maker("offerDetail")), provision - penalty);
 
     return penalty;
