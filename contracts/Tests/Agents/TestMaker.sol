@@ -55,7 +55,7 @@ contract TestMaker is IMaker, Passthrough {
     _shouldFail = should;
   }
 
-  function approveDex(IERC20 token, uint amount) external {
+  function approveDex(IERC20 token, uint amount) public {
     token.approve(address(_dex), amount);
   }
 

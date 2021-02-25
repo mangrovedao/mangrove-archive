@@ -200,7 +200,9 @@ contract Maker_basic is TestMaker {
     Dex dex,
     ERC20 base,
     ERC20 quote
-  ) TestMaker(dex, base, quote) {}
+  ) TestMaker(dex, base, quote) {
+    approveDex(base, 500 ether);
+  }
 
   function makerTrade(DC.SingleOrder calldata)
     public
@@ -225,6 +227,7 @@ contract Maker_compound is TestMaker {
     Compound compound
   ) TestMaker(dex, base, quote) {
     _compound = compound;
+    approveDex(base, 500 ether);
     base.approve(address(compound), 500 ether);
     quote.approve(address(compound), 500 ether);
   }
@@ -255,7 +258,9 @@ contract Maker_callback is TestMaker {
     Dex dex,
     ERC20 base,
     ERC20 quote
-  ) TestMaker(dex, base, quote) {}
+  ) TestMaker(dex, base, quote) {
+    approveDex(base, 500 ether);
+  }
 
   function makerTrade(DC.SingleOrder calldata)
     public
