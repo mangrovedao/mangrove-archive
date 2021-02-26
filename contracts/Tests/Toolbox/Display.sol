@@ -228,6 +228,118 @@ library Display {
     emit ERC20Balances(tokens, accounts, balances);
   }
 
+  /* 1 arg logging (string/uint) */
+
+  event LogString(string a);
+
+  function log(string memory a) internal {
+    emit LogString(a);
+  }
+
+  event LogUint(uint a);
+
+  function log(uint a) internal {
+    emit LogUint(a);
+  }
+
+  /* 2 arg logging (string/uint) */
+
+  event LogStringString(string a, string b);
+
+  function log(string memory a, string memory b) internal {
+    emit LogStringString(a, b);
+  }
+
+  event LogStringUint(string a, uint b);
+
+  function log(string memory a, uint b) internal {
+    emit LogStringUint(a, b);
+  }
+
+  event LogUintUint(uint a, uint b);
+
+  function log(uint a, uint b) internal {
+    emit LogUintUint(a, b);
+  }
+
+  event LogUintString(uint a, string b);
+
+  function log(uint a, string memory b) internal {
+    emit LogUintString(a, b);
+  }
+
+  /* 3 arg logging (string/uint) */
+
+  event LogStringStringString(string a, string b, string c);
+
+  function log(
+    string memory a,
+    string memory b,
+    string memory c
+  ) internal {
+    emit LogStringStringString(a, b, c);
+  }
+
+  event LogStringStringUint(string a, string b, uint c);
+
+  function log(
+    string memory a,
+    string memory b,
+    uint c
+  ) internal {
+    emit LogStringStringUint(a, b, c);
+  }
+
+  event LogStringUintUint(string a, uint b, uint c);
+
+  function log(
+    string memory a,
+    uint b,
+    uint c
+  ) internal {
+    emit LogStringUintUint(a, b, c);
+  }
+
+  event LogStringUintString(string a, uint b, string c);
+
+  function log(
+    string memory a,
+    uint b,
+    string memory c
+  ) internal {
+    emit LogStringUintString(a, b, c);
+  }
+
+  event LogUintUintUint(uint a, uint b, uint c);
+
+  function log(
+    uint a,
+    uint b,
+    uint c
+  ) internal {
+    emit LogUintUintUint(a, b, c);
+  }
+
+  event LogUintStringUint(uint a, string b, uint c);
+
+  function log(
+    uint a,
+    string memory b,
+    uint c
+  ) internal {
+    emit LogUintStringUint(a, b, c);
+  }
+
+  event LogUintStringString(uint a, string b, string c);
+
+  function log(
+    uint a,
+    string memory b,
+    string memory c
+  ) internal {
+    emit LogUintStringString(a, b, c);
+  }
+
   event OBState(
     uint[] offerIds,
     uint[] wants,

@@ -32,6 +32,8 @@ contract Pedagogical_Test {
   function example_1_offerbook_test() public {
     setupMakerBasic();
 
+    Display.log("Filling book");
+
     mkr.newOffer({wants: 1 ether, gives: 1 ether, gasreq: 300_000, pivotId: 0});
 
     mkr.newOffer({
@@ -56,7 +58,12 @@ contract Pedagogical_Test {
   function example_2_markerOrder_test() public {
     example_1_offerbook_test();
 
-    tkr.marketOrder({wants: 2.7 ether, gives: 3.5 ether});
+    Display.log(
+      "Market order. Taker wants 2.7 exaunits and gives 3.5 exaunits."
+    );
+    (uint got, uint gave) =
+      tkr.marketOrder({wants: 2.7 ether, gives: 3.5 ether});
+    Display.log("Market order ended. Got / gave", got, gave);
 
     Display.logOfferBook(dex, address(bat), address(dai), 1);
     Display.logBalances(bat, dai, address(mkr), address(tkr));
@@ -65,6 +72,7 @@ contract Pedagogical_Test {
   function example_3_redeem_test() public {
     setupMakerCompound();
 
+    Display.log("Maker posts an offer for 1 exaunit");
     uint ofr =
       mkr.newOffer({
         wants: 1 ether,
@@ -87,7 +95,13 @@ contract Pedagogical_Test {
       address(mkr)
     );
 
-    tkr.take(ofr, 0.3 ether);
+    Display.log("Taker takes offer for 0.3 exaunits");
+    bool took = tkr.take(ofr, 0.3 ether);
+    if (took) {
+      Display.log("Take successful");
+    } else {
+      Display.log("Take failed");
+    }
 
     Display.logOfferBook(dex, address(bat), address(dai), 1);
     Display.logBalances(
@@ -102,12 +116,17 @@ contract Pedagogical_Test {
   function example_4_callback_test() public {
     setupMakerCallback();
 
+    Display.log("Maker posts 1 offer");
     mkr.newOffer({wants: 1 ether, gives: 1 ether, gasreq: 400_000, pivotId: 0});
 
     Display.logOfferBook(dex, address(bat), address(dai), 1);
     Display.logBalances(bat, dai, address(mkr), address(tkr));
 
-    tkr.marketOrder({wants: 1 ether, gives: 1 ether});
+    Display.log(
+      "Market order begins. Maker will be called back and reinsert its offer"
+    );
+    (uint got, uint gave) = tkr.marketOrder({wants: 1 ether, gives: 1 ether});
+    Display.log("Market order complete. got / gave:", got, gave);
 
     Display.logOfferBook(dex, address(bat), address(dai), 1);
     Display.logBalances(bat, dai, address(mkr), address(tkr));
@@ -181,6 +200,7 @@ contract Pedagogical_Test {
   }
 
   function setupMakerCallback() internal {
+    Display.log("Setting up maker with synchronous callback");
     mkr = new Maker_callback({dex: dex, base: bat, quote: dai});
 
     Display.register({addr: address(mkr), name: "maker-callback"});
@@ -233,7 +253,8 @@ contract Maker_compound is TestMaker {
   }
 
   function useCompound() external {
-    _compound.mint(ERC20(_base), 4 ether);
+    Display.log("Maker deposits 10 exaunits at Compound.");
+    _compound.mint(ERC20(_base), 10 ether);
   }
 
   function makerTrade(DC.SingleOrder calldata order)
@@ -243,6 +264,7 @@ contract Maker_compound is TestMaker {
   {
     ret; // silence compiler warning
     _compound.mint({token: ERC20(order.quote), amount: order.gives});
+    Display.log("Maker redeems from Compound.");
     _compound.redeem({
       token: ERC20(order.base),
       amount: order.wants,
@@ -280,6 +302,7 @@ contract Maker_callback is TestMaker {
     external
     override
   {
+    Display.log("Reinserting offer...");
     Dex dex = Dex(msg.sender);
     dex.updateOffer({
       base: order.base,
