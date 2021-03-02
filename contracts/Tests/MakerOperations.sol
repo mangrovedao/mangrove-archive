@@ -598,6 +598,76 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(offer.next, ofr3, "Wrong next offer after update");
   }
 
+  function update_offer_after_higher_gasprice_change_fails_test() public {
+    uint provision =
+      TestUtils.getProvision(dex, address(base), address(quote), 100_000);
+    mkr.provisionDex(provision);
+    uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
+    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    dex.setGasprice(cfg.global.gasprice + 1); //gasprice goes up
+    try mkr.updateOffer(1.0 ether + 2, 1.0 ether, 100_000, ofr0, ofr0) {
+      TestEvents.fail("Update offer should have failed");
+    } catch Error(string memory r) {
+      TestEvents.eq(r, "dex/insufficientProvision", "wrong revert reason");
+    }
+  }
+
+  function update_offer_after_higher_gasprice_change_succeeds_when_over_provisioned_test()
+    public
+  {
+    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    uint provision =
+      TestUtils.getProvision(
+        dex,
+        address(base),
+        address(quote),
+        100_000,
+        cfg.global.gasprice + 1
+      );
+    mkr.provisionDex(provision);
+    uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
+    dex.setGasprice(cfg.global.gasprice + 1); //gasprice goes up
+    try mkr.updateOffer(1.0 ether + 2, 1.0 ether, 100_000, ofr0, ofr0) {
+      TestEvents.expectFrom(address(dex));
+      emit DexEvents.WriteOffer(
+        address(base),
+        address(quote),
+        address(mkr),
+        DexPack.writeOffer_pack(
+          1.0 ether + 2,
+          1.0 ether,
+          cfg.global.gasprice + 1,
+          100_000,
+          ofr0
+        )
+      );
+    } catch {
+      TestEvents.fail("Update offer should have succeeded");
+    }
+  }
+
+  function update_offer_after_lower_gasprice_change_succeeds_test() public {
+    uint provision =
+      TestUtils.getProvision(dex, address(base), address(quote), 100_000);
+    mkr.provisionDex(provision);
+    uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
+    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    dex.setGasprice(cfg.global.gasprice - 1); //gasprice goes down
+    uint _provision =
+      TestUtils.getProvision(dex, address(base), address(quote), 100_000);
+    try mkr.updateOffer(1.0 ether + 2, 1.0 ether, 100_000, ofr0, ofr0) {
+      TestEvents.eq(
+        dex.balanceOf(address(mkr)),
+        provision - _provision,
+        "Maker balance is incorrect"
+      );
+      TestEvents.expectFrom(address(dex));
+      emit DexEvents.Credit(address(mkr), provision - _provision);
+    } catch {
+      TestEvents.fail("Update offer should have succeeded");
+    }
+  }
+
   function update_offer_price_stays_best_test() public {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
