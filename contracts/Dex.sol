@@ -18,12 +18,12 @@ import "./interfaces.sol";
 
    There is a secondary mode of operation ('Flash Taker') in which the _maker_ flashloans the sold amount to the taker.
 
-   The Dex contract is `abstract` and accomodates both modes. Two contracts, `FMD` (Flash Maker Dex) and `FTD` (Flash Taker Dex) inherit from it, one per mode of operation. 
+   The Dex contract is `abstract` and accomodates both modes. Two contracts, `FMD` (Flash Maker Dex) and `FTD` (Flash Taker Dex) inherit from it, one per mode of operation.
  */
 abstract contract Dex {
   /* # State variables */
   //+clear+
-  /* The `governance` address. Governance is the only address that can configuration parameters. */
+  /* The `governance` address. Governance is the only address that can configure parameters. */
   address public governance;
 
   /* The `vault` address. If a pair has fees >0, those fees are sent to the vault. */
@@ -46,7 +46,7 @@ abstract contract Dex {
   mapping(address => mapping(address => mapping(uint => bytes32)))
     public offerDetails;
 
-  /* Takers may provide allowances on specific pairs, so other addresses can execute orders in their name. Allowance may be set using the usual `approve` function, or through an [EIP712](https://eips.ethereum.org/EIPS/eip-712) `permit`. 
+  /* Takers may provide allowances on specific pairs, so other addresses can execute orders in their name. Allowance may be set using the usual `approve` function, or through an [EIP712](https://eips.ethereum.org/EIPS/eip-712) `permit`.
 
   The mapping is `base => quote => owner => spender => allowance` */
   mapping(address => mapping(address => mapping(address => mapping(address => uint))))
@@ -61,7 +61,7 @@ abstract contract Dex {
 
   /* Makers provision their possible penalties in the `balanceOf` mapping.
 
-       Offers specify the amount of gas they require for successful execution (`gasreq`). To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq` and on the pair's `gasbase`. This provision is deducted from their `balanceOf`. If an offer fails, part of that provision is given to the taker, as compensation. The exact amount depends on the gas used by the offer before failing.
+       Offers specify the amount of gas they require for successful execution (`gasreq`). To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq` and on the pair's `gasbase`. This provision is deducted from their `balanceOf`. If an offer fails, part of that provision is given to the taker, as retribution. The exact amount depends on the gas used by the offer before failing.
 
        The Dex keeps track of their available balance in the `balanceOf` map, which is decremented every time a maker creates a new offer, and may be modified on offer updates/cancelations/takings.
    */
@@ -243,9 +243,9 @@ abstract contract Dex {
     bytes32 oldOffer;
   }
 
-  /* The function `newOffer` is for market makers only; no match with the existing book is done. A maker specifies how much `quote` it `wants` and how much `base` it `gives`. 
+  /* The function `newOffer` is for market makers only; no match with the existing book is done. A maker specifies how much `quote` it `wants` and how much `base` it `gives`.
 
-     It also specify with `gasreq` how much gas should be given when executing their offer. 
+     It also specify with `gasreq` how much gas should be given when executing their offer.
 
      `gasprice` indicates an upper bound on the gasprice at which the maker is ready to be penalised if their offer fails. Any value below the Dex's internal `gasprice` configuration value will be ignored.
 
@@ -297,14 +297,14 @@ abstract contract Dex {
 
   /* ## Update Offer */
   //+clear+
-  /* Very similar to `newOffer`, `updateOffer` prepares an `OfferPack` for `writeOffer`. Makers should use it for updating live offers, but also to save on gas by reusing old, already consumed offers. 
+  /* Very similar to `newOffer`, `updateOffer` prepares an `OfferPack` for `writeOffer`. Makers should use it for updating live offers, but also to save on gas by reusing old, already consumed offers.
 
      A `pivotId` should still be given to minimise reads in the offer book. It is OK to give the offers' own id as a pivot.
 
 
      Gas use is minimal when:
      1. The offer does not move in the book
-     2. The offer does not change its `gasreq` 
+     2. The offer does not change its `gasreq`
      3. The (`base`,`quote`)'s `gasbase` has not changed since the offer was last written
      4. `gasprice` has not changed since the offer was last written
      5. `gasprice` is greater than the Dex's gasprice estimation
@@ -399,7 +399,7 @@ abstract contract Dex {
   }
 
   /* ## Provisioning
-  Market makers must have enough provisions for possible penalties. These provisions are in ETH. Every time a new offer is created or an offer is updated, the `balanceOf` balance is adjusted to provision the offer's maximum possible penalty (`gasprice * (gasreq + gasbase)`). 
+  Market makers must have enough provisions for possible penalties. These provisions are in ETH. Every time a new offer is created or an offer is updated, `balanceOf` is adjusted to provision the offer's maximum possible penalty (`gasprice * (gasreq + gasbase)`).
 
   For instance, if the current `balanceOf` of a maker is 1 ether and they create an offer that requires a provision of 0.01 ethers, their `balanceOf` will be reduced to 0.99 ethers. No ethers will move; this is just an internal accounting movement to make sure the maker cannot `withdraw` the provisioned amounts.
 
@@ -420,7 +420,7 @@ abstract contract Dex {
 
   /* Any provision not currently held to secure an offer's possible penalty is available for withdrawal. */
   function withdraw(uint amount) external returns (bool noRevert) {
-    /* Since we only ever send money to the caller, we do not need to provide any particular amount of gas, the caller can manage that themselves. */
+    /* Since we only ever send money to the caller, we do not need to provide any particular amount of gas, the caller should manage this herself. */
     debitWei(msg.sender, amount);
     (noRevert, ) = msg.sender.call{value: amount}("");
   }
@@ -433,7 +433,7 @@ abstract contract Dex {
 
   /* A market order specifies a (`base`,`quote`) pair, a desired total amount of `base` (`takerWants`), and an available total amount of `quote` (`takerGives`). It returns two `uint`s: the total amount of `base` received and the total amount of `quote` spent.
 
-     The `takerGives/takerWants` ratio induces a maximum average price that the taker is ready to pay across all offers that will be executed during the market order. It is thus possible to execute an offer with a price worse than given as argument to `marketOrder` if some cheaper offers were executed earlier in the market order (to request a specific volume (at any price), set `takerWants` to the amount desired and `takerGives` to max uint). 
+     The `takerGives/takerWants` ratio induces a maximum average price that the taker is ready to pay across all offers that will be executed during the market order. It is thus possible to execute an offer with a price worse than given as argument to `marketOrder` if some cheaper offers were executed earlier in the market order (to request a specific volume (at any price), set `takerWants` to the amount desired and `takerGives` to max uint).
 
   The market order stops when `takerWants` units of `base` have been obtained, or when the price has become too high, or when the end of the book has been reached. */
   function marketOrder(
@@ -465,7 +465,7 @@ abstract contract Dex {
 
   /* ## Sniping */
   //+clear+
-  /* `snipe` takes a single offer `offerId` from the book. Since offers can be updated, we specify `takerWants`,`takerGives` and `gasreq`, and only execute if the offer price is acceptable and the offer's gasreq does not exceed `gasreq`. 
+  /* `snipe` takes a single offer `offerId` from the book. Since offers can be updated, we specify `takerWants`,`takerGives` and `gasreq`, and only execute if the offer price is acceptable and the offer's gasreq does not exceed `gasreq`.
 
   It is possible to ask for 0, so we return an additional boolean indicating if `offerId` was successfully executed. Note that we do not distinguish further between mismatched arguments/offer fields on the one hand, and an execution failure on the other. Still, a failed offer has to pay a penalty, and ultimately transaction logs explicitly mention execution failures (see `DexCommon.sol`). */
 
@@ -622,7 +622,7 @@ abstract contract Dex {
 
     /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
 
-       `findPosition` is only ever called here, but exists as a separate function to make the code easier to read. 
+       `findPosition` is only ever called here, but exists as a separate function to make the code easier to read.
 
     **Warning**: `findPosition` will call `better`, which may read the offer's `offerDetails`. So it is important to find the offer position _before_ we update its `offerDetail` in storage. We waste 1 read in that case but we deem that the code would get too ugly if we passed the old offerDetail as argument to `findPosition` and to `better`, just to save 1 read in that specific case.  */
     (uint prev, uint next) = findPosition(ofp);
@@ -863,7 +863,7 @@ abstract contract Dex {
     sor.local = $$(set_local("sor.local", [["lock", 1]]));
     locals[base][quote] = sor.local;
 
-    /* `internalMarketOrder` works recursively. Going downward, each successive offer is executed until the market order stops (due to: volume exhausted, bad price, or empty book). Going upward, each offer's `maker` contract is called again with its remaining gas and given the chance to update its offers on the book. 
+    /* `internalMarketOrder` works recursively. Going downward, each successive offer is executed until the market order stops (due to: volume exhausted, bad price, or empty book). Going upward, each offer's `maker` contract is called again with its remaining gas and given the chance to update its offers on the book.
 
     The last argument is a boolean named `proceed`. If an offer was not executed, it means the price has become too high. In that case, we notify the next recursive call that the market order should end. In this initial call, no offer has been executed yet so `proceed` is true. */
     internalMarketOrder(mor, sor, true);
@@ -910,10 +910,10 @@ abstract contract Dex {
 
         /* If an execution was attempted, we move `sor` to the next offer. Note that the current state is inconsistent, since we have not yet updated `sor.offerDetails`. */
         if (executed) {
-          /* It is known statically that `mor.initialWants - mor.totalGot` does not underflow since 
-        1. `mor.totalGot` was increased by `sor.wants` during `execute`, 
+          /* It is known statically that `mor.initialWants - mor.totalGot` does not underflow since
+        1. `mor.totalGot` was increased by `sor.wants` during `execute`,
         2. `sor.wants` was at most `mor.initialWants - mor.totalGot` from earlier step,
-        3. `sor.wants` may be have been clamped _down_ to `offer.gives` during `execute` 
+        3. `sor.wants` may be have been clamped _down_ to `offer.gives` during `execute`
         */
           sor.wants = mor.initialWants - mor.totalGot;
           /* It is known statically that `mor.initialGives - mor.totalGave` does not underflow since
@@ -951,7 +951,7 @@ abstract contract Dex {
     } else {
       /* During the market order, all executed offers have been removed from the book. We end by stitching together the `best` offer pointer and the new best offer. */
       sor.local = stitchOffers(sor.base, sor.quote, 0, sor.offerId, sor.local);
-      /* Now that the market order is over, we can lift the lock on the book. In the same operation we 
+      /* Now that the market order is over, we can lift the lock on the book. In the same operation we
 
       * lift the reentrancy lock, and
       * update the storage
@@ -1028,7 +1028,7 @@ abstract contract Dex {
     sor.local = $$(set_local("sor.local", [["lock", 1]]));
     locals[base][quote] = sor.local;
 
-    /* `internalSnipes` works recursively. Going downward, each successive offer is executed until each snipe in the array has been tried. Going upward, each offer's `maker` contract is called again with its remaining gas and given the chance to update its offers on the book. 
+    /* `internalSnipes` works recursively. Going downward, each successive offer is executed until each snipe in the array has been tried. Going upward, each offer's `maker` contract is called again with its remaining gas and given the chance to update its offers on the book.
 
     The last argument is the array index for the current offer. It is initially 0. */
     internalSnipes(mor, sor, targets, 0);
@@ -1119,7 +1119,7 @@ abstract contract Dex {
       }
       /* #### Case 2 : End of snipes */
     } else {
-      /* Now that the snipes is over, we can lift the lock on the book. In the same operation we 
+      /* Now that the snipes is over, we can lift the lock on the book. In the same operation we
       * lift the reentrancy lock, and
       * update the storage
 
@@ -1161,13 +1161,13 @@ abstract contract Dex {
 
     **Note**: We never check that `offerId` is actually a `uint24`, or that `offerId` actually points to an offer: it is not possible to insert an offer with an id larger than that, and a wrong `offerId` will point to a zero-initialized offer, which will revert the call when dividing by `offer.gives`.
 
-   Prices are rounded down. 
+   Prices are rounded down.
 
-   **Historical note**: prices used to be rounded up (`makerWouldWant = product/offer.gives + (product % offer.gives == 0 ? 0 : 1)`) because partially filled offers used to remain on the book. A snipe which names an offer by its id also specifies its price in the form of a `(wants,gives)` pair to be compared to the offers' `(wants,gives)`. When a snipe can specifies a wants and a gives, it accepts any offer price better than `wants/gives`. 
+   **Historical note**: prices used to be rounded up (`makerWouldWant = product/offer.gives + (product % offer.gives == 0 ? 0 : 1)`) because partially filled offers used to remain on the book. A snipe which names an offer by its id also specifies its price in the form of a `(wants,gives)` pair to be compared to the offers' `(wants,gives)`. When a snipe can specifies a wants and a gives, it accepts any offer price better than `wants/gives`.
 
    Now consider an order $r$ for the offer $o$. If $o$ is partially consumed into $o'$ before $r$ is mined, we still want $r$ to succeed (as long as $o'$ has enough volume). But `wants` and `gives` of $o$ are not equal to `wants` and `gives` of $o'$. Worse: their ratios are not equal, due to rounding errors.
 
-   Our solution was to make sure that the price of a partially filled offer could only improve. To do that, we rounded up the amount required by the maker. 
+   Our solution was to make sure that the price of a partially filled offer could only improve. To do that, we rounded up the amount required by the maker.
        */
     uint makerWouldWant =
       (sor.wants * $$(offer_wants("sor.offer"))) / $$(offer_gives("sor.offer"));
@@ -1400,7 +1400,7 @@ abstract contract Dex {
    * Otherwise, the maker loses the cost of `gasused + gasbase` gas. The gas price is estimated by `gasprice`.
    * To create the offer, the maker had to provision for `gasreq + gasbase` gas at a price of `offer.gasprice`.
    * We do not consider the tx.gasprice.
-   * `offerDetail.gasbase` and `offer.gasprice` are the values of the Dex parameters `config.gasbase` and `config.gasprice` when the offer was createdd. Without caching those values, the provision set aside could end up insufficient to reimburse the maker (or to compensate the taker).
+   * `offerDetail.gasbase` and `offer.gasprice` are the values of the Dex parameters `config.gasbase` and `config.gasprice` when the offer was createdd. Without caching those values, the provision set aside could end up insufficient to reimburse the maker (or to retribute the taker).
    */
   function applyPenalty(
     uint gasprice,
@@ -1912,7 +1912,7 @@ contract FTD is Dex {
     );
   }
 
-  /* We use `transferFrom` with takers (instead of checking `balanceOf` before/after the call) for the following reason we want the taker to be awaken after all loans have been made, so either 
+  /* We use `transferFrom` with takers (instead of checking `balanceOf` before/after the call) for the following reason we want the taker to be awaken after all loans have been made, so either
      1. The taker gets a list of all makers and loops through them to pay back, or
      2. we call a new taker method "payback" after returning from each maker call, or
      3. we call transferFrom after returning from each maker call
