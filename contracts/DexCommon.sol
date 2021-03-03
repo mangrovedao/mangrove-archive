@@ -97,6 +97,7 @@ library DexEvents {
     address base,
     address quote,
     uint offerId,
+    // maker's address is not logged because it can be retrieved from `WriteOffer` event using `offerId`, packed in `data`.
     address taker,
     uint takerWants,
     uint takerGives
@@ -105,6 +106,7 @@ library DexEvents {
     address base,
     address quote,
     uint offerId,
+    // maker's address is not logged because it can be retrieved from `WriteOffer` event using `offerId`, packed in `data`.
     address taker,
     uint takerWants,
     uint takerGives,
@@ -124,7 +126,7 @@ library DexEvents {
   /* * Dex closure */
   event Kill();
 
-  /* * An offer was created or updated. */
+  /* * An offer was created or updated. `data` packs `makerWants`(96), `makerGives`(96), `gasprice`(16), `gasreq`(24), `offerId`(24)*/
   event WriteOffer(address base, address quote, address maker, bytes32 data);
 
   /* * `offerId` was present and is now removed from the book. */
@@ -136,12 +138,13 @@ library DexEvents {
 
 /* # IMaker interface */
 interface IMaker {
-  /* Called upon offer execution */
+  /* Called upon offer execution. If this function reverts, Dex will not try to transfer funds. Returned data (truncated to 32 bytes) can be accessed during the call to `makerPosthook` in the `result.errorCode` field.
+  Reverting with a message (for further processing during posthook) should be done using low level `revertTrade(byte32)` provided in the `DexIt` library. It is not possible to reenter the order book of the traded pair whilst this function is executed.*/
   function makerTrade(DexCommon.SingleOrder calldata order)
     external
     returns (bytes32);
 
-  /* Called after all offers of an order have been executed. */
+  /* Called after all offers of an order have been executed. Posthook of the last executed order is called first and full reentrancy into the Dex is enabled at this time. `order` recalls key arguments of the order that was processed and `result` recalls important information for updating the current offer.*/
   function makerPosthook(
     DexCommon.SingleOrder calldata order,
     DexCommon.OrderResult calldata result
@@ -154,7 +157,9 @@ interface ITaker {
   function takerTrade(
     address base,
     address quote,
+    // total amount of base token that was flashloaned to the taker
     uint totalGot,
+    // total amount of quote token that should be made available
     uint totalGives
   ) external;
 }
