@@ -32,7 +32,8 @@ const fields = {
   wants: { name: "wants", bits: 96, type: "uint" },
   gasprice: { name: "gasprice", bits: 16, type: "uint" },
   gasreq: { name: "gasreq", bits: 24, type: "uint" },
-  gasbase: { name: "gasbase", bits: 24, type: "uint" },
+  overhead_gasbase: { name: "overhead_gasbase", bits: 24, type: "uint" },
+  offer_gasbase: { name: "offer_gasbase", bits: 24, type: "uint" },
 };
 
 const id_field = (name) => {
@@ -76,34 +77,35 @@ They have the following fields: */
   */
     fields.gasreq,
     /*
-       * `gasbase` represents the gas overhead used by processing the offer
+       * `offer_gasbase` represents the gas overhead used by processing the offer
       inside the Dex. The gas considered 'used' by an offer is always considered
-      together with `gasbase`.
+      together with `offer_gasbase`. In addition, `overhead_gasbase` represents the gas used by initiating an order (snipes or market order). The gas considered 'used' by an offer is always considered with `overhead_gasbase` divided by the number of failing offers.
 
          If an offer fails, `gasprice` wei is taken from the
          provision per unit of gas used. `gasprice` should approximate the average gas
          price at offer creation time.
 
-         `gasbase` is _24 bits wide_ -- note that if more room was needed, we could bring it down to 8 bits and have it represent 1k gas increments.
+         `*_gasbase` is _24 bits wide_ -- note that if more room was needed, we could bring it down to 8 bits and have it represent 1k gas increments.
 
-         `gasbase` is also the name of global Dex
+         `*_gasbase` is also the name of global Dex
          parameters. When an offer is created, its current value is added to
          the offer's `OfferDetail`. The maker does not choose it.
 
    So, when an offer is created, the maker is asked to provision the
    following amount of wei:
    ```
-   (gasreq + gasbase) * gasprice
+   (gasreq + offer_gasbase + overhead_gasbase) * gasprice
    ```
     When an offer fails, the following amount is given to the taker as compensation:
    ```
-   (gasused + gasbase) * gasprice
+   (gasused + offer_gasbase + overhead_gasbase/n) * gasprice
    ```
 
-   and the rest is given back to the maker.
+   where `n` is the number of failing offers, and the rest is given back to the maker.
 
     */
-    fields.gasbase,
+    fields.overhead_gasbase,
+    fields.offer_gasbase,
   ],
 
   /* ## Configuration and state
@@ -132,10 +134,12 @@ They have the following fields: */
     { name: "active", bits: 8, type: "uint" },
     /* * `fee`, in basis points, of `base` given to the taker. This fee is sent to the Dex. Fee is capped to 5% (see Dex.sol). */
     { name: "fee", bits: 16, type: "uint" },
-    /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `base` per gas requested. For instance, if `density == 10`, `gasbase == 5000` an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `base`. */
+    /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `base` per gas requested. For instance, if `density == 10`, `offer_gasbase == 5000`, `overhead_gasbase == 0`, an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `base`. */
     { name: "density", bits: 32, type: "uint" },
-    /* * `gasbase` is an overapproximation of the gas overhead associated with processing each offer. The Dex considers that a failed offer has used at least `gasbase` gas. Local to a pair because the costs of calling `base` and `quote`'s `transferFrom` are part of `gasbase`. Should only be updated when ERC20 contracts change or when opcode prices change. */
-    fields.gasbase,
+    /* * `overhead_gasbase` is an overapproximation of the gas overhead consumed by making an order (snipes or market order). Local to a pair because the costs of paying the fee depends on the relevant ERC20 contract. */
+    fields.overhead_gasbase,
+    /* * `offer_gasbase` is an overapproximation of the gas overhead associated with processing one offer. The Dex considers that a failed offer has used at least `offer_gasbase` gas. Local to a pair because the costs of calling `base` and `quote`'s `transferFrom` are part of `offer_gasbase`. Should only be updated when ERC20 contracts change or when opcode prices change. */
+    fields.offer_gasbase,
     /* * If `lock` is true, orders may not be added nor executed.
 
        Reentrancy during offer execution is not considered safe:

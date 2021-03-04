@@ -61,7 +61,7 @@ abstract contract Dex {
 
   /* Makers provision their possible penalties in the `balanceOf` mapping.
 
-       Offers specify the amount of gas they require for successful execution (`gasreq`). To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq` and on the pair's `gasbase`. This provision is deducted from their `balanceOf`. If an offer fails, part of that provision is given to the taker, as retribution. The exact amount depends on the gas used by the offer before failing.
+       Offers specify the amount of gas they require for successful execution (`gasreq`). To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq` and on the pair's `*_gasbase`. This provision is deducted from their `balanceOf`. If an offer fails, part of that provision is given to the taker, as retribution. The exact amount depends on the gas used by the offer before failing.
 
        The Dex keeps track of their available balance in the `balanceOf` map, which is decremented every time a maker creates a new offer, and may be modified on offer updates/cancelations/takings.
    */
@@ -131,7 +131,8 @@ abstract contract Dex {
     });
     ret.local = DC.Local({
       active: $$(local_active("_local")) > 0,
-      gasbase: $$(local_gasbase("_local")),
+      overhead_gasbase: $$(local_overhead_gasbase("_local")),
+      offer_gasbase: $$(local_offer_gasbase("_local")),
       fee: $$(local_fee("_local")),
       density: $$(local_density("_local")),
       best: $$(local_best("_local")),
@@ -171,7 +172,8 @@ abstract contract Dex {
       DC.OfferDetail({
         maker: $$(offerDetail_maker("offerDetail")),
         gasreq: $$(offerDetail_gasreq("offerDetail")),
-        gasbase: $$(offerDetail_gasbase("offerDetail"))
+        overhead_gasbase: $$(offerDetail_overhead_gasbase("offerDetail")),
+        offer_gasbase: $$(offerDetail_offer_gasbase("offerDetail"))
       });
     return (exists, offerStruct, offerDetailStruct);
   }
@@ -305,7 +307,7 @@ abstract contract Dex {
      Gas use is minimal when:
      1. The offer does not move in the book
      2. The offer does not change its `gasreq`
-     3. The (`base`,`quote`)'s `gasbase` has not changed since the offer was last written
+     3. The (`base`,`quote`)'s `*_gasbase` has not changed since the offer was last written
      4. `gasprice` has not changed since the offer was last written
      5. `gasprice` is greater than the Dex's gasprice estimation
   */
@@ -381,13 +383,14 @@ abstract contract Dex {
       }
     }
 
-    /* If the user wants to irreversibly erase the offer and get its provision back, we compute its provision from the offer's `gasprice`, `gasbase` and `gasreq`. */
+    /* If the user wants to irreversibly erase the offer and get its provision back, we compute its provision from the offer's `gasprice`, `*_gasbase` and `gasreq`. */
     if (_delete) {
       uint provision =
         10**9 *
           $$(offer_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
           ($$(offerDetail_gasreq("offerDetail")) +
-            $$(offerDetail_gasbase("offerDetail")));
+            $$(offerDetail_overhead_gasbase("offerDetail")) +
+            $$(offerDetail_offer_gasbase("offerDetail")));
       delete offers[base][quote][offerId];
       delete offerDetails[base][quote][offerId];
       // credit `balanceOf` and log transfer
@@ -399,7 +402,7 @@ abstract contract Dex {
   }
 
   /* ## Provisioning
-  Market makers must have enough provisions for possible penalties. These provisions are in ETH. Every time a new offer is created or an offer is updated, `balanceOf` is adjusted to provision the offer's maximum possible penalty (`gasprice * (gasreq + gasbase)`).
+  Market makers must have enough provisions for possible penalties. These provisions are in ETH. Every time a new offer is created or an offer is updated, `balanceOf` is adjusted to provision the offer's maximum possible penalty (`gasprice * (gasreq + overhead_gasbase + offer_gasbase)`). 
 
   For instance, if the current `balanceOf` of a maker is 1 ether and they create an offer that requires a provision of 0.01 ethers, their `balanceOf` will be reduced to 0.99 ethers. No ethers will move; this is just an internal accounting movement to make sure the maker cannot `withdraw` the provisioned amounts.
 
@@ -581,10 +584,10 @@ abstract contract Dex {
     );
     /* * Make sure `gives > 0` -- division by 0 would throw in several places otherwise, and `isLive` relies on it. */
     require(ofp.gives > 0, "dex/writeOffer/gives/tooLow");
-    /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `base` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `gasbase` to `gasreq`. */
+    /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `base` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `offer_gasbase` to `gasreq`. */
     require(
       ofp.gives >=
-        (ofp.gasreq + $$(local_gasbase("ofp.local"))) *
+        (ofp.gasreq + $$(local_offer_gasbase("ofp.local"))) *
           $$(local_density("ofp.local")),
       "dex/writeOffer/density/tooLow"
     );
@@ -640,22 +643,28 @@ abstract contract Dex {
           10**9 *
           $$(offer_gasprice("ofp.oldOffer")) *
           ($$(offerDetail_gasreq("offerDetail")) +
-            $$(offerDetail_gasbase("offerDetail")));
+            $$(offerDetail_overhead_gasbase("offerDetail")) +
+            $$(offerDetail_offer_gasbase("offerDetail")));
       }
 
-      /* If the offer is new, has a new gasreq, or if the Dex's `gasbase` configuration parameter has changed, we also update offerDetails. */
+      /* If the offer is new, has a new gasreq, or if the Dex's `*_gasbase` configuration parameter has changed, we also update offerDetails. */
       if (
         !update ||
         $$(offerDetail_gasreq("offerDetail")) != ofp.gasreq ||
-        $$(offerDetail_gasbase("offerDetail")) != $$(local_gasbase("ofp.local"))
+        $$(offerDetail_overhead_gasbase("offerDetail")) !=
+        $$(local_overhead_gasbase("ofp.local")) ||
+        $$(offerDetail_offer_gasbase("offerDetail")) !=
+        $$(local_offer_gasbase("ofp.local"))
       ) {
-        uint gasbase = $$(local_gasbase("ofp.local"));
+        uint overhead_gasbase = $$(local_overhead_gasbase("ofp.local"));
+        uint offer_gasbase = $$(local_offer_gasbase("ofp.local"));
         offerDetails[ofp.base][ofp.quote][ofp.id] = $$(
           make_offerDetail(
             [
               ["maker", "uint(msg.sender)"],
               ["gasreq", "ofp.gasreq"],
-              ["gasbase", "gasbase"]
+              ["overhead_gasbase", "overhead_gasbase"],
+              ["offer_gasbase", "offer_gasbase"]
             ]
           )
         );
@@ -665,7 +674,11 @@ abstract contract Dex {
     /* With every change to an offer, a maker must deduct provisions from its `balanceOf` balance, or get some back if the updated offer requires fewer provisions. */
     {
       uint provision =
-        (ofp.gasreq + $$(local_gasbase("ofp.local"))) * ofp.gasprice * 10**9;
+        (ofp.gasreq +
+          $$(local_offer_gasbase("ofp.local")) +
+          $$(local_overhead_gasbase("ofp.local"))) *
+          ofp.gasprice *
+          10**9;
       if (provision > oldProvision) {
         debitWei(msg.sender, provision - oldProvision);
       } else if (provision < oldProvision) {
@@ -807,15 +820,16 @@ abstract contract Dex {
 
   /* # Low-level Taker functions */
 
-  /* The `MultiOrder` struct is used by market orders and snipes. Some of its fields are only used by market orders (`initialWants, initialGives`), and `snipeSuccesses` is only used by snipes. The struct is helpful in decreasing stack use. */
+  /* The `MultiOrder` struct is used by market orders and snipes. Some of its fields are only used by market orders (`initialWants, initialGives`), and `successCount` is only used by snipes. The struct is helpful in decreasing stack use. */
   struct MultiOrder {
     uint initialWants;
     uint initialGives;
     uint totalGot;
     uint totalGave;
     uint totalPenalty;
-    uint snipeSuccesses;
     address taker;
+    uint successCount;
+    uint failCount;
   }
 
   /* ## General Market Order */
@@ -1036,7 +1050,7 @@ abstract contract Dex {
     /* Over the course of the snipes order, a penalty reserved for `msg.sender` has accumulated in `mor.totalPenalty`. No actual transfers have occured yet -- all the ethers given by the makers as provision are owned by the Dex. `sendPenalty` finally gives the accumulated penalty to `msg.sender`. */
     sendPenalty(mor.totalPenalty);
     //+clear+
-    return (mor.snipeSuccesses, mor.totalGot, mor.totalGave);
+    return (mor.successCount, mor.totalGot, mor.totalGave);
   }
 
   /* ### Recursive snipes function */
@@ -1077,10 +1091,6 @@ abstract contract Dex {
         /* `execute` will adjust `sor.wants`,`sor.gives`, and may attempt to execute the offer if its price is low enough. It is crucial that an error due to `taker` triggers a revert. That way, `!success && !executed` means there was no execution attempt, and `!success && executed` means the failure is the maker's fault. */
         /* Post-execution, `sor.wants`/`sor.gives` reflect how much was sent/taken by the offer. We will need it after the recursive call, so we save it in local variables. Same goes for `offerId`, `sor.offer` and `sor.offerDetail`. */
         (success, executed, gasused, makerData, errorCode) = execute(mor, sor);
-
-        if (success) {
-          mor.snipeSuccesses += 1;
-        }
 
         /* In the market order, we were able to avoid stitching back offers after every `execute` since we knew a continuous segment starting at best would be consumed. Here, we cannot do this optimisation since offers in the `targets` array may be anywhere in the book. So we stitch together offers immediately after each `execute`. */
         if (executed) {
@@ -1198,6 +1208,7 @@ abstract contract Dex {
 
     /* `success` is true: trade is complete */
     if (success) {
+      mor.successCount += 1;
       /* In case of success, `retdata` encodes the gas used by the offer. */
       gasused = abi.decode(retdata, (uint));
 
@@ -1228,6 +1239,8 @@ abstract contract Dex {
       if (
         errorCode == "dex/makerRevert" || errorCode == "dex/makerTransferFail"
       ) {
+        mor.failCount += 1;
+
         emit DexEvents.MakerFail(
           sor.base,
           sor.quote,
@@ -1302,7 +1315,8 @@ abstract contract Dex {
         $$(global_gasprice("sor.global")),
         gasused,
         sor.offer,
-        sor.offerDetail
+        sor.offerDetail,
+        mor.failCount
       );
     }
   }
@@ -1327,7 +1341,7 @@ abstract contract Dex {
         })
       );
 
-    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + gasbase`. This yul call only retrieves the first byte of the maker's `returndata`. */
+    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq`. This yul call only retrieves the first byte of the maker's `returndata`. */
     bytes memory retdata = new bytes(32);
 
     address maker = $$(offerDetail_maker("sor.offerDetail"));
@@ -1354,7 +1368,7 @@ abstract contract Dex {
 
   /* # Low-level offer deletion */
 
-  /* When an offer is deleted, it is marked as such by setting `gives` to 0. Note that provision accounting in the Dex aims to minimize writes. Each maker `fund`s the Dex to increase its balance. When an offer is created/updated, we compute how much should be reserved to pay for possible penalties. That amount can always be recomputed with `offer.gasprice * (offerDetail.gasreq * offerDetail.gasbase)`. The balance is updated to reflect the remaining available ethers.
+  /* When an offer is deleted, it is marked as such by setting `gives` to 0. Note that provision accounting in the Dex aims to minimize writes. Each maker `fund`s the Dex to increase its balance. When an offer is created/updated, we compute how much should be reserved to pay for possible penalties. That amount can always be recomputed with `offer.gasprice * (offerDetail.gasreq + offerDetail.overhead_gasbase + offerDetail.offer_gasbase)`. The balance is updated to reflect the remaining available ethers.
 
      Now, when an offer is deleted, the offer can stay provisioned, or be `deprovision`ed. In the latter case, we set `gasprice` to 0, which induces a provision of 0. */
   function dirtyDeleteOffer(
@@ -1397,22 +1411,24 @@ abstract contract Dex {
      Penalty application summary:
 
    * If the transaction was a success, we entirely refund the maker and send nothing to the taker.
-   * Otherwise, the maker loses the cost of `gasused + gasbase` gas. The gas price is estimated by `gasprice`.
-   * To create the offer, the maker had to provision for `gasreq + gasbase` gas at a price of `offer.gasprice`.
+   * Otherwise, the maker loses the cost of `gasused + overhead_gasbase/n + offer_gasbase` gas, where `n` is the number of failed offers. The gas price is estimated by `gasprice`.
+   * To create the offer, the maker had to provision for `gasreq + overhead_gasbase/n + offer_gasbase` gas at a price of `offer.gasprice`.
    * We do not consider the tx.gasprice.
-   * `offerDetail.gasbase` and `offer.gasprice` are the values of the Dex parameters `config.gasbase` and `config.gasprice` when the offer was createdd. Without caching those values, the provision set aside could end up insufficient to reimburse the maker (or to retribute the taker).
+   * `offerDetail.gasbase` and `offer.gasprice` are the values of the Dex parameters `config.*_gasbase` and `config.gasprice` when the offer was created. Without caching those values, the provision set aside could end up insufficient to reimburse the maker (or to retribute the taker).
    */
   function applyPenalty(
     uint gasprice,
     uint gasused,
     bytes32 offer,
-    bytes32 offerDetail
+    bytes32 offerDetail,
+    uint failCount
   ) internal returns (uint) {
     uint provision =
       10**9 *
         $$(offer_gasprice("offer")) *
         ($$(offerDetail_gasreq("offerDetail")) +
-          $$(offerDetail_gasbase("offerDetail")));
+          $$(offerDetail_overhead_gasbase("offerDetail")) +
+          $$(offerDetail_offer_gasbase("offerDetail")));
 
     /* We take as gasprice min(offer.gasprice,config.gasprice) */
     if ($$(offer_gasprice("offer")) < gasprice) {
@@ -1424,8 +1440,14 @@ abstract contract Dex {
       gasused = $$(offerDetail_gasreq("offerDetail"));
     }
 
+    /* As an invariant, `applyPenalty` is only called when `executed && !success`, and thus when `failCount > 0`. */
     uint penalty =
-      10**9 * gasprice * (gasused + $$(offerDetail_gasbase("offerDetail")));
+      10**9 *
+        gasprice *
+        (gasused +
+          $$(offerDetail_overhead_gasbase("offerDetail")) /
+          failCount +
+          $$(offerDetail_offer_gasbase("offerDetail")));
 
     /* Here we write to storage the new maker balance. This occurs _after_ possible reentrant calls. How do we know we're not crediting twice the same amounts? Because the `offer`'s provision was set to 0 in storage (through `dirtyDeleteOffer`) before the reentrant calls. In this function, we are working with cached copies of the offer as it was before it was consumed. */
     creditWei($$(offerDetail_maker("offerDetail")), provision - penalty);
@@ -1463,13 +1485,14 @@ abstract contract Dex {
     address quote,
     uint fee,
     uint density,
-    uint gasbase
+    uint overhead_gasbase,
+    uint offer_gasbase
   ) public {
     authOnly();
     locals[base][quote] = $$(set_local("locals[base][quote]", [["active", 1]]));
     setFee(base, quote, fee);
     setDensity(base, quote, density);
-    setGasbase(base, quote, gasbase);
+    setGasbase(base, quote, overhead_gasbase, offer_gasbase);
     emit DexEvents.SetActive(base, quote, true);
   }
 
@@ -1515,16 +1538,30 @@ abstract contract Dex {
   function setGasbase(
     address base,
     address quote,
-    uint value
+    uint overhead_gasbase,
+    uint offer_gasbase
   ) public {
     authOnly();
-    /* Checking the size of `gasbase` is necessary to prevent a) data loss when `gasbase` is copied to an `OfferDetail` struct, and b) overflow when `gasbase` is used in calculations. */
-    require(uint24(value) == value, "dex/config/gasbase/24bits");
+    /* Checking the size of `*_gasbase` is necessary to prevent a) data loss when `*_gasbase` is copied to an `OfferDetail` struct, and b) overflow when `*_gasbase` is used in calculations. */
+    require(
+      uint24(overhead_gasbase) == overhead_gasbase,
+      "dex/config/overhead_gasbase/24bits"
+    );
+    require(
+      uint24(offer_gasbase) == offer_gasbase,
+      "dex/config/offer_gasbase/24bits"
+    );
     //+clear+
     locals[base][quote] = $$(
-      set_local("locals[base][quote]", [["gasbase", "value"]])
+      set_local(
+        "locals[base][quote]",
+        [
+          ["offer_gasbase", "offer_gasbase"],
+          ["overhead_gasbase", "overhead_gasbase"]
+        ]
+      )
     );
-    emit DexEvents.SetGasbase(value);
+    emit DexEvents.SetGasbase(overhead_gasbase, offer_gasbase);
   }
 
   /* ## Globals */
@@ -1786,7 +1823,7 @@ abstract contract Dex {
   {
     bytes memory cd = abi.encodeWithSelector(IMaker.makerTrade.selector, sor);
 
-    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + gasbase`. This yul call only retrieves the first byte of the maker's `returndata`. */
+    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + overhead_gasbase/n + offer_gasbase` where `n` is the number of failing offers. This yul call only retrieves the first byte of the maker's `returndata`. */
     uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
     address maker = $$(offerDetail_maker("sor.offerDetail"));
     bytes memory retdata = new bytes(32);
@@ -1794,7 +1831,7 @@ abstract contract Dex {
     bytes32 makerData;
     uint oldGas = gasleft();
     /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of `CALL`) is $h$, the maker will receive at worst $\textrm{gasreq} - \frac{63h}{64}$ gas. */
-    /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether `63/64(gasleft-gasbase) > gasreq`. If no, we'd know by induction that there is enough gas left to apply fees, stitch offers, etc (or could revert safely if no offer has been taken yet). */
+    /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether `63/64(gasleft-overhead_gasbase-offer_gasbase) > gasreq`. If no, we'd know by induction that there is enough gas left to apply fees, stitch offers, etc (or could revert safely if no offer has been taken yet). */
     if (!(oldGas - oldGas / 64 >= gasreq)) {
       innerRevert([bytes32("dex/notEnoughGasForMakerTrade"), "", ""]);
     }

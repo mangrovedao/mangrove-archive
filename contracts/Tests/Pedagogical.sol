@@ -149,7 +149,8 @@ contract Pedagogical_Test {
       quote: address(dai),
       fee: 0,
       density: 100,
-      gasbase: 30_000
+      overhead_gasbase: 30_000,
+      offer_gasbase: 10_000
     });
 
     tkr = new TestTaker({dex: dex, base: bat, quote: dai});

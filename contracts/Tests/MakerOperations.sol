@@ -355,14 +355,14 @@ contract MakerOperations_Test is IMaker {
   function min_density_with_newOffer_ok_test() public {
     mkr.provisionDex(1 ether);
     uint density = 10**7;
-    dex.setGasbase(address(base), address(quote), 1);
+    dex.setGasbase(address(base), address(quote), 0, 1);
     dex.setDensity(address(base), address(quote), density);
     mkr.newOffer(1 ether, density, 0, 0);
   }
 
   function low_density_fails_newOffer_test() public {
     uint density = 10**7;
-    dex.setGasbase(address(base), address(quote), 1);
+    dex.setGasbase(address(base), address(quote), 0, 1);
     dex.setDensity(address(base), address(quote), density);
     try mkr.newOffer(1 ether, density - 1, 0, 0) {
       TestEvents.fail("density too low, newOffer should fail");
@@ -688,5 +688,123 @@ contract MakerOperations_Test is IMaker {
     mkr.updateOffer(1.0 ether, 1.0 ether, 100_001, ofr0, ofr0);
     uint best = dex.config(address(base), address(quote)).local.best;
     TestEvents.eq(ofr0, best, "Best offer should not have changed");
+  }
+
+  function gasbase_is_deducted_1_test() public {
+    uint overhead_gasbase = 100_000;
+    uint offer_gasbase = 20_000;
+    mkr.provisionDex(1 ether);
+    dex.setGasbase(
+      address(base),
+      address(quote),
+      overhead_gasbase,
+      offer_gasbase
+    );
+    dex.setGasprice(1);
+    dex.setDensity(address(base), address(quote), 0);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 0, 0);
+    bool success = tkr.take(ofr, 0.1 ether);
+    uint oldBal = dex.balanceOf(address(mkr));
+    TestEvents.eq(
+      dex.balanceOf(address(mkr)),
+      1 ether - (overhead_gasbase + offer_gasbase) * 10**9,
+      "Wrong gasbase deducted"
+    );
+  }
+
+  function gasbase_is_deducted_2_test() public {
+    uint overhead_gasbase = 100_000;
+    uint offer_gasbase = 20_000;
+    mkr.provisionDex(1 ether);
+    dex.setGasbase(
+      address(base),
+      address(quote),
+      overhead_gasbase,
+      offer_gasbase
+    );
+    dex.setGasprice(1);
+    dex.setDensity(address(base), address(quote), 0);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 0, 0);
+    bool success = tkr.take(ofr, 0.1 ether);
+    uint oldBal = dex.balanceOf(address(mkr));
+    TestEvents.eq(
+      dex.balanceOf(address(mkr)),
+      1 ether - (overhead_gasbase + offer_gasbase) * 10**9,
+      "Wrong gasbase deducted"
+    );
+  }
+
+  function gasbase_is_deducted_multi_1_test() public {
+    uint overhead_gasbase = 100_000;
+    uint offer_gasbase = 20_000;
+    mkr.provisionDex(1 ether);
+    mkr2.provisionDex(1 ether);
+    dex.setGasbase(
+      address(base),
+      address(quote),
+      overhead_gasbase,
+      offer_gasbase
+    );
+    dex.setGasprice(1);
+    dex.setDensity(address(base), address(quote), 0);
+    mkr2.newOffer(1 ether, 1 ether, 0, 0);
+    mkr.newOffer(1 ether, 1 ether, 0, 0);
+    tkr.marketOrder(0.1 ether, 0.1 ether);
+    uint oldBal = dex.balanceOf(address(mkr));
+    TestEvents.eq(
+      dex.balanceOf(address(mkr)),
+      1 ether - (overhead_gasbase / 2 + offer_gasbase) * 10**9,
+      "Wrong gasbase deducted"
+    );
+  }
+
+  function gasbase_is_deducted_multi_2_test() public {
+    uint overhead_gasbase = 100_000;
+    uint offer_gasbase = 20_000;
+    mkr.provisionDex(1 ether);
+    mkr2.provisionDex(1 ether);
+    dex.setGasbase(
+      address(base),
+      address(quote),
+      overhead_gasbase,
+      offer_gasbase
+    );
+    dex.setGasprice(1);
+    dex.setDensity(address(base), address(quote), 0);
+    mkr2.newOffer(1 ether, 1 ether, 0, 0);
+    mkr2.newOffer(1 ether, 1 ether, 0, 0);
+    mkr.newOffer(1 ether, 1 ether, 0, 0);
+    tkr.marketOrder(0.1 ether, 0.1 ether);
+    uint oldBal = dex.balanceOf(address(mkr));
+    TestEvents.eq(
+      dex.balanceOf(address(mkr)),
+      1 ether - (overhead_gasbase / 3 + offer_gasbase) * 10**9,
+      "Wrong gasbase deducted"
+    );
+  }
+
+  function gasbase_is_deducted_multi_3_test() public {
+    uint overhead_gasbase = 30_000;
+    uint offer_gasbase = 20_000;
+    mkr.provisionDex(1 ether);
+    mkr2.provisionDex(1 ether);
+    dex.setGasbase(
+      address(base),
+      address(quote),
+      overhead_gasbase,
+      offer_gasbase
+    );
+    dex.setGasprice(1);
+    dex.setDensity(address(base), address(quote), 0);
+    mkr2.newOffer(1 ether, 1 ether, 0, 0);
+    mkr.newOffer(1 ether, 1 ether, 0, 0);
+    mkr.newOffer(1 ether, 1 ether, 0, 0);
+    tkr.marketOrder(0.1 ether, 0.1 ether);
+    uint oldBal = dex.balanceOf(address(mkr));
+    TestEvents.eq(
+      dex.balanceOf(address(mkr)),
+      1 ether - ((2 * overhead_gasbase) / 3 + offer_gasbase * 2) * 10**9,
+      "Wrong gasbase deducted"
+    );
   }
 }

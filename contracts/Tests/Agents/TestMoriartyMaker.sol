@@ -55,12 +55,12 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
     dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
     uint density = dex.config(base, quote).local.density;
-    uint gasbase = dex.config(base, quote).local.gasbase;
+    uint offer_gasbase = dex.config(base, quote).local.offer_gasbase;
     dummy = dex.newOffer({
       base: base,
       quote: quote,
       wants: 1,
-      gives: density * (gasbase + 100000),
+      gives: density * (offer_gasbase + 100000),
       gasreq: 100000,
       gasprice: 0,
       pivotId: 0

@@ -477,7 +477,7 @@ contract TakerOperations_Test {
   }
 
   function unsafe_gas_left_fails_order_test() public {
-    dex.setGasbase(base, quote, 1);
+    dex.setGasbase(base, quote, 1, 1);
     quoteT.approve(address(dex), 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 120_000, 0);
     try dex.snipe{gas: 120_000}(base, quote, ofr, 1 ether, 1 ether, 120_000) {

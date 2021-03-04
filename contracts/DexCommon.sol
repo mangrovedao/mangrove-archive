@@ -17,7 +17,8 @@ library DexCommon {
   struct OfferDetail {
     address maker;
     uint gasreq;
-    uint gasbase;
+    uint overhead_gasbase;
+    uint offer_gasbase;
   }
   struct Global {
     address monitor;
@@ -32,7 +33,8 @@ library DexCommon {
     bool active;
     uint fee;
     uint density;
-    uint gasbase;
+    uint overhead_gasbase;
+    uint offer_gasbase;
     bool lock;
     uint best;
     uint last;
@@ -82,7 +84,7 @@ library DexEvents {
   /* * Dex reconfiguration */
   event SetActive(address base, address quote, bool value);
   event SetFee(address base, address quote, uint value);
-  event SetGasbase(uint value);
+  event SetGasbase(uint overhead_gasbase, uint offer_gasbase);
   event SetGovernance(address value);
   event SetMonitor(address value);
   event SetVault(address value);

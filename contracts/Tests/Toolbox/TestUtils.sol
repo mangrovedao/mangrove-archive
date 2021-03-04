@@ -72,7 +72,9 @@ library TestUtils {
     uint gasreq
   ) internal returns (uint) {
     DC.Config memory config = dex.config(base, quote);
-    return ((gasreq + config.local.gasbase) *
+    return ((gasreq +
+      config.local.overhead_gasbase +
+      config.local.offer_gasbase) *
       uint(config.global.gasprice) *
       10**9);
   }
@@ -91,7 +93,11 @@ library TestUtils {
     } else {
       _gp = gasprice;
     }
-    return ((gasreq + config.local.gasbase) * _gp * 10**9);
+    return ((gasreq +
+      config.local.overhead_gasbase +
+      config.local.offer_gasbase) *
+      _gp *
+      10**9);
   }
 
   function getOfferInfo(
@@ -161,8 +167,8 @@ library DexSetup {
     TestEvents.not0x(address(quote));
     dex = new FMD({gasprice: 40, gasmax: 1_000_000});
 
-    dex.activate(address(base), address(quote), 0, 100, 80_000);
-    dex.activate(address(quote), address(base), 0, 100, 80_000);
+    dex.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
+    dex.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
 
     return dex;
   }
@@ -177,15 +183,15 @@ library DexSetup {
     if (inverted) {
       dex = new FTD({gasprice: 40, gasmax: 1_000_000});
 
-      dex.activate(address(base), address(quote), 0, 100, 80_000);
-      dex.activate(address(quote), address(base), 0, 100, 80_000);
+      dex.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
+      dex.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
 
       return dex;
     } else {
       dex = new FMD({gasprice: 40, gasmax: 1_000_000});
 
-      dex.activate(address(base), address(quote), 0, 100, 80_000);
-      dex.activate(address(quote), address(base), 0, 100, 80_000);
+      dex.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
+      dex.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
 
       return dex;
     }

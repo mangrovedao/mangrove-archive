@@ -50,17 +50,19 @@ contract NotAdmin {
     address quote,
     uint fee,
     uint density,
-    uint gasbase
+    uint overhead_gasbase,
+    uint offer_gasbase
   ) public {
-    dex.activate(base, quote, fee, density, gasbase);
+    dex.activate(base, quote, fee, density, overhead_gasbase, offer_gasbase);
   }
 
   function setGasbase(
     address base,
     address quote,
-    uint value
+    uint overhead_gasbase,
+    uint offer_gasbase
   ) public {
-    dex.setGasbase(base, quote, value);
+    dex.setGasbase(base, quote, overhead_gasbase, offer_gasbase);
   }
 
   function setGasmax(uint value) public {
@@ -219,7 +221,7 @@ contract Gatekeeping_Test is IMaker {
 
   function only_gov_can_set_active_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
-    try notAdmin.activate(quote, base, 0, 100, 30_000) {
+    try notAdmin.activate(quote, base, 0, 100, 30_000, 0) {
       TestEvents.fail("nonadmin cannot set active");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "dex/unauthorized");
@@ -246,7 +248,7 @@ contract Gatekeeping_Test is IMaker {
 
   function only_gov_can_set_gasbase_test() public {
     NotAdmin notAdmin = new NotAdmin(dex);
-    try notAdmin.setGasbase(base, quote, 0) {
+    try notAdmin.setGasbase(base, quote, 0, 0) {
       TestEvents.fail("nonadmin cannot set gasbase");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "dex/unauthorized");
@@ -282,16 +284,22 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function set_zero_gasbase_test() public {
-    try dex.setGasbase(base, quote, 0) {} catch Error(string memory) {
-      TestEvents.fail("setting gasprice to 0 should work");
+    try dex.setGasbase(base, quote, 0, 0) {} catch Error(string memory) {
+      TestEvents.fail("setting gasbases to 0 should work");
     }
   }
 
   function set_gasbase_ceiling_test() public {
-    try dex.setGasbase(base, quote, uint(type(uint24).max) + 1) {
-      TestEvents.fail("gasbase above ceiling should fail");
+    try dex.setGasbase(base, quote, uint(type(uint24).max) + 1, 0) {
+      TestEvents.fail("overhead_gasbase above ceiling should fail");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "dex/config/gasbase/24bits");
+      TestEvents.revertEq(r, "dex/config/overhead_gasbase/24bits");
+    }
+
+    try dex.setGasbase(base, quote, 0, uint(type(uint24).max) + 1) {
+      TestEvents.fail("offer_gasbase above ceiling should fail");
+    } catch Error(string memory r) {
+      TestEvents.revertEq(r, "dex/config/offer_gasbase/24bits");
     }
   }
 
@@ -359,7 +367,7 @@ contract Gatekeeping_Test is IMaker {
 
   function makerGasreq_lower_than_density_fails_newOffer_test() public {
     DexCommon.Config memory cfg = dex.config(base, quote);
-    uint amount = (1 + cfg.local.gasbase) * cfg.local.density;
+    uint amount = (1 + cfg.local.offer_gasbase) * cfg.local.density;
     try mkr.newOffer(amount - 1, amount - 1, 1, 0) {
       TestEvents.fail("Offer should not be inserted");
     } catch Error(string memory r) {
@@ -369,7 +377,7 @@ contract Gatekeeping_Test is IMaker {
 
   function makerGasreq_at_density_suceeds_test() public {
     DexCommon.Config memory cfg = dex.config(base, quote);
-    uint amount = (1 + cfg.local.gasbase) * cfg.local.density;
+    uint amount = (1 + cfg.local.offer_gasbase) * cfg.local.density;
     try mkr.newOffer(amount, amount, 1, 0) returns (uint ofr) {
       (bool exists, , ) = dex.offerInfo(base, quote, ofr);
       TestEvents.check(exists, "Offer should have been inserted");
