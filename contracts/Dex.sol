@@ -117,11 +117,11 @@ abstract contract Dex {
 
   /* # Configuration */
   /* Returns the configuration in an ABI-compatible struct. Should not be called internally, would be a huge memory copying waste. Use `config` instead. */
-  function config(address base, address quote)
+  function getConfig(address base, address quote)
     external
     returns (DC.Config memory ret)
   {
-    (bytes32 _global, bytes32 _local) = getConfig(base, quote);
+    (bytes32 _global, bytes32 _local) = config(base, quote);
     ret.global = DC.Global({
       monitor: $$(global_monitor("_global")),
       useOracle: $$(global_useOracle("_global")) > 0,
@@ -273,7 +273,7 @@ abstract contract Dex {
   ) external returns (uint) {
     /* In preparation for calling `writeOffer`, we read the `base`,`quote` pair configuration, check for reentrancy and market liveness, fill the `OfferPack` struct and increment the `base`,`quote` pair's `last`. */
     OfferPack memory ofp;
-    (ofp.global, ofp.local) = getConfig(base, quote);
+    (ofp.global, ofp.local) = config(base, quote);
     unlockedMarketOnly(ofp.local);
     activeMarketOnly(ofp.global, ofp.local);
 
@@ -323,7 +323,7 @@ abstract contract Dex {
     uint offerId
   ) external returns (uint) {
     OfferPack memory ofp;
-    (ofp.global, ofp.local) = getConfig(base, quote);
+    (ofp.global, ofp.local) = config(base, quote);
     unlockedMarketOnly(ofp.local);
     activeMarketOnly(ofp.global, ofp.local);
     ofp.base = base;
@@ -355,7 +355,7 @@ abstract contract Dex {
     uint offerId,
     bool _delete
   ) external {
-    (, bytes32 local) = getConfig(base, quote);
+    (, bytes32 local) = config(base, quote);
     unlockedMarketOnly(local);
     bytes32 offer = offers[base][quote][offerId];
     bytes32 offerDetail = offerDetails[base][quote][offerId];
@@ -412,7 +412,7 @@ abstract contract Dex {
 
   /* Fund may be called with a nonzero value (hence the `payable` modifier). The provision will be given to `maker`, not `msg.sender`. */
   function fund(address maker) public payable {
-    (bytes32 _global, ) = getConfig(address(0), address(0));
+    (bytes32 _global, ) = config(address(0), address(0));
     liveDexOnly(_global);
     creditWei(maker, msg.value);
   }
@@ -850,7 +850,7 @@ abstract contract Dex {
     DC.SingleOrder memory sor;
     sor.base = base;
     sor.quote = quote;
-    (sor.global, sor.local) = getConfig(base, quote);
+    (sor.global, sor.local) = config(base, quote);
     /* Throughout the execution of the market order, the `sor`'s offer id and other parameters will change. We start with the current best offer id (0 if the book is empty). */
     sor.offerId = $$(local_best("sor.local"));
     sor.offer = offers[base][quote][sor.offerId];
@@ -1027,7 +1027,7 @@ abstract contract Dex {
     DC.SingleOrder memory sor;
     sor.base = base;
     sor.quote = quote;
-    (sor.global, sor.local) = getConfig(base, quote);
+    (sor.global, sor.local) = config(base, quote);
 
     MultiOrder memory mor;
     mor.taker = taker;
@@ -1465,7 +1465,7 @@ abstract contract Dex {
 
   /* # Get/set configuration and Dex state */
 
-  function getConfig(address base, address quote)
+  function config(address base, address quote)
     public
     returns (bytes32 _global, bytes32 _local)
   {

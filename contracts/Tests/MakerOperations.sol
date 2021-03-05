@@ -108,7 +108,7 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(order.gives, 0.05 ether, "wrong takerGives");
     TestEvents.eq(
       DexPack.offer_unpack_gasprice(order.offer),
-      dex.config(order.base, order.quote).global.gasprice,
+      dex.getConfig(order.base, order.quote).global.gasprice,
       "wrong gasprice"
     );
     TestEvents.eq(
@@ -283,7 +283,7 @@ contract MakerOperations_Test is IMaker {
       dex.offerInfo(address(base), address(quote), offer.next);
     TestEvents.check(exists1, "Invalid OB");
     TestEvents.eq(offer1.prev, 0, "Invalid snitching for ofr1");
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     TestEvents.eq(cfg.local.best, ofr1, "Invalid best after retract");
   }
 
@@ -311,7 +311,7 @@ contract MakerOperations_Test is IMaker {
       dex.offerInfo(address(base), address(quote), offer.prev);
     TestEvents.check(exists0, "Invalid OB");
     TestEvents.eq(offer0.next, 0, "Invalid snitching for ofr0");
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     TestEvents.eq(cfg.local.best, ofr0, "Invalid best after retract");
   }
 
@@ -405,7 +405,7 @@ contract MakerOperations_Test is IMaker {
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     uint ofr1 = mkr.newOffer(1.1 ether, 1 ether, 50_000, 0);
     uint ofr01 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
     (bool exists, DexCommon.Offer memory offer, ) =
       dex.offerInfo(address(base), address(quote), ofr0);
@@ -435,10 +435,10 @@ contract MakerOperations_Test is IMaker {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     uint ofr1 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
     mkr.updateOffer(1.0 ether, 1.0 ether, 100_000, ofr0, ofr0);
-    uint best = dex.config(address(base), address(quote)).local.best;
+    uint best = dex.getConfig(address(base), address(quote)).local.best;
     TestEvents.eq(ofr1, best, "Best offer should have changed");
   }
 
@@ -446,10 +446,10 @@ contract MakerOperations_Test is IMaker {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     uint ofr1 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
     mkr.updateOffer(1.0 ether + 1, 1.0 ether, 100_000, ofr0, ofr0);
-    uint best = dex.config(address(base), address(quote)).local.best;
+    uint best = dex.getConfig(address(base), address(quote)).local.best;
     TestEvents.eq(ofr1, best, "Best offer should have changed");
   }
 
@@ -457,10 +457,10 @@ contract MakerOperations_Test is IMaker {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     uint ofr1 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
     mkr.updateOffer(1.0 ether, 1.0 ether, 100_001, ofr0, ofr0);
-    uint best = dex.config(address(base), address(quote)).local.best;
+    uint best = dex.getConfig(address(base), address(quote)).local.best;
     TestEvents.eq(ofr1, best, "Best offer should have changed");
   }
 
@@ -468,10 +468,10 @@ contract MakerOperations_Test is IMaker {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     uint ofr1 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
     mkr.updateOffer(1.0 ether, 1.0 ether + 1, 100_000, ofr1, ofr1);
-    uint best = dex.config(address(base), address(quote)).local.best;
+    uint best = dex.getConfig(address(base), address(quote)).local.best;
     TestEvents.eq(ofr1, best, "Best offer should have changed");
   }
 
@@ -479,10 +479,10 @@ contract MakerOperations_Test is IMaker {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1.0 ether, 100_000, 0);
     uint ofr1 = mkr.newOffer(1.0 ether, 1.0 ether, 100_000, 0);
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
     mkr.updateOffer(1.0 ether, 1.0 ether, 99_999, ofr1, ofr1);
-    uint best = dex.config(address(base), address(quote)).local.best;
+    uint best = dex.getConfig(address(base), address(quote)).local.best;
     Display.logOfferBook(dex, address(base), address(quote), 2);
     TestEvents.eq(best, ofr1, "Best offer should have changed");
   }
@@ -491,10 +491,10 @@ contract MakerOperations_Test is IMaker {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     uint ofr1 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
     mkr.updateOffer(1.0 ether, 1.0 ether + 1, 100_000, ofr0, ofr1);
-    uint best = dex.config(address(base), address(quote)).local.best;
+    uint best = dex.getConfig(address(base), address(quote)).local.best;
     TestEvents.eq(ofr1, best, "Best offer should have changed");
   }
 
@@ -502,10 +502,10 @@ contract MakerOperations_Test is IMaker {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1.0 ether, 100_000, 0);
     uint ofr1 = mkr.newOffer(1.0 ether, 1.0 ether, 100_000, 0);
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
     mkr.updateOffer(1.0 ether, 1.0 ether, 99_999, ofr0, ofr1);
-    uint best = dex.config(address(base), address(quote)).local.best;
+    uint best = dex.getConfig(address(base), address(quote)).local.best;
     Display.logOfferBook(dex, address(base), address(quote), 2);
     TestEvents.eq(best, ofr1, "Best offer should have changed");
   }
@@ -603,7 +603,7 @@ contract MakerOperations_Test is IMaker {
       TestUtils.getProvision(dex, address(base), address(quote), 100_000);
     mkr.provisionDex(provision);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     dex.setGasprice(cfg.global.gasprice + 1); //gasprice goes up
     try mkr.updateOffer(1.0 ether + 2, 1.0 ether, 100_000, ofr0, ofr0) {
       TestEvents.fail("Update offer should have failed");
@@ -615,7 +615,7 @@ contract MakerOperations_Test is IMaker {
   function update_offer_after_higher_gasprice_change_succeeds_when_over_provisioned_test()
     public
   {
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     uint provision =
       TestUtils.getProvision(
         dex,
@@ -651,7 +651,7 @@ contract MakerOperations_Test is IMaker {
       TestUtils.getProvision(dex, address(base), address(quote), 100_000);
     mkr.provisionDex(provision);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     dex.setGasprice(cfg.global.gasprice - 1); //gasprice goes down
     uint _provision =
       TestUtils.getProvision(dex, address(base), address(quote), 100_000);
@@ -672,10 +672,10 @@ contract MakerOperations_Test is IMaker {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     mkr.newOffer(1.0 ether + 2, 1 ether, 100_000, 0);
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
     mkr.updateOffer(1.0 ether + 1, 1.0 ether, 100_000, ofr0, ofr0);
-    uint best = dex.config(address(base), address(quote)).local.best;
+    uint best = dex.getConfig(address(base), address(quote)).local.best;
     TestEvents.eq(ofr0, best, "Best offer should not have changed");
   }
 
@@ -683,10 +683,10 @@ contract MakerOperations_Test is IMaker {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     mkr.newOffer(1.0 ether, 1 ether, 100_002, 0);
-    DexCommon.Config memory cfg = dex.config(address(base), address(quote));
+    DexCommon.Config memory cfg = dex.getConfig(address(base), address(quote));
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
     mkr.updateOffer(1.0 ether, 1.0 ether, 100_001, ofr0, ofr0);
-    uint best = dex.config(address(base), address(quote)).local.best;
+    uint best = dex.getConfig(address(base), address(quote)).local.best;
     TestEvents.eq(ofr0, best, "Best offer should not have changed");
   }
 

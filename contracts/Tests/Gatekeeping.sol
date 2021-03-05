@@ -187,7 +187,7 @@ contract Gatekeeping_Test is IMaker {
   function killing_updates_config_test() public {
     dex.kill();
     TestEvents.check(
-      dex.config(address(0), address(0)).global.dead,
+      dex.getConfig(address(0), address(0)).global.dead,
       "dex should be dead "
     );
   }
@@ -196,7 +196,7 @@ contract Gatekeeping_Test is IMaker {
     dex.kill();
     dex.kill();
     TestEvents.check(
-      dex.config(address(0), address(0)).global.dead,
+      dex.getConfig(address(0), address(0)).global.dead,
       "dex should still be dead"
     );
   }
@@ -345,7 +345,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function makerGasreq_bigger_than_gasmax_fails_newOffer_test() public {
-    DexCommon.Config memory cfg = dex.config(base, quote);
+    DexCommon.Config memory cfg = dex.getConfig(base, quote);
     try mkr.newOffer(1, 1, cfg.global.gasmax + 1, 0) {
       TestEvents.fail("Offer should not be inserted");
     } catch Error(string memory r) {
@@ -354,7 +354,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function makerGasreq_at_gasmax_succeeds_newOffer_test() public {
-    DexCommon.Config memory cfg = dex.config(base, quote);
+    DexCommon.Config memory cfg = dex.getConfig(base, quote);
     try mkr.newOffer(1 ether, 1 ether, cfg.global.gasmax, 0) returns (
       uint ofr
     ) {
@@ -366,7 +366,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function makerGasreq_lower_than_density_fails_newOffer_test() public {
-    DexCommon.Config memory cfg = dex.config(base, quote);
+    DexCommon.Config memory cfg = dex.getConfig(base, quote);
     uint amount = (1 + cfg.local.offer_gasbase) * cfg.local.density;
     try mkr.newOffer(amount - 1, amount - 1, 1, 0) {
       TestEvents.fail("Offer should not be inserted");
@@ -376,7 +376,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function makerGasreq_at_density_suceeds_test() public {
-    DexCommon.Config memory cfg = dex.config(base, quote);
+    DexCommon.Config memory cfg = dex.getConfig(base, quote);
     uint amount = (1 + cfg.local.offer_gasbase) * cfg.local.density;
     try mkr.newOffer(amount, amount, 1, 0) returns (uint ofr) {
       (bool exists, , ) = dex.offerInfo(base, quote, ofr);

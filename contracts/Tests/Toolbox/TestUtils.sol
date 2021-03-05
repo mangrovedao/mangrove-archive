@@ -62,7 +62,7 @@ library TestUtils {
     address quote,
     uint price
   ) internal returns (uint) {
-    return ((price * dex.config(base, quote).local.fee) / 10000);
+    return ((price * dex.getConfig(base, quote).local.fee) / 10000);
   }
 
   function getProvision(
@@ -71,7 +71,7 @@ library TestUtils {
     address quote,
     uint gasreq
   ) internal returns (uint) {
-    DC.Config memory config = dex.config(base, quote);
+    DC.Config memory config = dex.getConfig(base, quote);
     return ((gasreq +
       config.local.overhead_gasbase +
       config.local.offer_gasbase) *
@@ -86,7 +86,7 @@ library TestUtils {
     uint gasreq,
     uint gasprice
   ) internal returns (uint) {
-    DC.Config memory config = dex.config(base, quote);
+    DC.Config memory config = dex.getConfig(base, quote);
     uint _gp;
     if (config.global.gasprice > gasprice) {
       _gp = uint(config.global.gasprice);

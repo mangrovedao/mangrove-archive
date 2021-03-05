@@ -128,7 +128,7 @@ contract AMM_Test {
       DexPack.writeOffer_pack(
         1.2 ether,
         1.2 ether,
-        DEX.config(address(0), address(0)).global.gasprice,
+        DEX.getConfig(address(0), address(0)).global.gasprice,
         100_000,
         1
       )
@@ -150,7 +150,7 @@ contract AMM_Test {
       DexPack.writeOffer_pack(
         0.6 ether,
         0.6 ether,
-        dex.config(address(0), address(0)).global.gasprice,
+        dex.getConfig(address(0), address(0)).global.gasprice,
         100_000,
         4
       )
