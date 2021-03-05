@@ -79,7 +79,8 @@ abstract contract Dex {
     bool takerLends,
     /* Used by [EIP712](https://eips.ethereum.org/EIPS/eip-712)'s `DOMAIN_SEPARATOR` */
     string memory contractName
-  ) {
+  ) //+clear+
+  {
     emit DexEvents.NewDex();
 
     /* Initialize governance. At this stage we cannot use the `setGovernance` method since no admin is set. */
@@ -115,7 +116,7 @@ abstract contract Dex {
   }
 
   /* # Configuration */
-  /* Returns the configuration in an ABI-compatible struct. Should not be called internally, would be a huge memory copying waste. Use `getConfig` instead. */
+  /* Returns the configuration in an ABI-compatible struct. Should not be called internally, would be a huge memory copying waste. Use `config` instead. */
   function config(address base, address quote)
     external
     returns (DC.Config memory ret)

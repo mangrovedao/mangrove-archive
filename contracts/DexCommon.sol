@@ -46,7 +46,7 @@ library DexCommon {
   }
 
   /*
-   Some miscellaneous things useful to `Dex` and external contracts */
+   Some miscellaneous data types useful to `Dex` and external contracts */
   //+clear+
 
   /* `SingleOrder` holds data about an order-offer match in a struct. Used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */

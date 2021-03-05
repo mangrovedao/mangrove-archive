@@ -61,7 +61,7 @@ const structs = {
      _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
   10 billions. */
     fields.wants,
-    /* * `gasprice` is in gwei/gas and _16 bits wide_, which accomodates 1 to ~65k gwei / gas.  `gasprice` is also the name of global Dex parameters. When an offer is created, its current value is added to the offer's `Offer`. The maker may choose an upper bound. */
+    /* * `gasprice` is in gwei/gas and _16 bits wide_, which accomodates 1 to ~65k gwei / gas.  `gasprice` is also the name of a global Dex parameter. When an offer is created, the offer's `gasprice` is set to the max of the user-specified `gasprice` and the Dex's global `gasprice`. */
     fields.gasprice,
   ],
 
@@ -77,19 +77,22 @@ They have the following fields: */
   */
     fields.gasreq,
     /*
-       * `offer_gasbase` represents the gas overhead used by processing the offer
-      inside the Dex. The gas considered 'used' by an offer is always considered
-      together with `offer_gasbase`. In addition, `overhead_gasbase` represents the gas used by initiating an order (snipes or market order). The gas considered 'used' by an offer is always considered with `overhead_gasbase` divided by the number of failing offers.
+       * `overhead_gasbase` represents the gas used by initiating an entire order (snipes or market order).
+          `offer_gasbase` represents the gas overhead used by processing the offer inside the Dex.
 
-         If an offer fails, `gasprice` wei is taken from the
-         provision per unit of gas used. `gasprice` should approximate the average gas
-         price at offer creation time.
+    The gas considered 'used' by an offer is the sum of
+    * gas consumed during the call to the offer
+    * `offer_gasbase`
+    * `overhead_gasbase/n`, where `n` is the number of offers that failed during the entire order
 
-         `*_gasbase` is _24 bits wide_ -- note that if more room was needed, we could bring it down to 8 bits and have it represent 1k gas increments.
+   If an offer fails, `gasprice` wei is taken from the
+   provision per unit of gas used. `gasprice` should approximate the average gas
+   price at offer creation time.
 
-         `*_gasbase` is also the name of global Dex
-         parameters. When an offer is created, its current value is added to
-         the offer's `OfferDetail`. The maker does not choose it.
+   `*_gasbase` is _24 bits wide_ -- note that if more room was needed, we could bring it down to 8 bits and have it represent 1k gas increments.
+
+   `*_gasbase` are also the names of global Dex
+   parameters. When an offer is created, their current value is copied from the Dex global configuration.  The maker does not choose it.
 
    So, when an offer is created, the maker is asked to provision the
    following amount of wei:
