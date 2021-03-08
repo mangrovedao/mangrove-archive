@@ -61,7 +61,7 @@ library TestInsert {
     uint offerId = dex.best(address(base), address(quote));
     uint expected_maker = 3;
     while (offerId != 0) {
-      (, DC.Offer memory offer, DC.OfferDetail memory od) =
+      (DC.Offer memory offer, DC.OfferDetail memory od) =
         dex.offerInfo(address(base), address(quote), offerId);
       TestEvents.eq(
         od.maker,

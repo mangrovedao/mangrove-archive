@@ -26,10 +26,10 @@ library TestCollectFailingOffer {
       TestEvents.eq(takerGave, 0, "Failed offer should declare 0 takerGave");
       // failingOffer should have been removed from Dex
       {
-        (bool exists, , ) =
-          dex.offerInfo(address(base), address(quote), failingOfferId);
         TestEvents.check(
-          (!exists),
+          !dex.isLive(
+            dex.offers(address(base), address(quote), failingOfferId)
+          ),
           "Failing offer should have been removed from Dex"
         );
       }

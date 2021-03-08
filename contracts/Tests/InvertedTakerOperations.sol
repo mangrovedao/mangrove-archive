@@ -112,7 +112,7 @@ contract InvertedTakerOperations_Test is ITaker {
     address,
     address,
     uint
-  ) external {
+  ) external pure {
     require(false);
   }
 
@@ -137,24 +137,24 @@ contract InvertedTakerOperations_Test is ITaker {
   }
 
   function refuseFeeTrade(
-    address base,
+    address _base,
     address,
     uint
   ) external {
-    ERC20(base).approve(address(dex), 0);
+    ERC20(_base).approve(address(dex), 0);
   }
 
   function refusePayTrade(
-    address base,
     address,
+    address _quote,
     uint
   ) external {
-    ERC20(quote).approve(address(dex), 0);
+    ERC20(_quote).approve(address(dex), 0);
   }
 
   function taker_refuses_to_pay_fee_during_trade_test() public {
     dex.setFee(base, quote, 30); //0.3%
-    uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
+    mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.refuseFeeTrade.selector;
     try dex.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
       TestEvents.fail("Market order should have reverted");
@@ -168,7 +168,7 @@ contract InvertedTakerOperations_Test is ITaker {
   }
 
   function taker_refuses_to_deliver_during_trade_test() public {
-    uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
+    mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.refusePayTrade.selector;
     try dex.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
       TestEvents.fail("Market order should have reverted");

@@ -78,9 +78,8 @@ abstract contract Dex {
     /* `takerLends` determines whether the taker or maker does the flashlend. FMD initializes with `true`, FTD initializes with `false`. */
     bool takerLends,
     /* Used by [EIP712](https://eips.ethereum.org/EIPS/eip-712)'s `DOMAIN_SEPARATOR` */
-    string memory contractName
-  ) //+clear+
-  {
+    string memory contractName //+clear+
+  ) {
     emit DexEvents.NewDex();
 
     /* Initialize governance. At this stage we cannot use the `setGovernance` method since no admin is set. */
@@ -147,17 +146,8 @@ abstract contract Dex {
     address base,
     address quote,
     uint offerId
-  )
-    external
-    view
-    returns (
-      bool,
-      DC.Offer memory,
-      DC.OfferDetail memory
-    )
-  {
+  ) external view returns (DC.Offer memory, DC.OfferDetail memory) {
     bytes32 offer = offers[base][quote][offerId];
-    bool exists = isLive(offer);
     DC.Offer memory offerStruct =
       DC.Offer({
         prev: $$(offer_prev("offer")),
@@ -176,7 +166,7 @@ abstract contract Dex {
         overhead_gasbase: $$(offerDetail_overhead_gasbase("offerDetail")),
         offer_gasbase: $$(offerDetail_offer_gasbase("offerDetail"))
       });
-    return (exists, offerStruct, offerDetailStruct);
+    return (offerStruct, offerDetailStruct);
   }
 
   /* Convenience function to get best offer of the given pair */

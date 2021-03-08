@@ -358,8 +358,10 @@ contract Gatekeeping_Test is IMaker {
     try mkr.newOffer(1 ether, 1 ether, cfg.global.gasmax, 0) returns (
       uint ofr
     ) {
-      (bool exists, , ) = dex.offerInfo(base, quote, ofr);
-      TestEvents.check(exists, "Offer should have been inserted");
+      TestEvents.check(
+        dex.isLive(dex.offers(base, quote, ofr)),
+        "Offer should have been inserted"
+      );
     } catch {
       TestEvents.fail("Offer at gasmax should pass");
     }
@@ -379,8 +381,10 @@ contract Gatekeeping_Test is IMaker {
     DexCommon.Config memory cfg = dex.getConfig(base, quote);
     uint amount = (1 + cfg.local.offer_gasbase) * cfg.local.density;
     try mkr.newOffer(amount, amount, 1, 0) returns (uint ofr) {
-      (bool exists, , ) = dex.offerInfo(base, quote, ofr);
-      TestEvents.check(exists, "Offer should have been inserted");
+      TestEvents.check(
+        dex.isLive(dex.offers(base, quote, ofr)),
+        "Offer should have been inserted"
+      );
     } catch {
       TestEvents.fail("Offer at density should pass");
     }
@@ -611,7 +615,7 @@ contract Gatekeeping_Test is IMaker {
     );
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 400_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    (, , DC.OfferDetail memory od) = dex.offerInfo(quote, base, other_ofr);
+    (, DC.OfferDetail memory od) = dex.offerInfo(quote, base, other_ofr);
     require(od.gasreq == 35_000, "updateOffer on swapped pair must work");
   }
 
@@ -625,7 +629,7 @@ contract Gatekeeping_Test is IMaker {
     );
     uint ofr = dex.newOffer(base, quote, 1 ether, 1 ether, 300_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    (, , DC.OfferDetail memory od) = dex.offerInfo(base, quote, other_ofr);
+    (, DC.OfferDetail memory od) = dex.offerInfo(base, quote, other_ofr);
     require(od.gasreq == 35_000, "updateOffer on posthook must work");
   }
 

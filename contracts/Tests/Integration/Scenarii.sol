@@ -47,7 +47,7 @@ contract Scenarii_Test {
   function saveOffers() internal {
     uint offerId = dex.best(address(base), address(quote));
     while (offerId != 0) {
-      (, DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
+      (DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
         dex.offerInfo(address(base), address(quote), offerId);
       offers[offerId][TestUtils.Info.makerWants] = offer.wants;
       offers[offerId][TestUtils.Info.makerGives] = offer.gives;

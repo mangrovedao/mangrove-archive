@@ -107,9 +107,9 @@ library TestUtils {
     Info infKey,
     uint offerId
   ) internal view returns (uint) {
-    (bool exists, DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
+    (DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
       dex.offerInfo(base, quote, offerId);
-    if (!exists) {
+    if (!dex.isLive(dex.offers(base, quote, offerId))) {
       return 0;
     }
     if (infKey == Info.makerWants) {
@@ -143,7 +143,7 @@ library TestUtils {
     address quote,
     uint offerId
   ) internal view returns (address) {
-    (, , DC.OfferDetail memory od) = dex.offerInfo(base, quote, offerId);
+    (, DC.OfferDetail memory od) = dex.offerInfo(base, quote, offerId);
     return od.maker;
   }
 }

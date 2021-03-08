@@ -10,7 +10,7 @@ library DexIt {
   // Read a particular offer's information.
 
   /*To be used to revert a makerTrade function with data to pass to posthook */
-  function tradeRevert(bytes32 data) internal {
+  function tradeRevert(bytes32 data) internal pure {
     bytes memory revData = new bytes(32);
     assembly {
       mstore(add(revData, 32), data)
