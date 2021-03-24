@@ -113,6 +113,17 @@ contract TestMaker is IMaker, Passthrough {
   }
 
   function newOffer(
+    address base,
+    address quote,
+    uint wants,
+    uint gives,
+    uint gasreq,
+    uint pivotId
+  ) public returns (uint) {
+    return (_dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId));
+  }
+
+  function newOffer(
     uint wants,
     uint gives,
     uint gasreq,
