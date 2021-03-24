@@ -678,7 +678,7 @@ abstract contract Dex {
     }
     /* We now place the offer in the book at the position found by `findPosition`. */
 
-    /* First, we test if the offer has moved in the book or is not currently in the book. If `next == ofp.id`, then the new offer parameters are strictly better than before, but still worse than its predecessor's. If `prev == ofp.id`, then the new offer parameters are worse than before, but strictly better than its successor's. If either is true, there's nothing to write to storage. Otherwise: */
+    /* First, we test if the offer has moved in the book or is not currently in the book. If `next == ofp.id`, then the new offer parameters are strictly better than before, but still worse than its predecessor's. If `prev == ofp.id`, then the new offer parameters are worse than before, but strictly better than its successor's. If neither is true: */
     if (!(next == ofp.id || prev == ofp.id)) {
       /* * If the offer is not the best one, we update its predecessor; otherwise we update the `best` value. */
       if (prev != 0) {
@@ -706,6 +706,10 @@ abstract contract Dex {
           ofp.local
         );
       }
+      /* Otherwise, the prev next should not change. Note that next/prev is ofp.id, we're in an update, so no need to test. */
+    } else {
+      prev = $$(offer_prev("ofp.oldOffer"));
+      next = $$(offer_next("ofp.oldOffer"));
     }
 
     /* With the `prev`/`next` in hand, we finally store the offer in the `offers` map. */

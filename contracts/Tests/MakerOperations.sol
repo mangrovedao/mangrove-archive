@@ -707,6 +707,28 @@ contract MakerOperations_Test is IMaker {
     }
   }
 
+  function update_offer_next_to_itself_does_not_break_ob_test() public {
+    mkr.provisionDex(1 ether);
+    uint left = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    uint right = mkr.newOffer(1 ether + 3, 1 ether, 100_000, 0);
+    uint center = mkr.newOffer(1 ether + 1, 1 ether, 100_000, 0);
+    mkr.updateOffer(1 ether + 2, 1 ether, 100_000, center, center);
+    (DexCommon.Offer memory ofr, ) = dex.offerInfo(_base, _quote, center);
+    TestEvents.eq(ofr.prev, left, "ofr.prev should be unchanged");
+    TestEvents.eq(ofr.next, right, "ofr.next should be unchanged");
+  }
+
+  function update_offer_prev_to_itself_does_not_break_ob_test() public {
+    mkr.provisionDex(1 ether);
+    uint left = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    uint right = mkr.newOffer(1 ether + 3, 1 ether, 100_000, 0);
+    uint center = mkr.newOffer(1 ether + 2, 1 ether, 100_000, 0);
+    mkr.updateOffer(1 ether + 1, 1 ether, 100_000, center, center);
+    (DexCommon.Offer memory ofr, ) = dex.offerInfo(_base, _quote, center);
+    TestEvents.eq(ofr.prev, left, "ofr.prev should be unchanged");
+    TestEvents.eq(ofr.next, right, "ofr.next should be unchanged");
+  }
+
   function update_offer_price_stays_best_test() public {
     mkr.provisionDex(10 ether);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
