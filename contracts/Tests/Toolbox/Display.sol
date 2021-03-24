@@ -341,6 +341,8 @@ library Display {
   }
 
   event OBState(
+    address base,
+    address quote,
     uint[] offerIds,
     uint[] wants,
     uint[] gives,
@@ -373,7 +375,7 @@ library Display {
       offerId = offer.next;
       c++;
     }
-    emit OBState(offerIds, wants, gives, makerAddr, gasreqs);
+    emit OBState(base, quote, offerIds, wants, gives, makerAddr, gasreqs);
   }
 
   function printOfferBook(
