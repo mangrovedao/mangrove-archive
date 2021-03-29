@@ -14,6 +14,11 @@ import "../../interfaces.sol";
 import "../Toolbox/Display.sol";
 import "hardhat/console.sol";
 
+/* TODO
+ * dans makerTrade: check oracle price to see if I'm still in reasonable spread
+ * don't sell all liquidity otherwie what is my price when I have 0 balance ? at least check that.
+ */
+
 contract MM1 {
   uint immutable sell_id;
   uint immutable buy_id;
