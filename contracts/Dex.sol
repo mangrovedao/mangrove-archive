@@ -792,12 +792,12 @@ abstract contract Dex {
     bytes32 offer1,
     uint offerId1
   ) internal view returns (bool) {
-    uint wants1 = $$(offer_wants("offer1"));
-    uint gives1 = $$(offer_gives("offer1"));
     if (offerId1 == 0) {
       //happens on empty book
       return false;
     }
+    uint wants1 = $$(offer_wants("offer1"));
+    uint gives1 = $$(offer_gives("offer1"));
     uint wants2 = ofp.wants;
     uint gives2 = ofp.gives;
     uint weight1 = wants1 * gives2;
