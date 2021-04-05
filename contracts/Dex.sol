@@ -755,7 +755,7 @@ abstract contract Dex {
           break;
         }
       }
-      // returns from here on empty book
+      // gets here on empty book
       (prevId, nextId) = (pivotId, $$(offer_next("pivot")));
 
       /* * Pivot is strictly worse than `wants/gives`, we follow `prev`. */
@@ -793,8 +793,8 @@ abstract contract Dex {
     uint offerId1
   ) internal view returns (bool) {
     if (offerId1 == 0) {
-      //happens on empty book
-      return false;
+      /* Happens on empty book. Returning `false` would work as well due to specifics of `findPosition` but true is more consistent. Here we just want to avoid reading `offerDetail[...][0]` for nothing. */
+      return true;
     }
     uint wants1 = $$(offer_wants("offer1"));
     uint gives1 = $$(offer_gives("offer1"));
