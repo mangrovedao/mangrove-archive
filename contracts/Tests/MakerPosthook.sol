@@ -106,7 +106,7 @@ contract MakerPosthook_Test is IMaker {
     TestEvents.fail("Posthook should not be called");
   }
 
-  function deleteOffer_posthook(
+  function retractOffer_posthook(
     DexCommon.SingleOrder calldata,
     DexCommon.OrderResult calldata
   ) external {
@@ -362,10 +362,10 @@ contract MakerPosthook_Test is IMaker {
     TestEvents.check(!called, "PostHook was called");
   }
 
-  function delete_offer_in_posthook_test() public {
+  function retract_offer_in_posthook_test() public {
     uint mkr_provision =
       TestUtils.getProvision(dex, base, quote, gasreq, _gasprice);
-    posthook_bytes = this.deleteOffer_posthook.selector;
+    posthook_bytes = this.retractOffer_posthook.selector;
     ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
     TestEvents.eq(
       dex.balanceOf(address(this)),
@@ -384,14 +384,14 @@ contract MakerPosthook_Test is IMaker {
     TestEvents.expectFrom(address(dex));
     emit DexEvents.Success(base, quote, ofr, address(tkr), 1 ether, 1 ether);
     emit DexEvents.Credit(address(this), mkr_provision);
-    emit DexEvents.DeleteOffer(base, quote, ofr);
+    emit DexEvents.RetractOffer(base, quote, ofr);
   }
 
-  function balance_after_fail_and_delete_test() public {
+  function balance_after_fail_and_retract_test() public {
     uint mkr_provision =
       TestUtils.getProvision(dex, base, quote, gasreq, _gasprice);
     uint tkr_weis = address(tkr).balance;
-    posthook_bytes = this.deleteOffer_posthook.selector;
+    posthook_bytes = this.retractOffer_posthook.selector;
     ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
     TestEvents.eq(
       dex.balanceOf(address(this)),
@@ -418,31 +418,21 @@ contract MakerPosthook_Test is IMaker {
       "dex/makerRevert",
       "NOK"
     );
-    emit DexEvents.DeleteOffer(base, quote, ofr);
+    emit DexEvents.RetractOffer(base, quote, ofr);
     emit DexEvents.Credit(address(this), mkr_provision - penalty);
   }
 
-  function update_offer_after_delete_in_posthook_fails_test() public {
-    posthook_bytes = this.deleteOffer_posthook.selector;
+  function update_offer_after_deprovision_in_posthook_succeeds_test() public {
+    posthook_bytes = this.retractOffer_posthook.selector;
     ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
     bool success = tkr.take(ofr, 2 ether);
     TestEvents.check(called, "PostHook not called");
 
     TestEvents.check(success, "Snipe should succeed");
-    try
-      dex.updateOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0, ofr)
-    {
-      TestEvents.fail("Update offer should fail");
-    } catch Error(string memory reason) {
-      TestEvents.eq(
-        reason,
-        "dex/updateOffer/unauthorized",
-        "Unexpected throw message"
-      );
-      TestEvents.expectFrom(address(dex));
-      emit DexEvents.Success(base, quote, ofr, address(tkr), 1 ether, 1 ether);
-      emit DexEvents.DeleteOffer(base, quote, ofr);
-    }
+    dex.updateOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0, ofr);
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.Success(base, quote, ofr, address(tkr), 1 ether, 1 ether);
+    emit DexEvents.RetractOffer(base, quote, ofr);
   }
 
   function check_best_in_posthook(
@@ -483,10 +473,10 @@ contract MakerPosthook_Test is IMaker {
     TestEvents.check(success, "Snipe should succeed");
   }
 
-  function delete_offer_after_fail_in_posthook_test() public {
+  function retract_offer_after_fail_in_posthook_test() public {
     uint mkr_provision =
       TestUtils.getProvision(dex, base, quote, gasreq, _gasprice);
-    posthook_bytes = this.deleteOffer_posthook.selector;
+    posthook_bytes = this.retractOffer_posthook.selector;
     ofr = dex.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
     TestEvents.eq(
       dex.balanceOf(address(this)),
@@ -516,7 +506,7 @@ contract MakerPosthook_Test is IMaker {
       "dex/makerRevert",
       "NOK"
     );
-    emit DexEvents.DeleteOffer(base, quote, ofr);
+    emit DexEvents.RetractOffer(base, quote, ofr);
     DexEvents.Credit(address(this), refund);
   }
 

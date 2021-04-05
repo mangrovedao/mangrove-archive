@@ -338,12 +338,12 @@ abstract contract Dex {
 
   /* ## Retract Offer */
   //+clear+
-  /* `retractOffer` with `_delete == false` takes the offer `offerId` out of the book. However, `_delete == true` also refunds the provision associated with the offer, and clears out the offer's entry in `offers` and `offerDetails`. A maker can recoup some gas using `_delete`, but should be careful: a deleted offer cannot be resurrected. A trick to get the provision for an offer but still keep it resurrectable: call your offer and fail immediately. */
+  /* `retractOffer` takes the offer `offerId` out of the book. However, `_deprovision == true` also refunds the provision associated with the offer. */
   function retractOffer(
     address base,
     address quote,
     uint offerId,
-    bool _delete
+    bool _deprovision
   ) external {
     (, bytes32 local) = config(base, quote);
     unlockedMarketOnly(local);
@@ -368,28 +368,22 @@ abstract contract Dex {
       if (oldLocal != local) {
         locals[base][quote] = local;
       }
-      /* If the user only wants to temporarily retract the offer, we will only set its `gives` to 0. */
-      if (!_delete) {
-        dirtyDeleteOffer(base, quote, offerId, offer, false);
-      }
+      /* Set `gives` to 0. Moreover, the last argument depends on whether the user wishes to get their provision back. */
+      dirtyDeleteOffer(base, quote, offerId, offer, _deprovision);
     }
 
-    /* If the user wants to irreversibly erase the offer and get its provision back, we compute its provision from the offer's `gasprice`, `*_gasbase` and `gasreq`. */
-    if (_delete) {
+    /* If the user wants to get their provision back, we compute its provision from the offer's `gasprice`, `*_gasbase` and `gasreq`. */
+    if (_deprovision) {
       uint provision =
         10**9 *
           $$(offer_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
           ($$(offerDetail_gasreq("offerDetail")) +
             $$(offerDetail_overhead_gasbase("offerDetail")) +
             $$(offerDetail_offer_gasbase("offerDetail")));
-      delete offers[base][quote][offerId];
-      delete offerDetails[base][quote][offerId];
       // credit `balanceOf` and log transfer
       creditWei(msg.sender, provision);
-      emit DexEvents.DeleteOffer(base, quote, offerId);
-    } else {
-      emit DexEvents.RetractOffer(base, quote, offerId);
     }
+    emit DexEvents.RetractOffer(base, quote, offerId);
   }
 
   /* ## Provisioning

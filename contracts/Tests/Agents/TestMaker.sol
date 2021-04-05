@@ -151,7 +151,7 @@ contract TestMaker is IMaker, Passthrough {
     _dex.retractOffer(_base, _quote, offerId, false);
   }
 
-  function deleteOffer(uint offerId) public {
+  function retractOfferWithDeprovision(uint offerId) public {
     _dex.retractOffer(_base, _quote, offerId, true);
   }
 
