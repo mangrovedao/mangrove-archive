@@ -672,8 +672,10 @@ abstract contract Dex {
     }
     /* We now place the offer in the book at the position found by `findPosition`. */
 
-    /* First, we test if the offer has moved in the book or is not currently in the book. If `next == ofp.id`, then the new offer parameters are strictly better than before, but still worse than its predecessor's. If `prev == ofp.id`, then the new offer parameters are worse than before, but strictly better than its successor's. If neither is true: */
-    if (!(next == ofp.id || prev == ofp.id)) {
+    /* First, we test if the offer has moved in the book or is not currently in the book. If `!isLive(ofp.oldOffer)`, we must update its prev/next. If it is live but its prev has changed, we must also update them. Note that checking both `prev = oldPrev` and `next == oldNext` would be redundant. If either is true, then the updated offer has not changed position and there is nothing to update.
+
+    As a note for future changes, there is a tricky edge case where `prev == oldPrev` yet the prev/next should be changed: a previously-used offer being brought back in the book, and ending with the same prev it had when it was in the book. In that case, the neighbor is currently pointing to _another_ offer, and thus must be updated. With the current code structure, this is taken care of as a side-effect of checking `!isLive`, but should be kept in mind. The same goes in the `next == oldNext` case. */
+    if (!isLive(ofp.oldOffer) || prev != $$(offer_prev("ofp.oldOffer"))) {
       /* * If the offer is not the best one, we update its predecessor; otherwise we update the `best` value. */
       if (prev != 0) {
         offers[ofp.base][ofp.quote][prev] = $$(
@@ -700,10 +702,6 @@ abstract contract Dex {
           ofp.local
         );
       }
-      /* Otherwise, the prev next should not change. Note that next/prev is ofp.id, we're in an update, so no need to test. */
-    } else {
-      prev = $$(offer_prev("ofp.oldOffer"));
-      next = $$(offer_next("ofp.oldOffer"));
     }
 
     /* With the `prev`/`next` in hand, we finally store the offer in the `offers` map. */
@@ -731,6 +729,8 @@ abstract contract Dex {
     view
     returns (uint, uint)
   {
+    uint prevId;
+    uint nextId;
     uint pivotId = ofp.pivotId;
     /* Get `pivot`, optimizing for the case where pivot info is already known */
     bytes32 pivot =
@@ -756,7 +756,7 @@ abstract contract Dex {
         }
       }
       // returns from here on empty book
-      return (pivotId, $$(offer_next("pivot")));
+      (prevId, nextId) = (pivotId, $$(offer_next("pivot")));
 
       /* * Pivot is strictly worse than `wants/gives`, we follow `prev`. */
     } else {
@@ -771,8 +771,14 @@ abstract contract Dex {
           pivot = pivotPrev;
         }
       }
-      return ($$(offer_prev("pivot")), pivotId);
+
+      (prevId, nextId) = ($$(offer_prev("pivot")), pivotId);
     }
+
+    return (
+      prevId == ofp.id ? $$(offer_prev("ofp.oldOffer")) : prevId,
+      nextId == ofp.id ? $$(offer_next("ofp.oldOffer")) : nextId
+    );
   }
 
   /* ## Better */
