@@ -783,10 +783,9 @@ abstract contract Dex {
 
   /* ## Better */
   /* The utility method `better` takes an offer represented by `ofp` and another represented by `offer1`. It returns true iff `offer1` is better or as good as `ofp`.
-    "better" is defined on the lexicographic order $\textrm{price} \times_{\textrm{lex}} \textrm{density}^{-1}$.
+    "better" is defined on the lexicographic order $\textrm{price} \times_{\textrm{lex}} \textrm{density}^{-1}$. This means that for the same price, offers that deliver more volume per gas are taken first.
 
-    This means that for the same price, offers that deliver more volume per gas are taken first.
-  */
+      In addition to `offer1`, we also provide its id, `offerId1` in order to save gas. If necessary (ie. if the prices `wants1/gives1` and `wants2/gives2` are the same), we read storage to get `gasreq1` at `offerDetails[...][offerId1]. */
   function better(
     OfferPack memory ofp,
     bytes32 offer1,
@@ -803,7 +802,6 @@ abstract contract Dex {
     uint weight1 = wants1 * gives2;
     uint weight2 = wants2 * gives1;
     if (weight1 == weight2) {
-      /* To save gas, instead of giving the `gasreq1` argument directly, we provided a path to it (with `offerDetails` and `offerid1`). If necessary (ie. if the prices `wants1/gives1` and `wants2/gives2` are the same), we read storage to get `gasreq2`. */
       uint gasreq1 =
         $$(offerDetail_gasreq("offerDetails[ofp.base][ofp.quote][offerId1]"));
       uint gasreq2 = ofp.gasreq;
