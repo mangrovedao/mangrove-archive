@@ -1709,27 +1709,27 @@ abstract contract Dex {
 
   /* Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer`.
 
-  **Warning**: calling with `pastId = 0` will set `futureId` as the best. So with `pastId = 0` and `futureId = 0`, it sets the book to empty and loses track of existing offers.
+  **Warning**: calling with `worseId = 0` will set `betterId` as the best. So with `worseId = 0` and `betterId = 0`, it sets the book to empty and loses track of existing offers.
 
   **Warning**: may make memory copy of `local.best` stale. Returns new `local`. */
   function stitchOffers(
     address base,
     address quote,
-    uint pastId,
-    uint futureId,
+    uint worseId,
+    uint betterId,
     bytes32 local
   ) internal returns (bytes32) {
-    if (pastId != 0) {
-      offers[base][quote][pastId] = $$(
-        set_offer("offers[base][quote][pastId]", [["next", "futureId"]])
+    if (worseId != 0) {
+      offers[base][quote][worseId] = $$(
+        set_offer("offers[base][quote][worseId]", [["next", "betterId"]])
       );
     } else {
-      local = $$(set_local("local", [["best", "futureId"]]));
+      local = $$(set_local("local", [["best", "betterId"]]));
     }
 
-    if (futureId != 0) {
-      offers[base][quote][futureId] = $$(
-        set_offer("offers[base][quote][futureId]", [["prev", "pastId"]])
+    if (betterId != 0) {
+      offers[base][quote][betterId] = $$(
+        set_offer("offers[base][quote][betterId]", [["prev", "worseId"]])
       );
     }
 
