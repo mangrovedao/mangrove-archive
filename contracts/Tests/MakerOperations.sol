@@ -718,6 +718,142 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(ofr.next, right, "ofr.next should be unchanged");
   }
 
+  function testOBBest(uint id) internal {
+    (DexCommon.Offer memory ofr, ) = dex.offerInfo(_base, _quote, id);
+    TestEvents.eq(dex.best(_base, _quote), id, "testOBBest: not best");
+    TestEvents.eq(ofr.prev, 0, "testOBBest: prev not 0");
+  }
+
+  function testOBWorst(uint id) internal {
+    (DexCommon.Offer memory ofr, ) = dex.offerInfo(_base, _quote, id);
+    TestEvents.eq(ofr.next, 0, "testOBWorst fail");
+  }
+
+  function testOBLink(uint left, uint right) internal {
+    (DexCommon.Offer memory ofr, ) = dex.offerInfo(_base, _quote, left);
+    TestEvents.eq(ofr.next, right, "testOBLink: wrong ofr.next");
+    (ofr, ) = dex.offerInfo(_base, _quote, right);
+    TestEvents.eq(ofr.prev, left, "testOBLink: wrong ofr.prev");
+  }
+
+  function testOBOrder(uint[1] memory ids) internal {
+    testOBBest(ids[0]);
+    testOBWorst(ids[0]);
+  }
+
+  function testOBOrder(uint[2] memory ids) internal {
+    testOBBest(ids[0]);
+    testOBLink(ids[0], ids[1]);
+    testOBWorst(ids[1]);
+  }
+
+  function testOBOrder(uint[3] memory ids) internal {
+    testOBBest(ids[0]);
+    testOBLink(ids[0], ids[1]);
+    testOBLink(ids[1], ids[2]);
+    testOBWorst(ids[2]);
+  }
+
+  function complex_offer_update_left_1_1_test() public {
+    mkr.provisionDex(1 ether);
+    uint x = 1 ether;
+    uint g = 100_000;
+
+    uint one = mkr.newOffer(x, x, g, 0);
+    uint two = mkr.newOffer(x + 3, x, g, 0);
+    mkr.updateOffer(x + 1, x, g, 0, two);
+
+    testOBOrder([one, two]);
+  }
+
+  function complex_offer_update_right_1_test() public {
+    mkr.provisionDex(1 ether);
+    uint x = 1 ether;
+    uint g = 100_000;
+
+    uint one = mkr.newOffer(x, x, g, 0);
+    uint two = mkr.newOffer(x + 3, x, g, 0);
+    mkr.updateOffer(x + 1, x, g, two, two);
+
+    testOBOrder([one, two]);
+  }
+
+  function complex_offer_update_left_1_2_test() public {
+    mkr.provisionDex(1 ether);
+    uint x = 1 ether;
+    uint g = 100_000;
+
+    uint one = mkr.newOffer(x, x, g, 0);
+    uint two = mkr.newOffer(x + 3, x, g, 0);
+    mkr.updateOffer(x + 5, x, g, 0, two);
+
+    testOBOrder([one, two]);
+  }
+
+  function complex_offer_update_right_1_2_test() public {
+    mkr.provisionDex(1 ether);
+    uint x = 1 ether;
+    uint g = 100_000;
+
+    uint one = mkr.newOffer(x, x, g, 0);
+    uint two = mkr.newOffer(x + 3, x, g, 0);
+    mkr.updateOffer(x + 5, x, g, two, two);
+
+    testOBOrder([one, two]);
+  }
+
+  function complex_offer_update_left_2_test() public {
+    mkr.provisionDex(1 ether);
+    uint x = 1 ether;
+    uint g = 100_000;
+
+    uint one = mkr.newOffer(x, x, g, 0);
+    uint two = mkr.newOffer(x + 3, x, g, 0);
+    uint three = mkr.newOffer(x + 5, x, g, 0);
+    mkr.updateOffer(x + 1, x, g, 0, three);
+
+    testOBOrder([one, three, two]);
+  }
+
+  function complex_offer_update_right_2_test() public {
+    mkr.provisionDex(1 ether);
+    uint x = 1 ether;
+    uint g = 100_000;
+
+    uint one = mkr.newOffer(x, x, g, 0);
+    uint two = mkr.newOffer(x + 3, x, g, 0);
+    uint three = mkr.newOffer(x + 5, x, g, 0);
+    mkr.updateOffer(x + 4, x, g, three, one);
+
+    testOBOrder([two, one, three]);
+  }
+
+  function complex_offer_update_left_3_test() public {
+    mkr.provisionDex(1 ether);
+    uint x = 1 ether;
+    uint g = 100_000;
+
+    uint one = mkr.newOffer(x, x, g, 0);
+    uint two = mkr.newOffer(x + 3, x, g, 0);
+    mkr.retractOffer(two);
+    mkr.updateOffer(x + 3, x, g, 0, two);
+
+    testOBOrder([one, two]);
+  }
+
+  function complex_offer_update_right_3_test() public {
+    mkr.provisionDex(1 ether);
+    uint x = 1 ether;
+    uint g = 100_000;
+
+    uint one = mkr.newOffer(x, x, g, 0);
+    uint two = mkr.newOffer(x + 3, x, g, 0);
+    mkr.retractOffer(one);
+    mkr.updateOffer(x, x, g, 0, one);
+
+    testOBOrder([one, two]);
+  }
+
   function update_offer_prev_to_itself_does_not_break_ob_test() public {
     mkr.provisionDex(1 ether);
     uint left = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
