@@ -907,47 +907,45 @@ abstract contract Dex {
       /* Post-execution, `sor.wants`/`sor.gives` reflect how much was sent/taken by the offer. We will need it after the recursive call, so we save it in local variables. Same goes for `offerId`, `sor.offer` and `sor.offerDetail`. */
       (success, executed, gasused, makerData, errorCode) = execute(mor, sor);
 
-      {
-        /* Keep cached copy of current `sor` values. */
-        uint takerWants = sor.wants;
-        uint takerGives = sor.gives;
-        uint offerId = sor.offerId;
-        bytes32 offer = sor.offer;
-        bytes32 offerDetail = sor.offerDetail;
+      /* Keep cached copy of current `sor` values. */
+      uint takerWants = sor.wants;
+      uint takerGives = sor.gives;
+      uint offerId = sor.offerId;
+      bytes32 offer = sor.offer;
+      bytes32 offerDetail = sor.offerDetail;
 
-        /* If an execution was attempted, we move `sor` to the next offer. Note that the current state is inconsistent, since we have not yet updated `sor.offerDetails`. */
-        if (executed) {
-          /* It is known statically that `mor.initialWants - mor.totalGot` does not underflow since
-        1. `mor.totalGot` was increased by `sor.wants` during `execute`,
-        2. `sor.wants` was at most `mor.initialWants - mor.totalGot` from earlier step,
-        3. `sor.wants` may be have been clamped _down_ to `offer.gives` during `execute`
+      /* If an execution was attempted, we move `sor` to the next offer. Note that the current state is inconsistent, since we have not yet updated `sor.offerDetails`. */
+      if (executed) {
+        /* It is known statically that `mor.initialWants - mor.totalGot` does not underflow since
+      1. `mor.totalGot` was increased by `sor.wants` during `execute`,
+      2. `sor.wants` was at most `mor.initialWants - mor.totalGot` from earlier step,
+      3. `sor.wants` may be have been clamped _down_ to `offer.gives` during `execute`
+      */
+        sor.wants = mor.initialWants - mor.totalGot;
+        /* It is known statically that `mor.initialGives - mor.totalGave` does not underflow since
+           1. `mor.totalGave` was increase by `sor.gives` during `execute`,
+           2. `sor.gives` was at most `mor.initialGives - mor.totalGave` from earlier step,
+           3. `sor.gives` may have been clamped _down_ during `execute` (to `makerWouldWant`, cf. code of `execute`).
         */
-          sor.wants = mor.initialWants - mor.totalGot;
-          /* It is known statically that `mor.initialGives - mor.totalGave` does not underflow since
-             1. `mor.totalGave` was increase by `sor.gives` during `execute`,
-             2. `sor.gives` was at most `mor.initialGives - mor.totalGave` from earlier step,
-             3. `sor.gives` may have been clamped _down_ during `execute` (to `makerWouldWant`, cf. code of `execute`).
-          */
-          sor.gives = mor.initialGives - mor.totalGave;
-          sor.offerId = $$(offer_next("sor.offer"));
-          sor.offer = offers[sor.base][sor.quote][sor.offerId];
-        }
-
-        /* note that internalMarketOrder may be called twice with same offerId, but in that case `proceed` will be false! */
-        internalMarketOrder(
-          mor,
-          sor,
-          // `proceed` value for next call
-          executed
-        );
-
-        /* Restore `sor` values from to before recursive call */
-        sor.offerId = offerId;
-        sor.wants = takerWants;
-        sor.gives = takerGives;
-        sor.offer = offer;
-        sor.offerDetail = offerDetail;
+        sor.gives = mor.initialGives - mor.totalGave;
+        sor.offerId = $$(offer_next("sor.offer"));
+        sor.offer = offers[sor.base][sor.quote][sor.offerId];
       }
+
+      /* note that internalMarketOrder may be called twice with same offerId, but in that case `proceed` will be false! */
+      internalMarketOrder(
+        mor,
+        sor,
+        // `proceed` value for next call
+        executed
+      );
+
+      /* Restore `sor` values from to before recursive call */
+      sor.offerId = offerId;
+      sor.wants = takerWants;
+      sor.gives = takerGives;
+      sor.offer = offer;
+      sor.offerDetail = offerDetail;
 
       /* After an offer execution, we may run callbacks and increase the total penalty. As that part is common to market orders and snipes, it lives in its own `postExecute` function. */
       if (executed) {
