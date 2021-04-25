@@ -157,14 +157,19 @@ contract TakerOperations_Test {
     DexEvents.Credit(address(failmkr), mkr_provision - penalty);
   }
 
-  function taker_hasnt_approved_base_fails_order_with_fee_test() public {
+  function taker_hasnt_approved_base_succeeds_order_with_fee_test() public {
     dex.setFee(base, quote, 3);
+    uint balTaker = baseT.balanceOf(address(this));
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
     quoteT.approve(address(dex), 1 ether);
     try dex.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000) {
-      TestEvents.fail("Order should fail when base is not dex approved");
+      TestEvents.eq(
+        baseT.balanceOf(address(this)) - balTaker,
+        1 ether,
+        "Incorrect delivered amount"
+      );
     } catch Error(string memory r) {
-      TestEvents.eq(r, "dex/takerFailToPayDex", "wrong revert reason");
+      TestEvents.fail("Snipe should succeed");
     }
   }
 

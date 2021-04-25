@@ -966,8 +966,8 @@ abstract contract Dex {
       sor.local = $$(set_local("sor.local", [["lock", 0]]));
       locals[sor.base][sor.quote] = sor.local;
 
-      /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
-      applyFee(mor, sor);
+      /* `payTakerMinusFees` sends the fee to the vault, proportional to the amount purchased, and gives the rest to the taker */
+      payTakerMinusFees(mor, sor);
 
       /* In an FTD, amounts have been lent by each offer's maker to the taker. We now call the taker. This is a noop in an FMD. */
       executeEnd(mor, sor);
@@ -1128,8 +1128,8 @@ abstract contract Dex {
       */
       sor.local = $$(set_local("sor.local", [["lock", 0]]));
       locals[sor.base][sor.quote] = sor.local;
-      /* `applyFee` extracts the fee from the taker, proportional to the amount purchased */
-      applyFee(mor, sor);
+      /* `payTakerMinusFees` sends the fee to the vault, proportional to the amount purchased, and gives the rest to the taker */
+      payTakerMinusFees(mor, sor);
       /* In an FTD, amounts have been lent by each offer's maker to the taker. We now call the taker. This is a noop in an FMD. */
       executeEnd(mor, sor);
     }
@@ -1228,7 +1228,9 @@ abstract contract Dex {
       (errorCode, gasused, makerData) = innerDecode(retdata);
       /* Note that in the `if`s, the literals are bytes32 (stack values), while as revert arguments, they are strings (memory pointers). */
       if (
-        errorCode == "dex/makerRevert" || errorCode == "dex/makerTransferFail"
+        errorCode == "dex/makerRevert" ||
+        errorCode == "dex/makerTransferFail" ||
+        errorCode == "dex/makerReceiveFail"
       ) {
         mor.failCount += 1;
 
@@ -1282,7 +1284,7 @@ abstract contract Dex {
     bytes32 errorCode
   ) internal {
     if (success) {
-      executeCallback(mor, sor);
+      executeCallback(sor);
     }
 
     uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
@@ -1376,13 +1378,25 @@ abstract contract Dex {
     offers[base][quote][offerId] = offer;
   }
 
-  /* Post-trade, `applyFee` reaches back into the taker's pocket and extract a fee on the total amount of `sor.base` transferred to them. */
-  function applyFee(MultiOrder memory mor, DC.SingleOrder memory sor) internal {
-    if (mor.totalGot > 0 && $$(local_fee("sor.local")) > 0) {
-      uint concreteFee = (mor.totalGot * $$(local_fee("sor.local"))) / 10_000;
+  /* Post-trade, `payTakerMinusFees` sends what's due to the taker and the rest (the fees) to the vault. Routing through the Dex like that also deals with blacklisting issues (separates the maker-blacklisted and the taker-blacklisted cases). */
+  function payTakerMinusFees(MultiOrder memory mor, DC.SingleOrder memory sor)
+    internal
+  {
+    /* Should be statically provable that the 2 transfers below cannot return false under well-behaved ERC20s and a non-blacklisted, non-0 target. */
+
+    uint concreteFee = (mor.totalGot * $$(local_fee("sor.local"))) / 10_000;
+    if (concreteFee > 0) {
       mor.totalGot -= concreteFee;
-      bool success = transferToken(sor.base, mor.taker, vault, concreteFee);
-      require(success, "dex/takerFailToPayDex");
+      require(
+        transferToken(sor.base, vault, concreteFee),
+        "dex/feeTransferFail"
+      );
+    }
+    if (mor.totalGot > 0) {
+      require(
+        transferToken(sor.base, mor.taker, mor.totalGot),
+        "dex/DexFailToPayTaker"
+      );
     }
   }
 
@@ -1759,17 +1773,22 @@ abstract contract Dex {
   {
     /* `flashloan` must be used with a call (hence the `external` modifier) so its effect can be reverted. But a call from the outside would be fatal. */
     require(msg.sender == address(this), "dex/flashloan/protected");
-    /* the transfer from taker to maker must be in this function
-       so that any issue with the maker also reverts the flashloan */
-    if (
-      transferToken(
-        sor.quote,
-        taker,
-        $$(offerDetail_maker("sor.offerDetail")),
-        sor.gives
-      )
-    ) {
-      gasused = makerExecute(sor, taker);
+    /* The transfer taker -> maker is in 2 steps. First, taker->dex. Then
+       dex->maker. With a direct taker->maker transfer, if one of taker/maker
+       is blacklisted, we can't tell which one. We need to know which one:
+       if we incorrectly blame the taker, a blacklisted maker can block a pair forever; if we incorrectly blame the maker, a blacklisted taker can unfairly make makers fail all the time. Of course we assume the Dex is not blacklisted. Also note that this setup doesn not work well with tokens that take fees or recompute balances at transfer time. */
+    if (transferTokenFrom(sor.quote, taker, address(this), sor.gives)) {
+      if (
+        transferToken(
+          sor.quote,
+          $$(offerDetail_maker("sor.offerDetail")),
+          sor.gives
+        )
+      ) {
+        gasused = makerExecute(sor);
+      } else {
+        innerRevert([bytes32("dex/makerReceiveFail"), bytes32(0), ""]);
+      }
     } else {
       innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
     }
@@ -1797,18 +1816,18 @@ abstract contract Dex {
     We choose `transferFrom`.
     */
 
-  function invertedFlashloan(DC.SingleOrder calldata sor, address taker)
+  function invertedFlashloan(DC.SingleOrder calldata sor, address)
     external
     returns (uint gasused)
   {
     /* `invertedFlashloan` must be used with a call (hence the `external` modifier) so its effect can be reverted. But a call from the outside would be fatal. */
     require(msg.sender == address(this), "dex/invertedFlashloan/protected");
-    gasused = makerExecute(sor, taker);
+    gasused = makerExecute(sor);
   }
 
   /* ## Maker Execute */
 
-  function makerExecute(DC.SingleOrder calldata sor, address taker)
+  function makerExecute(DC.SingleOrder calldata sor)
     internal
     returns (uint gasused)
   {
@@ -1845,7 +1864,8 @@ abstract contract Dex {
       innerRevert([bytes32("dex/makerRevert"), bytes32(gasused), makerData]);
     }
 
-    bool transferSuccess = transferToken(sor.base, maker, taker, sor.wants);
+    bool transferSuccess =
+      transferTokenFrom(sor.base, maker, address(this), sor.wants);
 
     if (!transferSuccess) {
       innerRevert(
@@ -1880,12 +1900,12 @@ abstract contract Dex {
     }
   }
 
-  /* `transferToken` is adapted from [existing code](https://soliditydeveloper.com/safe-erc20) and in particular avoids the
+  /* `transferTokenFrom` is adapted from [existing code](https://soliditydeveloper.com/safe-erc20) and in particular avoids the
   "no return value" bug. It never throws and returns true iff the transfer was successful according to `tokenAddress`.
 
     Note that any spurious exception due to an error in Dex code will be falsely blamed on `from`.
   */
-  function transferToken(
+  function transferTokenFrom(
     address tokenAddress,
     address from,
     address to,
@@ -1897,15 +1917,24 @@ abstract contract Dex {
     return (noRevert && (data.length == 0 || abi.decode(data, (bool))));
   }
 
+  function transferToken(
+    address tokenAddress,
+    address to,
+    uint value
+  ) internal returns (bool) {
+    bytes memory cd =
+      abi.encodeWithSelector(IERC20.transfer.selector, to, value);
+    (bool noRevert, bytes memory data) = tokenAddress.call(cd);
+    return (noRevert && (data.length == 0 || abi.decode(data, (bool))));
+  }
+
   /* # Abstract functions */
 
   function executeEnd(MultiOrder memory mor, DC.SingleOrder memory sor)
     internal
     virtual;
 
-  function executeCallback(MultiOrder memory mor, DC.SingleOrder memory sor)
-    internal
-    virtual;
+  function executeCallback(DC.SingleOrder memory sor) internal virtual;
 }
 
 /* # FMD and FTD instanciations of Dex */
@@ -1918,10 +1947,7 @@ contract FMD is Dex {
     override
   {}
 
-  function executeCallback(MultiOrder memory mor, DC.SingleOrder memory sor)
-    internal
-    override
-  {}
+  function executeCallback(DC.SingleOrder memory sor) internal override {}
 }
 
 contract FTD is Dex {
@@ -1938,6 +1964,9 @@ contract FTD is Dex {
       mor.totalGot,
       mor.totalGave
     );
+    bool success =
+      transferTokenFrom(sor.quote, mor.taker, address(this), mor.totalGave);
+    require(success, "dex/takerFailToPayMaker");
   }
 
   /* We use `transferFrom` with takers (instead of checking `balanceOf` before/after the call) for the following reason we want the taker to be awaken after all loans have been made, so either
@@ -1950,17 +1979,12 @@ So :
    2. Is OK, but has an extra CALL cost on top of the token transfer, one for each maker. This is unavoidable anyway when calling makerTrade (since the maker must be able to execute arbitrary code at that moment), but we can skip it here.
    3. Is the cheapest, but it has the drawbacks of `transferFrom`: money must end up owned by the taker, and taker needs to `approve` Dex
    */
-  function executeCallback(MultiOrder memory mor, DC.SingleOrder memory sor)
-    internal
-    override
-  {
-    bool success =
-      transferToken(
-        sor.quote,
-        mor.taker,
-        $$(offerDetail_maker("sor.offerDetail")),
-        sor.gives
-      );
-    require(success, "dex/takerFailToPayMaker");
+  function executeCallback(DC.SingleOrder memory sor) internal override {
+    /* If `transferToken` returns false here, we're in a special (and bad) situation. The taker is returning part of their total loan to a maker, but the maker can't receive the tokens. Only case we can see: maker is blacklisted. We could punish maker. We don't. We could send money back to taker. We don't. */
+    transferToken(
+      sor.quote,
+      $$(offerDetail_maker("sor.offerDetail")),
+      sor.gives
+    );
   }
 }

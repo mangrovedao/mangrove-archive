@@ -152,21 +152,6 @@ contract InvertedTakerOperations_Test is ITaker {
     ERC20(_quote).approve(address(dex), 0);
   }
 
-  function taker_refuses_to_pay_fee_during_trade_test() public {
-    dex.setFee(base, quote, 30); //0.3%
-    mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
-    takerTrade_bytes = this.refuseFeeTrade.selector;
-    try dex.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
-      TestEvents.fail("Market order should have reverted");
-    } catch Error(string memory reason) {
-      TestEvents.eq(
-        reason,
-        "dex/takerFailToPayDex",
-        "Unexpected throw message"
-      );
-    }
-  }
-
   function taker_refuses_to_deliver_during_trade_test() public {
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.refusePayTrade.selector;
