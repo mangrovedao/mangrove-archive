@@ -74,6 +74,30 @@ contract TakerOperations_Test {
     Display.register(address(refusemkr), "refusing maker");
   }
 
+  function snipe_reverts_if_taker_is_blacklisted_for_quote_test() public {
+    uint mkr_provision = TestUtils.getProvision(dex, base, quote, 50_000);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    quoteT.approve(address(dex), 1 ether);
+    quoteT.blacklists(address(this));
+    try dex.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000) {
+      TestEvents.fail("Snipe should fail");
+    } catch Error(string memory msg) {
+      TestEvents.eq(msg, "dex/takerFailToPayMaker", "Unexpected revert reason");
+    }
+  }
+
+  function snipe_reverts_if_taker_is_blacklisted_for_base_test() public {
+    uint mkr_provision = TestUtils.getProvision(dex, base, quote, 50_000);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    quoteT.approve(address(dex), 1 ether);
+    baseT.blacklists(address(this));
+    try dex.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000) {
+      TestEvents.fail("Snipe should fail");
+    } catch Error(string memory msg) {
+      TestEvents.eq(msg, "dex/DexFailToPayTaker", "Unexpected revert reason");
+    }
+  }
+
   function taker_reimbursed_if_maker_doesnt_pay_test() public {
     uint mkr_provision = TestUtils.getProvision(dex, base, quote, 50_000);
     quoteT.approve(address(dex), 1 ether);
@@ -105,6 +129,75 @@ contract TakerOperations_Test {
       "testMaker/transferFail"
     );
     DexEvents.Credit(address(refusemkr), mkr_provision - penalty);
+  }
+
+  function taker_reimbursed_if_maker_is_blacklisted_for_base_test() public {
+    uint mkr_provision = TestUtils.getProvision(dex, base, quote, 50_000);
+    quoteT.approve(address(dex), 1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    baseT.blacklists(address(mkr));
+    uint beforeQuote = quoteT.balanceOf(address(this));
+    uint beforeWei = address(this).balance;
+    (bool success, uint takerGot, uint takerGave) =
+      dex.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000);
+    uint penalty = address(this).balance - beforeWei;
+    TestEvents.check(penalty > 0, "Taker should have been compensated");
+    TestEvents.check(!success, "Snipe should fail");
+    TestEvents.check(
+      takerGot == takerGave && takerGave == 0,
+      "Incorrect transaction information"
+    );
+    TestEvents.check(
+      beforeQuote == quoteT.balanceOf(address(this)),
+      "taker balance should not be lower if maker doesn't pay back"
+    );
+    TestEvents.expectFrom(address(dex));
+    DexEvents.MakerFail(
+      base,
+      quote,
+      ofr,
+      address(this),
+      1 ether,
+      1 ether,
+      "dex/makerTransferFail",
+      ""
+    );
+    DexEvents.Credit(address(mkr), mkr_provision - penalty);
+  }
+
+  function taker_reimbursed_if_maker_is_blacklisted_for_quote_test() public {
+    uint mkr_provision = TestUtils.getProvision(dex, base, quote, 50_000);
+    quoteT.approve(address(dex), 1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    quoteT.blacklists(address(mkr));
+    uint beforeQuote = quoteT.balanceOf(address(this));
+    uint beforeWei = address(this).balance;
+    (bool success, uint takerGot, uint takerGave) =
+      dex.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000);
+    uint penalty = address(this).balance - beforeWei;
+    TestEvents.check(penalty > 0, "Taker should have been compensated");
+    TestEvents.check(!success, "Snipe should fail");
+    TestEvents.check(
+      takerGot == takerGave && takerGave == 0,
+      "Incorrect transaction information"
+    );
+    TestEvents.check(
+      beforeQuote == quoteT.balanceOf(address(this)),
+      "taker balance should not be lower if maker doesn't pay back"
+    );
+    TestEvents.expectFrom(address(dex));
+
+    DexEvents.MakerFail(
+      base,
+      quote,
+      ofr,
+      address(this),
+      1 ether,
+      1 ether,
+      "dex/makerReceiveFail",
+      ""
+    );
+    DexEvents.Credit(address(mkr), mkr_provision - penalty);
   }
 
   function taker_collects_failing_offer_test() public {

@@ -2,7 +2,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../../ERC20.sol";
+import "../../ERC20BL.sol";
 import "../../Dex.sol";
 
 // Dex must be provisioned in the name of UniSwapMaker
@@ -75,11 +75,11 @@ contract UniSwapMaker is IMaker {
   }
 
   function newMarket(address tk0, address tk1) public {
-    ERC20(tk0).approve(address(dex), 2**256 - 1);
-    ERC20(tk1).approve(address(dex), 2**256 - 1);
+    ERC20BL(tk0).approve(address(dex), 2**256 - 1);
+    ERC20BL(tk1).approve(address(dex), 2**256 - 1);
 
-    uint pool0 = ERC20(tk0).balanceOf(address(this));
-    uint pool1 = ERC20(tk1).balanceOf(address(this));
+    uint pool0 = ERC20BL(tk0).balanceOf(address(this));
+    uint pool1 = ERC20BL(tk1).balanceOf(address(this));
 
     (uint wants0, uint gives1) = newPrice(pool0, pool1);
     (uint wants1, uint gives0) = newPrice(pool1, pool0);
@@ -93,8 +93,8 @@ contract UniSwapMaker is IMaker {
   {
     // taker has paid maker
     require(msg.sender == address(dex)); // may not be necessary
-    uint pool0 = ERC20(order.quote).balanceOf(address(this)); // pool0 has increased
-    uint pool1 = ERC20(order.base).balanceOf(address(this)); // pool1 has decreased
+    uint pool0 = ERC20BL(order.quote).balanceOf(address(this)); // pool0 has increased
+    uint pool1 = ERC20BL(order.base).balanceOf(address(this)); // pool1 has decreased
 
     (uint newWants, uint newGives) = newPrice(pool0, pool1);
 

@@ -141,7 +141,7 @@ contract InvertedTakerOperations_Test is ITaker {
     address,
     uint
   ) external {
-    ERC20(_base).approve(address(dex), 0);
+    IERC20(_base).approve(address(dex), 0);
   }
 
   function refusePayTrade(
@@ -149,7 +149,7 @@ contract InvertedTakerOperations_Test is ITaker {
     address _quote,
     uint
   ) external {
-    ERC20(_quote).approve(address(dex), 0);
+    IERC20(_quote).approve(address(dex), 0);
   }
 
   function taker_refuses_to_deliver_during_trade_test() public {

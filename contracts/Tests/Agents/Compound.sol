@@ -14,15 +14,15 @@ import "./TestToken.sol";
 contract Compound {
   constructor() {}
 
-  mapping(ERC20 => mapping(address => uint)) deposits;
-  mapping(ERC20 => TestToken) cTokens;
+  mapping(ERC20BL => mapping(address => uint)) deposits;
+  mapping(ERC20BL => TestToken) cTokens;
 
   //function grant(address to, IERC20 token, uint amount) {
   //deposits[token][to] += amount;
   //c(token).mint(to, amount);
   //}
 
-  function c(ERC20 token) public returns (TestToken) {
+  function c(ERC20BL token) public returns (TestToken) {
     if (address(cTokens[token]) == address(0)) {
       string memory cName = Display.append("c", token.name());
       string memory cSymbol = Display.append("c", token.symbol());
@@ -32,7 +32,7 @@ contract Compound {
     return cTokens[token];
   }
 
-  function mint(ERC20 token, uint amount) external {
+  function mint(ERC20BL token, uint amount) external {
     token.transferFrom(msg.sender, address(this), amount);
     deposits[token][msg.sender] += amount;
     c(token).mint(msg.sender, amount);
@@ -40,7 +40,7 @@ contract Compound {
 
   function redeem(
     address to,
-    ERC20 token,
+    ERC20BL token,
     uint amount
   ) external {
     c(token).burn(msg.sender, amount);

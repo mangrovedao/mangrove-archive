@@ -216,7 +216,7 @@ library MakerSetup {
     address base,
     address quote
   ) external returns (TestMaker) {
-    return new TestMaker(dex, ERC20(base), ERC20(quote));
+    return new TestMaker(dex, IERC20(base), IERC20(quote));
   }
 }
 
@@ -238,6 +238,6 @@ library TakerSetup {
     address quote
   ) external returns (TestTaker) {
     TestEvents.not0x(address(dex));
-    return new TestTaker(dex, ERC20(base), ERC20(quote));
+    return new TestTaker(dex, IERC20(base), IERC20(quote));
   }
 }

@@ -90,8 +90,8 @@ contract Pedagogical_Test {
       address(compound)
     );
     Display.logBalances(
-      ERC20(compound.c(bat)),
-      ERC20(compound.c(dai)),
+      ERC20BL(compound.c(bat)),
+      ERC20BL(compound.c(dai)),
       address(mkr)
     );
 
@@ -219,8 +219,8 @@ contract Pedagogical_Test {
 contract Maker_basic is TestMaker {
   constructor(
     Dex dex,
-    ERC20 base,
-    ERC20 quote
+    ERC20BL base,
+    ERC20BL quote
   ) TestMaker(dex, base, quote) {
     approveDex(base, 500 ether);
   }
@@ -243,8 +243,8 @@ contract Maker_compound is TestMaker {
 
   constructor(
     Dex dex,
-    ERC20 base,
-    ERC20 quote,
+    ERC20BL base,
+    ERC20BL quote,
     Compound compound
   ) TestMaker(dex, base, quote) {
     _compound = compound;
@@ -255,7 +255,7 @@ contract Maker_compound is TestMaker {
 
   function useCompound() external {
     Display.log("Maker deposits 10 exaunits at Compound.");
-    _compound.mint(ERC20(_base), 10 ether);
+    _compound.mint(ERC20BL(_base), 10 ether);
   }
 
   function makerTrade(DC.SingleOrder calldata order)
@@ -264,10 +264,10 @@ contract Maker_compound is TestMaker {
     returns (bytes32 ret)
   {
     ret; // silence compiler warning
-    _compound.mint({token: ERC20(order.quote), amount: order.gives});
+    _compound.mint({token: ERC20BL(order.quote), amount: order.gives});
     Display.log("Maker redeems from Compound.");
     _compound.redeem({
-      token: ERC20(order.base),
+      token: ERC20BL(order.base),
       amount: order.wants,
       to: address(this)
     });
@@ -279,8 +279,8 @@ contract Maker_compound is TestMaker {
 contract Maker_callback is TestMaker {
   constructor(
     Dex dex,
-    ERC20 base,
-    ERC20 quote
+    ERC20BL base,
+    ERC20BL quote
   ) TestMaker(dex, base, quote) {
     approveDex(base, 500 ether);
   }
@@ -292,7 +292,7 @@ contract Maker_callback is TestMaker {
     returns (bytes32 ret)
   {
     ret; // silence compiler warning
-    //ERC20(order.base).transfer({recipient: taker, amount: order.wants});
+    //ERC20BL(order.base).transfer({recipient: taker, amount: order.wants});
   }
 
   uint volume = 1 ether;

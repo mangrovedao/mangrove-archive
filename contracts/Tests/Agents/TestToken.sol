@@ -2,16 +2,16 @@
 
 pragma solidity ^0.7.0;
 
-import "../../ERC20.sol";
+import "../../ERC20BL.sol";
 
-contract TestToken is ERC20 {
+contract TestToken is ERC20BL {
   mapping(address => bool) admins;
 
   constructor(
     address admin,
     string memory name,
     string memory symbol
-  ) ERC20(name, symbol) {
+  ) ERC20BL(name, symbol) {
     admins[admin] = true;
   }
 
@@ -32,5 +32,15 @@ contract TestToken is ERC20 {
   function burn(address account, uint amount) external {
     requireAdmin();
     _burn(account, amount);
+  }
+
+  function blacklists(address account) external {
+    requireAdmin();
+    _blacklists(account);
+  }
+
+  function whitelists(address account) external {
+    requireAdmin();
+    _whitelists(account);
   }
 }

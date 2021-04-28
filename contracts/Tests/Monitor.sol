@@ -125,7 +125,7 @@ contract Monitor_Test {
   }
 
   function notify_works_on_success_when_set_test() public {
-    mkr.approveDex(ERC20(base), 1 ether);
+    mkr.approveDex(IERC20(base), 1 ether);
     dex.setMonitor(address(monitor));
     dex.setNotify(true);
     uint ofrId = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
