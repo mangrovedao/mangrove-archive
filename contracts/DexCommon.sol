@@ -78,7 +78,9 @@ library DexEvents {
   event NewDex();
 
   /* * Dex adds or removes wei from `maker`'s account */
+  /* *Credit event occurs when an offer is removed from the Dex or when the `fund` function is called*/
   event Credit(address maker, uint amount);
+  /* *Debit event occurs when an offer is posted or when the `withdraw` function is called*/
   event Debit(address maker, uint amount);
 
   /* * Dex reconfiguration */
