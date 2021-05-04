@@ -11,6 +11,7 @@ import "hardhat/console.sol";
 import "./Toolbox/TestEvents.sol";
 import "./Toolbox/TestUtils.sol";
 import "./Toolbox/Display.sol";
+import "./Toolbox/ExpectLog.sol";
 
 import "./Agents/TestToken.sol";
 import "./Agents/TestMaker.sol";
@@ -146,9 +147,13 @@ contract Gatekeeping_Test is IMaker {
       TestEvents.fail("testing contracts should no longer be admin");
     } catch {}
 
-    try notAdmin.setFee(base, quote, 0) {} catch {
+    try notAdmin.setFee(base, quote, 1) {} catch {
       TestEvents.fail("notAdmin should have been given admin rights");
     }
+    // Logging tests
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.SetGovernance(address(notAdmin));
+    emit DexEvents.SetFee(base, quote, 1);
   }
 
   function only_gov_can_set_fee_test() public {
@@ -173,6 +178,9 @@ contract Gatekeeping_Test is IMaker {
     try dex.setDensity(base, quote, 0) {} catch Error(string memory) {
       TestEvents.fail("setting density to 0 should work");
     }
+    // Logging tests
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.SetDensity(base, quote, 0);
   }
 
   function only_gov_can_kill_test() public {
@@ -190,6 +198,9 @@ contract Gatekeeping_Test is IMaker {
       dex.getConfig(address(0), address(0)).global.dead,
       "dex should be dead "
     );
+    // Logging tests
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.Kill();
   }
 
   function kill_is_idempotent_test() public {
@@ -199,6 +210,10 @@ contract Gatekeeping_Test is IMaker {
       dex.getConfig(address(0), address(0)).global.dead,
       "dex should still be dead"
     );
+    // Logging tests
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.Kill();
+    emit DexEvents.Kill();
   }
 
   function only_gov_can_set_vault_test() public {
@@ -259,6 +274,7 @@ contract Gatekeeping_Test is IMaker {
     try tkr.marketOrder(0, 0) {} catch {
       TestEvents.fail("market order on empty dex should not fail");
     }
+    // Logging tests
   }
 
   function set_fee_ceiling_test() public {
@@ -362,6 +378,30 @@ contract Gatekeeping_Test is IMaker {
         dex.isLive(dex.offers(base, quote, ofr)),
         "Offer should have been inserted"
       );
+      // Logging tests
+      TestEvents.expectFrom(address(dex));
+      emit DexEvents.WriteOffer(
+        address(base),
+        address(quote),
+        address(mkr),
+        DexPack.writeOffer_pack(
+          1 ether, //base
+          1 ether, //quote
+          cfg.global.gasprice, //gasprice
+          cfg.global.gasmax, //gasreq
+          ofr //ofrId
+        )
+      );
+      emit DexEvents.Debit(
+        address(mkr),
+        TestUtils.getProvision(
+          dex,
+          address(base),
+          address(quote),
+          cfg.global.gasmax,
+          0
+        )
+      );
     } catch {
       TestEvents.fail("Offer at gasmax should pass");
     }
@@ -384,6 +424,24 @@ contract Gatekeeping_Test is IMaker {
       TestEvents.check(
         dex.isLive(dex.offers(base, quote, ofr)),
         "Offer should have been inserted"
+      );
+      // Logging tests
+      TestEvents.expectFrom(address(dex));
+      emit DexEvents.WriteOffer(
+        address(base),
+        address(quote),
+        address(mkr),
+        DexPack.writeOffer_pack(
+          amount, //base
+          amount, //quote
+          cfg.global.gasprice, //gasprice
+          1, //gasreq
+          ofr //ofrId
+        )
+      );
+      emit DexEvents.Debit(
+        address(mkr),
+        TestUtils.getProvision(dex, address(base), address(quote), 1, 0)
       );
     } catch {
       TestEvents.fail("Offer at density should pass");
@@ -453,6 +511,15 @@ contract Gatekeeping_Test is IMaker {
       dex.allowances(base, quote, address(tkr), address(this)),
       0.2 ether,
       "allowance should have correctly reduced"
+    );
+    //Log test
+    TestEvents.expectFrom(address(dex));
+    emit DexEvents.Approval(
+      address(base),
+      address(quote),
+      address(tkr),
+      address(this),
+      1.2 ether
     );
   }
 
@@ -892,6 +959,8 @@ contract Gatekeeping_Test is IMaker {
       TestEvents.fail("update offer should fail on inactive market");
     } catch Error(string memory r) {
       TestEvents.revertEq(r, "dex/inactive");
+      TestEvents.expectFrom(address(dex));
+      emit DexEvents.SetActive(base, quote, false);
     }
   }
 }

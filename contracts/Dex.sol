@@ -387,7 +387,7 @@ abstract contract Dex {
   }
 
   /* ## Provisioning
-  Market makers must have enough provisions for possible penalties. These provisions are in ETH. Every time a new offer is created or an offer is updated, `balanceOf` is adjusted to provision the offer's maximum possible penalty (`gasprice * (gasreq + overhead_gasbase + offer_gasbase)`). 
+  Market makers must have enough provisions for possible penalties. These provisions are in ETH. Every time a new offer is created or an offer is updated, `balanceOf` is adjusted to provision the offer's maximum possible penalty (`gasprice * (gasreq + overhead_gasbase + offer_gasbase)`).
 
   For instance, if the current `balanceOf` of a maker is 1 ether and they create an offer that requires a provision of 0.01 ethers, their `balanceOf` will be reduced to 0.99 ethers. No ethers will move; this is just an internal accounting movement to make sure the maker cannot `withdraw` the provisioned amounts.
 
@@ -1504,7 +1504,7 @@ abstract contract Dex {
   function deactivate(address base, address quote) public {
     authOnly();
     locals[base][quote] = $$(set_local("locals[base][quote]", [["active", 0]]));
-    emit DexEvents.SetActive(base, quote, true);
+    emit DexEvents.SetActive(base, quote, false);
   }
 
   /* ### `fee` */
