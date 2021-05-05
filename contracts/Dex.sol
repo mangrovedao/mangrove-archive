@@ -1305,13 +1305,7 @@ abstract contract Dex {
     }
 
     if (!success) {
-      mor.totalPenalty += applyPenalty(
-        $$(global_gasprice("sor.global")),
-        gasused,
-        sor.offer,
-        sor.offerDetail,
-        mor.failCount
-      );
+      mor.totalPenalty += applyPenalty(sor, gasused, mor.failCount);
     }
   }
 
@@ -1423,39 +1417,37 @@ abstract contract Dex {
    * `offerDetail.gasbase` and `offer.gasprice` are the values of the Dex parameters `config.*_gasbase` and `config.gasprice` when the offer was created. Without caching those values, the provision set aside could end up insufficient to reimburse the maker (or to retribute the taker).
    */
   function applyPenalty(
-    uint gasprice,
+    DC.SingleOrder memory sor,
     uint gasused,
-    bytes32 offer,
-    bytes32 offerDetail,
     uint failCount
   ) internal returns (uint) {
     uint provision =
       10**9 *
-        $$(offer_gasprice("offer")) *
-        ($$(offerDetail_gasreq("offerDetail")) +
-          $$(offerDetail_overhead_gasbase("offerDetail")) +
-          $$(offerDetail_offer_gasbase("offerDetail")));
+        $$(offer_gasprice("sor.offer")) *
+        ($$(offerDetail_gasreq("sor.offerDetail")) +
+          $$(offerDetail_overhead_gasbase("sor.offerDetail")) +
+          $$(offerDetail_offer_gasbase("sor.offerDetail")));
 
     /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible e.g. with `gasreq = 0` (all calls consume nonzero gas). */
-    if ($$(offerDetail_gasreq("offerDetail")) < gasused) {
-      gasused = $$(offerDetail_gasreq("offerDetail"));
+    if ($$(offerDetail_gasreq("sor.offerDetail")) < gasused) {
+      gasused = $$(offerDetail_gasreq("sor.offerDetail"));
     }
 
     /* As an invariant, `applyPenalty` is only called when `executed && !success`, and thus when `failCount > 0`. */
     uint penalty =
       10**9 *
-        gasprice *
+        $$(global_gasprice("sor.global")) *
         (gasused +
-          $$(offerDetail_overhead_gasbase("offerDetail")) /
+          $$(local_overhead_gasbase("sor.local")) /
           failCount +
-          $$(offerDetail_offer_gasbase("offerDetail")));
+          $$(local_offer_gasbase("sor.local")));
 
     if (penalty > provision) {
       penalty = provision;
     }
 
     /* Here we write to storage the new maker balance. This occurs _after_ possible reentrant calls. How do we know we're not crediting twice the same amounts? Because the `offer`'s provision was set to 0 in storage (through `dirtyDeleteOffer`) before the reentrant calls. In this function, we are working with cached copies of the offer as it was before it was consumed. */
-    creditWei($$(offerDetail_maker("offerDetail")), provision - penalty);
+    creditWei($$(offerDetail_maker("sor.offerDetail")), provision - penalty);
 
     return penalty;
   }

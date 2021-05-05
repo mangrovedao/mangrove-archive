@@ -919,7 +919,8 @@ contract MakerOperations_Test is IMaker {
     );
   }
 
-  function gasbase_is_deducted_multi_1_test() public {
+  // test gasbase deduction and test that gasbase changes are tracked
+  function gasbase_with_change_is_deducted_multi_1_test() public {
     uint overhead_gasbase = 100_000;
     uint offer_gasbase = 20_000;
     mkr.provisionDex(1 ether);
@@ -929,6 +930,9 @@ contract MakerOperations_Test is IMaker {
     dex.setDensity(_base, _quote, 0);
     mkr2.newOffer(1 ether, 1 ether, 0, 0);
     mkr.newOffer(1 ether, 1 ether, 0, 0);
+    overhead_gasbase = 90_000;
+    offer_gasbase = 10_000;
+    dex.setGasbase(_base, _quote, overhead_gasbase, offer_gasbase);
     tkr.marketOrder(0.1 ether, 0.1 ether);
     TestEvents.eq(
       dex.balanceOf(address(mkr)),
@@ -937,6 +941,7 @@ contract MakerOperations_Test is IMaker {
     );
   }
 
+  // test gasbase deduction and test that gasbase changes are tracked
   function gasbase_is_deducted_multi_2_test() public {
     uint overhead_gasbase = 100_000;
     uint offer_gasbase = 20_000;
@@ -948,6 +953,9 @@ contract MakerOperations_Test is IMaker {
     mkr2.newOffer(1 ether, 1 ether, 0, 0);
     mkr2.newOffer(1 ether, 1 ether, 0, 0);
     mkr.newOffer(1 ether, 1 ether, 0, 0);
+    overhead_gasbase = 90_000;
+    offer_gasbase = 10_000;
+    dex.setGasbase(_base, _quote, overhead_gasbase, offer_gasbase);
     tkr.marketOrder(0.1 ether, 0.1 ether);
     TestEvents.eq(
       dex.balanceOf(address(mkr)),
@@ -967,6 +975,9 @@ contract MakerOperations_Test is IMaker {
     mkr2.newOffer(1 ether, 1 ether, 0, 0);
     mkr.newOffer(1 ether, 1 ether, 0, 0);
     mkr.newOffer(1 ether, 1 ether, 0, 0);
+    overhead_gasbase = 21_000;
+    offer_gasbase = 10_000;
+    dex.setGasbase(_base, _quote, overhead_gasbase, offer_gasbase);
     tkr.marketOrder(0.1 ether, 0.1 ether);
     TestEvents.eq(
       dex.balanceOf(address(mkr)),
