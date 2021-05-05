@@ -974,4 +974,16 @@ contract MakerOperations_Test is IMaker {
       "Wrong gasbase deducted"
     );
   }
+
+  function penalty_gasprice_is_dex_gasprice_test() public {
+    dex.setGasprice(10);
+    mkr.shouldFail(true);
+    mkr.provisionDex(1 ether);
+    mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    uint oldProvision = dex.balanceOf(address(mkr));
+    dex.setGasprice(10000);
+    tkr.marketOrder(1 ether, 1 ether);
+    uint gotBack = dex.balanceOf(address(mkr)) - oldProvision;
+    TestEvents.eq(gotBack, 0, "Should not have gotten any provision back");
+  }
 }

@@ -905,6 +905,7 @@ abstract contract Dex {
 
       /* `execute` will adjust `sor.wants`,`sor.gives`, and may attempt to execute the offer if its price is low enough. It is crucial that an error due to `taker` triggers a revert. That way, `!success && !executed` means there was no execution attempt, and `!success && executed` means the failure is the maker's fault. */
       /* Post-execution, `sor.wants`/`sor.gives` reflect how much was sent/taken by the offer. We will need it after the recursive call, so we save it in local variables. Same goes for `offerId`, `sor.offer` and `sor.offerDetail`. */
+
       (success, executed, gasused, makerData, errorCode) = execute(mor, sor);
 
       /* Keep cached copy of current `sor` values. */
@@ -1435,11 +1436,6 @@ abstract contract Dex {
           $$(offerDetail_overhead_gasbase("offerDetail")) +
           $$(offerDetail_offer_gasbase("offerDetail")));
 
-    /* We take as gasprice min(offer.gasprice,config.gasprice) */
-    if ($$(offer_gasprice("offer")) < gasprice) {
-      gasprice = $$(offer_gasprice("offer"));
-    }
-
     /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible e.g. with `gasreq = 0` (all calls consume nonzero gas). */
     if ($$(offerDetail_gasreq("offerDetail")) < gasused) {
       gasused = $$(offerDetail_gasreq("offerDetail"));
@@ -1453,6 +1449,10 @@ abstract contract Dex {
           $$(offerDetail_overhead_gasbase("offerDetail")) /
           failCount +
           $$(offerDetail_offer_gasbase("offerDetail")));
+
+    if (penalty > provision) {
+      penalty = provision;
+    }
 
     /* Here we write to storage the new maker balance. This occurs _after_ possible reentrant calls. How do we know we're not crediting twice the same amounts? Because the `offer`'s provision was set to 0 in storage (through `dirtyDeleteOffer`) before the reentrant calls. In this function, we are working with cached copies of the offer as it was before it was consumed. */
     creditWei($$(offerDetail_maker("offerDetail")), provision - penalty);
