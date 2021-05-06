@@ -993,7 +993,8 @@ contract MakerOperations_Test is IMaker {
     mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     uint oldProvision = dex.balanceOf(address(mkr));
     dex.setGasprice(10000);
-    tkr.marketOrder(1 ether, 1 ether);
+    (uint gave, uint got) = tkr.marketOrder(1 ether, 1 ether);
+    TestEvents.check(gave == got && got == 0, "market Order should be noop");
     uint gotBack = dex.balanceOf(address(mkr)) - oldProvision;
     TestEvents.eq(gotBack, 0, "Should not have gotten any provision back");
   }
