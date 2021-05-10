@@ -11,7 +11,6 @@ import "hardhat/console.sol";
 import "./Toolbox/TestEvents.sol";
 import "./Toolbox/TestUtils.sol";
 import "./Toolbox/Display.sol";
-import "./Toolbox/ExpectLog.sol";
 
 import "./Agents/TestToken.sol";
 import "./Agents/TestMaker.sol";
