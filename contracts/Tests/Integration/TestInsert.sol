@@ -6,7 +6,7 @@ import "../Toolbox/TestUtils.sol";
 library TestInsert {
   function run(
     TestUtils.Balances storage balances,
-    Dex dex,
+    Mangrove mgv,
     MakerDeployer makers,
     TestTaker, /* taker */ // silence warning about unused argument
     TestToken base,
@@ -35,34 +35,34 @@ library TestInsert {
     offerOf[0] = makers.getMaker(0).newOffer({ //failer offer 4
       wants: 20 ether,
       gives: 10 ether,
-      gasreq: dex.getConfig(address(base), address(quote)).global.gasmax,
+      gasreq: mgv.getConfig(address(base), address(quote)).global.gasmax,
       pivotId: 0
     });
-    //Display.printOfferBook(dex);
+    //Display.printOfferBook(mgv);
     //Checking makers have correctly provisoned their offers
     for (uint i = 0; i < makers.length(); i++) {
       uint gasreq_i =
         TestUtils.getOfferInfo(
-          dex,
+          mgv,
           address(base),
           address(quote),
           TestUtils.Info.gasreq,
           offerOf[i]
         );
       uint provision_i =
-        TestUtils.getProvision(dex, address(base), address(quote), gasreq_i);
+        TestUtils.getProvision(mgv, address(base), address(quote), gasreq_i);
       TestEvents.eq(
-        dex.balanceOf(address(makers.getMaker(i))),
+        mgv.balanceOf(address(makers.getMaker(i))),
         balances.makersBalanceWei[i] - provision_i,
         Display.append("Incorrect wei balance for maker ", Display.uint2str(i))
       );
     }
     //Checking offers are correctly positioned (3 > 2 > 1 > 0)
-    uint offerId = dex.best(address(base), address(quote));
+    uint offerId = mgv.best(address(base), address(quote));
     uint expected_maker = 3;
     while (offerId != 0) {
-      (DC.Offer memory offer, DC.OfferDetail memory od) =
-        dex.offerInfo(address(base), address(quote), offerId);
+      (MC.Offer memory offer, MC.OfferDetail memory od) =
+        mgv.offerInfo(address(base), address(quote), offerId);
       TestEvents.eq(
         od.maker,
         address(makers.getMaker(expected_maker)),

@@ -6,7 +6,7 @@ library TestMarketOrder {
   function run(
     TestUtils.Balances storage balances,
     mapping(uint => mapping(TestUtils.Info => uint)) storage offers,
-    Dex dex,
+    Mangrove mgv,
     MakerDeployer makers,
     TestTaker taker,
     TestToken base,
@@ -60,14 +60,14 @@ library TestMarketOrder {
       base.balanceOf(address(taker)), // actual
       balances.takerBalanceA +
         takerWants -
-        TestUtils.getFee(dex, address(base), address(quote), takerWants), // expected
+        TestUtils.getFee(mgv, address(base), address(quote), takerWants), // expected
       "incorrect taker A balance"
     );
 
     TestEvents.eq(
       takerGot,
       takerWants -
-        TestUtils.getFee(dex, address(base), address(quote), takerWants),
+        TestUtils.getFee(mgv, address(base), address(quote), takerWants),
       "Incorrect declared takerGot"
     );
 
@@ -85,10 +85,10 @@ library TestMarketOrder {
 
     // Checking DEX Fee Balance
     TestEvents.eq(
-      base.balanceOf(TestUtils.adminOf(dex)), //actual
-      balances.dexBalanceFees +
-        TestUtils.getFee(dex, address(base), address(quote), takerWants), //expected
-      "incorrect Dex balances"
+      base.balanceOf(TestUtils.adminOf(mgv)), //actual
+      balances.mgvBalanceFees +
+        TestUtils.getFee(mgv, address(base), address(quote), takerWants), //expected
+      "incorrect Mangrove balances"
     );
   }
 }

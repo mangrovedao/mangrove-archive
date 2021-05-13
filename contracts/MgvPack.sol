@@ -18,7 +18,10 @@ library MgvPack {
   */
 
   function $$(sname)_pack($$(arguments)) internal pure returns (bytes32) {
-    return $$(make(scontents,map(scontents, (field) => [field[0],`__$${field[0]}`])));
+    return $$(make(
+      scontents,
+      map(scontents, (field) =>
+    [field[0],`__$${field[0]}`])));
   }
 
   function $$(sname)_unpack(bytes32 __packed) internal pure returns ($$(arguments)) {

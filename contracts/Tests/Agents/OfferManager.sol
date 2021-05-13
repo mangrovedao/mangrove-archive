@@ -2,26 +2,26 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../../Dex.sol";
+import "../../Mangrove.sol";
 import "../../interfaces.sol";
-//import "../../DexCommon.sol";
-import {DexCommon as DC, DexEvents, IDexMonitor} from "../../DexCommon.sol";
+//import "../../MgvCommon.sol";
+import {MgvCommon as MC, MgvEvents, IMgvMonitor} from "../../MgvCommon.sol";
 import "hardhat/console.sol";
 
 import "../Toolbox/Display.sol";
 
 contract OfferManager is IMaker, ITaker {
   // erc_addr -> owner_addr -> balance
-  Dex dex;
-  Dex invDex;
+  Mangrove mgv;
+  Mangrove invMgv;
   address caller_id;
-  // dex_addr -> base_addr -> quote_addr -> offerId -> owner
+  // mgv_addr -> base_addr -> quote_addr -> offerId -> owner
   mapping(address => mapping(address => mapping(address => mapping(uint => address)))) owners;
   uint constant gas_to_execute = 100_000;
 
-  constructor(Dex _dex, Dex _inverted) {
-    dex = _dex;
-    invDex = _inverted;
+  constructor(Mangrove _mgv, Mangrove _inverted) {
+    mgv = _mgv;
+    invMgv = _inverted;
   }
 
   //posthook data:
@@ -33,23 +33,23 @@ contract OfferManager is IMaker, ITaker {
   // offerDeleted: toDelete
 
   function takerTrade(
-    //NB this is not called if dex is not a flashTaker dex
+    //NB this is not called if mgv is not a flashTaker mgv
     address base,
     address quote,
     uint netReceived,
     uint shouldGive
   ) external override {
-    if (msg.sender == address(invDex)) {
+    if (msg.sender == address(invMgv)) {
       ITaker(caller_id).takerTrade(base, quote, netReceived, shouldGive); // taker will find funds
-      IERC20(quote).transferFrom(caller_id, address(this), shouldGive); // ready to be withdawn by Dex
+      IERC20(quote).transferFrom(caller_id, address(this), shouldGive); // ready to be withdawn by Mangrove
     }
   }
 
   function makerPosthook(
-    DC.SingleOrder calldata _order,
-    DC.OrderResult calldata
+    MC.SingleOrder calldata _order,
+    MC.OrderResult calldata
   ) external override {
-    if (msg.sender == address(invDex)) {
+    if (msg.sender == address(invMgv)) {
       //should have received funds by now
       address owner =
         owners[msg.sender][_order.base][_order.quote][_order.offerId];
@@ -60,7 +60,7 @@ contract OfferManager is IMaker, ITaker {
 
   // Maker side execute for residual offer
   event Execute(
-    address dex,
+    address mgv,
     address base,
     address quote,
     uint offerId,
@@ -68,7 +68,7 @@ contract OfferManager is IMaker, ITaker {
     uint takerGives
   );
 
-  function makerTrade(DC.SingleOrder calldata _order)
+  function makerTrade(MC.SingleOrder calldata _order)
     external
     override
     returns (bytes32 ret)
@@ -81,11 +81,11 @@ contract OfferManager is IMaker, ITaker {
       _order.wants,
       _order.gives
     );
-    if (msg.sender == address(dex)) {
+    if (msg.sender == address(mgv)) {
       // if residual of offerId is < dust, offer will be removed and dust lost
       // also freeWeil[this] will increase, offerManager may chose to give it back to owner
       address owner =
-        owners[address(dex)][_order.base][_order.quote][_order.offerId];
+        owners[address(mgv)][_order.base][_order.quote][_order.offerId];
       require(owner != address(0), "Unkown owner");
       try IERC20(_order.quote).transfer(owner, _order.gives) {
         ret = "OfferManager/transferOK";
@@ -97,43 +97,43 @@ contract OfferManager is IMaker, ITaker {
 
   //marketOrder (base,quote) + NewOffer(quote,base)
   function order(
-    Dex DEX,
+    Mangrove MGV,
     address base,
     address quote,
     uint wants,
     uint gives,
     bool invertedResidual
   ) external payable {
-    bool flashTaker = (address(DEX) == address(invDex));
+    bool flashTaker = (address(MGV) == address(invMgv));
     caller_id = msg.sender; // this should come with a reentrancy lock
     if (!flashTaker) {
-      // else caller_id will be called when takerTrade is called by Dex
+      // else caller_id will be called when takerTrade is called by Mangrove
       IERC20(quote).transferFrom(msg.sender, address(this), gives); // OfferManager must be approved by sender
     }
-    IERC20(quote).approve(address(DEX), 100 ether); // to pay maker
-    IERC20(base).approve(address(DEX), 100 ether); // takerfee
+    IERC20(quote).approve(address(MGV), 100 ether); // to pay maker
+    IERC20(base).approve(address(MGV), 100 ether); // takerfee
 
-    (uint netReceived, ) = DEX.marketOrder(base, quote, wants, gives); // OfferManager might collect provisions of failing offers
+    (uint netReceived, ) = MGV.marketOrder(base, quote, wants, gives); // OfferManager might collect provisions of failing offers
 
     try IERC20(base).transfer(msg.sender, netReceived) {
       uint residual_w = wants - netReceived;
       uint residual_g = (gives * residual_w) / wants;
 
-      Dex _DEX;
+      Mangrove _MGV;
       if (invertedResidual) {
-        _DEX = invDex;
+        _MGV = invMgv;
       } else {
-        _DEX = dex;
+        _MGV = mgv;
       }
-      DC.Config memory config = _DEX.getConfig(base, quote);
+      MC.Config memory config = _MGV.getConfig(base, quote);
       require(
         msg.value >= gas_to_execute * uint(config.global.gasprice) * 10**9,
         "Insufficent funds to delegate order"
       ); //not checking overflow issues
-      (bool success, ) = address(_DEX).call{value: msg.value}("");
-      require(success, "provision dex failed");
+      (bool success, ) = address(_MGV).call{value: msg.value}("");
+      require(success, "provision mgv failed");
       uint residual_ofr =
-        _DEX.newOffer(
+        _MGV.newOffer(
           quote,
           base,
           residual_w,
@@ -142,7 +142,7 @@ contract OfferManager is IMaker, ITaker {
           0,
           0
         );
-      owners[address(_DEX)][quote][base][residual_ofr] = msg.sender;
+      owners[address(_MGV)][quote][base][residual_ofr] = msg.sender;
     } catch {
       require(false, "Failed to send market order money to owner");
     }

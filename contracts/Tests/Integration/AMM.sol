@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "hardhat/console.sol";
-import "../../DexPack.sol";
+import "../../MgvPack.sol";
 import "../Toolbox/TestEvents.sol";
 import "../Toolbox/TestUtils.sol";
 import "../Toolbox/Display.sol";
@@ -15,8 +15,8 @@ import "../Agents/OfferManager.sol";
 import "../Agents/UniSwapMaker.sol";
 
 contract AMM_Test {
-  Dex dex;
-  Dex invDex;
+  Mangrove mgv;
+  Mangrove invMgv;
   TestToken tk0;
   TestToken tk1;
 
@@ -37,16 +37,16 @@ contract AMM_Test {
     Display.register(address(tk1), "tk1");
   }
 
-  function b_deployDex_beforeAll() public {
-    dex = DexSetup.setup(tk0, tk1);
-    Display.register(address(dex), "Dex");
-    TestEvents.not0x(address(dex));
-    //dex.setFee(address(tk0), address(tk1), 300);
+  function b_deployMgv_beforeAll() public {
+    mgv = MgvSetup.setup(tk0, tk1);
+    Display.register(address(mgv), "Mgv");
+    TestEvents.not0x(address(mgv));
+    //mgv.setFee(address(tk0), address(tk1), 300);
 
-    invDex = DexSetup.setup(tk0, tk1, true);
-    Display.register(address(invDex), "InvDex");
-    TestEvents.not0x(address(invDex));
-    //invDex.setFee(address(tk0), address(tk1), 300);
+    invMgv = MgvSetup.setup(tk0, tk1, true);
+    Display.register(address(invMgv), "InvMgv");
+    TestEvents.not0x(address(invMgv));
+    //invMgv.setFee(address(tk0), address(tk1), 300);
   }
 
   function prepare_offer_manager()
@@ -57,7 +57,7 @@ contract AMM_Test {
       TestDelegateTaker
     )
   {
-    OfferManager mgr = new OfferManager(dex, invDex);
+    OfferManager mgr = new OfferManager(mgv, invMgv);
     Display.register(address(mgr), "OfrMgr");
 
     TestDelegateTaker tkr = new TestDelegateTaker(mgr, tk0, tk1);
@@ -70,13 +70,13 @@ contract AMM_Test {
     (noRevert1, ) = address(tkr).call{value: 1 ether}("");
     require(noRevert1 && noRevert0);
 
-    TestMaker maker = MakerSetup.setup(dex, address(tk0), address(tk1));
+    TestMaker maker = MakerSetup.setup(mgv, address(tk0), address(tk1));
     Display.register(address(maker), "Maker");
     tk0.mint(address(maker), 10 ether);
     (bool success, ) = address(maker).call{gas: gasleft(), value: 10 ether}("");
     require(success);
-    maker.provisionDex(10 ether);
-    maker.approveDex(tk0, 10 ether);
+    maker.provisionMgv(10 ether);
+    maker.approveMgv(tk0, 10 ether);
     maker.newOffer({
       wants: 1 ether,
       gives: 0.5 ether,
@@ -99,8 +99,8 @@ contract AMM_Test {
   }
 
   function check_logs(address mgr, bool inverted) internal {
-    TestEvents.expectFrom(address(dex));
-    emit DexEvents.Success(
+    TestEvents.expectFrom(address(mgv));
+    emit MgvEvents.Success(
       address(tk0),
       address(tk1),
       3,
@@ -108,7 +108,7 @@ contract AMM_Test {
       1 ether,
       0.5 ether
     );
-    emit DexEvents.Success(
+    emit MgvEvents.Success(
       address(tk0),
       address(tk1),
       2,
@@ -116,24 +116,24 @@ contract AMM_Test {
       0.8 ether,
       1 ether
     );
-    Dex DEX = dex;
+    Mangrove MGV = mgv;
     if (inverted) {
-      TestEvents.expectFrom(address(invDex));
-      DEX = invDex;
+      TestEvents.expectFrom(address(invMgv));
+      MGV = invMgv;
     }
-    emit DexEvents.WriteOffer(
+    emit MgvEvents.WriteOffer(
       address(tk1),
       address(tk0),
       mgr,
-      DexPack.writeOffer_pack(
+      MgvPack.writeOffer_pack(
         1.2 ether,
         1.2 ether,
-        DEX.getConfig(address(0), address(0)).global.gasprice,
+        MGV.getConfig(address(0), address(0)).global.gasprice,
         100_000,
         1
       )
     );
-    emit DexEvents.Success(
+    emit MgvEvents.Success(
       address(tk1),
       address(tk0),
       1,
@@ -141,16 +141,16 @@ contract AMM_Test {
       1.2 ether,
       1.2 ether
     );
-    TestEvents.expectFrom(address(dex));
+    TestEvents.expectFrom(address(mgv));
 
-    emit DexEvents.WriteOffer(
+    emit MgvEvents.WriteOffer(
       address(tk0),
       address(tk1),
       mgr,
-      DexPack.writeOffer_pack(
+      MgvPack.writeOffer_pack(
         0.6 ether,
         0.6 ether,
-        dex.getConfig(address(0), address(0)).global.gasprice,
+        mgv.getConfig(address(0), address(0)).global.gasprice,
         100_000,
         4
       )
@@ -163,19 +163,19 @@ contract AMM_Test {
     tk1.mint(address(tkr), 5 ether);
     tk0.mint(address(_tkr), 5 ether);
 
-    Display.logOfferBook(dex, address(tk0), address(tk1), 5);
+    Display.logOfferBook(mgv, address(tk0), address(tk1), 5);
     Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
 
-    tkr.delegateOrder(mgr, 3 ether, 3 ether, dex, false); // (A,B) order
+    tkr.delegateOrder(mgr, 3 ether, 3 ether, mgv, false); // (A,B) order
 
     Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
-    Display.logOfferBook(dex, address(tk0), address(tk1), 5); // taker has more A
-    Display.logOfferBook(dex, address(tk1), address(tk0), 2);
+    Display.logOfferBook(mgv, address(tk0), address(tk1), 5); // taker has more A
+    Display.logOfferBook(mgv, address(tk1), address(tk0), 2);
     //Display.logBalances(tk0, tk1, address(taker));
 
-    _tkr.delegateOrder(mgr, 1.8 ether, 1.8 ether, dex, false); // (B,A) order
-    Display.logOfferBook(dex, address(tk0), address(tk1), 5);
-    Display.logOfferBook(dex, address(tk1), address(tk0), 2);
+    _tkr.delegateOrder(mgr, 1.8 ether, 1.8 ether, mgv, false); // (B,A) order
+    Display.logOfferBook(mgv, address(tk0), address(tk1), 5);
+    Display.logOfferBook(mgv, address(tk1), address(tk0), 2);
     Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
 
     check_logs(address(mgr), false);
@@ -189,25 +189,25 @@ contract AMM_Test {
     //tk0.mint(address(_taker), 5 ether);
     tk0.addAdmin(address(_tkr)); // to test flashloan on the taker side
 
-    Display.logOfferBook(dex, address(tk0), address(tk1), 5);
+    Display.logOfferBook(mgv, address(tk0), address(tk1), 5);
     Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
 
-    tkr.delegateOrder(mgr, 3 ether, 3 ether, dex, true); // (A,B) order, residual posted on invertedDex(B,A)
+    tkr.delegateOrder(mgr, 3 ether, 3 ether, mgv, true); // (A,B) order, residual posted on invertedMgv(B,A)
 
     Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
-    Display.logOfferBook(dex, address(tk0), address(tk1), 5); // taker has more A
-    Display.logOfferBook(invDex, address(tk1), address(tk0), 2);
+    Display.logOfferBook(mgv, address(tk0), address(tk1), 5); // taker has more A
+    Display.logOfferBook(invMgv, address(tk1), address(tk0), 2);
     Display.logBalances(tk0, tk1, address(tkr));
 
-    _tkr.delegateOrder(mgr, 1.8 ether, 1.8 ether, invDex, false); // (B,A) FlashTaker order
-    Display.logOfferBook(dex, address(tk0), address(tk1), 5);
-    Display.logOfferBook(invDex, address(tk1), address(tk0), 2);
+    _tkr.delegateOrder(mgr, 1.8 ether, 1.8 ether, invMgv, false); // (B,A) FlashTaker order
+    Display.logOfferBook(mgv, address(tk0), address(tk1), 5);
+    Display.logOfferBook(invMgv, address(tk1), address(tk0), 2);
     Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
     check_logs(address(mgr), true);
   }
 
   function uniswap_like_maker_test() public {
-    UniSwapMaker amm = new UniSwapMaker(dex, 100, 3); // creates the amm
+    UniSwapMaker amm = new UniSwapMaker(mgv, 100, 3); // creates the amm
 
     Display.register(address(amm), "UnisWapMaker");
     Display.register(address(this), "TestRunner");
@@ -215,22 +215,22 @@ contract AMM_Test {
     tk1.mint(address(amm), 1000 ether);
     tk0.mint(address(amm), 500 ether);
 
-    dex.fund{value: 5 ether}(address(amm));
+    mgv.fund{value: 5 ether}(address(amm));
 
     tk1.mint(address(this), 5 ether);
-    tk1.approve(address(dex), 2**256 - 1);
+    tk1.approve(address(mgv), 2**256 - 1);
 
     tk0.mint(address(this), 5 ether);
-    tk0.approve(address(dex), 2**256 - 1);
+    tk0.approve(address(mgv), 2**256 - 1);
 
     amm.newMarket(address(tk0), address(tk1));
 
-    Display.logOfferBook(dex, address(tk0), address(tk1), 1);
-    Display.logOfferBook(dex, address(tk1), address(tk0), 1);
+    Display.logOfferBook(mgv, address(tk0), address(tk1), 1);
+    Display.logOfferBook(mgv, address(tk1), address(tk0), 1);
 
-    dex.marketOrder(address(tk0), address(tk1), 3 ether, 2**256 - 1);
+    mgv.marketOrder(address(tk0), address(tk1), 3 ether, 2**256 - 1);
 
-    Display.logOfferBook(dex, address(tk0), address(tk1), 1);
-    Display.logOfferBook(dex, address(tk1), address(tk0), 1);
+    Display.logOfferBook(mgv, address(tk0), address(tk1), 1);
+    Display.logOfferBook(mgv, address(tk1), address(tk0), 1);
   }
 }

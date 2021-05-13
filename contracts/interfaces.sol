@@ -2,7 +2,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import {DexCommon as DC} from "./DexCommon.sol";
+import {MgvCommon as MC} from "./MgvCommon.sol";
 
 // IERC20 From OpenZeppelin code
 

@@ -3,37 +3,37 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "../../interfaces.sol";
-import "../../Dex.sol";
+import "../../Mangrove.sol";
 import "./OfferManager.sol";
 
 contract TestTaker is ITaker {
-  Dex _dex;
+  Mangrove _mgv;
   address _base;
   address _quote;
 
   constructor(
-    Dex dex,
+    Mangrove mgv,
     IERC20 base,
     IERC20 quote
   ) {
-    _dex = dex;
+    _mgv = mgv;
     _base = address(base);
     _quote = address(quote);
   }
 
   receive() external payable {}
 
-  function approveDex(IERC20 token, uint amount) external {
-    token.approve(address(_dex), amount);
+  function approveMgv(IERC20 token, uint amount) external {
+    token.approve(address(_mgv), amount);
   }
 
   function approveSpender(address spender, uint amount) external {
-    _dex.approve(_base, _quote, spender, amount);
+    _mgv.approve(_base, _quote, spender, amount);
   }
 
   function take(uint offerId, uint takerWants) external returns (bool success) {
     //uint taken = TestEvents.min(makerGives, takerWants);
-    (success, , ) = _dex.snipe(
+    (success, , ) = _mgv.snipe(
       _base,
       _quote,
       offerId,
@@ -54,7 +54,7 @@ contract TestTaker is ITaker {
   {
     //uint taken = TestEvents.min(makerGives, takerWants);
     return
-      _dex.snipe(
+      _mgv.snipe(
         _base,
         _quote,
         offerId,
@@ -66,7 +66,7 @@ contract TestTaker is ITaker {
   }
 
   function snipe(
-    Dex __dex,
+    Mangrove __mgv,
     address __base,
     address __quote,
     uint offerId,
@@ -74,7 +74,7 @@ contract TestTaker is ITaker {
     uint takerGives,
     uint gasreq
   ) external returns (bool success) {
-    (success, , ) = __dex.snipe(
+    (success, , ) = __mgv.snipe(
       __base,
       __quote,
       offerId,
@@ -92,23 +92,23 @@ contract TestTaker is ITaker {
   ) external pure override {}
 
   function marketOrder(uint wants, uint gives) external returns (uint, uint) {
-    return _dex.marketOrder(_base, _quote, wants, gives);
+    return _mgv.marketOrder(_base, _quote, wants, gives);
   }
 
   function marketOrder(
-    Dex __dex,
+    Mangrove __mgv,
     address __base,
     address __quote,
     uint takerWants,
     uint takerGives
   ) external returns (uint, uint) {
-    return __dex.marketOrder(__base, __quote, takerWants, takerGives);
+    return __mgv.marketOrder(__base, __quote, takerWants, takerGives);
   }
 
   function marketOrderWithFail(uint wants, uint gives)
     external
     returns (uint, uint)
   {
-    return _dex.marketOrder(_base, _quote, wants, gives);
+    return _mgv.marketOrder(_base, _quote, wants, gives);
   }
 }

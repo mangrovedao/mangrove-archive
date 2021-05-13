@@ -4,23 +4,23 @@ pragma abicoder v2;
 
 import "./Passthrough.sol";
 import "../../interfaces.sol";
-import "../../Dex.sol";
-import "../../DexPack.sol";
+import "../../Mangrove.sol";
+import "../../MgvPack.sol";
 import "hardhat/console.sol";
 
 contract TestMaker is IMaker, Passthrough {
-  Dex _dex;
+  Mangrove _mgv;
   address _base;
   address _quote;
   bool _shouldFail;
   bool _shouldRevert;
 
   constructor(
-    Dex dex,
+    Mangrove mgv,
     IERC20 base,
     IERC20 quote
   ) {
-    _dex = dex;
+    _mgv = mgv;
     _base = address(base);
     _quote = address(quote);
   }
@@ -28,7 +28,7 @@ contract TestMaker is IMaker, Passthrough {
   receive() external payable {}
 
   event Execute(
-    address dex,
+    address mgv,
     address base,
     address quote,
     uint offerId,
@@ -37,14 +37,14 @@ contract TestMaker is IMaker, Passthrough {
   );
 
   function logExecute(
-    address dex,
+    address mgv,
     address base,
     address quote,
     uint offerId,
     uint takerWants,
     uint takerGives
   ) external {
-    emit Execute(dex, base, quote, offerId, takerWants, takerGives);
+    emit Execute(mgv, base, quote, offerId, takerWants, takerGives);
   }
 
   function shouldRevert(bool should) external {
@@ -55,8 +55,8 @@ contract TestMaker is IMaker, Passthrough {
     _shouldFail = should;
   }
 
-  function approveDex(IERC20 token, uint amount) public {
-    token.approve(address(_dex), amount);
+  function approveMgv(IERC20 token, uint amount) public {
+    token.approve(address(_mgv), amount);
   }
 
   function transferToken(
@@ -67,7 +67,7 @@ contract TestMaker is IMaker, Passthrough {
     token.transfer(to, amount);
   }
 
-  function makerTrade(DC.SingleOrder calldata order)
+  function makerTrade(MC.SingleOrder calldata order)
     public
     virtual
     override
@@ -89,7 +89,7 @@ contract TestMaker is IMaker, Passthrough {
       order.gives
     );
     if (_shouldFail) {
-      IERC20(order.base).approve(address(_dex), 0);
+      IERC20(order.base).approve(address(_mgv), 0);
       bytes32[1] memory refuse_msg = [bytes32("testMaker/transferFail")];
       assembly {
         return(refuse_msg, 32)
@@ -99,8 +99,8 @@ contract TestMaker is IMaker, Passthrough {
   }
 
   function makerPosthook(
-    DC.SingleOrder calldata order,
-    DC.OrderResult calldata result
+    MC.SingleOrder calldata order,
+    MC.OrderResult calldata result
   ) external virtual override {}
 
   function newOffer(
@@ -109,7 +109,7 @@ contract TestMaker is IMaker, Passthrough {
     uint gasreq,
     uint pivotId
   ) public returns (uint) {
-    return (_dex.newOffer(_base, _quote, wants, gives, gasreq, 0, pivotId));
+    return (_mgv.newOffer(_base, _quote, wants, gives, gasreq, 0, pivotId));
   }
 
   function newOffer(
@@ -120,7 +120,7 @@ contract TestMaker is IMaker, Passthrough {
     uint gasreq,
     uint pivotId
   ) public returns (uint) {
-    return (_dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId));
+    return (_mgv.newOffer(base, quote, wants, gives, gasreq, 0, pivotId));
   }
 
   function newOffer(
@@ -131,7 +131,7 @@ contract TestMaker is IMaker, Passthrough {
     uint pivotId
   ) public returns (uint) {
     return (
-      _dex.newOffer(_base, _quote, wants, gives, gasreq, gasprice, pivotId)
+      _mgv.newOffer(_base, _quote, wants, gives, gasreq, gasprice, pivotId)
     );
   }
 
@@ -143,27 +143,27 @@ contract TestMaker is IMaker, Passthrough {
     uint offerId
   ) public returns (uint) {
     return (
-      _dex.updateOffer(_base, _quote, wants, gives, gasreq, 0, pivotId, offerId)
+      _mgv.updateOffer(_base, _quote, wants, gives, gasreq, 0, pivotId, offerId)
     );
   }
 
   function retractOffer(uint offerId) public {
-    _dex.retractOffer(_base, _quote, offerId, false);
+    _mgv.retractOffer(_base, _quote, offerId, false);
   }
 
   function retractOfferWithDeprovision(uint offerId) public {
-    _dex.retractOffer(_base, _quote, offerId, true);
+    _mgv.retractOffer(_base, _quote, offerId, true);
   }
 
-  function provisionDex(uint amount) public {
-    _dex.fund{value: amount}(address(this));
+  function provisionMgv(uint amount) public {
+    _mgv.fund{value: amount}(address(this));
   }
 
-  function withdrawDex(uint amount) public returns (bool) {
-    return _dex.withdraw(amount);
+  function withdrawMgv(uint amount) public returns (bool) {
+    return _mgv.withdraw(amount);
   }
 
   function freeWei() public view returns (uint) {
-    return _dex.balanceOf(address(this));
+    return _mgv.balanceOf(address(this));
   }
 }

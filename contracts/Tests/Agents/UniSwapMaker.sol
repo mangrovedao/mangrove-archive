@@ -3,12 +3,12 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "../../ERC20BL.sol";
-import "../../Dex.sol";
+import "../../Mangrove.sol";
 
-// Dex must be provisioned in the name of UniSwapMaker
+// Mangrove must be provisioned in the name of UniSwapMaker
 // UniSwapMaker must have ERC20 credit in tk0 and tk1 and these credits should not be shared (since contract is memoryless)
 contract UniSwapMaker is IMaker {
-  Dex dex;
+  Mangrove mgv;
   address private admin;
   uint gasreq = 80_000;
   uint8 share; // [1,100] for 1/1 to 1/100
@@ -17,14 +17,14 @@ contract UniSwapMaker is IMaker {
   uint24 ofr1;
 
   constructor(
-    Dex _dex,
+    Mangrove _mgv,
     uint _share,
     uint _fee
   ) {
     require(_share > 1, "Invalid parameters");
     require(uint8(_fee) == _fee && uint8(_share) == _share);
     admin = msg.sender;
-    dex = _dex; // FMD or FTD
+    mgv = _mgv; // FMD or FTD
     share = uint8(_share);
     fee = uint8(_fee);
   }
@@ -41,7 +41,7 @@ contract UniSwapMaker is IMaker {
   }
 
   event Execute(
-    address dex,
+    address mgv,
     address base,
     address quote,
     uint offerId,
@@ -49,13 +49,13 @@ contract UniSwapMaker is IMaker {
     uint takerGives
   );
 
-  function makerTrade(DC.SingleOrder calldata order)
+  function makerTrade(MC.SingleOrder calldata order)
     external
     override
     returns (bytes32 avoid_compilation_warning)
   {
     avoid_compilation_warning;
-    require(msg.sender == address(dex), "Illegal call");
+    require(msg.sender == address(mgv), "Illegal call");
     emit Execute(
       msg.sender,
       order.base, // takerWants
@@ -75,30 +75,30 @@ contract UniSwapMaker is IMaker {
   }
 
   function newMarket(address tk0, address tk1) public {
-    ERC20BL(tk0).approve(address(dex), 2**256 - 1);
-    ERC20BL(tk1).approve(address(dex), 2**256 - 1);
+    ERC20BL(tk0).approve(address(mgv), 2**256 - 1);
+    ERC20BL(tk1).approve(address(mgv), 2**256 - 1);
 
     uint pool0 = ERC20BL(tk0).balanceOf(address(this));
     uint pool1 = ERC20BL(tk1).balanceOf(address(this));
 
     (uint wants0, uint gives1) = newPrice(pool0, pool1);
     (uint wants1, uint gives0) = newPrice(pool1, pool0);
-    ofr0 = uint24(dex.newOffer(tk0, tk1, wants0, gives1, gasreq, 0, 0));
-    ofr1 = uint24(dex.newOffer(tk1, tk0, wants1, gives0, gasreq, 0, 0)); // natural OB
+    ofr0 = uint24(mgv.newOffer(tk0, tk1, wants0, gives1, gasreq, 0, 0));
+    ofr1 = uint24(mgv.newOffer(tk1, tk0, wants1, gives0, gasreq, 0, 0)); // natural OB
   }
 
-  function makerPosthook(DC.SingleOrder calldata order, DC.OrderResult calldata)
+  function makerPosthook(MC.SingleOrder calldata order, MC.OrderResult calldata)
     external
     override
   {
     // taker has paid maker
-    require(msg.sender == address(dex)); // may not be necessary
+    require(msg.sender == address(mgv)); // may not be necessary
     uint pool0 = ERC20BL(order.quote).balanceOf(address(this)); // pool0 has increased
     uint pool1 = ERC20BL(order.base).balanceOf(address(this)); // pool1 has decreased
 
     (uint newWants, uint newGives) = newPrice(pool0, pool1);
 
-    dex.updateOffer(
+    mgv.updateOffer(
       order.base,
       order.quote,
       newWants,
@@ -115,7 +115,7 @@ contract UniSwapMaker is IMaker {
     }
 
     (newWants, newGives) = newPrice(pool1, pool0);
-    dex.updateOffer(
+    mgv.updateOffer(
       order.quote,
       order.base,
       newWants,

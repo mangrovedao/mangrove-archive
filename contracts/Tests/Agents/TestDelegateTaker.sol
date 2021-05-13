@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "../../interfaces.sol";
-import "../../Dex.sol";
+import "../../Mangrove.sol";
 import "./OfferManager.sol";
 import "./TestToken.sol";
 
@@ -25,7 +25,7 @@ contract TestDelegateTaker is ITaker {
   receive() external payable {}
 
   function takerTrade(
-    //NB this is not called if dex is not a flashTaker dex
+    //NB this is not called if mgv is not a flashTaker mgv
     address,
     address,
     uint,
@@ -40,12 +40,12 @@ contract TestDelegateTaker is ITaker {
     OfferManager mgr,
     uint wants,
     uint gives,
-    Dex dex,
+    Mangrove mgv,
     bool invertedResidual
   ) public {
     try quote.approve(address(mgr), gives) {
       mgr.order{value: 0.01 ether}(
-        dex,
+        mgv,
         address(base),
         address(quote),
         wants,

@@ -5,11 +5,11 @@ pragma abicoder v2;
 import {
   ITaker,
   IMaker,
-  DexCommon as DC,
-  DexEvents,
-  IDexMonitor
-} from "../../DexCommon.sol";
-import "../../Dex.sol";
+  MgvCommon as DC,
+  MgvEvents,
+  IMgvMonitor
+} from "../../MgvCommon.sol";
+import "../../Mangrove.sol";
 import "../../interfaces.sol";
 import "../Toolbox/Display.sol";
 import "hardhat/console.sol";
@@ -24,28 +24,28 @@ contract MM1 {
   uint immutable buy_id;
   address immutable a_addr;
   address immutable b_addr;
-  Dex immutable dex;
+  Mangrove immutable mgv;
 
   /* This MM has 1 offer on each side of a book. After each take, it updates both offers.
      The new price is based on the midprice between each books, a base_spread,
      and the ratio of a/b inventories normalized by the current midprice. */
 
   constructor(
-    Dex _dex,
+    Mangrove _mgv,
     address _a_addr,
     address _b_addr
   ) payable {
-    dex = _dex;
+    mgv = _mgv;
     a_addr = _a_addr;
     b_addr = _b_addr;
 
-    _dex.fund{value: 1 ether}(address(this));
+    _mgv.fund{value: 1 ether}(address(this));
 
-    IERC20(_a_addr).approve(address(_dex), 10000 ether);
-    IERC20(_b_addr).approve(address(_dex), 10000 ether);
+    IERC20(_a_addr).approve(address(_mgv), 10000 ether);
+    IERC20(_b_addr).approve(address(_mgv), 10000 ether);
 
-    sell_id = _dex.newOffer(_a_addr, _b_addr, 1, 1 ether, 40_000, 0, 0);
-    buy_id = _dex.newOffer(_b_addr, _a_addr, 1, 1 ether, 40_000, 0, 0);
+    sell_id = _mgv.newOffer(_a_addr, _b_addr, 1, 1 ether, 40_000, 0, 0);
+    buy_id = _mgv.newOffer(_b_addr, _a_addr, 1, 1 ether, 40_000, 0, 0);
   }
 
   function refresh() external {
@@ -77,8 +77,8 @@ contract MM1 {
     uint d_d = 10000; // delta = d_n / d_d
 
     // best offers
-    uint best_sell_id = dex.best(a_addr, b_addr);
-    (DC.Offer memory best_sell, ) = dex.offerInfo(a_addr, b_addr, best_sell_id);
+    uint best_sell_id = mgv.best(a_addr, b_addr);
+    (DC.Offer memory best_sell, ) = mgv.offerInfo(a_addr, b_addr, best_sell_id);
 
     //console.log("initial bs.w",best_sell.wants);
     //console.log("initial bs.g",best_sell.gives);
@@ -98,8 +98,8 @@ contract MM1 {
     //console.log("bs.w",best_sell.wants);
     //console.log("bs.g",best_sell.gives);
 
-    uint best_buy_id = dex.best(b_addr, a_addr);
-    (DC.Offer memory best_buy, ) = dex.offerInfo(b_addr, a_addr, best_buy_id);
+    uint best_buy_id = mgv.best(b_addr, a_addr);
+    (DC.Offer memory best_buy, ) = mgv.offerInfo(b_addr, a_addr, best_buy_id);
 
     //console.log("initial bb.w",best_buy.wants);
     //console.log("initial bb.g",best_buy.gives);
@@ -149,7 +149,7 @@ contract MM1 {
       //console.log("sell_gives",sell_gives);
       Display.log(sell_wants, sell_gives);
 
-      dex.updateOffer({
+      mgv.updateOffer({
         base: a_addr,
         quote: b_addr,
         wants: sell_wants,
@@ -173,7 +173,7 @@ contract MM1 {
     uint buy_wants_d = 2 * buy_m_d * d_d;
     uint buy_wants = (buy_wants_n / buy_wants_d) << SHF;
 
-    dex.updateOffer({
+    mgv.updateOffer({
       base: b_addr,
       quote: a_addr,
       wants: buy_wants,

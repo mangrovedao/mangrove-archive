@@ -3,8 +3,8 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-//import "../Dex.sol";
-//import "../DexCommon.sol";
+//import "../Mangrove.sol";
+//import "../MgvCommon.sol";
 //import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -32,7 +32,7 @@ import "./TestMarketOrder.sol";
 // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
 
 contract Scenarii_Test {
-  Dex dex;
+  Mangrove mgv;
   TestTaker taker;
   MakerDeployer makers;
   TestToken base;
@@ -45,10 +45,10 @@ contract Scenarii_Test {
   receive() external payable {}
 
   function saveOffers() internal {
-    uint offerId = dex.best(address(base), address(quote));
+    uint offerId = mgv.best(address(base), address(quote));
     while (offerId != 0) {
-      (DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
-        dex.offerInfo(address(base), address(quote), offerId);
+      (MC.Offer memory offer, MC.OfferDetail memory offerDetail) =
+        mgv.offerInfo(address(base), address(quote), offerId);
       offers[offerId][TestUtils.Info.makerWants] = offer.wants;
       offers[offerId][TestUtils.Info.makerGives] = offer.gives;
       offers[offerId][TestUtils.Info.gasreq] = offerDetail.gasreq;
@@ -63,14 +63,14 @@ contract Scenarii_Test {
     for (uint i = 0; i < makers.length(); i++) {
       balA[i] = base.balanceOf(address(makers.getMaker(i)));
       balB[i] = quote.balanceOf(address(makers.getMaker(i)));
-      balWei[i] = dex.balanceOf(address(makers.getMaker(i)));
+      balWei[i] = mgv.balanceOf(address(makers.getMaker(i)));
     }
     balances = TestUtils.Balances({
-      dexBalanceWei: address(dex).balance,
-      dexBalanceFees: base.balanceOf(TestUtils.adminOf(dex)),
+      mgvBalanceWei: address(mgv).balance,
+      mgvBalanceFees: base.balanceOf(TestUtils.adminOf(mgv)),
       takerBalanceA: base.balanceOf(address(taker)),
       takerBalanceB: quote.balanceOf(address(taker)),
-      takerBalanceWei: dex.balanceOf(address(taker)),
+      takerBalanceWei: mgv.balanceOf(address(taker)),
       makersBalanceA: balA,
       makersBalanceB: balB,
       makersBalanceWei: balWei
@@ -87,20 +87,20 @@ contract Scenarii_Test {
 
     Display.register(address(0), "NULL_ADDRESS");
     Display.register(msg.sender, "Test Runner");
-    Display.register(address(this), "Dex_Test");
+    Display.register(address(this), "Mgv_Test");
     Display.register(address(base), "base");
     Display.register(address(quote), "quote");
   }
 
-  function b_deployDex_beforeAll() public {
-    dex = DexSetup.setup(base, quote);
-    Display.register(address(dex), "Dex");
-    TestEvents.not0x(address(dex));
-    dex.setFee(address(base), address(quote), 300);
+  function b_deployMgv_beforeAll() public {
+    mgv = MgvSetup.setup(base, quote);
+    Display.register(address(mgv), "Mgv");
+    TestEvents.not0x(address(mgv));
+    mgv.setFee(address(base), address(quote), 300);
   }
 
   function c_deployMakersTaker_beforeAll() public {
-    makers = MakerDeployerSetup.setup(dex, address(base), address(quote));
+    makers = MakerDeployerSetup.setup(mgv, address(base), address(quote));
     makers.deploy(4);
     for (uint i = 1; i < makers.length(); i++) {
       Display.register(
@@ -109,7 +109,7 @@ contract Scenarii_Test {
       );
     }
     Display.register(address(makers.getMaker(0)), "failer");
-    taker = TakerSetup.setup(dex, address(base), address(quote));
+    taker = TakerSetup.setup(mgv, address(base), address(quote));
     Display.register(address(taker), "taker");
   }
 
@@ -121,27 +121,27 @@ contract Scenarii_Test {
 
     for (uint i = 0; i < makers.length(); i++) {
       TestMaker maker = makers.getMaker(i);
-      maker.provisionDex(10 ether);
+      maker.provisionMgv(10 ether);
       base.mint(address(maker), 5 ether);
     }
 
     quote.mint(address(taker), 5 ether);
-    taker.approveDex(quote, 5 ether);
-    taker.approveDex(base, 50 ether);
+    taker.approveMgv(quote, 5 ether);
+    taker.approveMgv(base, 50 ether);
     saveBalances();
   }
 
   function snipe_insert_and_fail_test() public {
     //TestEvents.logString("=== Insert test ===", 0);
-    offerOf = TestInsert.run(balances, dex, makers, taker, base, quote);
-    //Display.printOfferBook(dex);
-    Display.logOfferBook(dex, address(base), address(quote), 4);
+    offerOf = TestInsert.run(balances, mgv, makers, taker, base, quote);
+    //Display.printOfferBook(mgv);
+    Display.logOfferBook(mgv, address(base), address(quote), 4);
 
     //TestEvents.logString("=== Snipe test ===", 0);
     saveBalances();
     saveOffers();
-    TestSnipe.run(balances, offers, dex, makers, taker, base, quote);
-    Display.logOfferBook(dex, address(base), address(quote), 4);
+    TestSnipe.run(balances, offers, mgv, makers, taker, base, quote);
+    Display.logOfferBook(mgv, address(base), address(quote), 4);
 
     // restore offer that was deleted after partial fill, minus taken amount
     makers.getMaker(2).updateOffer(
@@ -152,13 +152,13 @@ contract Scenarii_Test {
       2
     );
 
-    Display.logOfferBook(dex, address(base), address(quote), 4);
+    Display.logOfferBook(mgv, address(base), address(quote), 4);
 
     //TestEvents.logString("=== Market order test ===", 0);
     saveBalances();
     saveOffers();
-    TestMarketOrder.run(balances, offers, dex, makers, taker, base, quote);
-    Display.logOfferBook(dex, address(base), address(quote), 4);
+    TestMarketOrder.run(balances, offers, mgv, makers, taker, base, quote);
+    Display.logOfferBook(mgv, address(base), address(quote), 4);
 
     //TestEvents.logString("=== Failling offer test ===", 0);
     saveBalances();
@@ -166,14 +166,14 @@ contract Scenarii_Test {
     TestCollectFailingOffer.run(
       balances,
       offers,
-      dex,
+      mgv,
       offerOf[0],
       makers,
       taker,
       base,
       quote
     );
-    Display.logOfferBook(dex, address(base), address(quote), 4);
+    Display.logOfferBook(mgv, address(base), address(quote), 4);
     saveBalances();
     saveOffers();
   }
@@ -182,7 +182,7 @@ contract Scenarii_Test {
 contract DeepCollect_Test {
   TestToken base;
   TestToken quote;
-  Dex dex;
+  Mangrove mgv;
   TestTaker tkr;
   TestMoriartyMaker evil;
 
@@ -191,28 +191,28 @@ contract DeepCollect_Test {
   function a_beforeAll() public {
     base = TokenSetup.setup("A", "$A");
     quote = TokenSetup.setup("B", "$B");
-    dex = DexSetup.setup(base, quote);
-    tkr = TakerSetup.setup(dex, address(base), address(quote));
+    mgv = MgvSetup.setup(base, quote);
+    tkr = TakerSetup.setup(mgv, address(base), address(quote));
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "DeepCollect_Tester");
     Display.register(address(base), "$A");
     Display.register(address(quote), "$B");
-    Display.register(address(dex), "dex");
+    Display.register(address(mgv), "mgv");
     Display.register(address(tkr), "taker");
 
     quote.mint(address(tkr), 5 ether);
-    tkr.approveDex(quote, 20 ether);
-    tkr.approveDex(base, 20 ether);
+    tkr.approveMgv(quote, 20 ether);
+    tkr.approveMgv(base, 20 ether);
 
-    evil = new TestMoriartyMaker(dex, address(base), address(quote));
+    evil = new TestMoriartyMaker(mgv, address(base), address(quote));
     Display.register(address(evil), "Moriarty");
 
     (bool success, ) = address(evil).call{gas: gasleft(), value: 20 ether}("");
     require(success, "maker transfer");
-    evil.provisionDex(10 ether);
+    evil.provisionMgv(10 ether);
     base.mint(address(evil), 5 ether);
-    evil.approveDex(base, 5 ether);
+    evil.approveMgv(base, 5 ether);
 
     evil.newOffer({
       wants: 1 ether,
@@ -225,7 +225,7 @@ contract DeepCollect_Test {
   function market_with_failures_test() public {
     //TestEvents.logString("=== DeepCollect test ===", 0);
     TestFailingMarketOrder.moWithFailures(
-      dex,
+      mgv,
       address(base),
       address(quote),
       tkr

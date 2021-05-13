@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "hardhat/console.sol";
-import "../../Dex.sol";
+import "../../Mangrove.sol";
 import "../Agents/TestToken.sol";
 
 library Display {
@@ -351,12 +351,12 @@ library Display {
   );
 
   function logOfferBook(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote,
     uint size
   ) internal {
-    uint offerId = dex.best(base, quote);
+    uint offerId = mgv.best(base, quote);
 
     uint[] memory wants = new uint[](size);
     uint[] memory gives = new uint[](size);
@@ -365,8 +365,8 @@ library Display {
     uint[] memory gasreqs = new uint[](size);
     uint c = 0;
     while ((offerId != 0) && (c < size)) {
-      (DC.Offer memory offer, DC.OfferDetail memory od) =
-        dex.offerInfo(base, quote, offerId);
+      (MC.Offer memory offer, MC.OfferDetail memory od) =
+        mgv.offerInfo(base, quote, offerId);
       wants[c] = offer.wants;
       gives[c] = offer.gives;
       makerAddr[c] = od.maker;
@@ -379,17 +379,17 @@ library Display {
   }
 
   function printOfferBook(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote
   ) internal view {
-    uint offerId = dex.best(base, quote);
+    uint offerId = mgv.best(base, quote);
     TestToken req_tk = TestToken(quote);
     TestToken ofr_tk = TestToken(base);
 
     console.log("-----Best offer: %d-----", offerId);
     while (offerId != 0) {
-      (DC.Offer memory ofr, ) = dex.offerInfo(base, quote, offerId);
+      (MC.Offer memory ofr, ) = mgv.offerInfo(base, quote, offerId);
       console.log(
         "[offer %d] %s/%s",
         offerId,

@@ -3,8 +3,8 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../Dex.sol";
-import "../DexCommon.sol";
+import "../Mangrove.sol";
+import "../MgvCommon.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -22,7 +22,7 @@ import "./Agents/TestTaker.sol";
 contract Gas_Test is IMaker {
   receive() external payable {}
 
-  Dex _dex;
+  Mangrove _mgv;
   TestTaker _tkr;
   address _base;
   address _quote;
@@ -32,32 +32,32 @@ contract Gas_Test is IMaker {
     TestToken quoteT = TokenSetup.setup("B", "$B");
     _base = address(baseT);
     _quote = address(quoteT);
-    _dex = DexSetup.setup(baseT, quoteT);
+    _mgv = MgvSetup.setup(baseT, quoteT);
 
     bool noRevert;
-    (noRevert, ) = address(_dex).call{value: 10 ether}("");
+    (noRevert, ) = address(_mgv).call{value: 10 ether}("");
 
     baseT.mint(address(this), 2 ether);
-    baseT.approve(address(_dex), 2 ether);
-    quoteT.approve(address(_dex), 1 ether);
+    baseT.approve(address(_mgv), 2 ether);
+    quoteT.approve(address(_mgv), 1 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "Gatekeeping_Test/maker");
     Display.register(_base, "$A");
     Display.register(_quote, "$B");
-    Display.register(address(_dex), "dex");
+    Display.register(address(_mgv), "mgv");
 
-    _dex.newOffer(_base, _quote, 1 ether, 1 ether, 100_000, 0, 0);
-    console.log("dex", address(_dex));
+    _mgv.newOffer(_base, _quote, 1 ether, 1 ether, 100_000, 0, 0);
+    console.log("mgv", address(_mgv));
 
-    _tkr = TakerSetup.setup(_dex, _base, _quote);
+    _tkr = TakerSetup.setup(_mgv, _base, _quote);
     quoteT.mint(address(_tkr), 2 ether);
-    _tkr.approveDex(quoteT, 2 ether);
+    _tkr.approveMgv(quoteT, 2 ether);
     Display.register(address(_tkr), "Taker");
 
     /* set lock to 1 to avoid spurious 15k gas cost */
     uint ofr =
-      _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+      _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
     _tkr.take(ofr, 0.1 ether);
   }
 
@@ -65,16 +65,16 @@ contract Gas_Test is IMaker {
     internal
     view
     returns (
-      Dex,
+      Mangrove,
       TestTaker,
       address,
       address
     )
   {
-    return (_dex, _tkr, _base, _quote);
+    return (_mgv, _tkr, _base, _quote);
   }
 
-  function makerTrade(DC.SingleOrder calldata)
+  function makerTrade(MC.SingleOrder calldata)
     external
     pure
     override
@@ -84,103 +84,103 @@ contract Gas_Test is IMaker {
   }
 
   function makerPosthook(
-    DC.SingleOrder calldata order,
-    DC.OrderResult calldata result
+    MC.SingleOrder calldata order,
+    MC.OrderResult calldata result
   ) external override {}
 
   function update_min_move_0_offer_test() public {
-    (Dex dex, , address base, address quote) = getStored();
+    (Mangrove mgv, , address base, address quote) = getStored();
     uint g = gasleft();
     uint h;
-    dex.updateOffer(base, quote, 1 ether, 1 ether, 100_000, 0, 1, 1);
+    mgv.updateOffer(base, quote, 1 ether, 1 ether, 100_000, 0, 1, 1);
     h = gasleft();
     console.log("Gas used", g - h);
   }
 
   function update_full_offer_test() public {
-    (Dex dex, , address base, address quote) = getStored();
+    (Mangrove mgv, , address base, address quote) = getStored();
     uint g = gasleft();
     uint h;
-    dex.updateOffer(base, quote, 0.5 ether, 1 ether, 100_001, 0, 1, 1);
+    mgv.updateOffer(base, quote, 0.5 ether, 1 ether, 100_001, 0, 1, 1);
     h = gasleft();
     console.log("Gas used", g - h);
   }
 
   function update_min_move_3_offer_test() public {
-    (Dex dex, , address base, address quote) = getStored();
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    (Mangrove mgv, , address base, address quote) = getStored();
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
     uint g = gasleft();
     uint h;
-    dex.updateOffer(base, quote, 1.0 ether, 0.1 ether, 100_00, 0, 1, 1);
+    mgv.updateOffer(base, quote, 1.0 ether, 0.1 ether, 100_00, 0, 1, 1);
     h = gasleft();
     console.log("Gas used", g - h);
   }
 
   function update_min_move_6_offer_test() public {
-    (Dex dex, , address base, address quote) = getStored();
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    (Mangrove mgv, , address base, address quote) = getStored();
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
     uint g = gasleft();
     uint h;
-    dex.updateOffer(base, quote, 1.0 ether, 0.1 ether, 100_00, 0, 1, 1);
+    mgv.updateOffer(base, quote, 1.0 ether, 0.1 ether, 100_00, 0, 1, 1);
     h = gasleft();
     console.log("Gas used", g - h);
   }
 
   function new_offer_test() public {
-    (Dex dex, , address base, address quote) = getStored();
+    (Mangrove mgv, , address base, address quote) = getStored();
     uint g = gasleft();
     uint h;
-    dex.newOffer(base, quote, 0.1 ether, 0.1 ether, 100_000, 0, 1);
+    mgv.newOffer(base, quote, 0.1 ether, 0.1 ether, 100_000, 0, 1);
     h = gasleft();
     console.log("Gas used", g - h);
   }
 
   function take_offer_test() public {
-    (Dex dex, TestTaker tkr, address base, address quote) = getStored();
+    (Mangrove mgv, TestTaker tkr, address base, address quote) = getStored();
     uint g = gasleft();
     uint h;
-    tkr.snipe(dex, base, quote, 1, 1 ether, 1 ether, 100_000);
+    tkr.snipe(mgv, base, quote, 1, 1 ether, 1 ether, 100_000);
     h = gasleft();
     console.log("Gas used", g - h);
   }
 
   function partial_take_offer_test() public {
-    (Dex dex, TestTaker tkr, address base, address quote) = getStored();
+    (Mangrove mgv, TestTaker tkr, address base, address quote) = getStored();
     uint g = gasleft();
     uint h;
-    tkr.snipe(dex, base, quote, 1, 0.5 ether, 0.5 ether, 100_000);
+    tkr.snipe(mgv, base, quote, 1, 0.5 ether, 0.5 ether, 100_000);
     h = gasleft();
     console.log("Gas used", g - h);
   }
 
   function market_order_1_test() public {
-    (Dex dex, TestTaker tkr, address base, address quote) = getStored();
+    (Mangrove mgv, TestTaker tkr, address base, address quote) = getStored();
     uint g = gasleft();
     uint h;
-    tkr.marketOrder(dex, base, quote, 1 ether, 1 ether);
+    tkr.marketOrder(mgv, base, quote, 1 ether, 1 ether);
     h = gasleft();
     console.log("Gas used", g - h);
   }
 
   function market_order_8_test() public {
-    (Dex dex, TestTaker tkr, address base, address quote) = getStored();
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
-    _dex.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    (Mangrove mgv, TestTaker tkr, address base, address quote) = getStored();
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
     uint g = gasleft();
     uint h;
-    tkr.marketOrder(dex, base, quote, 2 ether, 2 ether);
+    tkr.marketOrder(mgv, base, quote, 2 ether, 2 ether);
     h = gasleft();
     console.log("Gas used", g - h);
   }

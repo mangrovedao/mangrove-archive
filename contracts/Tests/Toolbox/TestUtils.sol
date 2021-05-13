@@ -13,8 +13,8 @@ import "./Display.sol";
 
 library TestUtils {
   struct Balances {
-    uint dexBalanceWei;
-    uint dexBalanceFees;
+    uint mgvBalanceWei;
+    uint mgvBalanceFees;
     uint takerBalanceA;
     uint takerBalanceB;
     uint takerBalanceWei;
@@ -45,33 +45,33 @@ library TestUtils {
   }
 
   function isEmptyOB(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote
   ) internal view returns (bool) {
-    return dex.best(base, quote) == 0;
+    return mgv.best(base, quote) == 0;
   }
 
-  function adminOf(Dex dex) internal view returns (address) {
-    return dex.governance();
+  function adminOf(Mangrove mgv) internal view returns (address) {
+    return mgv.governance();
   }
 
   function getFee(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote,
     uint price
   ) internal returns (uint) {
-    return ((price * dex.getConfig(base, quote).local.fee) / 10000);
+    return ((price * mgv.getConfig(base, quote).local.fee) / 10000);
   }
 
   function getProvision(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote,
     uint gasreq
   ) internal returns (uint) {
-    DC.Config memory config = dex.getConfig(base, quote);
+    MC.Config memory config = mgv.getConfig(base, quote);
     return ((gasreq +
       config.local.overhead_gasbase +
       config.local.offer_gasbase) *
@@ -80,13 +80,13 @@ library TestUtils {
   }
 
   function getProvision(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote,
     uint gasreq,
     uint gasprice
   ) internal returns (uint) {
-    DC.Config memory config = dex.getConfig(base, quote);
+    MC.Config memory config = mgv.getConfig(base, quote);
     uint _gp;
     if (config.global.gasprice > gasprice) {
       _gp = uint(config.global.gasprice);
@@ -101,15 +101,15 @@ library TestUtils {
   }
 
   function getOfferInfo(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote,
     Info infKey,
     uint offerId
   ) internal view returns (uint) {
-    (DC.Offer memory offer, DC.OfferDetail memory offerDetail) =
-      dex.offerInfo(base, quote, offerId);
-    if (!dex.isLive(dex.offers(base, quote, offerId))) {
+    (MC.Offer memory offer, MC.OfferDetail memory offerDetail) =
+      mgv.offerInfo(base, quote, offerId);
+    if (!mgv.isLive(mgv.offers(base, quote, offerId))) {
       return 0;
     }
     if (infKey == Info.makerWants) {
@@ -129,21 +129,21 @@ library TestUtils {
   }
 
   function hasOffer(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote,
     uint offerId
   ) internal view returns (bool) {
-    return (getOfferInfo(dex, base, quote, Info.makerGives, offerId) > 0);
+    return (getOfferInfo(mgv, base, quote, Info.makerGives, offerId) > 0);
   }
 
   function makerOf(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote,
     uint offerId
   ) internal view returns (address) {
-    (, DC.OfferDetail memory od) = dex.offerInfo(base, quote, offerId);
+    (, MC.OfferDetail memory od) = mgv.offerInfo(base, quote, offerId);
     return od.maker;
   }
 }
@@ -161,83 +161,83 @@ library TokenSetup {
   }
 }
 
-library DexSetup {
-  function setup(TestToken base, TestToken quote) external returns (Dex dex) {
+library MgvSetup {
+  function setup(TestToken base, TestToken quote) external returns (Mangrove mgv) {
     TestEvents.not0x(address(base));
     TestEvents.not0x(address(quote));
-    dex = new FMD({gasprice: 40, gasmax: 1_000_000});
+    mgv = new MMgv({gasprice: 40, gasmax: 1_000_000});
 
-    dex.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
-    dex.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
+    mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
+    mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
 
-    return dex;
+    return mgv;
   }
 
   function setup(
     TestToken base,
     TestToken quote,
     bool inverted
-  ) external returns (Dex dex) {
+  ) external returns (Mangrove mgv) {
     TestEvents.not0x(address(base));
     TestEvents.not0x(address(quote));
     if (inverted) {
-      dex = new FTD({gasprice: 40, gasmax: 1_000_000});
+      mgv = new TMgv({gasprice: 40, gasmax: 1_000_000});
 
-      dex.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
-      dex.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
+      mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
+      mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
 
-      return dex;
+      return mgv;
     } else {
-      dex = new FMD({gasprice: 40, gasmax: 1_000_000});
+      mgv = new MMgv({gasprice: 40, gasmax: 1_000_000});
 
-      dex.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
-      dex.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
+      mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
+      mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
 
-      return dex;
+      return mgv;
     }
   }
 }
 
 library MakerSetup {
   function setup(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote,
     uint failer // 1 shouldFail, 2 shouldRevert
   ) external returns (TestMaker) {
-    TestMaker tm = new TestMaker(dex, IERC20(base), IERC20(quote));
+    TestMaker tm = new TestMaker(mgv, IERC20(base), IERC20(quote));
     tm.shouldFail(failer == 1);
     tm.shouldRevert(failer == 2);
     return (tm);
   }
 
   function setup(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote
   ) external returns (TestMaker) {
-    return new TestMaker(dex, IERC20(base), IERC20(quote));
+    return new TestMaker(mgv, IERC20(base), IERC20(quote));
   }
 }
 
 library MakerDeployerSetup {
   function setup(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote
   ) external returns (MakerDeployer) {
-    TestEvents.not0x(address(dex));
-    return (new MakerDeployer(dex, base, quote));
+    TestEvents.not0x(address(mgv));
+    return (new MakerDeployer(mgv, base, quote));
   }
 }
 
 library TakerSetup {
   function setup(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote
   ) external returns (TestTaker) {
-    TestEvents.not0x(address(dex));
-    return new TestTaker(dex, IERC20(base), IERC20(quote));
+    TestEvents.not0x(address(mgv));
+    return new TestTaker(mgv, IERC20(base), IERC20(quote));
   }
 }

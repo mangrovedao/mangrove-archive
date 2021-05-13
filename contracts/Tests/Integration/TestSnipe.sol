@@ -8,7 +8,7 @@ library TestSnipe {
   function run(
     TestUtils.Balances storage balances,
     mapping(uint => mapping(TestUtils.Info => uint)) storage offers,
-    Dex dex,
+    Mangrove mgv,
     MakerDeployer makers,
     TestTaker taker,
     TestToken base,
@@ -18,7 +18,7 @@ library TestSnipe {
     uint snipedId = 2;
     TestMaker maker = makers.getMaker(snipedId); // maker whose offer will be sniped
 
-    //(uint init_mkr_wants, uint init_mkr_gives,,,,,)=dex.getOfferInfo(2);
+    //(uint init_mkr_wants, uint init_mkr_gives,,,,,)=mgv.getOfferInfo(2);
     //---------------SNIPE------------------//
     uint takerGave;
     uint takerGot;
@@ -32,22 +32,22 @@ library TestSnipe {
       TestEvents.check(takeSuccess, "snipe should be a success");
     }
     TestEvents.eq(
-      base.balanceOf(TestUtils.adminOf(dex)), //actual
-      balances.dexBalanceFees +
-        TestUtils.getFee(dex, address(base), address(quote), orderAmount), //expected
-      "incorrect Dex A balance"
+      base.balanceOf(TestUtils.adminOf(mgv)), //actual
+      balances.mgvBalanceFees +
+        TestUtils.getFee(mgv, address(base), address(quote), orderAmount), //expected
+      "incorrect Mangrove A balance"
     );
     TestEvents.eq(
       base.balanceOf(address(taker)), // actual
       balances.takerBalanceA +
         orderAmount -
-        TestUtils.getFee(dex, address(base), address(quote), orderAmount), // expected
+        TestUtils.getFee(mgv, address(base), address(quote), orderAmount), // expected
       "incorrect taker A balance"
     );
     TestEvents.eq(
       takerGot,
       orderAmount -
-        TestUtils.getFee(dex, address(base), address(quote), orderAmount),
+        TestUtils.getFee(mgv, address(base), address(quote), orderAmount),
       "Incorrect takerGot"
     );
     {
@@ -74,8 +74,8 @@ library TestSnipe {
       "incorrect maker B balance"
     );
     // Testing residual offer
-    (DC.Offer memory ofr, ) =
-      dex.offerInfo(address(base), address(quote), snipedId);
+    (MC.Offer memory ofr, ) =
+      mgv.offerInfo(address(base), address(quote), snipedId);
     TestEvents.check(ofr.gives == 0, "Offer should not have a residual");
   }
 }

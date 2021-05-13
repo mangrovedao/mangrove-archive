@@ -3,27 +3,27 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./Passthrough.sol";
 import "../../interfaces.sol";
-import "../../Dex.sol";
+import "../../Mangrove.sol";
 
 contract TestMoriartyMaker is IMaker, Passthrough {
-  Dex dex;
+  Mangrove mgv;
   address base;
   address quote;
   bool succeed;
   uint dummy;
 
   constructor(
-    Dex _dex,
+    Mangrove _mgv,
     address _base,
     address _quote
   ) {
-    dex = _dex;
+    mgv = _mgv;
     base = _base;
     quote = _quote;
     succeed = true;
   }
 
-  function makerTrade(DC.SingleOrder calldata order)
+  function makerTrade(MC.SingleOrder calldata order)
     public
     override
     returns (bytes32 ret)
@@ -40,8 +40,8 @@ contract TestMoriartyMaker is IMaker, Passthrough {
   }
 
   function makerPosthook(
-    DC.SingleOrder calldata order,
-    DC.OrderResult calldata result
+    MC.SingleOrder calldata order,
+    MC.OrderResult calldata result
   ) external override {}
 
   function newOffer(
@@ -50,13 +50,13 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     uint gasreq,
     uint pivotId
   ) public {
-    dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
-    dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
-    dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
-    dex.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
-    uint density = dex.getConfig(base, quote).local.density;
-    uint offer_gasbase = dex.getConfig(base, quote).local.offer_gasbase;
-    dummy = dex.newOffer({
+    mgv.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
+    mgv.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
+    mgv.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
+    mgv.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
+    uint density = mgv.getConfig(base, quote).local.density;
+    uint offer_gasbase = mgv.getConfig(base, quote).local.offer_gasbase;
+    dummy = mgv.newOffer({
       base: base,
       quote: quote,
       wants: 1,
@@ -67,13 +67,13 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     }); //dummy offer
   }
 
-  function provisionDex(uint amount) public {
-    (bool success, ) = address(dex).call{value: amount}("");
+  function provisionMgv(uint amount) public {
+    (bool success, ) = address(mgv).call{value: amount}("");
     require(success);
   }
 
-  function approveDex(IERC20 token, uint amount) public {
-    token.approve(address(dex), amount);
+  function approveMgv(IERC20 token, uint amount) public {
+    token.approve(address(mgv), amount);
   }
 
   receive() external payable {}

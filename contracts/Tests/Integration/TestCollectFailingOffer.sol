@@ -7,7 +7,7 @@ library TestCollectFailingOffer {
   function run(
     TestUtils.Balances storage balances,
     mapping(uint => mapping(TestUtils.Info => uint)) storage offers,
-    Dex dex,
+    Mangrove mgv,
     uint failingOfferId,
     MakerDeployer makers,
     TestTaker taker,
@@ -24,29 +24,29 @@ library TestCollectFailingOffer {
       TestEvents.check(!success, "Failer should fail");
       TestEvents.eq(takerGot, 0, "Failed offer should declare 0 takerGot");
       TestEvents.eq(takerGave, 0, "Failed offer should declare 0 takerGave");
-      // failingOffer should have been removed from Dex
+      // failingOffer should have been removed from Mgv
       {
         TestEvents.check(
-          !dex.isLive(
-            dex.offers(address(base), address(quote), failingOfferId)
+          !mgv.isLive(
+            mgv.offers(address(base), address(quote), failingOfferId)
           ),
-          "Failing offer should have been removed from Dex"
+          "Failing offer should have been removed from Mgv"
         );
       }
       uint provision =
         TestUtils.getProvision(
-          dex,
+          mgv,
           address(base),
           address(quote),
           offers[failingOfferId][TestUtils.Info.gasreq]
         );
       uint returned =
-        dex.balanceOf(address(makers.getMaker(0))) -
+        mgv.balanceOf(address(makers.getMaker(0))) -
           balances.makersBalanceWei[0];
       TestEvents.eq(
-        address(dex).balance,
-        balances.dexBalanceWei - (provision - returned),
-        "Dex has not send the correct amount to taker"
+        address(mgv).balance,
+        balances.mgvBalanceWei - (provision - returned),
+        "Mangrove has not send the correct amount to taker"
       );
     } catch (bytes memory errorMsg) {
       string memory err = abi.decode(errorMsg, (string));

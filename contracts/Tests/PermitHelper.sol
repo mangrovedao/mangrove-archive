@@ -3,8 +3,8 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "../Dex.sol";
-import "../DexCommon.sol";
+import "../Mangrove.sol";
+import "../MgvCommon.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -22,22 +22,22 @@ import "./Agents/TestTaker.sol";
 /* THIS IS NOT A `hardhat test-solidity` TEST FILE */
 /* *********************************************** */
 
-/* See test/permit.js, this helper sets up a dex for the javascript tester of the permit functionality */
+/* See test/permit.js, this helper sets up a mgv for the javascript tester of the permit functionality */
 
 contract PermitHelper is IMaker {
   receive() external payable {}
 
-  Dex dex;
+  Mangrove mgv;
   address base;
   address quote;
 
-  function makerTrade(DC.SingleOrder calldata)
+  function makerTrade(MC.SingleOrder calldata)
     external
     override
     returns (bytes32)
   {}
 
-  function makerPosthook(DC.SingleOrder calldata, DC.OrderResult calldata)
+  function makerPosthook(MC.SingleOrder calldata, MC.OrderResult calldata)
     external
     override
   {}
@@ -47,27 +47,27 @@ contract PermitHelper is IMaker {
     TestToken quoteT = TokenSetup.setup("B", "$B");
     base = address(baseT);
     quote = address(quoteT);
-    dex = DexSetup.setup(baseT, quoteT);
+    mgv = MgvSetup.setup(baseT, quoteT);
 
     bool noRevert;
-    (noRevert, ) = address(dex).call{value: 10 ether}("");
+    (noRevert, ) = address(mgv).call{value: 10 ether}("");
 
     baseT.mint(address(this), 2 ether);
     quoteT.mint(msg.sender, 2 ether);
 
-    baseT.approve(address(dex), 1 ether);
+    baseT.approve(address(mgv), 1 ether);
 
     Display.register(msg.sender, "Permit signer");
     Display.register(address(this), "Permit Helper");
     Display.register(base, "$A");
     Display.register(quote, "$B");
-    Display.register(address(dex), "dex");
+    Display.register(address(mgv), "mgv");
 
-    dex.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0, 0);
+    mgv.newOffer(base, quote, 1 ether, 1 ether, 100_000, 0, 0);
   }
 
-  function dexAddress() external view returns (address) {
-    return address(dex);
+  function mgvAddress() external view returns (address) {
+    return address(mgv);
   }
 
   function baseAddress() external view returns (address) {
@@ -79,10 +79,10 @@ contract PermitHelper is IMaker {
   }
 
   function no_allowance() external {
-    try dex.snipeFor(base, quote, 1, 1 ether, 1 ether, 300_000, msg.sender) {
+    try mgv.snipeFor(base, quote, 1, 1 ether, 1 ether, 300_000, msg.sender) {
       revert("snipeFor without allowance should revert");
     } catch Error(string memory reason) {
-      if (keccak256(bytes(reason)) != keccak256("dex/lowAllowance")) {
+      if (keccak256(bytes(reason)) != keccak256("mgv/lowAllowance")) {
         revert("revert when no allowance should be due to no allowance");
       }
     }
@@ -96,7 +96,7 @@ contract PermitHelper is IMaker {
     bytes32 s
   ) external {
     try
-      dex.permit({
+      mgv.permit({
         base: base,
         quote: quote,
         owner: msg.sender,
@@ -111,7 +111,7 @@ contract PermitHelper is IMaker {
       revert("Permit with bad v,r,s should revert");
     } catch Error(string memory reason) {
       if (
-        keccak256(bytes(reason)) != keccak256("dex/permit/invalidSignature")
+        keccak256(bytes(reason)) != keccak256("mgv/permit/invalidSignature")
       ) {
         revert("permit failed, but signature should be deemed invalid");
       }
@@ -126,7 +126,7 @@ contract PermitHelper is IMaker {
     bytes32 s
   ) external {
     try
-      dex.permit({
+      mgv.permit({
         base: base,
         quote: quote,
         owner: msg.sender,
@@ -140,7 +140,7 @@ contract PermitHelper is IMaker {
     {
       revert("Permit with expired deadline should revert");
     } catch Error(string memory reason) {
-      if (keccak256(bytes(reason)) != keccak256("dex/permit/expired")) {
+      if (keccak256(bytes(reason)) != keccak256("mgv/permit/expired")) {
         revert("permit failed, but deadline should be deemed expired");
       }
     }
@@ -153,7 +153,7 @@ contract PermitHelper is IMaker {
     bytes32 r,
     bytes32 s
   ) external {
-    dex.permit(
+    mgv.permit(
       base,
       quote,
       msg.sender,
@@ -165,12 +165,12 @@ contract PermitHelper is IMaker {
       s
     );
 
-    if (dex.allowances(base, quote, msg.sender, address(this)) != value) {
+    if (mgv.allowances(base, quote, msg.sender, address(this)) != value) {
       revert("Allowance not set");
     }
 
     (bool success, uint takerGot, uint takerGave) =
-      dex.snipeFor(base, quote, 1, 1 ether, 1 ether, 300_000, msg.sender);
+      mgv.snipeFor(base, quote, 1, 1 ether, 1 ether, 300_000, msg.sender);
     if (!success) {
       revert("Snipe should succeed");
     }
@@ -183,7 +183,7 @@ contract PermitHelper is IMaker {
     }
 
     if (
-      dex.allowances(base, quote, msg.sender, address(this)) !=
+      mgv.allowances(base, quote, msg.sender, address(this)) !=
       (value - 1 ether)
     ) {
       revert("Allowance incorrectly decreased");

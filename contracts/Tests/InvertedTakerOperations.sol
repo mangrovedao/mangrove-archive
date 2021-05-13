@@ -3,8 +3,8 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../Dex.sol";
-import {IMaker as IM, DexCommon} from "../DexCommon.sol";
+import "../Mangrove.sol";
+import {IMaker as IM, MgvCommon} from "../MgvCommon.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -24,7 +24,7 @@ contract InvertedTakerOperations_Test is ITaker {
   TestToken quoteT;
   address base;
   address quote;
-  Dex dex;
+  Mangrove mgv;
   TestMaker mkr;
   bytes4 takerTrade_bytes;
   uint baseBalance;
@@ -37,24 +37,24 @@ contract InvertedTakerOperations_Test is ITaker {
     quoteT = TokenSetup.setup("B", "$B");
     base = address(baseT);
     quote = address(quoteT);
-    dex = DexSetup.setup(baseT, quoteT, true);
+    mgv = MgvSetup.setup(baseT, quoteT, true);
 
-    mkr = MakerSetup.setup(dex, base, quote);
+    mkr = MakerSetup.setup(mgv, base, quote);
 
     address(mkr).transfer(10 ether);
-    mkr.provisionDex(1 ether);
-    mkr.approveDex(baseT, 10 ether);
+    mkr.provisionMgv(1 ether);
+    mkr.approveMgv(baseT, 10 ether);
 
     baseT.mint(address(mkr), 5 ether);
     quoteT.mint(address(this), 5 ether);
-    quoteT.approve(address(dex), 5 ether);
+    quoteT.approve(address(mgv), 5 ether);
     baseBalance = baseT.balanceOf(address(this));
     quoteBalance = quoteT.balanceOf(address(this));
 
     Display.register(msg.sender, "Test Runner");
     Display.register(base, "$A");
     Display.register(quote, "$B");
-    Display.register(address(dex), "dex");
+    Display.register(address(mgv), "mgv");
     Display.register(address(mkr), "maker");
   }
 
@@ -80,7 +80,7 @@ contract InvertedTakerOperations_Test is ITaker {
     uint totalGot,
     uint totalGives
   ) public override {
-    require(msg.sender == address(dex));
+    require(msg.sender == address(mgv));
     if (!skipCheck) {
       TestEvents.eq(
         baseBalance + totalGot,
@@ -100,7 +100,7 @@ contract InvertedTakerOperations_Test is ITaker {
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.checkPay.selector;
     toPay = 0.2 ether;
-    (, uint gave) = dex.marketOrder(base, quote, 0.2 ether, 0.2 ether);
+    (, uint gave) = mgv.marketOrder(base, quote, 0.2 ether, 0.2 ether);
     TestEvents.eq(
       quoteBalance - gave,
       quoteT.balanceOf(address(this)),
@@ -121,16 +121,16 @@ contract InvertedTakerOperations_Test is ITaker {
     uint _ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.revertTrade.selector;
     skipCheck = true;
-    try dex.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
+    try mgv.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
       TestEvents.fail("Market order should have reverted");
     } catch Error(string memory reason) {
       TestEvents.eq("TradeFail", reason, "Unexpected throw");
       TestEvents.check(
-        TestUtils.hasOffer(dex, address(base), address(quote), ofr),
+        TestUtils.hasOffer(mgv, address(base), address(quote), ofr),
         "Offer 1 should be present"
       );
       TestEvents.check(
-        TestUtils.hasOffer(dex, address(base), address(quote), _ofr),
+        TestUtils.hasOffer(mgv, address(base), address(quote), _ofr),
         "Offer 2 should be present"
       );
     }
@@ -141,7 +141,7 @@ contract InvertedTakerOperations_Test is ITaker {
     address,
     uint
   ) external {
-    IERC20(_base).approve(address(dex), 0);
+    IERC20(_base).approve(address(mgv), 0);
   }
 
   function refusePayTrade(
@@ -149,18 +149,18 @@ contract InvertedTakerOperations_Test is ITaker {
     address _quote,
     uint
   ) external {
-    IERC20(_quote).approve(address(dex), 0);
+    IERC20(_quote).approve(address(mgv), 0);
   }
 
   function taker_refuses_to_deliver_during_trade_test() public {
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.refusePayTrade.selector;
-    try dex.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
+    try mgv.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
       TestEvents.fail("Market order should have reverted");
     } catch Error(string memory reason) {
       TestEvents.eq(
         reason,
-        "dex/takerFailToPayMaker",
+        "mgv/takerFailToPayMaker",
         "Unexpected throw message"
       );
     }
@@ -180,17 +180,17 @@ contract InvertedTakerOperations_Test is ITaker {
     takerTrade_bytes = this.noop.selector;
     skipCheck = true;
     (bool success, uint totalGot, uint totalGave) =
-      dex.snipe(_base, _quote, 2, 0.1 ether, 0.1 ether, 100_000);
+      mgv.snipe(_base, _quote, 2, 0.1 ether, 0.1 ether, 100_000);
     TestEvents.check(success, "Snipe on reentrancy should succeed");
     TestEvents.eq(totalGot, 0.1 ether, "Incorrect totalGot");
     TestEvents.eq(totalGave, 0.1 ether, "Incorrect totalGave");
   }
 
-  function taker_snipe_dex_during_trade_test() public {
+  function taker_snipe_mgv_during_trade_test() public {
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.reenter.selector;
-    (uint got, uint gave) = dex.marketOrder(base, quote, 0.1 ether, 0.1 ether);
+    (uint got, uint gave) = mgv.marketOrder(base, quote, 0.1 ether, 0.1 ether);
     TestEvents.eq(
       quoteBalance - gave - 0.1 ether,
       quoteT.balanceOf(address(this)),
@@ -201,19 +201,19 @@ contract InvertedTakerOperations_Test is ITaker {
       baseT.balanceOf(address(this)),
       "Incorrect transfer (got) during reentrancy"
     );
-    TestEvents.expectFrom(address(dex));
-    emit DexEvents.Success(base, quote, 1, address(this), 0.1 ether, 0.1 ether);
-    emit DexEvents.Success(base, quote, 2, address(this), 0.1 ether, 0.1 ether);
+    TestEvents.expectFrom(address(mgv));
+    emit MgvEvents.Success(base, quote, 1, address(this), 0.1 ether, 0.1 ether);
+    emit MgvEvents.Success(base, quote, 2, address(this), 0.1 ether, 0.1 ether);
     TestEvents.expectFrom(address(mkr));
-    mkr.logExecute(address(dex), base, quote, 1, 0.1 ether, 0.1 ether);
-    mkr.logExecute(address(dex), base, quote, 2, 0.1 ether, 0.1 ether);
+    mkr.logExecute(address(mgv), base, quote, 1, 0.1 ether, 0.1 ether);
+    mkr.logExecute(address(mgv), base, quote, 2, 0.1 ether, 0.1 ether);
   }
 
   function taker_pays_back_correct_amount_1_test() public {
     uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     uint bal = quoteT.balanceOf(address(this));
     takerTrade_bytes = this.noop.selector;
-    dex.snipe(base, quote, ofr, 0.05 ether, 0.05 ether, 100_000);
+    mgv.snipe(base, quote, ofr, 0.05 ether, 0.05 ether, 100_000);
     TestEvents.eq(
       quoteT.balanceOf(address(this)),
       bal - 0.05 ether,
@@ -225,7 +225,7 @@ contract InvertedTakerOperations_Test is ITaker {
     uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     uint bal = quoteT.balanceOf(address(this));
     takerTrade_bytes = this.noop.selector;
-    dex.snipe(base, quote, ofr, 0.02 ether, 0.05 ether, 100_000);
+    mgv.snipe(base, quote, ofr, 0.02 ether, 0.05 ether, 100_000);
     TestEvents.eq(
       quoteT.balanceOf(address(this)),
       bal - 0.02 ether,

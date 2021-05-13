@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.0;
 
-import "../../Dex.sol";
+import "../../Mangrove.sol";
 import "../../interfaces.sol";
 import "./TestMaker.sol";
 import "../../ERC20BL.sol";
@@ -14,16 +14,16 @@ import "hardhat/console.sol";
 contract MakerDeployer {
   address payable[] makers;
   bool deployed;
-  Dex dex;
+  Mangrove mgv;
   address base;
   address quote;
 
   constructor(
-    Dex _dex,
+    Mangrove _mgv,
     address _base,
     address _quote
   ) {
-    dex = _dex;
+    mgv = _mgv;
     base = _base;
     quote = _quote;
   }
@@ -51,8 +51,8 @@ contract MakerDeployer {
     if (!deployed) {
       makers = new address payable[](k);
       for (uint i = 0; i < k; i++) {
-        makers[i] = address(new TestMaker(dex, ERC20BL(base), ERC20BL(quote)));
-        TestMaker(makers[i]).approveDex(ERC20BL(base), 10 ether);
+        makers[i] = address(new TestMaker(mgv, ERC20BL(base), ERC20BL(quote)));
+        TestMaker(makers[i]).approveMgv(ERC20BL(base), 10 ether);
         TestMaker(makers[i]).shouldFail(i == 0); //maker-0 is failer
       }
     }

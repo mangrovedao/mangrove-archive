@@ -3,8 +3,8 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../Dex.sol";
-import "../DexCommon.sol";
+import "../Mangrove.sol";
+import "../MgvCommon.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -22,7 +22,7 @@ import "./Agents/Compound.sol";
 contract Pedagogical_Test {
   receive() external payable {}
 
-  Dex dex;
+  Mangrove mgv;
   TestToken bat;
   TestToken dai;
   TestTaker tkr;
@@ -51,7 +51,7 @@ contract Pedagogical_Test {
     });
 
     //logBook
-    Display.logOfferBook(dex, address(bat), address(dai), 3);
+    Display.logOfferBook(mgv, address(bat), address(dai), 3);
     Display.logBalances(bat, dai, address(mkr), address(tkr));
   }
 
@@ -65,7 +65,7 @@ contract Pedagogical_Test {
       tkr.marketOrder({wants: 2.7 ether, gives: 3.5 ether});
     Display.log("Market order ended. Got / gave", got, gave);
 
-    Display.logOfferBook(dex, address(bat), address(dai), 1);
+    Display.logOfferBook(mgv, address(bat), address(dai), 1);
     Display.logBalances(bat, dai, address(mkr), address(tkr));
   }
 
@@ -81,7 +81,7 @@ contract Pedagogical_Test {
         pivotId: 0
       });
 
-    Display.logOfferBook(dex, address(bat), address(dai), 1);
+    Display.logOfferBook(mgv, address(bat), address(dai), 1);
     Display.logBalances(
       bat,
       dai,
@@ -103,7 +103,7 @@ contract Pedagogical_Test {
       Display.log("Take failed");
     }
 
-    Display.logOfferBook(dex, address(bat), address(dai), 1);
+    Display.logOfferBook(mgv, address(bat), address(dai), 1);
     Display.logBalances(
       bat,
       dai,
@@ -119,7 +119,7 @@ contract Pedagogical_Test {
     Display.log("Maker posts 1 offer");
     mkr.newOffer({wants: 1 ether, gives: 1 ether, gasreq: 400_000, pivotId: 0});
 
-    Display.logOfferBook(dex, address(bat), address(dai), 1);
+    Display.logOfferBook(mgv, address(bat), address(dai), 1);
     Display.logBalances(bat, dai, address(mkr), address(tkr));
 
     Display.log(
@@ -128,7 +128,7 @@ contract Pedagogical_Test {
     (uint got, uint gave) = tkr.marketOrder({wants: 1 ether, gives: 1 ether});
     Display.log("Market order complete. got / gave:", got, gave);
 
-    Display.logOfferBook(dex, address(bat), address(dai), 1);
+    Display.logOfferBook(mgv, address(bat), address(dai), 1);
     Display.logBalances(bat, dai, address(mkr), address(tkr));
   }
 
@@ -141,10 +141,10 @@ contract Pedagogical_Test {
 
     dai = new TestToken({admin: address(this), name: "Dai", symbol: "DAI"});
 
-    dex = new FMD({gasprice: 40, gasmax: 1_000_000});
+    mgv = new MMgv({gasprice: 40, gasmax: 1_000_000});
 
     // activate a market where taker buys BAT using DAI
-    dex.activate({
+    mgv.activate({
       base: address(bat),
       quote: address(dai),
       fee: 0,
@@ -153,29 +153,29 @@ contract Pedagogical_Test {
       offer_gasbase: 10_000
     });
 
-    tkr = new TestTaker({dex: dex, base: bat, quote: dai});
+    tkr = new TestTaker({mgv: mgv, base: bat, quote: dai});
 
-    dex.fund{value: 10 ether}(address(this));
+    mgv.fund{value: 10 ether}(address(this));
 
     dai.mint({amount: 10 ether, to: address(tkr)});
-    tkr.approveDex({amount: 10 ether, token: dai});
+    tkr.approveMgv({amount: 10 ether, token: dai});
 
     Display.register({addr: msg.sender, name: "Test Runner"});
     Display.register({addr: address(this), name: "Testing Contract"});
     Display.register({addr: address(bat), name: "BAT"});
     Display.register({addr: address(dai), name: "DAI"});
-    Display.register({addr: address(dex), name: "dex"});
+    Display.register({addr: address(mgv), name: "mgv"});
     Display.register({addr: address(tkr), name: "taker"});
   }
 
   function setupMakerBasic() internal {
-    mkr = new Maker_basic({dex: dex, base: bat, quote: dai});
+    mkr = new Maker_basic({mgv: mgv, base: bat, quote: dai});
 
     Display.register({addr: address(mkr), name: "maker-basic"});
 
     // testing contract starts with 1000 ETH
     address(mkr).transfer(10 ether);
-    mkr.provisionDex({amount: 5 ether});
+    mkr.provisionMgv({amount: 5 ether});
     bat.mint({amount: 10 ether, to: address(mkr)});
   }
 
@@ -186,7 +186,7 @@ contract Pedagogical_Test {
     Display.register(address(compound.c(dai)), "cDAI");
 
     Maker_compound _mkr =
-      new Maker_compound({dex: dex, base: bat, quote: dai, compound: compound});
+      new Maker_compound({mgv: mgv, base: bat, quote: dai, compound: compound});
 
     mkr = _mkr;
 
@@ -197,18 +197,18 @@ contract Pedagogical_Test {
 
     // testing contract starts with 1000 ETH
     address(mkr).transfer(10 ether);
-    mkr.provisionDex({amount: 5 ether});
+    mkr.provisionMgv({amount: 5 ether});
   }
 
   function setupMakerCallback() internal {
     Display.log("Setting up maker with synchronous callback");
-    mkr = new Maker_callback({dex: dex, base: bat, quote: dai});
+    mkr = new Maker_callback({mgv: mgv, base: bat, quote: dai});
 
     Display.register({addr: address(mkr), name: "maker-callback"});
 
     // testing contract starts with 1000 ETH
     address(mkr).transfer(10 ether);
-    mkr.provisionDex({amount: 5 ether});
+    mkr.provisionMgv({amount: 5 ether});
 
     bat.mint({amount: 10 ether, to: address(mkr)});
   }
@@ -218,14 +218,14 @@ contract Pedagogical_Test {
 // Sends amount to taker.
 contract Maker_basic is TestMaker {
   constructor(
-    Dex dex,
+    Mangrove mgv,
     ERC20BL base,
     ERC20BL quote
-  ) TestMaker(dex, base, quote) {
-    approveDex(base, 500 ether);
+  ) TestMaker(mgv, base, quote) {
+    approveMgv(base, 500 ether);
   }
 
-  function makerTrade(DC.SingleOrder calldata)
+  function makerTrade(MC.SingleOrder calldata)
     public
     pure
     override
@@ -242,13 +242,13 @@ contract Maker_compound is TestMaker {
   Compound _compound;
 
   constructor(
-    Dex dex,
+    Mangrove mgv,
     ERC20BL base,
     ERC20BL quote,
     Compound compound
-  ) TestMaker(dex, base, quote) {
+  ) TestMaker(mgv, base, quote) {
     _compound = compound;
-    approveDex(base, 500 ether);
+    approveMgv(base, 500 ether);
     base.approve(address(compound), 500 ether);
     quote.approve(address(compound), 500 ether);
   }
@@ -258,7 +258,7 @@ contract Maker_compound is TestMaker {
     _compound.mint(ERC20BL(_base), 10 ether);
   }
 
-  function makerTrade(DC.SingleOrder calldata order)
+  function makerTrade(MC.SingleOrder calldata order)
     public
     override
     returns (bytes32 ret)
@@ -278,14 +278,14 @@ contract Maker_compound is TestMaker {
 // Reinserts the offer if necessary.
 contract Maker_callback is TestMaker {
   constructor(
-    Dex dex,
+    Mangrove mgv,
     ERC20BL base,
     ERC20BL quote
-  ) TestMaker(dex, base, quote) {
-    approveDex(base, 500 ether);
+  ) TestMaker(mgv, base, quote) {
+    approveMgv(base, 500 ether);
   }
 
-  function makerTrade(DC.SingleOrder calldata)
+  function makerTrade(MC.SingleOrder calldata)
     public
     pure
     override
@@ -299,13 +299,13 @@ contract Maker_callback is TestMaker {
   uint price = 340; // in %
   uint gasreq = 400_000;
 
-  function makerPosthook(DC.SingleOrder calldata order, DC.OrderResult calldata)
+  function makerPosthook(MC.SingleOrder calldata order, MC.OrderResult calldata)
     external
     override
   {
     Display.log("Reinserting offer...");
-    Dex dex = Dex(msg.sender);
-    dex.updateOffer({
+    Mangrove mgv = Mangrove(msg.sender);
+    mgv.updateOffer({
       base: order.base,
       quote: order.quote,
       wants: (price * volume) / 100,

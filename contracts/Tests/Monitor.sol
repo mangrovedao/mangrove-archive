@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../Dex.sol";
+import "../Mangrove.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -18,43 +18,43 @@ import "./Agents/TestMonitor.sol";
 contract Monitor_Test {
   receive() external payable {}
 
-  Dex dex;
+  Mangrove mgv;
   TestMaker mkr;
-  DexMonitor monitor;
+  MgvMonitor monitor;
   address base;
   address quote;
 
   function a_beforeAll() public {
     TestToken baseT = TokenSetup.setup("A", "$A");
     TestToken quoteT = TokenSetup.setup("B", "$B");
-    monitor = new DexMonitor();
+    monitor = new MgvMonitor();
     base = address(baseT);
     quote = address(quoteT);
-    dex = DexSetup.setup(baseT, quoteT);
-    mkr = MakerSetup.setup(dex, base, quote);
+    mgv = MgvSetup.setup(baseT, quoteT);
+    mkr = MakerSetup.setup(mgv, base, quote);
 
     address(mkr).transfer(10 ether);
 
-    mkr.provisionDex(5 ether);
+    mkr.provisionMgv(5 ether);
     bool noRevert;
-    (noRevert, ) = address(dex).call{value: 10 ether}("");
+    (noRevert, ) = address(mgv).call{value: 10 ether}("");
 
     baseT.mint(address(mkr), 2 ether);
     quoteT.mint(address(this), 2 ether);
 
-    baseT.approve(address(dex), 1 ether);
-    quoteT.approve(address(dex), 1 ether);
+    baseT.approve(address(mgv), 1 ether);
+    quoteT.approve(address(mgv), 1 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "Test Contract");
     Display.register(base, "$A");
     Display.register(quote, "$B");
-    Display.register(address(dex), "dex");
+    Display.register(address(mgv), "mgv");
     Display.register(address(mkr), "maker[$A,$B]");
   }
 
   function initial_monitor_values_test() public {
-    DC.Config memory config = dex.getConfig(base, quote);
+    MC.Config memory config = mgv.getConfig(base, quote);
     TestEvents.check(
       !config.global.useOracle,
       "initial useOracle should be false"
@@ -63,10 +63,10 @@ contract Monitor_Test {
   }
 
   function set_monitor_values_test() public {
-    dex.setMonitor(address(monitor));
-    dex.setUseOracle(true);
-    dex.setNotify(true);
-    DC.Config memory config = dex.getConfig(base, quote);
+    mgv.setMonitor(address(monitor));
+    mgv.setUseOracle(true);
+    mgv.setNotify(true);
+    MC.Config memory config = mgv.getConfig(base, quote);
     TestEvents.eq(
       config.global.monitor,
       address(monitor),
@@ -77,28 +77,28 @@ contract Monitor_Test {
   }
 
   function set_oracle_density_with_useOracle_works_test() public {
-    dex.setMonitor(address(monitor));
-    dex.setUseOracle(true);
-    dex.setDensity(base, quote, 898);
+    mgv.setMonitor(address(monitor));
+    mgv.setUseOracle(true);
+    mgv.setDensity(base, quote, 898);
     monitor.setDensity(base, quote, 899);
-    DC.Config memory config = dex.getConfig(base, quote);
+    MC.Config memory config = mgv.getConfig(base, quote);
     TestEvents.eq(config.local.density, 899, "density should be set oracle");
   }
 
   function set_oracle_density_without_useOracle_fails_test() public {
-    dex.setMonitor(address(monitor));
-    dex.setDensity(base, quote, 898);
+    mgv.setMonitor(address(monitor));
+    mgv.setDensity(base, quote, 898);
     monitor.setDensity(base, quote, 899);
-    DC.Config memory config = dex.getConfig(base, quote);
-    TestEvents.eq(config.local.density, 898, "density should be set by dex");
+    MC.Config memory config = mgv.getConfig(base, quote);
+    TestEvents.eq(config.local.density, 898, "density should be set by mgv");
   }
 
   function set_oracle_gasprice_with_useOracle_works_test() public {
-    dex.setMonitor(address(monitor));
-    dex.setUseOracle(true);
-    dex.setGasprice(900);
+    mgv.setMonitor(address(monitor));
+    mgv.setUseOracle(true);
+    mgv.setGasprice(900);
     monitor.setGasprice(901);
-    DC.Config memory config = dex.getConfig(base, quote);
+    MC.Config memory config = mgv.getConfig(base, quote);
     TestEvents.eq(
       config.global.gasprice,
       901,
@@ -107,17 +107,17 @@ contract Monitor_Test {
   }
 
   function set_oracle_gasprice_without_useOracle_fails_test() public {
-    dex.setMonitor(address(monitor));
-    dex.setGasprice(900);
+    mgv.setMonitor(address(monitor));
+    mgv.setGasprice(900);
     monitor.setGasprice(901);
-    DC.Config memory config = dex.getConfig(base, quote);
-    TestEvents.eq(config.global.gasprice, 900, "gasprice should be set by dex");
+    MC.Config memory config = mgv.getConfig(base, quote);
+    TestEvents.eq(config.global.gasprice, 900, "gasprice should be set by mgv");
   }
 
   function invalid_oracle_address_throws_test() public {
-    dex.setMonitor(address(42));
-    dex.setUseOracle(true);
-    try dex.getConfig(base, quote) {
+    mgv.setMonitor(address(42));
+    mgv.setUseOracle(true);
+    try mgv.getConfig(base, quote) {
       TestEvents.fail("Call to invalid oracle address should throw");
     } catch {
       TestEvents.succeed();
@@ -125,26 +125,26 @@ contract Monitor_Test {
   }
 
   function notify_works_on_success_when_set_test() public {
-    mkr.approveDex(IERC20(base), 1 ether);
-    dex.setMonitor(address(monitor));
-    dex.setNotify(true);
+    mkr.approveMgv(IERC20(base), 1 ether);
+    mgv.setMonitor(address(monitor));
+    mgv.setNotify(true);
     uint ofrId = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
-    bytes32 offer = dex.offers(base, quote, ofrId);
+    bytes32 offer = mgv.offers(base, quote, ofrId);
     (bool success, , ) =
-      dex.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000);
+      mgv.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000);
     TestEvents.check(success, "snipe should succeed");
-    (bytes32 _global, bytes32 _local) = dex.config(base, quote);
+    (bytes32 _global, bytes32 _local) = mgv.config(base, quote);
     _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
 
-    DC.SingleOrder memory order =
-      DC.SingleOrder({
+    MC.SingleOrder memory order =
+      MC.SingleOrder({
         base: base,
         quote: quote,
         offerId: ofrId,
         offer: offer,
         wants: 0.04 ether,
         gives: 0.04 ether, // wants has been updated to offer price
-        offerDetail: dex.offerDetails(base, quote, ofrId),
+        offerDetail: mgv.offerDetails(base, quote, ofrId),
         global: _global,
         local: _local
       });
@@ -154,27 +154,27 @@ contract Monitor_Test {
   }
 
   function notify_works_on_fail_when_set_test() public {
-    dex.setMonitor(address(monitor));
-    dex.setNotify(true);
+    mgv.setMonitor(address(monitor));
+    mgv.setNotify(true);
     uint ofrId = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
-    bytes32 offer = dex.offers(base, quote, ofrId);
+    bytes32 offer = mgv.offers(base, quote, ofrId);
     (bool success, , ) =
-      dex.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000);
+      mgv.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000);
     TestEvents.check(!success, "snipe should fail");
 
-    (bytes32 _global, bytes32 _local) = dex.config(base, quote);
+    (bytes32 _global, bytes32 _local) = mgv.config(base, quote);
     // config sent during maker callback has stale best and, is locked
     _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
 
-    DC.SingleOrder memory order =
-      DC.SingleOrder({
+    MC.SingleOrder memory order =
+      MC.SingleOrder({
         base: base,
         quote: quote,
         offerId: ofrId,
         offer: offer,
         wants: 0.04 ether,
         gives: 0.04 ether, // gives has been updated to offer price
-        offerDetail: dex.offerDetails(base, quote, ofrId),
+        offerDetail: mgv.offerDetails(base, quote, ofrId),
         global: _global,
         local: _local
       });

@@ -5,14 +5,14 @@ import "../Toolbox/TestUtils.sol";
 
 library TestFailingMarketOrder {
   function moWithFailures(
-    Dex dex,
+    Mangrove mgv,
     address base,
     address quote,
     TestTaker taker
   ) external {
     taker.marketOrderWithFail({wants: 10 ether, gives: 30 ether});
     TestEvents.check(
-      TestUtils.isEmptyOB(dex, base, quote),
+      TestUtils.isEmptyOB(mgv, base, quote),
       "Offer book should be empty"
     );
   }

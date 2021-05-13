@@ -3,8 +3,8 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "../Dex.sol";
-import "../DexCommon.sol";
+import "../Mangrove.sol";
+import "../MgvCommon.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -20,7 +20,7 @@ import "./Agents/MM1.sol";
 contract MM1T_Test {
   receive() external payable {}
 
-  Dex dex;
+  Mangrove mgv;
   TestTaker tkr;
   TestMaker mkr;
   MM1 mm1;
@@ -32,18 +32,18 @@ contract MM1T_Test {
     TestToken quoteT = TokenSetup.setup("B", "$B");
     base = address(baseT);
     quote = address(quoteT);
-    dex = DexSetup.setup(baseT, quoteT);
-    tkr = TakerSetup.setup(dex, base, quote);
-    mkr = MakerSetup.setup(dex, base, quote);
-    mm1 = new MM1{value: 2 ether}(dex, base, quote);
+    mgv = MgvSetup.setup(baseT, quoteT);
+    tkr = TakerSetup.setup(mgv, base, quote);
+    mkr = MakerSetup.setup(mgv, base, quote);
+    mm1 = new MM1{value: 2 ether}(mgv, base, quote);
 
     address(tkr).transfer(10 ether);
     address(mkr).transfer(10 ether);
 
     //bool noRevert;
-    //(noRevert, ) = address(dex).call{value: 10 ether}("");
+    //(noRevert, ) = address(mgv).call{value: 10 ether}("");
 
-    mkr.provisionDex(5 ether);
+    mkr.provisionMgv(5 ether);
 
     baseT.mint(address(tkr), 10 ether);
     baseT.mint(address(mkr), 10 ether);
@@ -55,18 +55,18 @@ contract MM1T_Test {
 
     mm1.refresh();
 
-    //baseT.approve(address(dex), 1 ether);
-    //quoteT.approve(address(dex), 1 ether);
-    tkr.approveDex(quoteT, 1000 ether);
-    tkr.approveDex(baseT, 1000 ether);
-    mkr.approveDex(quoteT, 1000 ether);
-    mkr.approveDex(baseT, 1000 ether);
+    //baseT.approve(address(mgv), 1 ether);
+    //quoteT.approve(address(mgv), 1 ether);
+    tkr.approveMgv(quoteT, 1000 ether);
+    tkr.approveMgv(baseT, 1000 ether);
+    mkr.approveMgv(quoteT, 1000 ether);
+    mkr.approveMgv(baseT, 1000 ether);
 
     Display.register(msg.sender, "Test Runner");
     Display.register(address(this), "Gatekeeping_Test/maker");
     Display.register(base, "$A");
     Display.register(quote, "$B");
-    Display.register(address(dex), "dex");
+    Display.register(address(mgv), "mgv");
     Display.register(address(tkr), "taker[$A,$B]");
     //Display.register(address(dual_mkr), "maker[$B,$A]");
     Display.register(address(mkr), "maker");
@@ -74,23 +74,23 @@ contract MM1T_Test {
   }
 
   function ta_test() public {
-    Display.logOfferBook(dex, base, quote, 3);
-    Display.logOfferBook(dex, quote, base, 3);
-    (DexCommon.Offer memory ofr, DexCommon.OfferDetail memory det) =
-      dex.offerInfo(base, quote, 1);
+    Display.logOfferBook(mgv, base, quote, 3);
+    Display.logOfferBook(mgv, quote, base, 3);
+    (MgvCommon.Offer memory ofr, MgvCommon.OfferDetail memory det) =
+      mgv.offerInfo(base, quote, 1);
     console.log("prev", ofr.prev);
     mkr.newOffer(base, quote, 0.05 ether, 0.1 ether, 200_000, 0);
     mkr.newOffer(quote, base, 0.05 ether, 0.05 ether, 200_000, 0);
-    Display.logOfferBook(dex, base, quote, 3);
-    Display.logOfferBook(dex, quote, base, 3);
+    Display.logOfferBook(mgv, base, quote, 3);
+    Display.logOfferBook(mgv, quote, base, 3);
 
     tkr.marketOrder(0.01 ether, 0.01 ether);
-    Display.logOfferBook(dex, base, quote, 3);
-    Display.logOfferBook(dex, quote, base, 3);
+    Display.logOfferBook(mgv, base, quote, 3);
+    Display.logOfferBook(mgv, quote, base, 3);
 
     mkr.newOffer(base, quote, 0.05 ether, 0.1 ether, 200_000, 0);
     mm1.refresh();
-    Display.logOfferBook(dex, base, quote, 3);
-    Display.logOfferBook(dex, quote, base, 3);
+    Display.logOfferBook(mgv, base, quote, 3);
+    Display.logOfferBook(mgv, quote, base, 3);
   }
 }
