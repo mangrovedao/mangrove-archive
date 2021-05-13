@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
 
-library DexPack {
+library MgvPack {
 
   // fields are of the form [name,bits,type]
 
@@ -9,7 +9,7 @@ library DexPack {
 
   // $def sname ns[0]
   // $def scontents ns[1]
-  /* $def arguments 
+  /* $def arguments
     join(map(scontents,(field) => `$${field[2]} __$${field[0]}`),', ')
   */
 

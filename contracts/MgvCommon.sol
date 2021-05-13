@@ -5,7 +5,7 @@ pragma abicoder v2;
 
 /* # Structs
 The structs defined in `structs.js` have their counterpart as solidity structs that are easy to manipulate for outside contracts / callers of view functions. */
-library DexCommon {
+library MgvCommon {
   struct Offer {
     uint prev;
     uint next;
@@ -46,7 +46,7 @@ library DexCommon {
   }
 
   /*
-   Some miscellaneous data types useful to `Dex` and external contracts */
+   Some miscellaneous data types useful to `Mangrove` and external contracts */
   //+clear+
 
   /* `SingleOrder` holds data about an order-offer match in a struct. Used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
@@ -73,17 +73,17 @@ library DexCommon {
 
 /* # Events
 The events emitted for use by bots are listed here: */
-library DexEvents {
-  /* * Emitted at the creation of the new Dex contract on the pair (`quote`, `base`)*/
-  event NewDex();
+library MgvEvents {
+  /* * Emitted at the creation of the new Mangrove contract on the pair (`quote`, `base`)*/
+  event NewMgv();
 
-  /* * Dex adds or removes wei from `maker`'s account */
-  /* *Credit event occurs when an offer is removed from the Dex or when the `fund` function is called*/
+  /* * Mangrove adds or removes wei from `maker`'s account */
+  /* *Credit event occurs when an offer is removed from the Mangrove or when the `fund` function is called*/
   event Credit(address maker, uint amount);
   /* *Debit event occurs when an offer is posted or when the `withdraw` function is called*/
   event Debit(address maker, uint amount);
 
-  /* * Dex reconfiguration */
+  /* * Mangrove reconfiguration */
   event SetActive(address base, address quote, bool value);
   event SetFee(address base, address quote, uint value);
   event SetGasbase(uint overhead_gasbase, uint offer_gasbase);
@@ -127,7 +127,7 @@ library DexEvents {
     uint value
   );
 
-  /* * Dex closure */
+  /* * Mangrove closure */
   event Kill();
 
   /* * An offer was created or updated. `data` packs `makerWants`(96), `makerGives`(96), `gasprice`(16), `gasreq`(24), `offerId`(24)*/
@@ -142,16 +142,16 @@ library DexEvents {
 
 /* # IMaker interface */
 interface IMaker {
-  /* Called upon offer execution. If this function reverts, Dex will not try to transfer funds. Returned data (truncated to 32 bytes) can be accessed during the call to `makerPosthook` in the `result.errorCode` field.
-  Reverting with a message (for further processing during posthook) should be done using low level `revertTrade(byte32)` provided in the `DexIt` library. It is not possible to reenter the order book of the traded pair whilst this function is executed.*/
-  function makerTrade(DexCommon.SingleOrder calldata order)
+  /* Called upon offer execution. If this function reverts, Mangrove will not try to transfer funds. Returned data (truncated to 32 bytes) can be accessed during the call to `makerPosthook` in the `result.errorCode` field.
+  Reverting with a message (for further processing during posthook) should be done using low level `revertTrade(byte32)` provided in the `MgvIt` library. It is not possible to reenter the order book of the traded pair whilst this function is executed.*/
+  function makerTrade(MgvCommon.SingleOrder calldata order)
     external
     returns (bytes32);
 
-  /* Called after all offers of an order have been executed. Posthook of the last executed order is called first and full reentrancy into the Dex is enabled at this time. `order` recalls key arguments of the order that was processed and `result` recalls important information for updating the current offer.*/
+  /* Called after all offers of an order have been executed. Posthook of the last executed order is called first and full reentrancy into the Mangrove is enabled at this time. `order` recalls key arguments of the order that was processed and `result` recalls important information for updating the current offer.*/
   function makerPosthook(
-    DexCommon.SingleOrder calldata order,
-    DexCommon.OrderResult calldata result
+    MgvCommon.SingleOrder calldata order,
+    MgvCommon.OrderResult calldata result
   ) external;
 }
 
@@ -170,11 +170,11 @@ interface ITaker {
 
 /* # Monitor interface
 If enabled, the monitor receives notification after each offer execution and is read for each pair's `gasprice` and `density`. */
-interface IDexMonitor {
-  function notifySuccess(DexCommon.SingleOrder calldata sor, address taker)
+interface IMgvMonitor {
+  function notifySuccess(MgvCommon.SingleOrder calldata sor, address taker)
     external;
 
-  function notifyFail(DexCommon.SingleOrder calldata sor, address taker)
+  function notifyFail(MgvCommon.SingleOrder calldata sor, address taker)
     external;
 
   function read(address base, address quote)

@@ -5,22 +5,22 @@ pragma abicoder v2;
 import {
   ITaker,
   IMaker,
-  DexCommon as DC,
-  DexEvents,
-  IDexMonitor
-} from "./DexCommon.sol";
+  MgvCommon as MC,
+  MgvEvents,
+  IMgvMonitor
+} from "./MgvCommon.sol";
 import "./interfaces.sol";
 
 /*
-   This contract describes an orderbook-based exchange ("Dex") where market makers *do not have to provision their offer*. See `structs.js` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. In the normal mode of operation ('Flash Maker'), the Dex transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
+   This contract describes an orderbook-based exchange ("the Mangrove") where market makers *do not have to provision their offer*. See `structs.js` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. In the normal mode of operation ('Flash Maker'), the Mangrove transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
 
-   There is one Dex contract that manages all tradeable pairs. This reduces deployment costs for new pairs and makes it easier to have maker provisions for all pairs in the same place.
+   There is one Mangrove contract that manages all tradeable pairs. This reduces deployment costs for new pairs and makes it easier to have maker provisions for all pairs in the same place.
 
    There is a secondary mode of operation ('Flash Taker') in which the _maker_ flashloans the sold amount to the taker.
 
-   The Dex contract is `abstract` and accomodates both modes. Two contracts, `FMD` (Flash Maker Dex) and `FTD` (Flash Taker Dex) inherit from it, one per mode of operation.
+   The Mangrove contract is `abstract` and accomodates both modes. Two contracts, `MMgv` (Maker Mangrove) and `TMgv` (Taker Mangrove) inherit from it, one per mode of operation.
  */
-abstract contract Dex {
+abstract contract Mangrove {
   /* # State variables */
   //+clear+
   /* The `governance` address. Governance is the only address that can configure parameters. */
@@ -29,7 +29,7 @@ abstract contract Dex {
   /* The `vault` address. If a pair has fees >0, those fees are sent to the vault. */
   address public vault;
 
-  /* Global dex configuration, encoded in a 256 bits word. The information encoded is detailed in `structs.js`. */
+  /* Global mgv configuration, encoded in a 256 bits word. The information encoded is detailed in `structs.js`. */
   bytes32 public global;
   /* Configuration mapping for each token pair. The information is also detailed in `structs.js`. */
   mapping(address => mapping(address => bytes32)) public locals;
@@ -63,12 +63,12 @@ abstract contract Dex {
 
        Offers specify the amount of gas they require for successful execution (`gasreq`). To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq` and on the pair's `*_gasbase`. This provision is deducted from their `balanceOf`. If an offer fails, part of that provision is given to the taker, as retribution. The exact amount depends on the gas used by the offer before failing.
 
-       The Dex keeps track of their available balance in the `balanceOf` map, which is decremented every time a maker creates a new offer, and may be modified on offer updates/cancelations/takings.
+       The Mangrove keeps track of their available balance in the `balanceOf` map, which is decremented every time a maker creates a new offer, and may be modified on offer updates/cancelations/takings.
    */
   mapping(address => uint) public balanceOf;
 
   /*
-  # Dex Constructor
+  # Mangrove Constructor
   To initialize a new instance, the deployer must provide initial configuration (see `structs.js` for more on configuration parameters):
   */
   constructor(
@@ -80,11 +80,11 @@ abstract contract Dex {
     /* Used by [EIP712](https://eips.ethereum.org/EIPS/eip-712)'s `DOMAIN_SEPARATOR` */
     string memory contractName //+clear+
   ) {
-    emit DexEvents.NewDex();
+    emit MgvEvents.NewMgv();
 
     /* Initialize governance. At this stage we cannot use the `setGovernance` method since no admin is set. */
     governance = msg.sender;
-    emit DexEvents.SetGovernance(msg.sender);
+    emit MgvEvents.SetGovernance(msg.sender);
 
     /* Initialize vault to sender's address, and set initial gasprice and gasmax. */
     setVault(msg.sender);
@@ -93,8 +93,8 @@ abstract contract Dex {
     /* In FMD, takers lend the liquidity to the maker. */
     /* In FTD, takers come ask the makers for liquidity. */
     FLASHLOANER = takerLends
-      ? Dex.flashloan.selector
-      : Dex.invertedFlashloan.selector;
+      ? Mangrove.flashloan.selector
+      : Mangrove.invertedFlashloan.selector;
 
     /* Initialize [EIP712](https://eips.ethereum.org/EIPS/eip-712) `DOMAIN_SEPARATOR`. */
     uint chainId;
@@ -118,10 +118,10 @@ abstract contract Dex {
   /* Returns the configuration in an ABI-compatible struct. Should not be called internally, would be a huge memory copying waste. Use `config` instead. */
   function getConfig(address base, address quote)
     external
-    returns (DC.Config memory ret)
+    returns (MC.Config memory ret)
   {
     (bytes32 _global, bytes32 _local) = config(base, quote);
-    ret.global = DC.Global({
+    ret.global = MC.Global({
       monitor: $$(global_monitor("_global")),
       useOracle: $$(global_useOracle("_global")) > 0,
       notify: $$(global_notify("_global")) > 0,
@@ -129,7 +129,7 @@ abstract contract Dex {
       gasmax: $$(global_gasmax("_global")),
       dead: $$(global_dead("_global")) > 0
     });
-    ret.local = DC.Local({
+    ret.local = MC.Local({
       active: $$(local_active("_local")) > 0,
       overhead_gasbase: $$(local_overhead_gasbase("_local")),
       offer_gasbase: $$(local_offer_gasbase("_local")),
@@ -146,10 +146,10 @@ abstract contract Dex {
     address base,
     address quote,
     uint offerId
-  ) external view returns (DC.Offer memory, DC.OfferDetail memory) {
+  ) external view returns (MC.Offer memory, MC.OfferDetail memory) {
     bytes32 offer = offers[base][quote][offerId];
-    DC.Offer memory offerStruct =
-      DC.Offer({
+    MC.Offer memory offerStruct =
+      MC.Offer({
         prev: $$(offer_prev("offer")),
         next: $$(offer_next("offer")),
         wants: $$(offer_wants("offer")),
@@ -159,8 +159,8 @@ abstract contract Dex {
 
     bytes32 offerDetail = offerDetails[base][quote][offerId];
 
-    DC.OfferDetail memory offerDetailStruct =
-      DC.OfferDetail({
+    MC.OfferDetail memory offerDetailStruct =
+      MC.OfferDetail({
         maker: $$(offerDetail_maker("offerDetail")),
         gasreq: $$(offerDetail_gasreq("offerDetail")),
         overhead_gasbase: $$(offerDetail_overhead_gasbase("offerDetail")),
@@ -181,7 +181,7 @@ abstract contract Dex {
     return $$(local_lock("local")) > 0;
   }
 
-  /* Check whether an offer is 'live', that is: inserted in the order book. The Dex holds a `base => quote => id => bytes32` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to the null word. A common way to check for initialization is to add an `exists` field to a struct. In our case, liveness can be denoted by `offer.gives > 0`. So we just check the `gives` field. */
+  /* Check whether an offer is 'live', that is: inserted in the order book. The Mangrove holds a `base => quote => id => bytes32` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to the null word. A common way to check for initialization is to add an `exists` field to a struct. In our case, liveness can be denoted by `offer.gives > 0`. So we just check the `gives` field. */
   function isLive(bytes32 offer) public pure returns (bool) {
     return $$(offer_gives("offer")) > 0;
   }
@@ -194,29 +194,29 @@ abstract contract Dex {
 
   /* `unlockedMarketOnly` protects modifying the market while an order is in progress. Since external contracts are called during orders, allowing reentrancy would, for instance, let a market maker replace offers currently on the book with worse ones. Note that the external contracts _will_ be called again after the order is complete, this time without any lock on the market.  */
   function unlockedMarketOnly(bytes32 local) internal pure {
-    require($$(local_lock("local")) == 0, "dex/reentrancyLocked");
+    require($$(local_lock("local")) == 0, "mgv/reentrancyLocked");
   }
 
-  /* <a id="Dex/definition/liveDexOnly"></a>
-     In case of emergency, the Dex can be `kill`ed. It cannot be resurrected. When a Dex is dead, the following operations are disabled :
+  /* <a id="Mangrove/definition/liveMgvOnly"></a>
+     In case of emergency, the Mangrove can be `kill`ed. It cannot be resurrected. When a Mangrove is dead, the following operations are disabled :
        * Executing an offer
-       * Sending ETH to the Dex the normal way. Usual [shenanigans](https://medium.com/@alexsherbuck/two-ways-to-force-ether-into-a-contract-1543c1311c56) are possible.
+       * Sending ETH to the Mangrove the normal way. Usual [shenanigans](https://medium.com/@alexsherbuck/two-ways-to-force-ether-into-a-contract-1543c1311c56) are possible.
        * Creating a new offer
    */
-  function liveDexOnly(bytes32 _global) internal pure {
-    require($$(global_dead("_global")) == 0, "dex/dead");
+  function liveMgvOnly(bytes32 _global) internal pure {
+    require($$(global_dead("_global")) == 0, "mgv/dead");
   }
 
-  /* When the Dex is deployed, all pairs are inactive by default (since `locals[base][quote]` is 0 by default). Offers on inactive pairs cannot be taken or created. They can be updated and retracted. */
+  /* When the Mangrove is deployed, all pairs are inactive by default (since `locals[base][quote]` is 0 by default). Offers on inactive pairs cannot be taken or created. They can be updated and retracted. */
   function activeMarketOnly(bytes32 _global, bytes32 _local) internal pure {
-    liveDexOnly(_global);
-    require($$(local_active("_local")) > 0, "dex/inactive");
+    liveMgvOnly(_global);
+    require($$(local_active("_local")) > 0, "mgv/inactive");
   }
 
   /* # Public Maker operations
      ## New Offer */
   //+clear+
-  /* In the Dex, makers and takers call separate functions. Market makers call `newOffer` to fill the book, and takers call functions such as `marketOrder` to consume it.  */
+  /* In the Mangrove, makers and takers call separate functions. Market makers call `newOffer` to fill the book, and takers call functions such as `marketOrder` to consume it.  */
 
   //+clear+
 
@@ -240,9 +240,9 @@ abstract contract Dex {
 
      It also specify with `gasreq` how much gas should be given when executing their offer.
 
-     `gasprice` indicates an upper bound on the gasprice at which the maker is ready to be penalised if their offer fails. Any value below the Dex's internal `gasprice` configuration value will be ignored.
+     `gasprice` indicates an upper bound on the gasprice at which the maker is ready to be penalised if their offer fails. Any value below the Mangrove's internal `gasprice` configuration value will be ignored.
 
-    `gasreq`, together with `gasprice`, will contribute to determining the penalty provision set aside by the Dex from the market maker's `balanceOf` balance.
+    `gasreq`, together with `gasprice`, will contribute to determining the penalty provision set aside by the Mangrove from the market maker's `balanceOf` balance.
 
   Offers are always inserted at the correct place in the book. This requires walking through offers to find the correct insertion point. As in [Oasis](https://github.com/daifoundation/maker-otc/blob/f2060c5fe12fe3da71ac98e8f6acc06bca3698f5/src/matching_market.sol#L493), the maker should find the id of an offer close to its own and provide it as `pivotId`.
 
@@ -268,7 +268,7 @@ abstract contract Dex {
     activeMarketOnly(ofp.global, ofp.local);
 
     ofp.id = 1 + $$(local_last("ofp.local"));
-    require(uint24(ofp.id) == ofp.id, "dex/offerIdOverflow");
+    require(uint24(ofp.id) == ofp.id, "mgv/offerIdOverflow");
 
     ofp.local = $$(set_local("ofp.local", [["last", "ofp.id"]]));
 
@@ -300,7 +300,7 @@ abstract contract Dex {
      2. The offer does not change its `gasreq`
      3. The (`base`,`quote`)'s `*_gasbase` has not changed since the offer was last written
      4. `gasprice` has not changed since the offer was last written
-     5. `gasprice` is greater than the Dex's gasprice estimation
+     5. `gasprice` is greater than the Mangrove's gasprice estimation
   */
   function updateOffer(
     address base,
@@ -351,7 +351,7 @@ abstract contract Dex {
     bytes32 offerDetail = offerDetails[base][quote][offerId];
     require(
       msg.sender == $$(offerDetail_maker("offerDetail")),
-      "dex/retractOffer/unauthorized"
+      "mgv/retractOffer/unauthorized"
     );
 
     /* Here, we are about to un-live an offer, so we start by taking it out of the book by stitching together its previous and next offers. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have since moved. */
@@ -383,7 +383,7 @@ abstract contract Dex {
       // credit `balanceOf` and log transfer
       creditWei(msg.sender, provision);
     }
-    emit DexEvents.RetractOffer(base, quote, offerId);
+    emit MgvEvents.RetractOffer(base, quote, offerId);
   }
 
   /* ## Provisioning
@@ -397,11 +397,11 @@ abstract contract Dex {
   /* Fund may be called with a nonzero value (hence the `payable` modifier). The provision will be given to `maker`, not `msg.sender`. */
   function fund(address maker) public payable {
     (bytes32 _global, ) = config(address(0), address(0));
-    liveDexOnly(_global);
+    liveMgvOnly(_global);
     creditWei(maker, msg.value);
   }
 
-  /* A transfer with enough gas to the Dex will increase the caller's available `balanceOf` balance. _You should send enough gas to execute this function when sending money to the Dex._  */
+  /* A transfer with enough gas to the Mangrove will increase the caller's available `balanceOf` balance. _You should send enough gas to execute this function when sending money to the Mangrove._  */
   receive() external payable {
     fund(msg.sender);
   }
@@ -455,7 +455,7 @@ abstract contract Dex {
   //+clear+
   /* `snipe` takes a single offer `offerId` from the book. Since offers can be updated, we specify `takerWants`,`takerGives` and `gasreq`, and only execute if the offer price is acceptable and the offer's gasreq does not exceed `gasreq`.
 
-  It is possible to ask for 0, so we return an additional boolean indicating if `offerId` was successfully executed. Note that we do not distinguish further between mismatched arguments/offer fields on the one hand, and an execution failure on the other. Still, a failed offer has to pay a penalty, and ultimately transaction logs explicitly mention execution failures (see `DexCommon.sol`). */
+  It is possible to ask for 0, so we return an additional boolean indicating if `offerId` was successfully executed. Note that we do not distinguish further between mismatched arguments/offer fields on the one hand, and an execution failure on the other. Still, a failed offer has to pay a penalty, and ultimately transaction logs explicitly mention execution failures (see `MgvCommon.sol`). */
 
   function snipe(
     address base,
@@ -560,26 +560,26 @@ abstract contract Dex {
     /* We check all values before packing. Otherwise, for values with a lower bound (such as `gasprice`), a check could erroneously succeed on the raw value but fail on the truncated value. */
     require(
       uint16(ofp.gasprice) == ofp.gasprice,
-      "dex/writeOffer/gasprice/16bits"
+      "mgv/writeOffer/gasprice/16bits"
     );
     /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `provision` (see below). */
     require(
       ofp.gasreq <= $$(global_gasmax("ofp.global")),
-      "dex/writeOffer/gasreq/tooHigh"
+      "mgv/writeOffer/gasreq/tooHigh"
     );
     /* * Make sure `gives > 0` -- division by 0 would throw in several places otherwise, and `isLive` relies on it. */
-    require(ofp.gives > 0, "dex/writeOffer/gives/tooLow");
+    require(ofp.gives > 0, "mgv/writeOffer/gives/tooLow");
     /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `base` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `offer_gasbase` to `gasreq`. */
     require(
       ofp.gives >=
         (ofp.gasreq + $$(local_offer_gasbase("ofp.local"))) *
           $$(local_density("ofp.local")),
-      "dex/writeOffer/density/tooLow"
+      "mgv/writeOffer/density/tooLow"
     );
 
     /* The following checks are for the maker's convenience only. */
-    require(uint96(ofp.gives) == ofp.gives, "dex/writeOffer/gives/96bits");
-    require(uint96(ofp.wants) == ofp.wants, "dex/writeOffer/wants/96bits");
+    require(uint96(ofp.gives) == ofp.gives, "mgv/writeOffer/gives/96bits");
+    require(uint96(ofp.wants) == ofp.wants, "mgv/writeOffer/wants/96bits");
 
     /* `gasprice` given by maker will be bounded below by internal gasprice estimate at offer write time. With a large enough overapproximation of the gasprice, the maker can regularly update their offer without paying for writes to their `balanceOf`.  */
     if (ofp.gasprice < $$(global_gasprice("ofp.global"))) {
@@ -600,7 +600,7 @@ abstract contract Dex {
             ]
           )
         );
-      emit DexEvents.WriteOffer(
+      emit MgvEvents.WriteOffer(
         ofp.base,
         ofp.quote,
         msg.sender,
@@ -622,7 +622,7 @@ abstract contract Dex {
       if (update) {
         require(
           msg.sender == $$(offerDetail_maker("offerDetail")),
-          "dex/updateOffer/unauthorized"
+          "mgv/updateOffer/unauthorized"
         );
         oldProvision =
           10**9 *
@@ -632,7 +632,7 @@ abstract contract Dex {
             $$(offerDetail_offer_gasbase("offerDetail")));
       }
 
-      /* If the offer is new, has a new gasreq, or if the Dex's `*_gasbase` configuration parameter has changed, we also update offerDetails. */
+      /* If the offer is new, has a new gasreq, or if the Mangrove's `*_gasbase` configuration parameter has changed, we also update offerDetails. */
       if (
         !update ||
         $$(offerDetail_gasreq("offerDetail")) != ofp.gasreq ||
@@ -836,10 +836,10 @@ abstract contract Dex {
     address taker
   ) internal returns (uint, uint) {
     /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
-    require(uint160(takerWants) == takerWants, "dex/mOrder/takerWants/160bits");
+    require(uint160(takerWants) == takerWants, "mgv/mOrder/takerWants/160bits");
 
-    /* `SingleOrder` is defined in `DexCommon.sol` and holds information for ordering the execution of one offer. */
-    DC.SingleOrder memory sor;
+    /* `SingleOrder` is defined in `MgvCommon.sol` and holds information for ordering the execution of one offer. */
+    MC.SingleOrder memory sor;
     sor.base = base;
     sor.quote = quote;
     (sor.global, sor.local) = config(base, quote);
@@ -875,7 +875,7 @@ abstract contract Dex {
     The last argument is a boolean named `proceed`. If an offer was not executed, it means the price has become too high. In that case, we notify the next recursive call that the market order should end. In this initial call, no offer has been executed yet so `proceed` is true. */
     internalMarketOrder(mor, sor, true);
 
-    /* Over the course of the market order, a penalty reserved for `msg.sender` has accumulated in `mor.totalPenalty`. No actual transfers have occured yet -- all the ethers given by the makers as provision are owned by the Dex. `sendPenalty` finally gives the accumulated penalty to `msg.sender`. */
+    /* Over the course of the market order, a penalty reserved for `msg.sender` has accumulated in `mor.totalPenalty`. No actual transfers have occured yet -- all the ethers given by the makers as provision are owned by the Mangrove. `sendPenalty` finally gives the accumulated penalty to `msg.sender`. */
     sendPenalty(mor.totalPenalty);
     //+clear+
     return (mor.totalGot, mor.totalGave);
@@ -885,7 +885,7 @@ abstract contract Dex {
   //+clear+
   function internalMarketOrder(
     MultiOrder memory mor,
-    DC.SingleOrder memory sor,
+    MC.SingleOrder memory sor,
     bool proceed
   ) internal {
     /* #### Case 1 : End of order */
@@ -894,7 +894,7 @@ abstract contract Dex {
       bool success; // execution success/failure
       uint gasused; // gas used by `makerTrade`
       bytes32 makerData; // data returned by maker
-      bytes32 errorCode; // internal dex error code
+      bytes32 errorCode; // internal Mangrove error code
       /* `executed` is false if offer could not be executed against 2nd and 3rd argument of execute. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
       // reduce stack size for recursion
 
@@ -1015,7 +1015,7 @@ abstract contract Dex {
       uint
     )
   {
-    DC.SingleOrder memory sor;
+    MC.SingleOrder memory sor;
     sor.base = base;
     sor.quote = quote;
     (sor.global, sor.local) = config(base, quote);
@@ -1039,7 +1039,7 @@ abstract contract Dex {
     The last argument is the array index for the current offer. It is initially 0. */
     internalSnipes(mor, sor, targets, 0);
 
-    /* Over the course of the snipes order, a penalty reserved for `msg.sender` has accumulated in `mor.totalPenalty`. No actual transfers have occured yet -- all the ethers given by the makers as provision are owned by the Dex. `sendPenalty` finally gives the accumulated penalty to `msg.sender`. */
+    /* Over the course of the snipes order, a penalty reserved for `msg.sender` has accumulated in `mor.totalPenalty`. No actual transfers have occured yet -- all the ethers given by the makers as provision are owned by the Mangrove. `sendPenalty` finally gives the accumulated penalty to `msg.sender`. */
     sendPenalty(mor.totalPenalty);
     //+clear+
     return (mor.successCount, mor.totalGot, mor.totalGave);
@@ -1049,7 +1049,7 @@ abstract contract Dex {
   //+clear+
   function internalSnipes(
     MultiOrder memory mor,
-    DC.SingleOrder memory sor,
+    MC.SingleOrder memory sor,
     uint[4][] memory targets,
     uint i
   ) internal {
@@ -1075,7 +1075,7 @@ abstract contract Dex {
 
         require(
           uint96(targets[i][1]) == targets[i][1],
-          "dex/snipes/takerWants/96bits"
+          "mgv/snipes/takerWants/96bits"
         );
         sor.wants = targets[i][1];
         sor.gives = targets[i][2];
@@ -1142,12 +1142,12 @@ abstract contract Dex {
      Summary of the meaning of the return values:
     * `gasused` is the gas consumed by the execution
     * `makerData` is the data returned after executing the offer
-    * `errorCode` is the internal dex error code
+    * `errorCode` is the internal Mangrove error code
     * `success -> executed`
     * `success && executed`: offer has succeeded
     * `!success && executed`: offer has failed
     * `!success && !executed`: offer has not been executed */
-  function execute(MultiOrder memory mor, DC.SingleOrder memory sor)
+  function execute(MultiOrder memory mor, MC.SingleOrder memory sor)
     internal
     returns (
       bool success,
@@ -1190,8 +1190,8 @@ abstract contract Dex {
     }
 
     /* The flashloan is executed by call to `FLASHLOANER`. If the call reverts, it means the maker failed to send back `sor.wants` `base` to the taker. Notes :
-     * `msg.sender` is the Dex itself in those calls -- all operations related to the actual caller should be done outside of this call.
-     * any spurious exception due to an error in Dex code will be falsely blamed on the Maker, and its provision for the offer will be unfairly taken away.
+     * `msg.sender` is the Mangrove itself in those calls -- all operations related to the actual caller should be done outside of this call.
+     * any spurious exception due to an error in Mangrove code will be falsely blamed on the Maker, and its provision for the offer will be unfairly taken away.
      */
     bytes memory retdata;
     (success, retdata) = address(this).call(
@@ -1204,7 +1204,7 @@ abstract contract Dex {
       /* In case of success, `retdata` encodes the gas used by the offer. */
       gasused = abi.decode(retdata, (uint));
 
-      emit DexEvents.Success(
+      emit MgvEvents.Success(
         sor.base,
         sor.quote,
         sor.offerId,
@@ -1213,9 +1213,9 @@ abstract contract Dex {
         sor.gives
       );
 
-      /* If configured to do so, the Dex notifies an external contract that a successful trade has taken place. */
+      /* If configured to do so, the Mangrove notifies an external contract that a successful trade has taken place. */
       if ($$(global_notify("sor.global")) > 0) {
-        IDexMonitor($$(global_monitor("sor.global"))).notifySuccess(
+        IMgvMonitor($$(global_monitor("sor.global"))).notifySuccess(
           sor,
           mor.taker
         );
@@ -1229,13 +1229,13 @@ abstract contract Dex {
       (errorCode, gasused, makerData) = innerDecode(retdata);
       /* Note that in the `if`s, the literals are bytes32 (stack values), while as revert arguments, they are strings (memory pointers). */
       if (
-        errorCode == "dex/makerRevert" ||
-        errorCode == "dex/makerTransferFail" ||
-        errorCode == "dex/makerReceiveFail"
+        errorCode == "mgv/makerRevert" ||
+        errorCode == "mgv/makerTransferFail" ||
+        errorCode == "mgv/makerReceiveFail"
       ) {
         mor.failCount += 1;
 
-        emit DexEvents.MakerFail(
+        emit MgvEvents.MakerFail(
           sor.base,
           sor.quote,
           sor.offerId,
@@ -1246,21 +1246,21 @@ abstract contract Dex {
           makerData
         );
 
-        /* If configured to do so, the Dex notifies an external contract that a failed trade has taken place. */
+        /* If configured to do so, the Mangrove notifies an external contract that a failed trade has taken place. */
         if ($$(global_notify("sor.global")) > 0) {
-          IDexMonitor($$(global_monitor("sor.global"))).notifyFail(
+          IMgvMonitor($$(global_monitor("sor.global"))).notifyFail(
             sor,
             mor.taker
           );
         }
         /* It is crucial that any error code which indicates an error caused by the taker triggers a revert, because functions that call `execute` consider that `execute && !success` should be blamed on the maker. */
-      } else if (errorCode == "dex/notEnoughGasForMakerTrade") {
-        revert("dex/notEnoughGasForMakerTrade");
-      } else if (errorCode == "dex/takerFailToPayMaker") {
-        revert("dex/takerFailToPayMaker");
+      } else if (errorCode == "mgv/notEnoughGasForMakerTrade") {
+        revert("mgv/notEnoughGasForMakerTrade");
+      } else if (errorCode == "mgv/takerFailToPayMaker") {
+        revert("mgv/takerFailToPayMaker");
       } else {
-        /* This code must be unreachable. **Danger**: if a well-crafted offer/maker pair can force a revert of FLASHLOANER, the Dex will be stuck. */
-        revert("dex/swapError");
+        /* This code must be unreachable. **Danger**: if a well-crafted offer/maker pair can force a revert of FLASHLOANER, the Mangrove will be stuck. */
+        revert("mgv/swapError");
       }
     }
 
@@ -1278,7 +1278,7 @@ abstract contract Dex {
    */
   function postExecute(
     MultiOrder memory mor,
-    DC.SingleOrder memory sor,
+    MC.SingleOrder memory sor,
     bool success,
     uint gasused,
     bytes32 makerData,
@@ -1311,18 +1311,18 @@ abstract contract Dex {
 
   /* ## Maker Posthook */
   function makerPosthook(
-    DC.SingleOrder memory sor,
+    MC.SingleOrder memory sor,
     uint gasLeft,
     bool success,
     bytes32 makerData,
     bytes32 errorCode
   ) internal returns (uint gasused) {
-    /* At this point, errorCode can only be "dex/makerRevert" or "dex/makerTransferFail" */
+    /* At this point, errorCode can only be "mgv/makerRevert" or "mgv/makerTransferFail" */
     bytes memory cd =
       abi.encodeWithSelector(
         IMaker.makerPosthook.selector,
         sor,
-        DC.OrderResult({
+        MC.OrderResult({
           success: success,
           makerData: makerData,
           errorCode: errorCode
@@ -1337,7 +1337,7 @@ abstract contract Dex {
     uint oldGas = gasleft();
     /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of `CALL`) is $h$, the maker will receive at worst $\textrm{gasreq} - \frac{63h}{64}$ gas. */
     if (!(oldGas - oldGas / 64 >= gasLeft)) {
-      revert("dex/notEnoughGasForMakerPosthook");
+      revert("mgv/notEnoughGasForMakerPosthook");
     }
 
     assembly {
@@ -1356,7 +1356,7 @@ abstract contract Dex {
 
   /* # Low-level offer deletion */
 
-  /* When an offer is deleted, it is marked as such by setting `gives` to 0. Note that provision accounting in the Dex aims to minimize writes. Each maker `fund`s the Dex to increase its balance. When an offer is created/updated, we compute how much should be reserved to pay for possible penalties. That amount can always be recomputed with `offer.gasprice * (offerDetail.gasreq + offerDetail.overhead_gasbase + offerDetail.offer_gasbase)`. The balance is updated to reflect the remaining available ethers.
+  /* When an offer is deleted, it is marked as such by setting `gives` to 0. Note that provision accounting in the Mangrove aims to minimize writes. Each maker `fund`s the Mangrove to increase its balance. When an offer is created/updated, we compute how much should be reserved to pay for possible penalties. That amount can always be recomputed with `offer.gasprice * (offerDetail.gasreq + offerDetail.overhead_gasbase + offerDetail.offer_gasbase)`. The balance is updated to reflect the remaining available ethers.
 
      Now, when an offer is deleted, the offer can stay provisioned, or be `deprovision`ed. In the latter case, we set `gasprice` to 0, which induces a provision of 0. */
   function dirtyDeleteOffer(
@@ -1373,8 +1373,8 @@ abstract contract Dex {
     offers[base][quote][offerId] = offer;
   }
 
-  /* Post-trade, `payTakerMinusFees` sends what's due to the taker and the rest (the fees) to the vault. Routing through the Dex like that also deals with blacklisting issues (separates the maker-blacklisted and the taker-blacklisted cases). */
-  function payTakerMinusFees(MultiOrder memory mor, DC.SingleOrder memory sor)
+  /* Post-trade, `payTakerMinusFees` sends what's due to the taker and the rest (the fees) to the vault. Routing through the Mangrove like that also deals with blacklisting issues (separates the maker-blacklisted and the taker-blacklisted cases). */
+  function payTakerMinusFees(MultiOrder memory mor, MC.SingleOrder memory sor)
     internal
   {
     /* Should be statically provable that the 2 transfers below cannot return false under well-behaved ERC20s and a non-blacklisted, non-0 target. */
@@ -1384,13 +1384,13 @@ abstract contract Dex {
       mor.totalGot -= concreteFee;
       require(
         transferToken(sor.base, vault, concreteFee),
-        "dex/feeTransferFail"
+        "mgv/feeTransferFail"
       );
     }
     if (mor.totalGot > 0) {
       require(
         transferToken(sor.base, mor.taker, mor.totalGot),
-        "dex/DexFailToPayTaker"
+        "mgv/MgvFailToPayTaker"
       );
     }
   }
@@ -1402,8 +1402,8 @@ abstract contract Dex {
 
      **Incentive issue**: if the gas price increases enough after an offer has been created, there may not be an immediately profitable way to remove the fake offers. In that case, we count on 3 factors to keep the book clean:
      1. Gas price eventually comes down.
-     2. Other market makers want to keep the Dex attractive and maintain their offer flow.
-     3. Dex governance (who may collect a fee) wants to keep the Dex attractive and maximize exchange volume.
+     2. Other market makers want to keep the Mangrove attractive and maintain their offer flow.
+     3. Mangrove governance (who may collect a fee) wants to keep the Mangrove attractive and maximize exchange volume.
 
   //+clear+
   /* After an offer failed, part of its provision is given back to the maker and the rest is stored to be sent to the taker after the entire order completes. In `applyPenalty`, we _only_ credit the maker with its excess provision. So it looks like the maker is gaining something. In fact they're just getting back a fraction of what they provisioned earlier.
@@ -1414,10 +1414,10 @@ abstract contract Dex {
    * Otherwise, the maker loses the cost of `gasused + overhead_gasbase/n + offer_gasbase` gas, where `n` is the number of failed offers. The gas price is estimated by `gasprice`.
    * To create the offer, the maker had to provision for `gasreq + overhead_gasbase/n + offer_gasbase` gas at a price of `offer.gasprice`.
    * We do not consider the tx.gasprice.
-   * `offerDetail.gasbase` and `offer.gasprice` are the values of the Dex parameters `config.*_gasbase` and `config.gasprice` when the offer was created. Without caching those values, the provision set aside could end up insufficient to reimburse the maker (or to retribute the taker).
+   * `offerDetail.gasbase` and `offer.gasprice` are the values of the Mangrove parameters `config.*_gasbase` and `config.gasprice` when the offer was created. Without caching those values, the provision set aside could end up insufficient to reimburse the maker (or to retribute the taker).
    */
   function applyPenalty(
-    DC.SingleOrder memory sor,
+    MC.SingleOrder memory sor,
     uint gasused,
     uint failCount
   ) internal returns (uint) {
@@ -1459,7 +1459,7 @@ abstract contract Dex {
     }
   }
 
-  /* # Get/set configuration and Dex state */
+  /* # Get/set configuration and Mangrove state */
 
   function config(address base, address quote)
     public
@@ -1469,7 +1469,7 @@ abstract contract Dex {
     _local = locals[base][quote];
     if ($$(global_useOracle("_global")) > 0) {
       (uint gasprice, uint density) =
-        IDexMonitor($$(global_monitor("_global"))).read(base, quote);
+        IMgvMonitor($$(global_monitor("_global"))).read(base, quote);
       _global = $$(set_global("_global", [["gasprice", "gasprice"]]));
       _local = $$(set_local("_local", [["density", "density"]]));
     }
@@ -1490,13 +1490,13 @@ abstract contract Dex {
     setFee(base, quote, fee);
     setDensity(base, quote, density);
     setGasbase(base, quote, overhead_gasbase, offer_gasbase);
-    emit DexEvents.SetActive(base, quote, true);
+    emit MgvEvents.SetActive(base, quote, true);
   }
 
   function deactivate(address base, address quote) public {
     authOnly();
     locals[base][quote] = $$(set_local("locals[base][quote]", [["active", 0]]));
-    emit DexEvents.SetActive(base, quote, false);
+    emit MgvEvents.SetActive(base, quote, false);
   }
 
   /* ### `fee` */
@@ -1507,11 +1507,11 @@ abstract contract Dex {
   ) public {
     authOnly();
     /* `fee` is in basis points, i.e. in percents of a percent. */
-    require(value <= 500, "dex/config/fee/<=500"); // at most 5%
+    require(value <= 500, "mgv/config/fee/<=500"); // at most 5%
     locals[base][quote] = $$(
       set_local("locals[base][quote]", [["fee", "value"]])
     );
-    emit DexEvents.SetFee(base, quote, value);
+    emit MgvEvents.SetFee(base, quote, value);
   }
 
   /* ### `density` */
@@ -1523,12 +1523,12 @@ abstract contract Dex {
   ) public {
     authOnly();
     /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
-    require(uint32(value) == value, "dex/config/density/32bits");
+    require(uint32(value) == value, "mgv/config/density/32bits");
     //+clear+
     locals[base][quote] = $$(
       set_local("locals[base][quote]", [["density", "value"]])
     );
-    emit DexEvents.SetDensity(base, quote, value);
+    emit MgvEvents.SetDensity(base, quote, value);
   }
 
   /* ### `gasbase` */
@@ -1542,11 +1542,11 @@ abstract contract Dex {
     /* Checking the size of `*_gasbase` is necessary to prevent a) data loss when `*_gasbase` is copied to an `OfferDetail` struct, and b) overflow when `*_gasbase` is used in calculations. */
     require(
       uint24(overhead_gasbase) == overhead_gasbase,
-      "dex/config/overhead_gasbase/24bits"
+      "mgv/config/overhead_gasbase/24bits"
     );
     require(
       uint24(offer_gasbase) == offer_gasbase,
-      "dex/config/offer_gasbase/24bits"
+      "mgv/config/offer_gasbase/24bits"
     );
     //+clear+
     locals[base][quote] = $$(
@@ -1558,7 +1558,7 @@ abstract contract Dex {
         ]
       )
     );
-    emit DexEvents.SetGasbase(overhead_gasbase, offer_gasbase);
+    emit MgvEvents.SetGasbase(overhead_gasbase, offer_gasbase);
   }
 
   /* ## Globals */
@@ -1566,7 +1566,7 @@ abstract contract Dex {
   function kill() public {
     authOnly();
     global = $$(set_global("global", [["dead", 1]]));
-    emit DexEvents.Kill();
+    emit MgvEvents.Kill();
   }
 
   /* ### `gasprice` */
@@ -1574,45 +1574,45 @@ abstract contract Dex {
   function setGasprice(uint value) public {
     authOnly();
     /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */
-    require(uint16(value) == value, "dex/config/gasprice/16bits");
+    require(uint16(value) == value, "mgv/config/gasprice/16bits");
     //+clear+
 
     global = $$(set_global("global", [["gasprice", "value"]]));
-    emit DexEvents.SetGasprice(value);
+    emit MgvEvents.SetGasprice(value);
   }
 
   /* ### `gasmax` */
   function setGasmax(uint value) public {
     authOnly();
     /* Since any new `gasreq` is bounded above by `config.gasmax`, this check implies that all offers' `gasreq` is 24 bits wide at most. */
-    require(uint24(value) == value, "dex/config/gasmax/24bits");
+    require(uint24(value) == value, "mgv/config/gasmax/24bits");
     //+clear+
     global = $$(set_global("global", [["gasmax", "value"]]));
-    emit DexEvents.SetGasmax(value);
+    emit MgvEvents.SetGasmax(value);
   }
 
   function setGovernance(address value) public {
     authOnly();
     governance = value;
-    emit DexEvents.SetGovernance(value);
+    emit MgvEvents.SetGovernance(value);
   }
 
   function setVault(address value) public {
     authOnly();
     vault = value;
-    emit DexEvents.SetVault(value);
+    emit MgvEvents.SetVault(value);
   }
 
   function setMonitor(address value) public {
     authOnly();
     global = $$(set_global("global", [["monitor", "value"]]));
-    emit DexEvents.SetMonitor(value);
+    emit MgvEvents.SetMonitor(value);
   }
 
   function authOnly() internal view {
     require(
       msg.sender == governance || msg.sender == address(this),
-      "dex/unauthorized"
+      "mgv/unauthorized"
     );
   }
 
@@ -1623,7 +1623,7 @@ abstract contract Dex {
     } else {
       global = $$(set_global("global", [["useOracle", 0]]));
     }
-    emit DexEvents.SetUseOracle(value);
+    emit MgvEvents.SetUseOracle(value);
   }
 
   function setNotify(bool value) public {
@@ -1633,21 +1633,21 @@ abstract contract Dex {
     } else {
       global = $$(set_global("global", [["notify", 0]]));
     }
-    emit DexEvents.SetNotify(value);
+    emit MgvEvents.SetNotify(value);
   }
 
   /* # Maker debit/credit utility functions */
 
   function debitWei(address maker, uint amount) internal {
     uint makerBalance = balanceOf[maker];
-    require(makerBalance >= amount, "dex/insufficientProvision");
+    require(makerBalance >= amount, "mgv/insufficientProvision");
     balanceOf[maker] = makerBalance - amount;
-    emit DexEvents.Debit(maker, amount);
+    emit MgvEvents.Debit(maker, amount);
   }
 
   function creditWei(address maker, uint amount) internal {
     balanceOf[maker] += amount;
-    emit DexEvents.Credit(maker, amount);
+    emit MgvEvents.Credit(maker, amount);
   }
 
   /* # Delegation public functions */
@@ -1664,7 +1664,7 @@ abstract contract Dex {
     bytes32 r,
     bytes32 s
   ) external {
-    require(deadline >= block.timestamp, "dex/permit/expired");
+    require(deadline >= block.timestamp, "mgv/permit/expired");
 
     uint nonce = nonces[owner]++;
     bytes32 digest =
@@ -1689,11 +1689,11 @@ abstract contract Dex {
     address recoveredAddress = ecrecover(digest, v, r, s);
     require(
       recoveredAddress != address(0) && recoveredAddress == owner,
-      "dex/permit/invalidSignature"
+      "mgv/permit/invalidSignature"
     );
 
     allowances[base][quote][owner][spender] = value;
-    emit DexEvents.Approval(base, quote, owner, spender, value);
+    emit MgvEvents.Approval(base, quote, owner, spender, value);
   }
 
   function approve(
@@ -1703,13 +1703,13 @@ abstract contract Dex {
     uint value
   ) external returns (bool) {
     allowances[base][quote][msg.sender][spender] = value;
-    emit DexEvents.Approval(base, quote, msg.sender, spender, value);
+    emit MgvEvents.Approval(base, quote, msg.sender, spender, value);
     return true;
   }
 
   /* # Misc. low-level functions */
 
-  /* Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `DexCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer`.
+  /* Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `MangroveCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer`.
 
   **Warning**: calling with `worseId = 0` will set `betterId` as the best. So with `worseId = 0` and `betterId = 0`, it sets the book to empty and loses track of existing offers.
 
@@ -1746,7 +1746,7 @@ abstract contract Dex {
     uint amount
   ) internal {
     uint allowed = allowances[base][quote][owner][msg.sender];
-    require(allowed > amount, "dex/lowAllowance");
+    require(allowed > amount, "mgv/lowAllowance");
     allowances[base][quote][owner][msg.sender] = allowed - amount;
   }
 
@@ -1759,16 +1759,16 @@ abstract contract Dex {
      2. Runs `offerDetail.maker`'s `execute` function.
      3. Returns the result of the operations, with optional makerData to help the maker debug.
    */
-  function flashloan(DC.SingleOrder calldata sor, address taker)
+  function flashloan(MC.SingleOrder calldata sor, address taker)
     external
     returns (uint gasused)
   {
     /* `flashloan` must be used with a call (hence the `external` modifier) so its effect can be reverted. But a call from the outside would be fatal. */
-    require(msg.sender == address(this), "dex/flashloan/protected");
-    /* The transfer taker -> maker is in 2 steps. First, taker->dex. Then
-       dex->maker. With a direct taker->maker transfer, if one of taker/maker
+    require(msg.sender == address(this), "mgv/flashloan/protected");
+    /* The transfer taker -> maker is in 2 steps. First, taker->mgv. Then
+       mgv->maker. With a direct taker->maker transfer, if one of taker/maker
        is blacklisted, we can't tell which one. We need to know which one:
-       if we incorrectly blame the taker, a blacklisted maker can block a pair forever; if we incorrectly blame the maker, a blacklisted taker can unfairly make makers fail all the time. Of course we assume the Dex is not blacklisted. Also note that this setup doesn not work well with tokens that take fees or recompute balances at transfer time. */
+       if we incorrectly blame the taker, a blacklisted maker can block a pair forever; if we incorrectly blame the maker, a blacklisted taker can unfairly make makers fail all the time. Of course we assume the Mangrove is not blacklisted. Also note that this setup doesn not work well with tokens that take fees or recompute balances at transfer time. */
     if (transferTokenFrom(sor.quote, taker, address(this), sor.gives)) {
       if (
         transferToken(
@@ -1779,10 +1779,10 @@ abstract contract Dex {
       ) {
         gasused = makerExecute(sor);
       } else {
-        innerRevert([bytes32("dex/makerReceiveFail"), bytes32(0), ""]);
+        innerRevert([bytes32("mgv/makerReceiveFail"), bytes32(0), ""]);
       }
     } else {
-      innerRevert([bytes32("dex/takerFailToPayMaker"), "", ""]);
+      innerRevert([bytes32("mgv/takerFailToPayMaker"), "", ""]);
     }
   }
 
@@ -1798,28 +1798,28 @@ abstract contract Dex {
      2. run transferFrom ourselves.
 
      ### balanceOf pros:
-       * maker may `transferFrom` another address they control; saves gas compared to dex's `transferFrom`
-       * maker does not need to `approve` dex
+       * maker may `transferFrom` another address they control; saves gas compared to Mangrove's `transferFrom`
+       * maker does not need to `approve` Mangrove
 
      ### balanceOf cons
        * if the ERC20 transfer method has a callback to receiver, the method does not work (the receiver can set its balance to 0 during the callback)
-       * if the taker is malicious, they can analyze the maker code. If the maker goes on any dex2, they may execute code provided by the taker. This would reduce the taker balance and make the maker fail. So the taker could steal the maker's balance.
+       * if the taker is malicious, they can analyze the maker code. If the maker goes on any Mangrove2, they may execute code provided by the taker. This would reduce the taker balance and make the maker fail. So the taker could steal the maker's balance.
 
     We choose `transferFrom`.
     */
 
-  function invertedFlashloan(DC.SingleOrder calldata sor, address)
+  function invertedFlashloan(MC.SingleOrder calldata sor, address)
     external
     returns (uint gasused)
   {
     /* `invertedFlashloan` must be used with a call (hence the `external` modifier) so its effect can be reverted. But a call from the outside would be fatal. */
-    require(msg.sender == address(this), "dex/invertedFlashloan/protected");
+    require(msg.sender == address(this), "mgv/invertedFlashloan/protected");
     gasused = makerExecute(sor);
   }
 
   /* ## Maker Execute */
 
-  function makerExecute(DC.SingleOrder calldata sor)
+  function makerExecute(MC.SingleOrder calldata sor)
     internal
     returns (uint gasused)
   {
@@ -1835,7 +1835,7 @@ abstract contract Dex {
     /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of `CALL`) is $h$, the maker will receive at worst $\textrm{gasreq} - \frac{63h}{64}$ gas. */
     /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether `63/64(gasleft-overhead_gasbase-offer_gasbase) > gasreq`. If no, we'd know by induction that there is enough gas left to apply fees, stitch offers, etc (or could revert safely if no offer has been taken yet). */
     if (!(oldGas - oldGas / 64 >= gasreq)) {
-      innerRevert([bytes32("dex/notEnoughGasForMakerTrade"), "", ""]);
+      innerRevert([bytes32("mgv/notEnoughGasForMakerTrade"), "", ""]);
     }
 
     assembly {
@@ -1853,7 +1853,7 @@ abstract contract Dex {
     gasused = oldGas - gasleft();
 
     if (!callSuccess) {
-      innerRevert([bytes32("dex/makerRevert"), bytes32(gasused), makerData]);
+      innerRevert([bytes32("mgv/makerRevert"), bytes32(gasused), makerData]);
     }
 
     bool transferSuccess =
@@ -1861,7 +1861,7 @@ abstract contract Dex {
 
     if (!transferSuccess) {
       innerRevert(
-        [bytes32("dex/makerTransferFail"), bytes32(gasused), makerData]
+        [bytes32("mgv/makerTransferFail"), bytes32(gasused), makerData]
       );
     }
   }
@@ -1895,7 +1895,7 @@ abstract contract Dex {
   /* `transferTokenFrom` is adapted from [existing code](https://soliditydeveloper.com/safe-erc20) and in particular avoids the
   "no return value" bug. It never throws and returns true iff the transfer was successful according to `tokenAddress`.
 
-    Note that any spurious exception due to an error in Dex code will be falsely blamed on `from`.
+    Note that any spurious exception due to an error in Mangrove code will be falsely blamed on `from`.
   */
   function transferTokenFrom(
     address tokenAddress,
@@ -1922,31 +1922,35 @@ abstract contract Dex {
 
   /* # Abstract functions */
 
-  function executeEnd(MultiOrder memory mor, DC.SingleOrder memory sor)
+  function executeEnd(MultiOrder memory mor, MC.SingleOrder memory sor)
     internal
     virtual;
 
-  function executeCallback(DC.SingleOrder memory sor) internal virtual;
+  function executeCallback(MC.SingleOrder memory sor) internal virtual;
 }
 
-/* # FMD and FTD instanciations of Dex */
+/* # FMD and FTD instanciations of Mangrove */
 
-contract FMD is Dex {
-  constructor(uint gasprice, uint gasmax) Dex(gasprice, gasmax, true, "FMD") {}
+contract MMgv is Mangrove {
+  constructor(uint gasprice, uint gasmax)
+    Mangrove(gasprice, gasmax, true, "FMD")
+  {}
 
-  function executeEnd(MultiOrder memory mor, DC.SingleOrder memory sor)
+  function executeEnd(MultiOrder memory mor, MC.SingleOrder memory sor)
     internal
     override
   {}
 
-  function executeCallback(DC.SingleOrder memory sor) internal override {}
+  function executeCallback(MC.SingleOrder memory sor) internal override {}
 }
 
-contract FTD is Dex {
-  constructor(uint gasprice, uint gasmax) Dex(gasprice, gasmax, false, "FTD") {}
+contract TMgv is Mangrove {
+  constructor(uint gasprice, uint gasmax)
+    Mangrove(gasprice, gasmax, false, "FTD")
+  {}
 
   // execute taker trade
-  function executeEnd(MultiOrder memory mor, DC.SingleOrder memory sor)
+  function executeEnd(MultiOrder memory mor, MC.SingleOrder memory sor)
     internal
     override
   {
@@ -1958,7 +1962,7 @@ contract FTD is Dex {
     );
     bool success =
       transferTokenFrom(sor.quote, mor.taker, address(this), mor.totalGave);
-    require(success, "dex/takerFailToPayMaker");
+    require(success, "mgv/takerFailToPayMaker");
   }
 
   /* We use `transferFrom` with takers (instead of checking `balanceOf` before/after the call) for the following reason we want the taker to be awaken after all loans have been made, so either
@@ -1969,9 +1973,9 @@ contract FTD is Dex {
 So :
    1. Would mean accumulating a list of all makers, which would make the market order code too complex
    2. Is OK, but has an extra CALL cost on top of the token transfer, one for each maker. This is unavoidable anyway when calling makerTrade (since the maker must be able to execute arbitrary code at that moment), but we can skip it here.
-   3. Is the cheapest, but it has the drawbacks of `transferFrom`: money must end up owned by the taker, and taker needs to `approve` Dex
+   3. Is the cheapest, but it has the drawbacks of `transferFrom`: money must end up owned by the taker, and taker needs to `approve` Mangrove
    */
-  function executeCallback(DC.SingleOrder memory sor) internal override {
+  function executeCallback(MC.SingleOrder memory sor) internal override {
     /* If `transferToken` returns false here, we're in a special (and bad) situation. The taker is returning part of their total loan to a maker, but the maker can't receive the tokens. Only case we can see: maker is blacklisted. We could punish maker. We don't. We could send money back to taker. We don't. */
     transferToken(
       sor.quote,
