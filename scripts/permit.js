@@ -1,4 +1,4 @@
-// /* Test Dex's permit functionality */
+// /* Test Mangrove's permit functionality */
 //
 //
 // ! WARNING ! Currently nonfunctional, waiting for hardhat to implement eth_signTypedData_v4.
@@ -15,15 +15,15 @@
 async function main() {
   const ethers = hre.ethers;
 
-  const DexSetup = await ethers.getContractFactory("DexSetup");
-  const dexSetup = await DexSetup.deploy();
+  const MgvSetup = await ethers.getContractFactory("MgvSetup");
+  const mgvSetup = await MgvSetup.deploy();
 
   const TokenSetup = await ethers.getContractFactory("TokenSetup");
   const tokenSetup = await TokenSetup.deploy();
 
   const Permit = await ethers.getContractFactory("PermitHelper", {
     libraries: {
-      DexSetup: dexSetup.address,
+      MgvSetup: mgvSetup.address,
       TokenSetup: tokenSetup.address,
     },
   });
@@ -32,13 +32,13 @@ async function main() {
     value: ethers.utils.parseUnits("1000", "ether"),
   });
 
-  const dexAddress = await permit.dexAddress();
+  const mgvAddress = await permit.mgvAddress();
   const baseAddress = await permit.baseAddress();
   const quoteAddress = await permit.quoteAddress();
 
   const TestToken = await ethers.getContractFactory("TestToken");
   const quote = TestToken.attach(quoteAddress);
-  await quote.approve(dexAddress, ethers.utils.parseUnits("1", "ether"));
+  await quote.approve(mgvAddress, ethers.utils.parseUnits("1", "ether"));
 
   /* hardhat ethers wrapper does not expose signTypedData so we get the raw object */
   /* see https://github.com/nomiclabs/hardhat/issues/1108 */
@@ -46,10 +46,10 @@ async function main() {
 
   // Follow https://eips.ethereum.org/EIPS/eip-2612
   const domain = {
-    name: "FMD",
+    name: "MMgv",
     version: "1",
     chainId: 31337, // hardhat chainid
-    verifyingContract: dexAddress,
+    verifyingContract: mgvAddress,
   };
 
   const types = {

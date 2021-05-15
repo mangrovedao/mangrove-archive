@@ -1,14 +1,14 @@
-/* # Dex Summary
-   * The Dex holds offer books for `base`,`quote` pairs.
+/* # Mangrove Summary
+   * The Mangrove holds offer books for `base`,`quote` pairs.
    * Offers are sorted in a doubly linked list.
    * Each offer promises `base` and requests `quote`.
    * Each offer has an attached `maker` address.
-   * In the normal operation mode (called FMD for Flash Maker Dex), when an offer is executed, we:
+   * In the normal operation mode (called MMgv for Maker Mangrove), when an offer is executed, we:
      1. Flashloan some `quote` to the offer's `maker`.
      2. Call an arbitrary `execute` function on that address.
      3. Transfer back some `base`.
      4. Call back the `maker` so they can update their offers.
-   * There is an inverted operation mode (called FTD for Flash Taker Dex), the flashloan is reversed (from the maker to the taker).
+   * There is an inverted operation mode (called TMgv for Taker Mangrove), the flashloan is reversed (from the maker to the taker).
    * Offer are just promises. They can fail.
    * If an offer fails to transfer the right amount back, the loan is reverted.
    * A penalty mechanism incentivizes keepers to keep the book clean of failing offers.
@@ -61,7 +61,7 @@ const structs = {
      _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
   10 billions. */
     fields.wants,
-    /* * `gasprice` is in gwei/gas and _16 bits wide_, which accomodates 1 to ~65k gwei / gas.  `gasprice` is also the name of a global Dex parameter. When an offer is created, the offer's `gasprice` is set to the max of the user-specified `gasprice` and the Dex's global `gasprice`. */
+    /* * `gasprice` is in gwei/gas and _16 bits wide_, which accomodates 1 to ~65k gwei / gas.  `gasprice` is also the name of a global Mangrove parameter. When an offer is created, the offer's `gasprice` is set to the max of the user-specified `gasprice` and the Mangrove's global `gasprice`. */
     fields.gasprice,
   ],
 
@@ -78,7 +78,7 @@ They have the following fields: */
     fields.gasreq,
     /*
        * `overhead_gasbase` represents the gas used by initiating an entire order (snipes or market order).
-          `offer_gasbase` represents the gas overhead used by processing the offer inside the Dex.
+          `offer_gasbase` represents the gas overhead used by processing the offer inside the Mangrove.
 
     The gas considered 'used' by an offer is the sum of
     * gas consumed during the call to the offer
@@ -91,8 +91,8 @@ They have the following fields: */
 
    `*_gasbase` is _24 bits wide_ -- note that if more room was needed, we could bring it down to 8 bits and have it represent 1k gas increments.
 
-   `*_gasbase` are also the names of global Dex
-   parameters. When an offer is created, their current value is copied from the Dex global configuration.  The maker does not choose it.
+   `*_gasbase` are also the names of global Mangrove
+   parameters. When an offer is created, their current value is copied from the Mangrove global configuration.  The maker does not choose it.
 
    So, when an offer is created, the maker is asked to provision the
    following amount of wei:
@@ -112,7 +112,7 @@ They have the following fields: */
   ],
 
   /* ## Configuration and state
-   Most configuration and state information for a `base`,`quote` pair is either in a `global` struct (common to all pairs), or in a `local` struct. All state variable can be found at the beginning of the `Dex` contract in `Dex.sol`. Configuration fields are:
+   Most configuration and state information for a `base`,`quote` pair is either in a `global` struct (common to all pairs), or in a `local` struct. All state variable can be found at the beginning of the `Mangrove` contract in `Mangrove.sol`. Configuration fields are:
 */
   /* ### Global Configuration */
   global: [
@@ -135,13 +135,13 @@ They have the following fields: */
   local: [
     /* * A `base`,`quote` pair is in`active` by default, but may be activated/deactivated by governance. */
     { name: "active", bits: 8, type: "uint" },
-    /* * `fee`, in basis points, of `base` given to the taker. This fee is sent to the Dex. Fee is capped to 5% (see Dex.sol). */
+    /* * `fee`, in basis points, of `base` given to the taker. This fee is sent to the Mangrove. Fee is capped to 5% (see Mangrove.sol). */
     { name: "fee", bits: 16, type: "uint" },
     /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `base` per gas requested. For instance, if `density == 10`, `offer_gasbase == 5000`, `overhead_gasbase == 0`, an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `base`. */
     { name: "density", bits: 32, type: "uint" },
     /* * `overhead_gasbase` is an overapproximation of the gas overhead consumed by making an order (snipes or market order). Local to a pair because the costs of paying the fee depends on the relevant ERC20 contract. */
     fields.overhead_gasbase,
-    /* * `offer_gasbase` is an overapproximation of the gas overhead associated with processing one offer. The Dex considers that a failed offer has used at least `offer_gasbase` gas. Local to a pair because the costs of calling `base` and `quote`'s `transferFrom` are part of `offer_gasbase`. Should only be updated when ERC20 contracts change or when opcode prices change. */
+    /* * `offer_gasbase` is an overapproximation of the gas overhead associated with processing one offer. The Mangrove considers that a failed offer has used at least `offer_gasbase` gas. Local to a pair because the costs of calling `base` and `quote`'s `transferFrom` are part of `offer_gasbase`. Should only be updated when ERC20 contracts change or when opcode prices change. */
     fields.offer_gasbase,
     /* * If `lock` is true, orders may not be added nor executed.
 

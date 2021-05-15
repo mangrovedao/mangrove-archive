@@ -8,14 +8,12 @@ async function main() {
 
   const [owner, addr1, addr2] = await $e.getSigners();
   console.log("owner", owner.address);
-  const DexLib = await $e.getContractFactory("DexLib");
-  const dexLib = await DexLib.deploy();
-  console.log("dexlib", dexLib.address);
-  const Dex = await $e.getContractFactory("Dex", {
-    libraries: { DexLib: dexLib.address },
-  });
-  const dex = await Dex.deploy(1, 1, 1, true);
-  console.log("dex", dex);
+  //  const Lib = await $e.getContractFactory("DexLib");
+  //  const dexLib = await DexLib.deploy();
+  //  console.log("dexlib", dexLib.address);
+  const Mangrove = await $e.getContractFactory("Mangrove");
+  const mgv = await Mangrove.deploy(1, 1, 1, true);
+  console.log("mgv", mgv);
 
   /* To activate for two tokens:
   const TestToken = await $e.getContractFactory("TestToken");
