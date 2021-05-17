@@ -14,7 +14,7 @@
     "solcco": ">=1.0.8"
   },
   "scripts": {
-    "doc": "solcco -f DexDoc.html structs.js contracts/DexCommon.sol contracts/Dex.sol",
+    "doc": "solcco -f MgvDoc.html structs.js contracts/MgvCommon.sol contracts/Mangrove.sol",
     "test": "hardhat test-solidity Gatekeeping MakerOperations TakerOperations DeepCollect Scenarii"
   },
   "devDependencies": {
