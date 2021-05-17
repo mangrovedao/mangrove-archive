@@ -135,9 +135,6 @@ library MgvEvents {
 
   /* * `offerId` was present and is now removed from the book. */
   event RetractOffer(address base, address quote, uint offerId);
-
-  /* * Dead offer `offerId` is collected: provision is withdrawn and `offerId` is removed from `offers` and `offerDetails` maps*/
-  event DeleteOffer(address base, address quote, uint offerId);
 }
 
 /* # IMaker interface */
