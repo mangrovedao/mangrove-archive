@@ -140,7 +140,7 @@ library MgvEvents {
 /* # IMaker interface */
 interface IMaker {
   /* Called upon offer execution. If this function reverts, Mangrove will not try to transfer funds. Returned data (truncated to 32 bytes) can be accessed during the call to `makerPosthook` in the `result.errorCode` field.
-  Reverting with a message (for further processing during posthook) should be done using low level `revertTrade(byte32)` provided in the `MgvIt` library. It is not possible to reenter the order book of the traded pair whilst this function is executed.*/
+  Reverting with a message (for further processing during posthook) should be done using low level `revertTrade(bytes32)` provided in the `MgvIt` library. It is not possible to reenter the order book of the traded pair whilst this function is executed.*/
   function makerTrade(MgvCommon.SingleOrder calldata order)
     external
     returns (bytes32);
