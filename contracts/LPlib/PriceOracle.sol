@@ -6,7 +6,7 @@ import "./PriceOracle.sol";
 contract PriceOracle is AccessControlled{
   address immutable base_token ;
 
-  mapping(address => uint) private quotes;
+  mapping(address => uint160) private quotes;
   mapping (address => bool) private subscribers;
 
   constructor(address _base_token) AccessControlled (){
@@ -19,7 +19,8 @@ contract PriceOracle is AccessControlled{
 
  // price in quote for 1 unit of base.
  function set_price_for(address erc_quote, uint amount) external onlyCaller(admin) {
-   quotes[erc_quote] = amount ;
+   require(uint160(amount)==amount);
+   quotes[erc_quote] = uint160(amount) ;
  }
 
  function is_registered(address addr) internal returns (bool){
