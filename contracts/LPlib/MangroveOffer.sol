@@ -3,40 +3,33 @@ pragma abicoder v2;
 import {IMaker, MgvCommon as MgvC} from "../MgvCommon.sol";
 import "../interfaces.sol";
 import "../Mangrove.sol";
+import "./AccessControlled.sol";
 
-abstract contract SimplePool is IMaker {
+abstract contract MangroveOffer is IMaker,AccessControlled {
   // Address of the Mangrove contract
   Mangrove mgv;
 
-  // ERC20 pool that is used to swap token (ERC quote)
-  IERC20 erc_quote;
-
-  // Admin of [this]
-  address admin;
+  // contract that is used to source liquidity (in base token)
+  // should be ERC20 compatible
+  address immutable liquidity_source;
 
   // gas required to execute makerTrade
   // underestimating this amount might result in loosing bounty during trade execution by the Mangrove
-  uint gas_to_execute = 100_000;
+  uint gas_to_execute;
 
   // gasprice value (in gwei) to define offer bounty
-  uint gasprice_level = 1000;
+  uint gasprice_level;
 
-  constructor(address payable _mgv, address _erc20) {
+  constructor(address payable _mgv, address _liquidity_source, uint _gas_to_execute, uint _gasprice_level) {
     mgv = Mangrove(_mgv);
-    erc_quote = IERC20(_erc20);
-    admin = msg.sender;
-  }
-
-  modifier onlyCaller(address caller) {
-    require(msg.sender == caller, "InvalidCaller");
-    _;
+    liquidity_source = _liquidity_source;
+    require(uint24(_gas_to_execute) == _gas_to_execute);
+    gas_to_execute = _gas_to_execute;
+    require(uint16(_gasprice_level) == _gasprice_level);
+    gasprice_level = _gasprice_level;
   }
 
   receive() external payable {}
-
-  function setAdmin(address _admin) external onlyCaller(admin) {
-    admin = _admin;
-  }
 
   function setExecGas(uint gasreq) external onlyCaller(admin) {
     require(uint24(gasreq) == gasreq);
@@ -51,8 +44,8 @@ abstract contract SimplePool is IMaker {
   // Utilities
 
   // Queries the Mangrove to know how much WEI will be required to post a new offer
-  function getProvision(address erc_base) external returns (uint) {
-    MgvC.Config memory config = mgv.getConfig(erc_base, address(erc_quote));
+  function getProvision(address erc_quote) external returns (uint) {
+    MgvC.Config memory config = mgv.getConfig(liquidity_source, erc_quote);
     uint _gp;
     if (config.global.gasprice > gasprice_level) {
       _gp = uint(config.global.gasprice);
@@ -66,34 +59,57 @@ abstract contract SimplePool is IMaker {
       10**9);
   }
 
+  // To throw a message that will be passed to posthook
+  function tradeRevert(bytes32 data) internal pure {
+    bytes memory revData = new bytes(32);
+    assembly {
+      mstore(add(revData, 32), data)
+      revert(add(revData, 32), 32)
+    }
+  }
+
   // Mangrove trade management
 
+  // Function that verifies that the pool is sufficiently provisioned
+  // throws otherwise
+  // Note that the order.gives is NOT verified
   function makerTrade(MgvC.SingleOrder calldata order)
-    external
-    view
+    public
     override
+    virtual
     onlyCaller(address(mgv))
     returns (bytes32 ret)
   {
-    require(erc_quote.balanceOf(address(this)) >= order.gives);
-    ret = "TransferOK";
+    ret = _makerTrade(order);
+  }
+
+  function _makerTrade(MgvC.SingleOrder calldata order) internal returns (bytes32){
+    if (IERC20(liquidity_source).balanceOf(address(this)) > order.wants) {
+      return ("TransferOK");
+    }
+    else {
+      tradeRevert("NoEnoughLiquidity");
+    }
   }
 
   function approveMgv(uint amount) public onlyCaller(admin) {
-    require(erc_quote.approve(address(mgv), amount));
+    require(IERC20(liquidity_source).approve(address(mgv), amount));
   }
 
-  function withdraw(uint amount)
+  function withdraw(address receiver, uint amount)
     external
     onlyCaller(admin)
     returns (bool noRevert)
   {
     require(mgv.withdraw(amount));
-    (noRevert, ) = admin.call{value: amount}("");
+    (noRevert, ) = receiver.call{value: amount}("");
   }
 
-  function transfer(address erc_base, uint amount) external onlyCaller(admin) {
-    IERC20(erc_base).transfer(admin, amount);
+  function transfer(address erc, address receiver, uint amount)
+  external
+  onlyCaller(admin)
+  returns (bool) {
+    return (IERC20(erc).transfer(receiver, amount));
   }
 
   // Mangrove offer posting management
@@ -101,14 +117,14 @@ abstract contract SimplePool is IMaker {
   // returns offerId 0 if failed
 
   function newOffer(
-    address erc_base,
+    address erc_quote,
     uint wants,
     uint gives,
     uint pivotId
   ) external onlyCaller(admin) returns (uint offerId) {
     offerId = mgv.newOffer(
-      erc_base,
-      address(erc_quote),
+      address(liquidity_source),
+      erc_quote,
       wants,
       gives,
       gas_to_execute,
@@ -118,15 +134,15 @@ abstract contract SimplePool is IMaker {
   }
 
   function updateOffer(
-    address erc_base,
+    address erc_quote,
     uint wants,
     uint gives,
     uint pivotId,
     uint offerId
   ) external onlyCaller(admin) {
     mgv.updateOffer(
-      erc_base,
-      address(erc_quote),
+      address(liquidity_source),
+      erc_quote,
       wants,
       gives,
       gas_to_execute,
@@ -137,10 +153,10 @@ abstract contract SimplePool is IMaker {
   }
 
   function retractOffer(
-    address base,
+    address erc_quote,
     uint offerId,
     bool _deprovision
   ) external onlyCaller(admin) {
-    mgv.retractOffer(base, address(erc_quote), offerId, _deprovision);
+    mgv.retractOffer(liquidity_source, erc_quote, offerId, _deprovision);
   }
 }
