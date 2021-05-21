@@ -51,7 +51,7 @@ abstract contract SimplePool is IMaker {
   // Utilities
 
   // Queries the Mangrove to know how much WEI will be required to post a new offer
-  function getProvision(address erc_base) public returns (uint) {
+  function getProvision(address erc_base) external returns (uint) {
     MgvC.Config memory config = mgv.getConfig(erc_base, address(erc_quote));
     uint _gp;
     if (config.global.gasprice > gasprice_level) {
