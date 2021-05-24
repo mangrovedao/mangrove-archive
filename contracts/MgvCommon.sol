@@ -3,6 +3,8 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
+$(sol_struct_defs)
+
 /* # Structs
 The structs defined in `structs.js` have their counterpart as solidity structs that are easy to manipulate for outside contracts / callers of view functions. */
 library MgvCommon {
@@ -54,14 +56,14 @@ library MgvCommon {
     address base;
     address quote;
     uint offerId;
-    bytes32 offer;
+    $(sol_type_decl_offer) offer;
     /* `wants`/`gives` mutate over execution. Initially the `wants`/`gives` from the taker's pov, then actual `wants`/`gives` adjusted by offer's price and volume. */
     uint wants;
     uint gives;
     /* `offerDetail` is only populated when necessary. */
-    bytes32 offerDetail;
-    bytes32 global;
-    bytes32 local;
+    $(sol_type_decl_offerDetail) offerDetail;
+    $(sol_type_decl_global) global;
+    $(sol_type_decl_local) local;
   }
 
   struct OrderResult {
@@ -131,7 +133,7 @@ library MgvEvents {
   event Kill();
 
   /* * An offer was created or updated. `data` packs `makerWants`(96), `makerGives`(96), `gasprice`(16), `gasreq`(24), `offerId`(24)*/
-  event WriteOffer(address base, address quote, address maker, bytes32 data);
+  event WriteOffer(address base, address quote, address maker, $(sol_type_decl_writeOffer) data);
 
   /* * `offerId` was present and is now removed from the book. */
   event RetractOffer(address base, address quote, uint offerId);

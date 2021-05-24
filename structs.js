@@ -28,16 +28,16 @@ const preproc = require("./lib/preproc.js");
 /* Struct fields that are common to multiple structs are factored here. Multiple field names refer to offer identifiers, so the `id` field is a function that takes a name as argument. */
 
 const fields = {
-  gives: { name: "gives", bits: 96, type: "uint" },
-  wants: { name: "wants", bits: 96, type: "uint" },
-  gasprice: { name: "gasprice", bits: 16, type: "uint" },
-  gasreq: { name: "gasreq", bits: 24, type: "uint" },
-  overhead_gasbase: { name: "overhead_gasbase", bits: 24, type: "uint" },
-  offer_gasbase: { name: "offer_gasbase", bits: 24, type: "uint" },
+  gives: { name: "gives", type: "uint96" },
+  wants: { name: "wants", type: "uint96" },
+  gasprice: { name: "gasprice", type: "uint16" },
+  gasreq: { name: "gasreq", type: "uint24" },
+  overhead_gasbase: { name: "overhead_gasbase", type: "uint24" },
+  offer_gasbase: { name: "offer_gasbase", type: "uint24" }
 };
 
 const id_field = (name) => {
-  return { name, bits: 24, type: "uint" };
+  return { name, type: "uint24" };
 };
 
 /* # Structs */
@@ -71,7 +71,7 @@ const structs = {
 They have the following fields: */
   offerDetail: [
     /* * `maker` is the address that created the offer. It will be called when the offer is executed, and later during the posthook phase. */
-    { name: "maker", bits: 160, type: "address" },
+    { name: "maker", type: "address" },
     /* * `gasreq` gas will be provided to `execute`. _24 bits wide_, 33% more than the block limit as of late 2020. Note that if more room was needed, we could bring it down to 16 bits and have it represent 1k gas increments.
 
   */
@@ -117,28 +117,28 @@ They have the following fields: */
   /* ### Global Configuration */
   global: [
     /* * The `monitor` can provide realtime values for `gasprice` and `density` to the dex, and receive liquidity events notifications. */
-    { name: "monitor", bits: 160, type: "address" },
+    { name: "monitor", type: "address" },
     /* * If `useOracle` is true, the dex will use the monitor address as an oracle for `gasprice` and `density`, for every base/quote pair. */
-    { name: "useOracle", bits: 8, type: "uint" },
+    { name: "useOracle", type: "uint8" },
     /* * If `notify` is true, the dex will notify the monitor address after every offer execution. */
-    { name: "notify", bits: 8, type: "uint" },
+    { name: "notify", type: "uint8" },
     /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
     fields.gasprice,
     /* * `gasmax` specifies how much gas an offer may ask for at execution time. An offer which asks for more gas than the block limit would live forever on the book. Nobody could take it or remove it, except its creator (who could cancel it). In practice, we will set this parameter to a reasonable limit taking into account both practical transaction sizes and the complexity of maker contracts.
      */
-    { name: "gasmax", bits: 24, type: "uint" },
+    { name: "gasmax", type: "uint24" },
     /* * `dead` dexes cannot be resurrected. */
-    { name: "dead", bits: 8, type: "uint" },
+    { name: "dead", type: "uint8" },
   ],
 
   /* ### Local configuration */
   local: [
     /* * A `base`,`quote` pair is in`active` by default, but may be activated/deactivated by governance. */
-    { name: "active", bits: 8, type: "uint" },
+    { name: "active", type: "uint8" },
     /* * `fee`, in basis points, of `base` given to the taker. This fee is sent to the Mangrove. Fee is capped to 5% (see Mangrove.sol). */
-    { name: "fee", bits: 16, type: "uint" },
+    { name: "fee", type: "uint16" },
     /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `base` per gas requested. For instance, if `density == 10`, `offer_gasbase == 5000`, `overhead_gasbase == 0`, an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `base`. */
-    { name: "density", bits: 32, type: "uint" },
+    { name: "density", type: "uint32" },
     /* * `overhead_gasbase` is an overapproximation of the gas overhead consumed by making an order (snipes or market order). Local to a pair because the costs of paying the fee depends on the relevant ERC20 contract. */
     fields.overhead_gasbase,
     /* * `offer_gasbase` is an overapproximation of the gas overhead associated with processing one offer. The Mangrove considers that a failed offer has used at least `offer_gasbase` gas. Local to a pair because the costs of calling `base` and `quote`'s `transferFrom` are part of `offer_gasbase`. Should only be updated when ERC20 contracts change or when opcode prices change. */
@@ -152,7 +152,7 @@ They have the following fields: */
 
 Note: An optimization in the `marketOrder` function relies on reentrancy being forbidden.
      */
-    { name: "lock", bits: 8, type: "uint" },
+    { name: "lock", type: "uint8" },
     /* * `best` holds the current best offer id. Has size of an id field. *Danger*: reading best inside a lock may give you a stale value. */
     id_field("best"),
     /* * `last` is a counter for offer ids, incremented every time a new offer is created. It can't go above $2^{24}-1$. */
@@ -178,17 +178,17 @@ For instance, the structs object
 ```
 {
   myStruct: [
-    {name: "a", bits: 8,  type: "uint"},
-    {name: "b", bits: 160, type: "address"}
+    {name: "a", type: "uint8"},
+    {name: "b", type: "address"}
   ]
 }
 ```
 
 will generate the following preprocessor macros:
-* `set_myStruct(ptr,values)`. In a context where the solidity variable `v` holds an encoded `myStruct`, it can be used with `$$(set_myStruct('v',[['b','msg.sender']]))`. Note that solidity expression are given as strings. Here : `$$(set_myStruct('v',[['a',256]]))` and in all other methods, arguments exceeding the `bits` parameter of a field will be left-truncated.
+* `set_myStruct(ptr,values)`. In a context where the solidity variable `v` holds an encoded `myStruct`, it can be used with `$$(set_myStruct('v',[['b','msg.sender']]))`. Note that solidity expression are given as strings. Here : `$$(set_myStruct('v',[['a','uint256']]))` and in all other methods, arguments exceeding type width of a field will be left-truncated.
 * `make_myStruct(values)`. An optimised version of `set_myStruct` where the initial value is the null word.
 * `myStruct_a(ptr)`, to access the `a` field. Returns a uint. If the solidity variable `v` holds an encoded `myStruct`, it can be used with `$$(myStruct_a('v'))`.
 * `myStruct_b(ptr)`, to access the `b` field. Returns an address.
 
 */
-module.exports = preproc.structs_with_macros(structs);
+module.exports = preproc.structs_with_macros(structs,{lib_name: "MgvInternal", packing: false});

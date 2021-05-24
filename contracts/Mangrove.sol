@@ -7,9 +7,12 @@ import {
   IMaker,
   MgvCommon as MC,
   MgvEvents,
+  MgvInternal,
   IMgvMonitor
 } from "./MgvCommon.sol";
 import "./interfaces.sol";
+import "hardhat/console.sol";
+
 
 /*
    This contract describes an orderbook-based exchange ("the Mangrove") where market makers *do not have to provision their offer*. See `structs.js` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. In the normal mode of operation ('Flash Maker'), the Mangrove transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
@@ -30,9 +33,9 @@ abstract contract Mangrove {
   address public vault;
 
   /* Global mgv configuration, encoded in a 256 bits word. The information encoded is detailed in `structs.js`. */
-  bytes32 public global;
+  $(sol_type_decl_global) public global;
   /* Configuration mapping for each token pair. The information is also detailed in `structs.js`. */
-  mapping(address => mapping(address => bytes32)) public locals;
+  mapping(address => mapping(address => $(sol_type_decl_local))) public locals;
 
   /* The signature of the low-level swapping function. Given at construction time by inheriting contracts. In FMD, for each offer executed, `FLASHLOANER` sends from taker to maker, then calls maker. In FTD, `FLASHLOANER` first sends from maker to taker for each offer, then calls taker once, then transfers back to each maker. */
   bytes4 immutable FLASHLOANER;
@@ -41,10 +44,18 @@ abstract contract Mangrove {
 
      The mapping are `base => quote => offerId => bytes32`.
    */
-  mapping(address => mapping(address => mapping(uint => bytes32)))
-    public offers;
-  mapping(address => mapping(address => mapping(uint => bytes32)))
-    public offerDetails;
+  mapping(address => mapping(address => mapping(uint => $(sol_type_decl_offer))))
+    public _offers;
+  mapping(address => mapping(address => mapping(uint => $(sol_type_decl_offerDetail))))
+    public _offerDetails;
+
+    function offers(address base, address quote, uint id) external view returns ($(sol_type_offer)) {
+      return _offers[base][quote][id];
+    }
+
+    function offerDetails(address base, address quote, uint id) external view returns($(sol_type_offerDetail)) {
+      return _offerDetails[base][quote][id];
+    }
 
   /* Takers may provide allowances on specific pairs, so other addresses can execute orders in their name. Allowance may be set using the usual `approve` function, or through an [EIP712](https://eips.ethereum.org/EIPS/eip-712) `permit`.
 
@@ -120,7 +131,7 @@ abstract contract Mangrove {
     external
     returns (MC.Config memory ret)
   {
-    (bytes32 _global, bytes32 _local) = config(base, quote);
+    ($(sol_type_global) _global, $(sol_type_local) _local) = config(base, quote);
     ret.global = MC.Global({
       monitor: $$(global_monitor("_global")),
       useOracle: $$(global_useOracle("_global")) > 0,
@@ -147,7 +158,7 @@ abstract contract Mangrove {
     address quote,
     uint offerId
   ) external view returns (MC.Offer memory, MC.OfferDetail memory) {
-    bytes32 offer = offers[base][quote][offerId];
+    $(sol_type_offer) offer = _offers[base][quote][offerId];
     MC.Offer memory offerStruct =
       MC.Offer({
         prev: $$(offer_prev("offer")),
@@ -157,7 +168,7 @@ abstract contract Mangrove {
         gasprice: $$(offer_gasprice("offer"))
       });
 
-    bytes32 offerDetail = offerDetails[base][quote][offerId];
+    $(sol_type_offerDetail) offerDetail = _offerDetails[base][quote][offerId];
 
     MC.OfferDetail memory offerDetailStruct =
       MC.OfferDetail({
@@ -171,18 +182,18 @@ abstract contract Mangrove {
 
   /* Convenience function to get best offer of the given pair */
   function best(address base, address quote) external view returns (uint) {
-    bytes32 local = locals[base][quote];
+    $(sol_type_local) local = locals[base][quote];
     return $$(local_best("local"));
   }
 
   /* Convenience function to check whether given pair is locked */
   function locked(address base, address quote) external view returns (bool) {
-    bytes32 local = locals[base][quote];
+    $(sol_type_local) local = locals[base][quote];
     return $$(local_lock("local")) > 0;
   }
 
   /* Check whether an offer is 'live', that is: inserted in the order book. The Mangrove holds a `base => quote => id => bytes32` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to the null word. A common way to check for initialization is to add an `exists` field to a struct. In our case, liveness can be denoted by `offer.gives > 0`. So we just check the `gives` field. */
-  function isLive(bytes32 offer) public pure returns (bool) {
+  function isLive($(sol_type_offer) offer) public pure returns (bool) {
     return $$(offer_gives("offer")) > 0;
   }
 
@@ -193,7 +204,7 @@ abstract contract Mangrove {
   */
 
   /* `unlockedMarketOnly` protects modifying the market while an order is in progress. Since external contracts are called during orders, allowing reentrancy would, for instance, let a market maker replace offers currently on the book with worse ones. Note that the external contracts _will_ be called again after the order is complete, this time without any lock on the market.  */
-  function unlockedMarketOnly(bytes32 local) internal pure {
+  function unlockedMarketOnly($(sol_type_local) local) internal pure {
     require($$(local_lock("local")) == 0, "mgv/reentrancyLocked");
   }
 
@@ -203,12 +214,12 @@ abstract contract Mangrove {
        * Sending ETH to the Mangrove the normal way. Usual [shenanigans](https://medium.com/@alexsherbuck/two-ways-to-force-ether-into-a-contract-1543c1311c56) are possible.
        * Creating a new offer
    */
-  function liveMgvOnly(bytes32 _global) internal pure {
+  function liveMgvOnly($(sol_type_global) _global) internal pure {
     require($$(global_dead("_global")) == 0, "mgv/dead");
   }
 
   /* When the Mangrove is deployed, all pairs are inactive by default (since `locals[base][quote]` is 0 by default). Offers on inactive pairs cannot be taken or created. They can be updated and retracted. */
-  function activeMarketOnly(bytes32 _global, bytes32 _local) internal pure {
+  function activeMarketOnly($(sol_type_global) _global, $(sol_type_local) _local) internal pure {
     liveMgvOnly(_global);
     require($$(local_active("_local")) > 0, "mgv/inactive");
   }
@@ -230,10 +241,10 @@ abstract contract Mangrove {
     uint gasreq;
     uint gasprice;
     uint pivotId;
-    bytes32 global;
-    bytes32 local;
+    $(sol_type_decl_global) global;
+    $(sol_type_decl_local) local;
     // used on update only
-    bytes32 oldOffer;
+    $(sol_type_decl_offer) oldOffer;
   }
 
   /* The function `newOffer` is for market makers only; no match with the existing book is done. A maker specifies how much `quote` it `wants` and how much `base` it `gives`.
@@ -270,7 +281,7 @@ abstract contract Mangrove {
     ofp.id = 1 + $$(local_last("ofp.local"));
     require(uint24(ofp.id) == ofp.id, "mgv/offerIdOverflow");
 
-    ofp.local = $$(set_local("ofp.local", [["last", "ofp.id"]]));
+    $$(upd_local("ofp.local", [["last", "ofp.id"]]));
 
     ofp.base = base;
     ofp.quote = quote;
@@ -324,13 +335,14 @@ abstract contract Mangrove {
     ofp.gasreq = gasreq;
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
-    ofp.oldOffer = offers[base][quote][offerId];
+    ofp.oldOffer = _offers[base][quote][offerId];
     // Save local config
-    bytes32 oldLocal = ofp.local;
+
+    uint oldBest = $$(local_best("ofp.local"));
     /* The second argument indicates that we are updating an existing offer, not creating a new one. */
     writeOffer(ofp, true);
     /* We saved the current pair's configuration before calling `writeOffer`, since that function may update the current `best` offer. We now check for any change to the configuration and update it if needed. */
-    if (oldLocal != ofp.local) {
+    if (oldBest != $$(local_best("ofp.local"))) {
       locals[ofp.base][ofp.quote] = ofp.local;
     }
     return ofp.id;
@@ -345,10 +357,10 @@ abstract contract Mangrove {
     uint offerId,
     bool _deprovision
   ) external {
-    (, bytes32 local) = config(base, quote);
+    (, $(sol_type_local) local) = config(base, quote);
     unlockedMarketOnly(local);
-    bytes32 offer = offers[base][quote][offerId];
-    bytes32 offerDetail = offerDetails[base][quote][offerId];
+    $(sol_type_offer) offer = _offers[base][quote][offerId];
+    $(sol_type_offerDetail) offerDetail = _offerDetails[base][quote][offerId];
     require(
       msg.sender == $$(offerDetail_maker("offerDetail")),
       "mgv/retractOffer/unauthorized"
@@ -356,7 +368,7 @@ abstract contract Mangrove {
 
     /* Here, we are about to un-live an offer, so we start by taking it out of the book by stitching together its previous and next offers. Note that unconditionally calling `stitchOffers` would break the book since it would connect offers that may have since moved. */
     if (isLive(offer)) {
-      bytes32 oldLocal = local;
+      uint oldBest = $$(local_best("local"));
       local = stitchOffers(
         base,
         quote,
@@ -365,7 +377,7 @@ abstract contract Mangrove {
         local
       );
       /* If calling `stitchOffers` has changed the current `best` offer, we update the storage. */
-      if (oldLocal != local) {
+      if (oldBest != $$(local_best("local"))) {
         locals[base][quote] = local;
       }
       /* Set `gives` to 0. Moreover, the last argument depends on whether the user wishes to get their provision back. */
@@ -396,7 +408,7 @@ abstract contract Mangrove {
 
   /* Fund may be called with a nonzero value (hence the `payable` modifier). The provision will be given to `maker`, not `msg.sender`. */
   function fund(address maker) public payable {
-    (bytes32 _global, ) = config(address(0), address(0));
+    ($(sol_type_global) _global, ) = config(address(0), address(0));
     liveMgvOnly(_global);
     creditWei(maker, msg.value);
   }
@@ -588,7 +600,7 @@ abstract contract Mangrove {
 
     /* Log the write offer event with some packing to save a ~1k gas. */
     {
-      bytes32 writeOfferData =
+      $(sol_type_writeOffer) writeOfferData =
         $$(
           make_writeOffer(
             [
@@ -618,7 +630,7 @@ abstract contract Mangrove {
     /* We now write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `balanceOf`. */
     uint oldProvision;
     {
-      bytes32 offerDetail = offerDetails[ofp.base][ofp.quote][ofp.id];
+      $(sol_type_offerDetail) offerDetail = _offerDetails[ofp.base][ofp.quote][ofp.id];
       if (update) {
         require(
           msg.sender == $$(offerDetail_maker("offerDetail")),
@@ -643,7 +655,7 @@ abstract contract Mangrove {
       ) {
         uint overhead_gasbase = $$(local_overhead_gasbase("ofp.local"));
         uint offer_gasbase = $$(local_offer_gasbase("ofp.local"));
-        offerDetails[ofp.base][ofp.quote][ofp.id] = $$(
+        _offerDetails[ofp.base][ofp.quote][ofp.id] = $$(
           make_offerDetail(
             [
               ["maker", "uint(msg.sender)"],
@@ -678,18 +690,14 @@ abstract contract Mangrove {
     if (!isLive(ofp.oldOffer) || prev != $$(offer_prev("ofp.oldOffer"))) {
       /* * If the offer is not the best one, we update its predecessor; otherwise we update the `best` value. */
       if (prev != 0) {
-        offers[ofp.base][ofp.quote][prev] = $$(
-          set_offer("offers[ofp.base][ofp.quote][prev]", [["next", "ofp.id"]])
-        );
+        $$(upd_offer("_offers[ofp.base][ofp.quote][prev]", [["next", "ofp.id"]]));
       } else {
-        ofp.local = $$(set_local("ofp.local", [["best", "ofp.id"]]));
+        $$(upd_local("ofp.local", [["best", "ofp.id"]]));
       }
 
       /* * If the offer is not the last one, we update its successor. */
       if (next != 0) {
-        offers[ofp.base][ofp.quote][next] = $$(
-          set_offer("offers[ofp.base][ofp.quote][next]", [["prev", "ofp.id"]])
-        );
+        $$(upd_offer("_offers[ofp.base][ofp.quote][next]", [["prev", "ofp.id"]]));
       }
 
       /* * Recall that in this branch, the offer has changed location, or is not currently in the book. If the offer is not new and already in the book, we must remove it from its previous location by stitching its previous prev/next. */
@@ -705,7 +713,7 @@ abstract contract Mangrove {
     }
 
     /* With the `prev`/`next` in hand, we finally store the offer in the `offers` map. */
-    bytes32 ofr =
+    $(sol_type_offer) ofr =
       $$(
         make_offer(
           [
@@ -717,7 +725,7 @@ abstract contract Mangrove {
           ]
         )
       );
-    offers[ofp.base][ofp.quote][ofp.id] = ofr;
+    _offers[ofp.base][ofp.quote][ofp.id] = ofr;
   }
 
   /* ## Find Position */
@@ -733,21 +741,21 @@ abstract contract Mangrove {
     uint nextId;
     uint pivotId = ofp.pivotId;
     /* Get `pivot`, optimizing for the case where pivot info is already known */
-    bytes32 pivot =
-      pivotId == ofp.id ? ofp.oldOffer : offers[ofp.base][ofp.quote][pivotId];
+    $(sol_type_offer) pivot =
+      pivotId == ofp.id ? ofp.oldOffer : _offers[ofp.base][ofp.quote][pivotId];
 
     /* In case pivotId is not an active offer, it is unusable (since it is out of the book). We default to the current best offer. If the book is empty pivot will be 0. That is handled through a test in the `better` comparison function. */
     if (!isLive(pivot)) {
       pivotId = $$(local_best("ofp.local"));
-      pivot = offers[ofp.base][ofp.quote][pivotId];
+      pivot = _offers[ofp.base][ofp.quote][pivotId];
     }
 
     /* * Pivot is better than `wants/gives`, we follow `next`. */
     if (better(ofp, pivot, pivotId)) {
-      bytes32 pivotNext;
+      $(sol_type_offer) pivotNext;
       while ($$(offer_next("pivot")) != 0) {
         uint pivotNextId = $$(offer_next("pivot"));
-        pivotNext = offers[ofp.base][ofp.quote][pivotNextId];
+        pivotNext = _offers[ofp.base][ofp.quote][pivotNextId];
         if (better(ofp, pivotNext, pivotNextId)) {
           pivotId = pivotNextId;
           pivot = pivotNext;
@@ -760,10 +768,10 @@ abstract contract Mangrove {
 
       /* * Pivot is strictly worse than `wants/gives`, we follow `prev`. */
     } else {
-      bytes32 pivotPrev;
+      $(sol_type_offer) pivotPrev;
       while ($$(offer_prev("pivot")) != 0) {
         uint pivotPrevId = $$(offer_prev("pivot"));
-        pivotPrev = offers[ofp.base][ofp.quote][pivotPrevId];
+        pivotPrev = _offers[ofp.base][ofp.quote][pivotPrevId];
         if (better(ofp, pivotPrev, pivotPrevId)) {
           break;
         } else {
@@ -788,7 +796,7 @@ abstract contract Mangrove {
       In addition to `offer1`, we also provide its id, `offerId1` in order to save gas. If necessary (ie. if the prices `wants1/gives1` and `wants2/gives2` are the same), we read storage to get `gasreq1` at `offerDetails[...][offerId1]. */
   function better(
     OfferPack memory ofp,
-    bytes32 offer1,
+    $(sol_type_offer) offer1,
     uint offerId1
   ) internal view returns (bool) {
     if (offerId1 == 0) {
@@ -803,7 +811,7 @@ abstract contract Mangrove {
     uint weight2 = wants2 * gives1;
     if (weight1 == weight2) {
       uint gasreq1 =
-        $$(offerDetail_gasreq("offerDetails[ofp.base][ofp.quote][offerId1]"));
+        $$(offerDetail_gasreq("_offerDetails[ofp.base][ofp.quote][offerId1]"));
       uint gasreq2 = ofp.gasreq;
       return (gives1 * gasreq2 >= gives2 * gasreq1);
     } else {
@@ -845,7 +853,7 @@ abstract contract Mangrove {
     (sor.global, sor.local) = config(base, quote);
     /* Throughout the execution of the market order, the `sor`'s offer id and other parameters will change. We start with the current best offer id (0 if the book is empty). */
     sor.offerId = $$(local_best("sor.local"));
-    sor.offer = offers[base][quote][sor.offerId];
+    sor.offer = _offers[base][quote][sor.offerId];
     /* `sor.wants` and `sor.gives` may evolve, but they are initially however much remains in the market order. */
     sor.wants = takerWants;
     sor.gives = takerGives;
@@ -867,7 +875,7 @@ abstract contract Mangrove {
      * after consuming a segment of offers, will update the current `best` offer to be the best remaining offer on the book. */
 
     /* We start be enabling the reentrancy lock for this (`base`,`quote`) pair. */
-    sor.local = $$(set_local("sor.local", [["lock", 1]]));
+    $$(upd_local("sor.local", [["lock", 1]]));
     locals[base][quote] = sor.local;
 
     /* `internalMarketOrder` works recursively. Going downward, each successive offer is executed until the market order stops (due to: volume exhausted, bad price, or empty book). Going upward, each offer's `maker` contract is called again with its remaining gas and given the chance to update its offers on the book.
@@ -901,7 +909,7 @@ abstract contract Mangrove {
       bool executed; // offer execution attempted or not
 
       /* Load additional information about the offer. We don't do it earlier to save one storage read in case `proceed` was false. */
-      sor.offerDetail = offerDetails[sor.base][sor.quote][sor.offerId];
+      sor.offerDetail = _offerDetails[sor.base][sor.quote][sor.offerId];
 
       /* `execute` will adjust `sor.wants`,`sor.gives`, and may attempt to execute the offer if its price is low enough. It is crucial that an error due to `taker` triggers a revert. That way, `!success && !executed` means there was no execution attempt, and `!success && executed` means the failure is the maker's fault. */
       /* Post-execution, `sor.wants`/`sor.gives` reflect how much was sent/taken by the offer. We will need it after the recursive call, so we save it in local variables. Same goes for `offerId`, `sor.offer` and `sor.offerDetail`. */
@@ -912,8 +920,8 @@ abstract contract Mangrove {
       uint takerWants = sor.wants;
       uint takerGives = sor.gives;
       uint offerId = sor.offerId;
-      bytes32 offer = sor.offer;
-      bytes32 offerDetail = sor.offerDetail;
+      $(sol_type_offer) offer = sor.offer;
+      $(sol_type_offerDetail) offerDetail = sor.offerDetail;
 
       /* If an execution was attempted, we move `sor` to the next offer. Note that the current state is inconsistent, since we have not yet updated `sor.offerDetails`. */
       if (executed) {
@@ -930,7 +938,7 @@ abstract contract Mangrove {
         */
         sor.gives = mor.initialGives - mor.totalGave;
         sor.offerId = $$(offer_next("sor.offer"));
-        sor.offer = offers[sor.base][sor.quote][sor.offerId];
+        sor.offer = _offers[sor.base][sor.quote][sor.offerId];
       }
 
       /* note that internalMarketOrder may be called twice with same offerId, but in that case `proceed` will be false! */
@@ -964,7 +972,7 @@ abstract contract Mangrove {
 
       so we are free from out of order storage writes.
       */
-      sor.local = $$(set_local("sor.local", [["lock", 0]]));
+      $$(upd_local("sor.local", [["lock", 0]]));
       locals[sor.base][sor.quote] = sor.local;
 
       /* `payTakerMinusFees` sends the fee to the vault, proportional to the amount purchased, and gives the rest to the taker */
@@ -1031,7 +1039,7 @@ abstract contract Mangrove {
     //+clear+
 
     /* We start be enabling the reentrancy lock for this (`base`,`quote`) pair. */
-    sor.local = $$(set_local("sor.local", [["lock", 1]]));
+    $$(upd_local("sor.local", [["lock", 1]]));
     locals[base][quote] = sor.local;
 
     /* `internalSnipes` works recursively. Going downward, each successive offer is executed until each snipe in the array has been tried. Going upward, each offer's `maker` contract is called again with its remaining gas and given the chance to update its offers on the book.
@@ -1056,8 +1064,8 @@ abstract contract Mangrove {
     /* #### Case 1 : continuation of snipes */
     if (i < targets.length) {
       sor.offerId = targets[i][0];
-      sor.offer = offers[sor.base][sor.quote][sor.offerId];
-      sor.offerDetail = offerDetails[sor.base][sor.quote][sor.offerId];
+      sor.offer = _offers[sor.base][sor.quote][sor.offerId];
+      sor.offerDetail = _offerDetails[sor.base][sor.quote][sor.offerId];
 
       /* If we removed the `isLive` conditional, a single expired or nonexistent offer in `targets` would revert the entire transaction (by the division by `offer.gives` below since `offer.gives` would be 0). We also check that `gasreq` is not worse than specified. A taker who does not care about `gasreq` can specify any amount larger than $2^{24}-1$. A mismatched price will be detected by `execute`. */
       if (
@@ -1100,8 +1108,8 @@ abstract contract Mangrove {
           uint offerId = sor.offerId;
           uint takerWants = sor.wants;
           uint takerGives = sor.gives;
-          bytes32 offer = sor.offer;
-          bytes32 offerDetail = sor.offerDetail;
+          $(sol_type_offer) offer = sor.offer;
+          $(sol_type_offerDetail) offerDetail = sor.offerDetail;
 
           /* We move on to the next offer in the array. */
           internalSnipes(mor, sor, targets, i + 1);
@@ -1127,7 +1135,7 @@ abstract contract Mangrove {
 
       so we are free from out of order storage writes.
       */
-      sor.local = $$(set_local("sor.local", [["lock", 0]]));
+      $$(upd_local("sor.local", [["lock", 0]]));
       locals[sor.base][sor.quote] = sor.local;
       /* `payTakerMinusFees` sends the fee to the vault, proportional to the amount purchased, and gives the rest to the taker */
       payTakerMinusFees(mor, sor);
@@ -1363,14 +1371,11 @@ abstract contract Mangrove {
     address base,
     address quote,
     uint offerId,
-    bytes32 offer,
+    $(sol_type_offer) offer,
     bool deprovision
   ) internal {
-    offer = $$(set_offer("offer", [["gives", 0]]));
-    if (deprovision) {
-      offer = $$(set_offer("offer", [["gasprice", 0]]));
-    }
-    offers[base][quote][offerId] = offer;
+    uint gasprice = deprovision ? 0  : $$(offer_gasprice("offer"));
+    $$(upd_from_offer("_offers[base][quote][offerId]","offer",[["gives",0],["gasprice","gasprice"]]));
   }
 
   /* Post-trade, `payTakerMinusFees` sends what's due to the taker and the rest (the fees) to the vault. Routing through the Mangrove like that also deals with blacklisting issues (separates the maker-blacklisted and the taker-blacklisted cases). */
@@ -1463,15 +1468,15 @@ abstract contract Mangrove {
 
   function config(address base, address quote)
     public
-    returns (bytes32 _global, bytes32 _local)
+    returns ($(sol_type_global) _global, $(sol_type_local) _local)
   {
     _global = global;
     _local = locals[base][quote];
     if ($$(global_useOracle("_global")) > 0) {
       (uint gasprice, uint density) =
         IMgvMonitor($$(global_monitor("_global"))).read(base, quote);
-      _global = $$(set_global("_global", [["gasprice", "gasprice"]]));
-      _local = $$(set_local("_local", [["density", "density"]]));
+      $$(upd_global("_global", [["gasprice", "gasprice"]]));
+      $$(upd_local("_local", [["density", "density"]]));
     }
   }
 
@@ -1486,7 +1491,7 @@ abstract contract Mangrove {
     uint offer_gasbase
   ) public {
     authOnly();
-    locals[base][quote] = $$(set_local("locals[base][quote]", [["active", 1]]));
+    $$(upd_local("locals[base][quote]", [["active", 1]]));
     setFee(base, quote, fee);
     setDensity(base, quote, density);
     setGasbase(base, quote, overhead_gasbase, offer_gasbase);
@@ -1495,7 +1500,7 @@ abstract contract Mangrove {
 
   function deactivate(address base, address quote) public {
     authOnly();
-    locals[base][quote] = $$(set_local("locals[base][quote]", [["active", 0]]));
+    $$(upd_local("locals[base][quote]", [["active", 0]]));
     emit MgvEvents.SetActive(base, quote, false);
   }
 
@@ -1508,9 +1513,7 @@ abstract contract Mangrove {
     authOnly();
     /* `fee` is in basis points, i.e. in percents of a percent. */
     require(value <= 500, "mgv/config/fee/<=500"); // at most 5%
-    locals[base][quote] = $$(
-      set_local("locals[base][quote]", [["fee", "value"]])
-    );
+    $$(upd_local("locals[base][quote]", [["fee", "value"]]));
     emit MgvEvents.SetFee(base, quote, value);
   }
 
@@ -1525,9 +1528,7 @@ abstract contract Mangrove {
     /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
     require(uint32(value) == value, "mgv/config/density/32bits");
     //+clear+
-    locals[base][quote] = $$(
-      set_local("locals[base][quote]", [["density", "value"]])
-    );
+    $$(upd_local("locals[base][quote]", [["density", "value"]]));
     emit MgvEvents.SetDensity(base, quote, value);
   }
 
@@ -1549,15 +1550,7 @@ abstract contract Mangrove {
       "mgv/config/offer_gasbase/24bits"
     );
     //+clear+
-    locals[base][quote] = $$(
-      set_local(
-        "locals[base][quote]",
-        [
-          ["offer_gasbase", "offer_gasbase"],
-          ["overhead_gasbase", "overhead_gasbase"]
-        ]
-      )
-    );
+    $$(upd_local( "locals[base][quote]", [["offer_gasbase", "offer_gasbase"], ["overhead_gasbase", "overhead_gasbase"]]));
     emit MgvEvents.SetGasbase(overhead_gasbase, offer_gasbase);
   }
 
@@ -1565,7 +1558,7 @@ abstract contract Mangrove {
   /* ### `kill` */
   function kill() public {
     authOnly();
-    global = $$(set_global("global", [["dead", 1]]));
+    $$(upd_global("global", [["dead", 1]]));
     emit MgvEvents.Kill();
   }
 
@@ -1577,7 +1570,7 @@ abstract contract Mangrove {
     require(uint16(value) == value, "mgv/config/gasprice/16bits");
     //+clear+
 
-    global = $$(set_global("global", [["gasprice", "value"]]));
+    $$(upd_global("global", [["gasprice", "value"]]));
     emit MgvEvents.SetGasprice(value);
   }
 
@@ -1587,7 +1580,7 @@ abstract contract Mangrove {
     /* Since any new `gasreq` is bounded above by `config.gasmax`, this check implies that all offers' `gasreq` is 24 bits wide at most. */
     require(uint24(value) == value, "mgv/config/gasmax/24bits");
     //+clear+
-    global = $$(set_global("global", [["gasmax", "value"]]));
+    $$(upd_global("global", [["gasmax", "value"]]));
     emit MgvEvents.SetGasmax(value);
   }
 
@@ -1605,7 +1598,7 @@ abstract contract Mangrove {
 
   function setMonitor(address value) public {
     authOnly();
-    global = $$(set_global("global", [["monitor", "value"]]));
+    $$(upd_global("global", [["monitor", "value"]]));
     emit MgvEvents.SetMonitor(value);
   }
 
@@ -1619,9 +1612,9 @@ abstract contract Mangrove {
   function setUseOracle(bool value) public {
     authOnly();
     if (value) {
-      global = $$(set_global("global", [["useOracle", 1]]));
+      $$(upd_global("global", [["useOracle", 1]]));
     } else {
-      global = $$(set_global("global", [["useOracle", 0]]));
+      $$(upd_global("global", [["useOracle", 0]]));
     }
     emit MgvEvents.SetUseOracle(value);
   }
@@ -1629,9 +1622,9 @@ abstract contract Mangrove {
   function setNotify(bool value) public {
     authOnly();
     if (value) {
-      global = $$(set_global("global", [["notify", 1]]));
+      $$(upd_global("global", [["notify", 1]]));
     } else {
-      global = $$(set_global("global", [["notify", 0]]));
+      $$(upd_global("global", [["notify", 0]]));
     }
     emit MgvEvents.SetNotify(value);
   }
@@ -1719,20 +1712,16 @@ abstract contract Mangrove {
     address quote,
     uint worseId,
     uint betterId,
-    bytes32 local
-  ) internal returns (bytes32) {
+    $(sol_type_local) local
+  ) internal returns ($(sol_type_local)) {
     if (worseId != 0) {
-      offers[base][quote][worseId] = $$(
-        set_offer("offers[base][quote][worseId]", [["next", "betterId"]])
-      );
+      $$(upd_offer("_offers[base][quote][worseId]", [["next", "betterId"]]));
     } else {
-      local = $$(set_local("local", [["best", "betterId"]]));
+      $$(upd_local("local", [["best", "betterId"]]));
     }
 
     if (betterId != 0) {
-      offers[base][quote][betterId] = $$(
-        set_offer("offers[base][quote][betterId]", [["prev", "worseId"]])
-      );
+      $$(upd_offer("_offers[base][quote][betterId]", [["prev", "worseId"]]));
     }
 
     return local;

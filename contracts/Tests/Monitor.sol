@@ -129,12 +129,12 @@ contract Monitor_Test {
     mgv.setMonitor(address(monitor));
     mgv.setNotify(true);
     uint ofrId = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
-    bytes32 offer = mgv.offers(base, quote, ofrId);
+    $(sol_type_offer) offer = mgv.offers(base, quote, ofrId);
     (bool success, , ) =
       mgv.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000);
     TestEvents.check(success, "snipe should succeed");
-    (bytes32 _global, bytes32 _local) = mgv.config(base, quote);
-    _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
+    ($(sol_type_global) _global, $(sol_type_local) _local) = mgv.config(base, quote);
+    $$(upd_local("_local", [["best", 1], ["lock", 1]]));
 
     MC.SingleOrder memory order =
       MC.SingleOrder({
@@ -157,14 +157,14 @@ contract Monitor_Test {
     mgv.setMonitor(address(monitor));
     mgv.setNotify(true);
     uint ofrId = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
-    bytes32 offer = mgv.offers(base, quote, ofrId);
+    $(sol_type_offer) offer = mgv.offers(base, quote, ofrId);
     (bool success, , ) =
       mgv.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000);
     TestEvents.check(!success, "snipe should fail");
 
-    (bytes32 _global, bytes32 _local) = mgv.config(base, quote);
+    ($(sol_type_global) _global, $(sol_type_local) _local) = mgv.config(base, quote);
     // config sent during maker callback has stale best and, is locked
-    _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
+    $$(upd_local("_local", [["best", 1], ["lock", 1]]));
 
     MC.SingleOrder memory order =
       MC.SingleOrder({

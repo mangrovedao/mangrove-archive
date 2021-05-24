@@ -1,38 +1,43 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
 
+import {
+  MgvInternal
+} from "./MgvCommon.sol";
+
 library MgvPack {
 
-  // fields are of the form [name,bits,type]
+  // fields should be accessed with `name_of`, `type_of`, `read_type`, `bits_of` (see `preproc.js`).
 
   // $for ns in structs
 
   // $def sname ns[0]
   // $def scontents ns[1]
   /* $def arguments
-    join(map(scontents,(field) => `$${field[2]} __$${field[0]}`),', ')
+    join(map(scontents,(field) => `$${read_type(field)} __$${name_of(field)}`),', ')
   */
 
   /* $def params
-     map(scontents, (field) => [field[0],`__$${field[0]}`])
+     map(scontents, (field) => [name_of(field),`__$${name_of(field)}`])
   */
 
-  function $$(sname)_pack($$(arguments)) internal pure returns (bytes32) {
+  function $$(sname)_pack($$(arguments)) internal pure returns ($$(sol_type(sname))) {
     return $$(make(
+      sname,
       scontents,
       map(scontents, (field) =>
-    [field[0],`__$${field[0]}`])));
+    [name_of(field),`__$${name_of(field)}`])));
   }
 
-  function $$(sname)_unpack(bytes32 __packed) internal pure returns ($$(arguments)) {
+  function $$(sname)_unpack($$(sol_type(sname)) __packed) internal pure returns ($$(arguments)) {
     // $for field in scontents
-    __$$(field[0]) = $$(get('__packed',scontents,field[0]));
+    __$$(name_of(field)) = $$(get('__packed',scontents,field));
     // $done
   }
 
   // $for field in scontents
-  function $$(sname)_unpack_$$(field[0])(bytes32 __packed) internal pure returns($$(field[2])) {
-    return $$(get('__packed',scontents,field[0]));
+  function $$(sname)_unpack_$$(name_of(field))($$(sol_type(sname)) __packed) internal pure returns($$(read_type(field))) {
+    return $$(get('__packed',scontents,field));
   }
   // $done
 
