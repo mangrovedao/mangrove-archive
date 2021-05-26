@@ -16,5 +16,4 @@ contract AccessControlled {
   function setAdmin(address _admin) external onlyCaller(admin) {
     admin = _admin;
   }
-
 }
