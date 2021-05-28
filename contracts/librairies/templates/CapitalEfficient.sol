@@ -2,22 +2,6 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./MangroveOffer.sol";
 
-interface IcERC20 is IERC20 {
-  /*** User Interface ***/
-  // from https://github.com/compound-finance/compound-protocol/blob/master/contracts/CTokenInterfaces.sol
-  function mint(uint amount) external returns (uint);
-
-  function redeem(uint redeemTokens) external returns (uint);
-
-  function redeemUnderlying(uint redeemAmount) external returns (uint);
-
-  function borrow(uint borrowAmount) external returns (uint);
-
-  function repayBorrow(uint repayAmount) external returns (uint);
-
-  function balanceOfUnderlying(address owner) external returns (uint);
-}
-
 abstract contract CompoundSourced is MangroveOffer {
   IcERC20 immutable BASE_cERC;
 
@@ -29,12 +13,20 @@ abstract contract CompoundSourced is MangroveOffer {
     BASE_cERC = IcERC20(base_cErc);
   }
 
-  function trade_redeem(uint amount) internal returns (bool success) {
-    success = BASE_cERC.redeemUnderlying(amount) == 0;
+  function __trade_redeemUnderlying(uint amount) internal returns (TradeResult, bytes32) {
+    uint errorCode = BASE_cERC.redeemUnderlying(amount);
+    if (errorCode == 0) {
+      return (TradeResult.Proceed, bytes32(0));
+    }
+    else {
+      return (TradeResult.Drop, bytes32(errorCode));
+    }
   }
 
   // adapted from https://medium.com/compound-finance/supplying-assets-to-the-compound-protocol-ec2cf5df5aa#afff
   // utility to supply erc20 to compound
+  // NB `_cErc20` contract MUST be approved to perform `transferFrom _erc20` by `this` contract.
+  // `_cERC20` need not be `BASE_cERC` if LP wants to put quote payment into compound as well.
   function supplyErc20ToCompound(
     address _erc20,
     address _cErc20,

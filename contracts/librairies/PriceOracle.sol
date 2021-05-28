@@ -1,7 +1,6 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import "./MangroveOffer.sol";
-import "./PriceOracle.sol";
+import "./AccessControlled.sol";
 
 contract PriceOracle is AccessControlled {
   address immutable base_token;

@@ -1,8 +1,6 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./MangroveOffer.sol";
-import "./PriceOracle.sol";
-import "../MgvPack.sol";
 
 abstract contract Persistent is MangroveOffer {
   struct Persistent_env {
@@ -31,10 +29,11 @@ abstract contract Persistent is MangroveOffer {
   {
     persistent_env.slippage = uint8(new_slippage);
     persistent_env.slippage_base = uint160(new_base);
+    log("Slippage",new_slippage,new_base);
   }
 
   // function should be called during a makerTrade execution
-  function trade_check_price(MgvC.SingleOrder calldata order, uint quote_price)
+  function __trade_checkPrice(MgvC.SingleOrder calldata order, uint quote_price)
     internal
     returns (TradeResult, bytes32)
   {
@@ -51,7 +50,7 @@ abstract contract Persistent is MangroveOffer {
   }
 
   // function should be called during a posthook execution
-  function posthook_repost_offer_at_price(
+  function __posthook_repostOfferAtPrice(
     MgvC.SingleOrder calldata order,
     uint quote_price
   ) internal {

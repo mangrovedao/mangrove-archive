@@ -1,17 +1,48 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {IMaker, MgvCommon as MgvC} from "../MgvCommon.sol";
-import "../interfaces.sol";
-import "../Mangrove.sol";
-import "./AccessControlled.sol";
+import {IMaker, MgvCommon as MgvC} from "../../MgvCommon.sol";
+import "../../interfaces.sol";
+import "../../Mangrove.sol";
+import "../AccessControlled.sol";
+
+interface IcERC20 is IERC20 {
+  /*** User Interface ***/
+  // from https://github.com/compound-finance/compound-protocol/blob/master/contracts/CTokenInterfaces.sol
+  function mint(uint amount) external returns (uint);
+
+  function redeem(uint redeemTokens) external returns (uint);
+
+  function redeemUnderlying(uint redeemAmount) external returns (uint);
+
+  function borrow(uint borrowAmount) external returns (uint);
+
+  function repayBorrow(uint repayAmount) external returns (uint);
+
+  function balanceOfUnderlying(address owner) external returns (uint);
+}
 
 abstract contract MangroveOffer is IMaker, AccessControlled {
+  event LogAddress(string log_msg, address info);
+  event LogInt(string log_msg, uint info);
+  event LogInt2(string log_msg, uint info, uint info2);
+
+  function log(string memory msg, address addr) internal {
+    emit LogAddress(msg,addr);
+  }
+  function log(string memory msg, uint info) internal {
+    emit LogInt(msg, info);
+  }
+  function log(string memory msg, uint info1, uint info2) internal {
+    emit LogInt2(msg,info1,info2);
+  }
+
   // Address of the Mangrove contract
   Mangrove immutable MGV;
 
   // contract that is used as liquidity manager (for) base token)
   // should be ERC20 compatible
   address immutable BASE_ERC;
+
   struct MangroveOffer_env {
     uint16 gasprice;
     uint24 gasreq;
@@ -33,16 +64,19 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   function setGasprice(uint gasprice) external onlyCaller(admin) {
     require(uint16(gasprice) == gasprice, "Gasprice too high");
     mangroveOffer_env.gasprice = uint16(gasprice);
+    log("GasPrice",gasprice);
   }
 
   function setGasReq(uint gasreq) external onlyCaller(admin) {
     require(uint24(gasreq) == gasreq, "Gasreq too high");
     mangroveOffer_env.gasreq = uint24(gasreq);
+    log("GasReq",gasreq);
   }
 
   function setGives(uint gives) external onlyCaller(admin) {
     require(uint96(gives) == gives, "Offer gives too high");
     mangroveOffer_env.gives = uint96(gives);
+    log("Gives", gives);
   }
 
   // Utilities
@@ -64,7 +98,7 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   }
 
   // To throw a message that will be passed to posthook
-  function tradeRevert(bytes32 data) internal pure {
+  function __trade_Revert(bytes32 data) internal pure {
     bytes memory revData = new bytes(32);
     assembly {
       mstore(add(revData, 32), data)
@@ -72,7 +106,7 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
     }
   }
 
-  // Mangrove basic interactions
+  // Mangrove basic interactions (logging is done by the Mangrove)
 
   function approveMgv(uint amount) public onlyCaller(admin) {
     require(IERC20(BASE_ERC).approve(address(MGV), amount));
