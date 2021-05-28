@@ -12,15 +12,16 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   // contract that is used as liquidity manager (for) base token)
   // should be ERC20 compatible
   address immutable BASE_ERC;
+  struct MangroveOffer_env {
+    uint16 gasprice;
+    uint24 gasreq;
+    uint96 gives;
+  }
 
-  // gas price that will be used to compute bounty
-  uint mo_gasprice;
+  MangroveOffer_env mangroveOffer_env;
 
-  // gas requires to execute offer
-  uint mo_gasreq;
-
-  // volume proposed per offer
-  uint mo_gives;
+  // value return
+  enum TradeResult {Drop, Proceed}
 
   constructor(address payable mgv, address base_erc) {
     MGV = Mangrove(mgv);
@@ -30,15 +31,18 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   receive() external payable {}
 
   function setGasprice(uint gasprice) external onlyCaller(admin) {
-    mo_gasprice = gasprice;
+    require(uint16(gasprice) == gasprice, "Gasprice too high");
+    mangroveOffer_env.gasprice = uint16(gasprice);
   }
 
   function setGasReq(uint gasreq) external onlyCaller(admin) {
-    mo_gasreq = gasreq;
+    require(uint24(gasreq) == gasreq, "Gasreq too high");
+    mangroveOffer_env.gasreq = uint24(gasreq);
   }
 
   function setGives(uint gives) external onlyCaller(admin) {
-    mo_gives = gives;
+    require(uint96(gives) == gives, "Offer gives too high");
+    mangroveOffer_env.gives = uint96(gives);
   }
 
   // Utilities
@@ -47,12 +51,12 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   function getProvision(address quote_erc) external returns (uint) {
     MgvC.Config memory config = MGV.getConfig(BASE_ERC, quote_erc);
     uint _gp;
-    if (config.global.gasprice > mo_gasprice) {
+    if (config.global.gasprice > mangroveOffer_env.gasprice) {
       _gp = uint(config.global.gasprice);
     } else {
-      _gp = mo_gasprice;
+      _gp = mangroveOffer_env.gasprice;
     }
-    return ((mo_gasreq +
+    return ((mangroveOffer_env.gasreq +
       config.local.overhead_gasbase +
       config.local.offer_gasbase) *
       _gp *
@@ -93,9 +97,9 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
       BASE_ERC,
       quote_erc,
       wants,
-      mo_gives,
-      mo_gasreq,
-      mo_gasprice,
+      mangroveOffer_env.gives,
+      mangroveOffer_env.gasreq,
+      mangroveOffer_env.gasprice,
       pivotId
     );
   }
@@ -110,9 +114,9 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
       BASE_ERC,
       quote_erc,
       wants,
-      mo_gives,
-      mo_gasreq,
-      mo_gasprice,
+      mangroveOffer_env.gives,
+      mangroveOffer_env.gasreq,
+      mangroveOffer_env.gasprice,
       pivotId,
       offerId
     );
