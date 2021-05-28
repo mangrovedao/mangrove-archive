@@ -4,23 +4,25 @@ import "./MangroveOffer.sol";
 
 abstract contract CompoundSourced is MangroveOffer {
   IcERC20 immutable BASE_cERC;
+  bytes32 constant UNEXPECTEDERROR = "Unexpected error";
 
-  constructor(
-    address payable mgv,
-    address base_erc,
-    address base_cErc
-  ) MangroveOffer(mgv, base_erc) {
+  constructor(address base_cErc) {
     BASE_cERC = IcERC20(base_cErc);
   }
 
-  function __trade_redeemUnderlying(uint amount) internal returns (TradeResult, bytes32) {
-    uint errorCode = BASE_cERC.redeemUnderlying(amount);
-    if (errorCode == 0) {
-      return (TradeResult.Proceed, bytes32(0));
+  // returns (Proceed, remaining underlying) + (Drop, [UNEXPECTEDERROR + Missing underlying])
+  function __trade_redeemBase(uint amount) internal returns (TradeResult, bytes32) {
+    uint balance = BASE_cERC.balanceOfUnderlying(address(this));
+    if (balance >= amount) {
+      uint errorCode = BASE_cERC.redeemUnderlying(amount);
+      if (errorCode == 0) {
+        return (TradeResult.Proceed, bytes32(balance - amount));
+      }
+      else {
+        return (TradeResult.Drop, UNEXPECTEDERROR);
+      }
     }
-    else {
-      return (TradeResult.Drop, bytes32(errorCode));
-    }
+    return (TradeResult.Drop, bytes32(amount - balance));
   }
 
   // adapted from https://medium.com/compound-finance/supplying-assets-to-the-compound-protocol-ec2cf5df5aa#afff

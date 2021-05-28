@@ -3,6 +3,7 @@ pragma abicoder v2;
 import {IMaker, MgvCommon as MgvC} from "../../MgvCommon.sol";
 import "../../interfaces.sol";
 import "../../Mangrove.sol";
+import "../../MgvPack.sol";
 import "../AccessControlled.sol";
 
 interface IcERC20 is IERC20 {
@@ -43,14 +44,6 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   // should be ERC20 compatible
   address immutable BASE_ERC;
 
-  struct MangroveOffer_env {
-    uint16 gasprice;
-    uint24 gasreq;
-    uint96 gives;
-  }
-
-  MangroveOffer_env mangroveOffer_env;
-
   // value return
   enum TradeResult {Drop, Proceed}
 
@@ -61,40 +54,28 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
 
   receive() external payable {}
 
-  function setGasprice(uint gasprice) external onlyCaller(admin) {
-    require(uint16(gasprice) == gasprice, "Gasprice too high");
-    mangroveOffer_env.gasprice = uint16(gasprice);
-    log("GasPrice",gasprice);
-  }
-
-  function setGasReq(uint gasreq) external onlyCaller(admin) {
-    require(uint24(gasreq) == gasreq, "Gasreq too high");
-    mangroveOffer_env.gasreq = uint24(gasreq);
-    log("GasReq",gasreq);
-  }
-
-  function setGives(uint gives) external onlyCaller(admin) {
-    require(uint96(gives) == gives, "Offer gives too high");
-    mangroveOffer_env.gives = uint96(gives);
-    log("Gives", gives);
-  }
-
   // Utilities
 
   // Queries the Mangrove to know how much WEI will be required to post a new offer
-  function getProvision(address quote_erc) external returns (uint) {
+  function getProvision(address quote_erc, uint gasreq, uint gasprice) public returns (uint) {
     MgvC.Config memory config = MGV.getConfig(BASE_ERC, quote_erc);
     uint _gp;
-    if (config.global.gasprice > mangroveOffer_env.gasprice) {
+    if (config.global.gasprice > gasprice) {
       _gp = uint(config.global.gasprice);
     } else {
-      _gp = mangroveOffer_env.gasprice;
+      _gp = gasprice;
     }
-    return ((mangroveOffer_env.gasreq +
+    return ((gasreq +
       config.local.overhead_gasbase +
       config.local.offer_gasbase) *
       _gp *
       10**9);
+  }
+
+  function __trade_posthook_getStoredOffer(MgvC.SingleOrder calldata order) internal returns (uint,uint,uint,uint) {
+    uint gasreq = MgvPack.offerDetail_unpack_gasreq(order.offerDetail);
+    (,,uint wants,uint gives, uint gasprice) = MgvPack.offer_unpack(order.offer);
+    return (wants,gives,gasreq,gasprice);
   }
 
   // To throw a message that will be passed to posthook
@@ -113,7 +94,7 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   }
 
   function withdraw(address receiver, uint amount)
-    external
+    public
     onlyCaller(admin)
     returns (bool noRevert)
   {
@@ -125,15 +106,18 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   function newMangroveOffer(
     address quote_erc,
     uint wants,
+    uint gives,
+    uint gasreq,
+    uint gasprice,
     uint pivotId
   ) internal returns (uint offerId) {
     offerId = MGV.newOffer(
       BASE_ERC,
       quote_erc,
       wants,
-      mangroveOffer_env.gives,
-      mangroveOffer_env.gasreq,
-      mangroveOffer_env.gasprice,
+      gives,
+      gasreq,
+      gasprice,
       pivotId
     );
   }
@@ -141,6 +125,9 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   function updateMangroveOffer(
     address quote_erc,
     uint wants,
+    uint gives,
+    uint gasreq,
+    uint gasprice,
     uint pivotId,
     uint offerId
   ) internal {
@@ -148,9 +135,9 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
       BASE_ERC,
       quote_erc,
       wants,
-      mangroveOffer_env.gives,
-      mangroveOffer_env.gasreq,
-      mangroveOffer_env.gasprice,
+      gives,
+      gasreq,
+      gasprice,
       pivotId,
       offerId
     );
