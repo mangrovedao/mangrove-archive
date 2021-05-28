@@ -7,6 +7,9 @@ import "./templates/Persistent.sol";
 
 contract SimplePool is Pooled, Persistent {
   uint fractional_reserve; // min amount of base token that should be reserved
+  bytes32 constant INSUFFICIENTFUNDS = "InsufficientFunds";
+  bytes32 constant INSUFFICIENTRESERVE = "InsufficientReserve";
+
 
   constructor(address payable mgv, address base_erc, uint _fractional_reserve)
   MangroveOffer(mgv,base_erc) {
@@ -27,11 +30,13 @@ contract SimplePool is Pooled, Persistent {
     onlyCaller(address(MGV))
     returns (bytes32){
       (TradeResult result, bytes32 new_balance) = __trade_checkLiquidity(order,address(this));
-      require(result==TradeResult.Proceed); // delta is liquidity left
-      if (uint(new_balance) < fractional_reserve) {
-        __trade_Revert("Not enough reserve");
+      if (result==TradeResult.Proceed) { // delta is liquidity left
+        if (uint(new_balance) < fractional_reserve) {
+          __trade_Revert(INSUFFICIENTRESERVE);
+        }
+        return new_balance;
       }
-      return new_balance;
+      __trade_Revert(INSUFFICIENTFUNDS);
     }
 
   function makerPosthook(
@@ -40,6 +45,14 @@ contract SimplePool is Pooled, Persistent {
   ) external override onlyCaller(address(MGV)) {
     if (result.success) {
       __posthook_repostOfferAsIs(order);
+    }
+    else{
+      if (result.makerData == INSUFFICIENTFUNDS) {
+        log("InsufficientFunds");
+      }
+      else {
+        log("InsufficientReserve");
+      }
     }
   }
 }

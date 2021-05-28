@@ -26,7 +26,11 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   event LogAddress(string log_msg, address info);
   event LogInt(string log_msg, uint info);
   event LogInt2(string log_msg, uint info, uint info2);
+  event LogString(string log_msg);
 
+  function log(string memory msg) internal {
+    emit LogString(msg);
+  }
   function log(string memory msg, address addr) internal {
     emit LogAddress(msg,addr);
   }
