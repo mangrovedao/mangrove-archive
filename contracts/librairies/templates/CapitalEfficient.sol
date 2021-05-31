@@ -3,23 +3,24 @@ pragma abicoder v2;
 import "./MangroveOffer.sol";
 
 abstract contract CompoundSourced is MangroveOffer {
-  IcERC20 immutable BASE_cERC;
-  bytes32 constant UNEXPECTEDERROR = "Unexpected error";
+  address immutable BASE_cERC;
 
-  constructor(address base_cErc) {
-    BASE_cERC = IcERC20(base_cErc);
+  constructor(address _cERC20) {
+    BASE_cERC = _cERC20;
   }
 
   // returns (Proceed, remaining underlying) + (Drop, [UNEXPECTEDERROR + Missing underlying])
-  function __trade_redeemBase(uint amount) internal returns (TradeResult, bytes32) {
-    uint balance = BASE_cERC.balanceOfUnderlying(address(this));
+  function __trade_redeemBase(uint amount)
+    internal
+    returns (TradeResult, bytes32)
+  {
+    uint balance = IcERC20(BASE_cERC).balanceOfUnderlying(address(this));
     if (balance >= amount) {
-      uint errorCode = BASE_cERC.redeemUnderlying(amount);
+      uint errorCode = IcERC20(BASE_cERC).redeemUnderlying(amount);
       if (errorCode == 0) {
         return (TradeResult.Proceed, bytes32(balance - amount));
-      }
-      else {
-        return (TradeResult.Drop, UNEXPECTEDERROR);
+      } else {
+        return (TradeResult.Drop, "UNEXPECTEDERROR");
       }
     }
     return (TradeResult.Drop, bytes32(amount - balance));

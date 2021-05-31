@@ -23,6 +23,10 @@ interface IcERC20 is IERC20 {
 }
 
 abstract contract MangroveOffer is IMaker, AccessControlled {
+  address payable immutable MGV;
+  address immutable BASE_ERC;
+  uint constant None = uint(-1);
+
   event LogAddress(string log_msg, address info);
   event LogInt(string log_msg, uint info);
   event LogInt2(string log_msg, uint info, uint info2);
@@ -31,38 +35,43 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   function log(string memory msg) internal {
     emit LogString(msg);
   }
+
   function log(string memory msg, address addr) internal {
-    emit LogAddress(msg,addr);
+    emit LogAddress(msg, addr);
   }
+
   function log(string memory msg, uint info) internal {
     emit LogInt(msg, info);
   }
-  function log(string memory msg, uint info1, uint info2) internal {
-    emit LogInt2(msg,info1,info2);
+
+  function log(
+    string memory msg,
+    uint info1,
+    uint info2
+  ) internal {
+    emit LogInt2(msg, info1, info2);
   }
-
-  // Address of the Mangrove contract
-  Mangrove immutable MGV;
-
-  // contract that is used as liquidity manager (for) base token)
-  // should be ERC20 compatible
-  address immutable BASE_ERC;
 
   // value return
   enum TradeResult {Drop, Proceed}
 
-  constructor(address payable mgv, address base_erc) {
-    MGV = Mangrove(mgv);
-    BASE_ERC = base_erc;
-  }
-
   receive() external payable {}
+
+  constructor(address payable _MGV, address _BASE_ERC) {
+    MGV = _MGV;
+    BASE_ERC = _BASE_ERC;
+  }
 
   // Utilities
 
   // Queries the Mangrove to know how much WEI will be required to post a new offer
-  function getProvision(address quote_erc, uint gasreq, uint gasprice) public returns (uint) {
-    MgvC.Config memory config = MGV.getConfig(BASE_ERC, quote_erc);
+  function getProvision(
+    address BASE_ERC,
+    address quote_erc,
+    uint gasreq,
+    uint gasprice
+  ) public returns (uint) {
+    MgvC.Config memory config = Mangrove(MGV).getConfig(BASE_ERC, quote_erc);
     uint _gp;
     if (config.global.gasprice > gasprice) {
       _gp = uint(config.global.gasprice);
@@ -76,10 +85,19 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
       10**9);
   }
 
-  function __trade_posthook_getStoredOffer(MgvC.SingleOrder calldata order) internal returns (uint,uint,uint,uint) {
+  function __trade_posthook_getStoredOffer(MgvC.SingleOrder calldata order)
+    internal
+    returns (
+      uint,
+      uint,
+      uint,
+      uint
+    )
+  {
     uint gasreq = MgvPack.offerDetail_unpack_gasreq(order.offerDetail);
-    (,,uint wants,uint gives, uint gasprice) = MgvPack.offer_unpack(order.offer);
-    return (wants,gives,gasreq,gasprice);
+    (, , uint wants, uint gives, uint gasprice) =
+      MgvPack.offer_unpack(order.offer);
+    return (wants, gives, gasreq, gasprice);
   }
 
   // To throw a message that will be passed to posthook
@@ -93,16 +111,25 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
 
   // Mangrove basic interactions (logging is done by the Mangrove)
 
-  function approveMgv(uint amount) public onlyCaller(admin) {
-    require(IERC20(BASE_ERC).approve(address(MGV), amount));
+  function approveMangrove(uint amount) external onlyCaller(admin) {
+    require(IERC20(BASE_ERC).approve(MGV, amount));
   }
 
-  function withdraw(address receiver, uint amount)
-    public
+  // transfer BASE or quote token from this contract to admin chosen recipient
+  function erc_transfer(
+    address erc,
+    address recipient,
+    uint amount
+  ) external onlyCaller(admin) returns (bool) {
+    return (IERC20(erc).transfer(recipient, amount));
+  }
+
+  function withdrawFromMangrove(address receiver, uint amount)
+    external
     onlyCaller(admin)
     returns (bool noRevert)
   {
-    require(MGV.withdraw(amount));
+    require(Mangrove(MGV).withdraw(amount));
     require(receiver != address(0), "Cannot transfer WEIs to 0x0 address");
     (noRevert, ) = receiver.call{value: amount}("");
   }
@@ -114,8 +141,8 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
     uint gasreq,
     uint gasprice,
     uint pivotId
-  ) internal returns (uint offerId) {
-    offerId = MGV.newOffer(
+  ) public onlyCaller(admin) returns (uint offerId) {
+    offerId = Mangrove(MGV).newOffer(
       BASE_ERC,
       quote_erc,
       wants,
@@ -134,8 +161,8 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
     uint gasprice,
     uint pivotId,
     uint offerId
-  ) internal {
-    MGV.updateOffer(
+  ) public onlyCaller(admin) {
+    Mangrove(MGV).updateOffer(
       BASE_ERC,
       quote_erc,
       wants,
@@ -151,7 +178,7 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
     address quote_erc,
     uint offerId,
     bool deprovision
-  ) internal {
-    MGV.retractOffer(BASE_ERC, quote_erc, offerId, deprovision);
+  ) public onlyCaller(admin) {
+    Mangrove(MGV).retractOffer(BASE_ERC, quote_erc, offerId, deprovision);
   }
 }
