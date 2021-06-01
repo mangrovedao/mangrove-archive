@@ -12,7 +12,7 @@ abstract contract CompoundSourced is MangroveOffer {
   }
 
   // returns (Proceed, remaining underlying) + (Drop, [UNEXPECTEDERROR + Missing underlying])
-  function __trade_redeemBase(uint amount)
+  function __trade_redeemCompoundBase(uint amount)
     internal
     returns (TradeResult, bytes32)
   {
@@ -62,7 +62,7 @@ abstract contract AaveSourced is MangroveOffer {
   }
 
   // returns (Proceed, remaining underlying) + (Drop, [UNEXPECTEDERROR + Missing underlying])
-  function __trade_redeemBase(uint amount)
+  function __trade_redeemAaaveBase(uint amount)
     internal
     returns (TradeResult, bytes32)
   {
