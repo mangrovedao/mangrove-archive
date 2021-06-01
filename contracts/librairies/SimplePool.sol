@@ -36,7 +36,7 @@ contract SimplePool is Pooled, Persistent {
       if (uint(new_balance) < reserve_limit) {
         __trade_Revert(ERRORRESERVE); // for insufficient reserve
       }
-      return new_balance;
+      return new_balance; // Let the Mangrove try the transfer
     }
     __trade_Revert(ERRORFUND); // for insufficient funds
   }
