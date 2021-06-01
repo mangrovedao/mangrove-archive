@@ -22,6 +22,19 @@ interface IcERC20 is IERC20 {
   function balanceOfUnderlying(address owner) external returns (uint);
 }
 
+interface IaERC20 is IERC20 {
+  /*** User Interface ***/
+  // from https://github.com/compound-finance/compound-protocol/blob/master/contracts/CTokenInterfaces.sol
+  function mint(uint amount) external returns (uint);
+
+  function redeem(uint redeemTokens) external returns (uint);
+
+  function isTransferAllowed(address user, uint amount)
+    external
+    view
+    returns (bool);
+}
+
 abstract contract MangroveOffer is IMaker, AccessControlled {
   address payable immutable MGV;
   address immutable BASE_ERC;
@@ -87,17 +100,16 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
 
   function __trade_posthook_getStoredOffer(MgvC.SingleOrder calldata order)
     internal
+    pure
     returns (
-      uint,
-      uint,
-      uint,
-      uint
+      uint wants,
+      uint gives,
+      uint gasreq,
+      uint gasprice
     )
   {
-    uint gasreq = MgvPack.offerDetail_unpack_gasreq(order.offerDetail);
-    (, , uint wants, uint gives, uint gasprice) =
-      MgvPack.offer_unpack(order.offer);
-    return (wants, gives, gasreq, gasprice);
+    gasreq = MgvPack.offerDetail_unpack_gasreq(order.offerDetail);
+    (, , wants, gives, gasprice) = MgvPack.offer_unpack(order.offer);
   }
 
   // To throw a message that will be passed to posthook

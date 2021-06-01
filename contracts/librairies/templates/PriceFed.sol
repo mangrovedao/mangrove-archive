@@ -10,7 +10,7 @@ abstract contract PriceFed is MangroveOffer {
     uint quote_price, // amount of quote token for 1e18 base
     uint slippage_num, // with slippage num/den considered_price is offer_price + (offer_price*num) / den
     uint slippage_den
-  ) internal returns (TradeResult, bytes32) {
+  ) internal pure returns (TradeResult, bytes32) {
     // `quote_price` is the suggested amount of quote in exchange of 1e18 base token (exaunits)
     // [TODO] rounding error management needed
     uint slippage =

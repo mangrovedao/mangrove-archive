@@ -6,6 +6,7 @@ abstract contract Pooled is MangroveOffer {
   // returns (Proceed,balance Left) + (Drop, Missing Balance)
   function __trade_checkLiquidity(MgvC.SingleOrder calldata order)
     internal
+    view
     returns (TradeResult, bytes32)
   {
     uint pool_balance = IERC20(BASE_ERC).balanceOf(address(this));
