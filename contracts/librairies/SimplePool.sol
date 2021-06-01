@@ -31,14 +31,13 @@ contract SimplePool is Pooled, Persistent {
     returns (bytes32)
   {
     (TradeResult result, bytes32 new_balance) = __trade_checkLiquidity(order);
-    if (result == TradeResult.Proceed) {
-      // delta is liquidity left
-      if (uint(new_balance) < reserve_limit) {
-        __trade_Revert(ERRORRESERVE); // for insufficient reserve
+      if (result==TradeResult.Proceed) { // new_balance is liquidity left
+        return new_balance; //accept trade
       }
-      return new_balance; // Let the Mangrove try the transfer
+      else {
+        __trade_Revert(INSUFFICIENTFUNDS);
+      }
     }
-    __trade_Revert(ERRORFUND); // for insufficient funds
   }
 
   function makerPosthook(
@@ -46,14 +45,15 @@ contract SimplePool is Pooled, Persistent {
     MgvC.OrderResult calldata result
   ) external override onlyCaller(MGV) {
     if (result.success) {
-      __posthook_repostOfferAsIs(order);
-    } else {
-      //trade was dropped
-      if (result.makerData == ERRORRESERVE) {
+      if (uint(order.makerData) < fractional_reserve) {
         log("InsufficientReserve");
-      } else {
-        log("InsufficientFunds");
       }
+      else {
+        __posthook_repostOfferAsIs(order);
+      }
+    } else {
+      log("InsufficientFunds");
     }
   }
+
 }
