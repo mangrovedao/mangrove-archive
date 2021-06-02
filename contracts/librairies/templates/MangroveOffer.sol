@@ -6,38 +6,13 @@ import "../../Mangrove.sol";
 import "../../MgvPack.sol";
 import "../AccessControlled.sol";
 
-interface IcERC20 is IERC20 {
-  /*** User Interface ***/
-  // from https://github.com/compound-finance/compound-protocol/blob/master/contracts/CTokenInterfaces.sol
-  function mint(uint amount) external returns (uint);
-
-  function redeem(uint redeemTokens) external returns (uint);
-
-  function redeemUnderlying(uint redeemAmount) external returns (uint);
-
-  function borrow(uint borrowAmount) external returns (uint);
-
-  function repayBorrow(uint repayAmount) external returns (uint);
-
-  function balanceOfUnderlying(address owner) external returns (uint);
-}
-
-interface IaERC20 is IERC20 {
-  /*** User Interface ***/
-  // from https://github.com/compound-finance/compound-protocol/blob/master/contracts/CTokenInterfaces.sol
-  function mint(uint amount) external returns (uint);
-
-  function redeem(uint redeemTokens) external returns (uint);
-
-  function isTransferAllowed(address user, uint amount)
-    external
-    view
-    returns (bool);
-}
+/// @title Basic structure of an offer to be posted on the Mangrove
+/// @author Giry
 
 abstract contract MangroveOffer is IMaker, AccessControlled {
-  address payable immutable MGV;
-  address immutable BASE_ERC;
+  address payable immutable MGV;  /** @dev The address of the Mangrove contract */ 
+  address immutable BASE_ERC;  /** @dev The address of the token manager that the offer is selling */
+
   uint constant None = uint(-1);
 
   event LogAddress(string log_msg, address info);
@@ -98,7 +73,7 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
       10**9);
   }
 
-  function __trade_posthook_getStoredOffer(MgvC.SingleOrder calldata order)
+  function getStoredOffer(MgvC.SingleOrder calldata order)
     internal
     pure
     returns (
@@ -113,7 +88,7 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   }
 
   // To throw a message that will be passed to posthook
-  function __trade_Revert(bytes32 data) internal pure {
+  function trade_Revert(bytes32 data) internal pure {
     bytes memory revData = new bytes(32);
     assembly {
       mstore(add(revData, 32), data)

@@ -5,7 +5,7 @@ import "../../SafeMath.sol";
 
 abstract contract PriceFed is MangroveOffer {
   // function should be called during a makerTrade execution
-  function __trade_checkPrice(
+  function trade_checkPrice(
     MgvC.SingleOrder calldata order,
     uint quote_price, // amount of quote token for 1e18 base
     uint slippage_num, // with slippage num/den considered_price is offer_price + (offer_price*num) / den

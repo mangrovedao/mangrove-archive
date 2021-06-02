@@ -4,7 +4,7 @@ import "./MangroveOffer.sol";
 
 abstract contract Pooled is MangroveOffer {
   // returns (Proceed,balance Left) + (Drop, Missing Balance)
-  function __trade_checkLiquidity(MgvC.SingleOrder calldata order)
+  function trade_checkLiquidity(MgvC.SingleOrder calldata order)
     internal
     view
     returns (TradeResult, bytes32)
