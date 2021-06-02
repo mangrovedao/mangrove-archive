@@ -4,56 +4,43 @@ import "./AccessControlled.sol";
 import "./templates/Pooled.sol";
 import "./templates/Persistent.sol";
 
-contract SimplePool is Pooled, Persistent {
-  uint reserve_limit; // min amount of base token that should be reserved
-  bytes32 constant ERRORRESERVE = "ErrorReserve";
-  bytes32 constant ERRORFUND = "ErrorFund";
+contract SimplePool is MangroveOffer, Pooled, Persistent {
 
   constructor(
     address payable mgv,
-    address base_erc,
-    uint _reserve_limit
-  ) MangroveOffer(mgv, base_erc) {
-    reserve_limit = _reserve_limit;
-  }
-
-  function setReserveLimit(uint new_limit) external onlyCaller(admin) {
-    reserve_limit = new_limit;
-  }
+    address base_erc
+  ) MangroveOffer (mgv, base_erc) {}
 
   /*** Offer management ***/
 
-  /*** Trade settlement with the Mangrove ***/
+  /// @notice callback function for Trade settlement with the Mangrove
+  /// @notice caller MUST be `MGV`
   function makerTrade(MgvC.SingleOrder calldata order)
     external
     override
     onlyCaller(MGV)
-    returns (bytes32)
-  {
-    (TradeResult result, bytes32 new_balance) = __trade_checkLiquidity(order);
-      if (result==TradeResult.Proceed) { // new_balance is liquidity left
-        return new_balance; //accept trade
-      }
-      else {
-        __trade_Revert(INSUFFICIENTFUNDS);
-      }
+    returns (bytes32) {
+    (TradeResult result, bytes32 balance) = trade_checkLiquidity(order);
+    if (result==TradeResult.Proceed) { /** @dev balance is liquidity left */ 
+      return balance; /** @dev This tells the Mangrove to proceed with the trade */
+    }
+    else {
+      trade_Revert(balance); /** @dev This tells the Mangrove that trade has failed (so she must not attempt to transfer funds) */
     }
   }
 
+  /// @notice callback function after the execution of makerTrade
+  /// @notice caller MUST be `MGV` 
   function makerPosthook(
     MgvC.SingleOrder calldata order,
     MgvC.OrderResult calldata result
   ) external override onlyCaller(MGV) {
     if (result.success) {
-      if (uint(order.makerData) < fractional_reserve) {
-        log("InsufficientReserve");
+      uint balanceLeft = uint(result.makerData);
+      (,uint gives,,) = getStoredOffer(order);
+      if (balanceLeft >= gives) {
+        posthook_repostOfferAsIs(order); /** @dev reposts offer on the Mangrove at the same price */
       }
-      else {
-        __posthook_repostOfferAsIs(order);
-      }
-    } else {
-      log("InsufficientFunds");
     }
   }
-
 }
