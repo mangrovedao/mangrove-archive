@@ -2,6 +2,22 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./MangroveOffer.sol";
 
+interface IcERC20 is IERC20 {
+  /*** User Interface ***/
+  // from https://github.com/compound-finance/compound-protocol/blob/master/contracts/CTokenInterfaces.sol
+  function mint(uint amount) external returns (uint);
+
+  function redeem(uint redeemTokens) external returns (uint);
+
+  function redeemUnderlying(uint redeemAmount) external returns (uint);
+
+  function borrow(uint borrowAmount) external returns (uint);
+
+  function repayBorrow(uint repayAmount) external returns (uint);
+
+  function balanceOfUnderlying(address owner) external returns (uint);
+}
+
 abstract contract CompoundSourced is MangroveOffer {
   address immutable BASE_cERC;
   bytes32 constant UNEXPECTEDERROR = "UNEXPECTEDERROR";
@@ -12,7 +28,7 @@ abstract contract CompoundSourced is MangroveOffer {
   }
 
   // returns (Proceed, remaining underlying) + (Drop, [UNEXPECTEDERROR + Missing underlying])
-  function __trade_redeemCompoundBase(uint amount)
+  function trade_redeemCompoundBase(uint amount)
     internal
     returns (TradeResult, bytes32)
   {
@@ -52,6 +68,20 @@ abstract contract CompoundSourced is MangroveOffer {
   }
 }
 
+interface IaERC20 is IERC20 {
+  /*** User Interface ***/
+  // from https://github.com/compound-finance/compound-protocol/blob/master/contracts/CTokenInterfaces.sol
+  function mint(uint amount) external returns (uint);
+
+  function redeem(uint redeemTokens) external returns (uint);
+
+  function isTransferAllowed(address user, uint amount)
+    external
+    view
+    returns (bool);
+}
+
+
 abstract contract AaveSourced is MangroveOffer {
   address immutable BASE_aERC;
   bytes32 constant UNREDEEMABLE = "NOTREDEEMABLE";
@@ -62,7 +92,7 @@ abstract contract AaveSourced is MangroveOffer {
   }
 
   // returns (Proceed, remaining underlying) + (Drop, [UNEXPECTEDERROR + Missing underlying])
-  function __trade_redeemAaaveBase(uint amount)
+  function trade_redeemAaaveBase(uint amount)
     internal
     returns (TradeResult, bytes32)
   {
