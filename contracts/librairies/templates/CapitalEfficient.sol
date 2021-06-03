@@ -5,26 +5,31 @@ import "./MangroveOffer.sol";
 interface IcERC20 is IERC20 {
   /*** User Interface ***/
   // from https://github.com/compound-finance/compound-protocol/blob/master/contracts/CTokenInterfaces.sol
-  function mint(uint amount) external returns (uint);
-
-  function redeem(uint redeemTokens) external returns (uint);
-
-  function redeemUnderlying(uint redeemAmount) external returns (uint);
-
-  function borrow(uint borrowAmount) external returns (uint);
-
-  function repayBorrow(uint repayAmount) external returns (uint);
-
   function balanceOfUnderlying(address owner) external returns (uint);
-}
+  function getAccountSnapshot(address account) external view returns (uint, uint, uint, uint);
+  function borrowRatePerBlock() external view returns (uint);
+  function supplyRatePerBlock() external view returns (uint);
+  function totalBorrowsCurrent() external returns (uint);
+  function borrowBalanceCurrent(address account) external returns (uint);
+  function borrowBalanceStored(address account) external view returns (uint);
+  function exchangeRateCurrent() external returns (uint);
+  function exchangeRateStored() external view returns (uint);
+  function getCash() external view returns (uint);
+  function accrueInterest() external returns (uint);
+  function seize(address liquidator, address borrower, uint seizeTokens) external returns (uint);
+  function redeemUnderlying(uint redeemAmount) external returns (uint);
+  function mint(uint mintAmount) external returns (uint);
+
+  function underlying() external returns (address); // access to public variable containing the address of the underlying ERC20
+  }
 
 abstract contract CompoundSourced is MangroveOffer {
   address immutable BASE_cERC;
   bytes32 constant UNEXPECTEDERROR = "UNEXPECTEDERROR";
   bytes32 constant NOTREDEEMABLE = "NOTREDEEMABLE";
 
-  constructor(address _cERC20) {
-    BASE_cERC = _cERC20;
+  constructor(address cToken) {
+    BASE_cERC = cToken; //should check (IcERC20(_cERC20).underlying()==BASE_ERC upond deployment
   }
 
   // returns (Proceed, remaining underlying) + (Drop, [UNEXPECTEDERROR + Missing underlying])
@@ -34,12 +39,15 @@ abstract contract CompoundSourced is MangroveOffer {
   {
     uint balance = IcERC20(BASE_cERC).balanceOfUnderlying(address(this));
     if (balance >= amount) {
-      uint errorCode = IcERC20(BASE_cERC).redeemUnderlying(amount);
-      if (errorCode == 0) {
-        return (TradeResult.Proceed, bytes32(balance - amount));
-      } else {
+      try IcERC20(BASE_cERC).redeemUnderlying(amount) returns (uint errorCode) {
+        if (errorCode == 0) {
+          return (TradeResult.Proceed, bytes32(balance - amount));
+        } else {
+          return (TradeResult.Drop, bytes32(errorCode));
+        }
+      } catch {
         return (TradeResult.Drop, UNEXPECTEDERROR);
-      }
+      } 
     }
     return (TradeResult.Drop, NOTREDEEMABLE);
   }
@@ -49,21 +57,17 @@ abstract contract CompoundSourced is MangroveOffer {
   // NB `_cErc20` contract MUST be approved to perform `transferFrom _erc20` by `this` contract.
   // `_cERC20` need not be `BASE_cERC` if LP wants to put quote payment into compound as well.
   function supplyErc20ToCompound(
-    address _erc20,
-    address _cErc20,
-    uint _numTokensToSupply
+    address cToken,
+    uint numTokensToSupply
   ) public returns (bool success) {
-    // Create a reference to the underlying asset contract, like DAI.
-    IERC20 underlying = IERC20(_erc20);
-
-    // Create a reference to the corresponding cToken contract, like cDAI
-    IcERC20 cToken = IcERC20(_cErc20);
+    address underlying = IcERC20(cToken).underlying();
+    require (underlying != address(0), "Invalid cToken address");
 
     // Approve transfer on the ERC20 contract
-    underlying.approve(_cErc20, _numTokensToSupply);
+    IERC20(underlying).approve(cToken, numTokensToSupply);
 
     // Mint cTokens
-    uint mintResult = cToken.mint(_numTokensToSupply);
+    uint mintResult = IcERC20(cToken).mint(numTokensToSupply);
     success = mintResult == 0;
   }
 }
@@ -71,24 +75,29 @@ abstract contract CompoundSourced is MangroveOffer {
 interface IaERC20 is IERC20 {
   /*** User Interface ***/
   // from https://github.com/compound-finance/compound-protocol/blob/master/contracts/CTokenInterfaces.sol
-  function mint(uint amount) external returns (uint);
-
   function redeem(uint redeemTokens) external returns (uint);
-
-  function isTransferAllowed(address user, uint amount)
-    external
-    view
-    returns (bool);
+  function isTransferAllowed(address user, uint amount) external view returns (bool);
 }
 
+interface AaveV1LendingPool {
+  function deposit(address _reserve, uint256 _amount, uint16 _referralCode) external payable;
+  function core() external returns (LendingPoolCore);
+}
 
-abstract contract AaveSourced is MangroveOffer {
+interface LendingPoolCore {
+  function getReserveATokenAddress(address _reserve) external view returns (address);
+}
+
+abstract contract AaveV1Sourced is MangroveOffer {
   address immutable BASE_aERC;
+  address immutable POOL;
   bytes32 constant UNREDEEMABLE = "NOTREDEEMABLE";
   bytes32 constant UNEXPECTEDERROR = "UNEXPECTEDERROR";
 
-  constructor(address _aERC20) {
-    BASE_aERC = _aERC20;
+  constructor(address pool, address aERC20) {
+    BASE_aERC = aERC20; // must check AaveV1LendingPool(pool).core().getReserveATokenAddress(BASE_ERC);
+    POOL = pool;
+    require(aERC20 != address(0), "Base erc has no overlying asset in given pool");
   }
 
   // returns (Proceed, remaining underlying) + (Drop, [UNEXPECTEDERROR + Missing underlying])
@@ -111,9 +120,19 @@ abstract contract AaveSourced is MangroveOffer {
     }
   }
 
+  function supplyErc20ToAaveV1(
+    address erc20,
+    uint numTokensToSupply,
+    uint referralCode
+  ) public {
+    require(uint16(referralCode)==referralCode,"Overflowing referral code");
+    AaveV1LendingPool(POOL).deposit(erc20,numTokensToSupply,uint16(referralCode));
+  }
   function supplyErc20ToAave(
-    address _erc20,
-    address _aErc20,
-    uint _numTokensToSupply
-  ) external returns (bool success) {}
+    address erc20,
+    uint numTokensToSupply
+  ) public {
+    AaveV1LendingPool(POOL).deposit(erc20,numTokensToSupply,uint16(0));
+  }
+  
 }
