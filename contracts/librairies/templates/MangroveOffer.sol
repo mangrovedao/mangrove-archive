@@ -88,7 +88,7 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   }
 
   // To throw a message that will be passed to posthook
-  function trade_Revert(bytes32 data) internal pure {
+  function trade_revert(bytes32 data) internal pure {
     bytes memory revData = new bytes(32);
     assembly {
       mstore(add(revData, 32), data)
@@ -102,8 +102,8 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
     require(IERC20(BASE_ERC).approve(MGV, amount));
   }
 
-  // transfer BASE or quote token from this contract to admin chosen recipient
-  function erc_transfer(
+  // transfer token from this contract to admin chosen recipient
+  function sweepToken(
     address erc,
     address recipient,
     uint amount

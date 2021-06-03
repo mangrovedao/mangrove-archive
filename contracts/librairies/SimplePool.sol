@@ -18,6 +18,7 @@ contract SimplePool is MangroveOffer, Pooled, Persistent {
   function makerTrade(MgvC.SingleOrder calldata order)
     external
     override
+    view
     onlyCaller(MGV)
     returns (bytes32) {
     (TradeResult result, bytes32 balance) = trade_checkLiquidity(order);
@@ -25,7 +26,7 @@ contract SimplePool is MangroveOffer, Pooled, Persistent {
       return balance; /** @dev This tells the Mangrove to proceed with the trade */
     }
     else {
-      trade_Revert(balance); /** @dev This tells the Mangrove that trade has failed (so she must not attempt to transfer funds) */
+      trade_revert(balance); /** @dev This tells the Mangrove that trade has failed (so she must not attempt to transfer funds) */
     }
   }
 
