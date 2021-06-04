@@ -101,7 +101,7 @@ library MgvEvents {
     address base,
     address quote,
     uint offerId,
-    // maker's address is not logged because it can be retrieved from `WriteOffer` event using `offerId`, packed in `data`.
+    // maker's address is not logged because it can be retrieved from `WriteOffer` event using `offerId`.
     address taker,
     uint takerWants,
     uint takerGives
@@ -110,7 +110,7 @@ library MgvEvents {
     address base,
     address quote,
     uint offerId,
-    // maker's address is not logged because it can be retrieved from `WriteOffer` event using `offerId`, packed in `data`.
+    // maker's address is not logged because it can be retrieved from `WriteOffer` event using `offerId`.
     address taker,
     uint takerWants,
     uint takerGives,
@@ -130,8 +130,17 @@ library MgvEvents {
   /* * Mangrove closure */
   event Kill();
 
-  /* * An offer was created or updated. `data` packs `makerWants`(96), `makerGives`(96), `gasprice`(16), `gasreq`(24), `offerId`(24)*/
-  event WriteOffer(address base, address quote, address maker, bytes32 data);
+  /* * An offer was created or updated. */
+  event WriteOffer(
+    address base,
+    address quote,
+    address maker,
+    uint makerWants,
+    uint makerGives,
+    uint gasprice,
+    uint gasreq,
+    uint offerId
+  );
 
   /* * `offerId` was present and is now removed from the book. */
   event RetractOffer(address base, address quote, uint offerId);

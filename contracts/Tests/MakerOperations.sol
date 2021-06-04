@@ -674,13 +674,11 @@ contract MakerOperations_Test is IMaker {
         _base,
         _quote,
         address(mkr),
-        MgvPack.writeOffer_pack(
-          1.0 ether + 2,
-          1.0 ether,
-          cfg.global.gasprice + 1,
-          100_000,
-          ofr0
-        )
+        1.0 ether + 2,
+        1.0 ether,
+        cfg.global.gasprice + 1,
+        100_000,
+        ofr0
       );
     } catch {
       TestEvents.fail("Update offer should have succeeded");

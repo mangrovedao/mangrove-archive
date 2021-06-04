@@ -198,7 +198,11 @@ contract MakerPosthook_Test is IMaker {
       base,
       quote,
       address(this),
-      MgvPack.writeOffer_pack(1 ether, 1 ether, _gasprice, gasreq, ofr)
+      1 ether,
+      1 ether,
+      _gasprice,
+      gasreq,
+      ofr
     );
   }
 
@@ -234,7 +238,11 @@ contract MakerPosthook_Test is IMaker {
       base,
       quote,
       address(this),
-      MgvPack.writeOffer_pack(1 ether, 1 ether, _gasprice, gasreq, ofr)
+      1 ether,
+      1 ether,
+      _gasprice,
+      gasreq,
+      ofr
     );
   }
 
@@ -258,7 +266,11 @@ contract MakerPosthook_Test is IMaker {
       base,
       quote,
       address(this),
-      MgvPack.writeOffer_pack(1 ether, 1 ether, _gasprice, gasreq, ofr)
+      1 ether,
+      1 ether,
+      _gasprice,
+      gasreq,
+      ofr
     );
   }
 
@@ -335,7 +347,11 @@ contract MakerPosthook_Test is IMaker {
       base,
       quote,
       address(this),
-      MgvPack.writeOffer_pack(1 ether, 1 ether, _gasprice, gasreq, ofr)
+      1 ether,
+      1 ether,
+      _gasprice,
+      gasreq,
+      ofr
     );
   }
 

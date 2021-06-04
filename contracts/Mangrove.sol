@@ -588,23 +588,15 @@ abstract contract Mangrove {
 
     /* Log the write offer event with some packing to save a ~1k gas. */
     {
-      bytes32 writeOfferData =
-        $$(
-          make_writeOffer(
-            [
-              ["wants", "ofp.wants"],
-              ["gives", "ofp.gives"],
-              ["gasreq", "ofp.gasreq"],
-              ["gasprice", "ofp.gasprice"],
-              ["id", "ofp.id"]
-            ]
-          )
-        );
       emit MgvEvents.WriteOffer(
         ofp.base,
         ofp.quote,
         msg.sender,
-        writeOfferData
+        ofp.wants,
+        ofp.gives,
+        ofp.gasprice,
+        ofp.gasreq,
+        ofp.id
       );
     }
 

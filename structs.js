@@ -158,16 +158,6 @@ Note: An optimization in the `marketOrder` function relies on reentrancy being f
     /* * `last` is a counter for offer ids, incremented every time a new offer is created. It can't go above $2^{24}-1$. */
     id_field("last"),
   ],
-
-  /* ## WriteOffer */
-  /* `writeOffer` packs information about an offer that was just created/updated. It is used for logging compact data. */
-  writeOffer: [
-    fields.wants,
-    fields.gives,
-    fields.gasprice,
-    fields.gasreq,
-    id_field("id"),
-  ],
 };
 
 /* # Example */

@@ -125,13 +125,11 @@ contract AMM_Test {
       address(tk1),
       address(tk0),
       mgr,
-      MgvPack.writeOffer_pack(
-        1.2 ether,
-        1.2 ether,
-        MGV.getConfig(address(0), address(0)).global.gasprice,
-        100_000,
-        1
-      )
+      1.2 ether,
+      1.2 ether,
+      MGV.getConfig(address(0), address(0)).global.gasprice,
+      100_000,
+      1
     );
     emit MgvEvents.Success(
       address(tk1),
@@ -147,13 +145,11 @@ contract AMM_Test {
       address(tk0),
       address(tk1),
       mgr,
-      MgvPack.writeOffer_pack(
-        0.6 ether,
-        0.6 ether,
-        mgv.getConfig(address(0), address(0)).global.gasprice,
-        100_000,
-        4
-      )
+      0.6 ether,
+      0.6 ether,
+      mgv.getConfig(address(0), address(0)).global.gasprice,
+      100_000,
+      4
     );
   }
 

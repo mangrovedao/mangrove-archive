@@ -383,13 +383,11 @@ contract Gatekeeping_Test is IMaker {
         address(base),
         address(quote),
         address(mkr),
-        MgvPack.writeOffer_pack(
-          1 ether, //base
-          1 ether, //quote
-          cfg.global.gasprice, //gasprice
-          cfg.global.gasmax, //gasreq
-          ofr //ofrId
-        )
+        1 ether, //base
+        1 ether, //quote
+        cfg.global.gasprice, //gasprice
+        cfg.global.gasmax, //gasreq
+        ofr //ofrId
       );
       emit MgvEvents.Debit(
         address(mkr),
@@ -430,13 +428,11 @@ contract Gatekeeping_Test is IMaker {
         address(base),
         address(quote),
         address(mkr),
-        MgvPack.writeOffer_pack(
-          amount, //base
-          amount, //quote
-          cfg.global.gasprice, //gasprice
-          1, //gasreq
-          ofr //ofrId
-        )
+        amount, //base
+        amount, //quote
+        cfg.global.gasprice, //gasprice
+        1, //gasreq
+        ofr //ofrId
       );
       emit MgvEvents.Debit(
         address(mkr),
