@@ -28,8 +28,8 @@ abstract contract CompoundSourced is MangroveOffer {
   bytes32 constant UNEXPECTEDERROR = "UNEXPECTEDERROR";
   bytes32 constant NOTREDEEMABLE = "NOTREDEEMABLE";
 
-  constructor(address cToken) {
-    BASE_cERC = cToken; //should check (IcERC20(_cERC20).underlying()==BASE_ERC upond deployment
+  constructor(address cToken) { /// @dev cToken should be the overlying of BASE_ERC when constructor is applied
+    BASE_cERC = cToken; 
   }
 
   // returns (Proceed, remaining underlying) + (Drop, [UNEXPECTEDERROR + Missing underlying])
@@ -101,7 +101,7 @@ abstract contract AaveV1Sourced is MangroveOffer {
   }
 
   // returns (Proceed, remaining underlying) + (Drop, [UNEXPECTEDERROR + Missing underlying])
-  function trade_redeemAaaveBase(uint amount)
+  function trade_redeemAaveV1Base(uint amount)
     internal
     returns (TradeResult, bytes32)
   {
@@ -134,5 +134,48 @@ abstract contract AaveV1Sourced is MangroveOffer {
   ) public {
     AaveV1LendingPool(POOL).deposit(erc20,numTokensToSupply,uint16(0));
   }
+  
+}
+
+
+interface AaveLendingPool {
+  function deposit(
+    address asset,
+    uint256 amount,
+    address onBehalfOf,
+    uint16 referralCode
+  ) external;
+
+  
+}
+
+abstract contract AaveSourced is MangroveOffer {
+  address immutable POOL;
+  bytes32 constant UNREDEEMABLE = "NOTREDEEMABLE";
+  bytes32 constant UNEXPECTEDERROR = "UNEXPECTEDERROR";
+
+  constructor(address pool) {
+    POOL = pool;
+  }
+
+  // returns (Proceed, remaining underlying) + (Drop, [UNEXPECTEDERROR + Missing underlying])
+  function trade_redeemAaveBase(uint amount)
+    internal
+    returns (TradeResult, bytes32){}
+
+  // function supplyErc20ToAaveV(
+  //   address erc20,
+  //   uint numTokensToSupply,
+  //   uint referralCode
+  // ) public {
+  //   require(uint16(referralCode)==referralCode,"Overflowing referral code");
+  //   AaveV1LendingPool(POOL).deposit(erc20,numTokensToSupply,uint16(referralCode));
+  // }
+  // function supplyErc20ToAave(
+  //   address erc20,
+  //   uint numTokensToSupply
+  // ) public {
+  //   AaveV1LendingPool(POOL).deposit(erc20,numTokensToSupply,uint16(0));
+  // }
   
 }
