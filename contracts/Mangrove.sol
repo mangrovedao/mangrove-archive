@@ -587,7 +587,7 @@ abstract contract Mangrove {
       ofp.gasprice = $$(global_gasprice("ofp.global"));
     }
 
-    /* Log the write offer event with some packing to save a ~1k gas. */
+    /* Log the write offer event. */
     {
       emit MgvEvents.WriteOffer(
         ofp.base,
