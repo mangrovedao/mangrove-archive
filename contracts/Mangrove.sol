@@ -78,7 +78,8 @@ abstract contract Mangrove {
     /* `takerLends` determines whether the taker or maker does the flashlend. FMD initializes with `true`, FTD initializes with `false`. */
     bool takerLends,
     /* Used by [EIP712](https://eips.ethereum.org/EIPS/eip-712)'s `DOMAIN_SEPARATOR` */
-    string memory contractName //+clear+
+    string memory contractName
+    //+clear+
   ) {
     emit MgvEvents.NewMgv();
 
@@ -1395,10 +1396,10 @@ abstract contract Mangrove {
      **Incentive issue**: if the gas price increases enough after an offer has been created, there may not be an immediately profitable way to remove the fake offers. In that case, we count on 3 factors to keep the book clean:
      1. Gas price eventually comes down.
      2. Other market makers want to keep the Mangrove attractive and maintain their offer flow.
-     3. Mangrove governance (who may collect a fee) wants to keep the Mangrove attractive and maximize exchange volume.
+     3. Mangrove governance (who may collect a fee) wants to keep the Mangrove attractive and maximize exchange volume. */
 
   //+clear+
-  /* After an offer failed, part of its provision is given back to the maker and the rest is stored to be sent to the taker after the entire order completes. In `applyPenalty`, we _only_ credit the maker with its excess provision. So it looks like the maker is gaining something. In fact they're just getting back a fraction of what they provisioned earlier.
+  /* After an offer failed, part of its provision is given back to the maker and the rest is stored to be sent to the taker after the entire order completes. In `applyPenalty`, we _only_ credit the maker with its excess provision. So it looks like the maker is gaining something. In fact they're just getting back a fraction of what they provisioned earlier. */
   /*
      Penalty application summary:
 
