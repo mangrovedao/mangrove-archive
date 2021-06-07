@@ -28,7 +28,8 @@ contract CompoundPool is MangroveOffer, Persistent, CompoundSourced {
     overlyingAdresses[erc20] = cErc20;
   }
 
-  function toggleTransferQuote() external onlyCaller(admin) {
+  /// @dev set transferQuote to `true` in order to automatically transfer received quote in the premices of the trade
+  function toggleTransferQuote() external onlyCaller(admin){
     transferQuote = !transferQuote;
   }
 
