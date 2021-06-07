@@ -10,20 +10,25 @@ import "../AccessControlled.sol";
 /// @author Giry
 
 contract MangroveOffer is IMaker, AccessControlled {
-  address payable immutable MGV; /** @dev The address of the Mangrove contract */
 
-  // value return
-  enum TradeResult {NotEnoughFunds, Proceed, Success}
+  /** @dev The address of the Mangrove contract */
+  address payable immutable MGV; 
 
+  /** @dev passing information about trade validation during the execution `makerTrade`*/ 
+  bytes32 constant INSUFFICIENTFUNDS = "InsufficientFunds"; 
+  bytes32 constant DROPTRADE = "DropTrade";
+  bytes32 constant VALIDTRADE = "ValidTrade";
+
+  /** @dev In order to be able to withdraw ETH bounty from the Mangrove, an offer should always be payable*/
   receive() external payable {}
 
   constructor(address payable _MGV) {
     MGV = _MGV;
   }
 
-  // Utilities
+  /// @title Utility function to get/extract data sent by the Mangrove during trade execution
 
-  // Queries the Mangrove to know how much WEI will be required to post a new offer
+  /// @dev Queries the Mangrove to know how much WEI will be required to post a new offer
   function getProvision(
     address base_erc20,
     address quote_erc20,
@@ -45,6 +50,7 @@ contract MangroveOffer is IMaker, AccessControlled {
       10**9);
   }
 
+/// @dev extracts old offer from the order that is received from the Mangrove
   function getStoredOffer(MgvC.SingleOrder calldata order)
     internal
     pure
@@ -61,7 +67,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     );
   }
 
-  // To throw a message that will be passed to posthook
+  /// @dev Throws a message that will be passed to posthook (message is truncated after 32 bytes)
   function tradeRevertWithData(bytes32 data) internal pure {
     bytes memory revData = new bytes(32);
     assembly {
@@ -70,17 +76,22 @@ contract MangroveOffer is IMaker, AccessControlled {
     }
   }
 
-  // Mangrove basic interactions (logging is done by the Mangrove)
+  /// @title Mangrove basic interactions (logging is done by the Mangrove)
 
+  /// @dev trader needs to approve the Mangrove to perform base token transfer at the end of the `makerTrade` function
   function approveMangrove(address base_erc20, uint amount)
     external
+    virtual
     onlyCaller(admin)
   {
     require(IERC20(base_erc20).approve(MGV, amount));
   }
 
+  /// @dev withdraws ETH from the bounty vault of the Mangrove.
+  /// @notice `Mangrove.fund` function need not be called by `this` so is not included here.
   function withdrawFromMangrove(address receiver, uint amount)
     external
+    virtual 
     onlyCaller(admin)
     returns (bool noRevert)
   {
@@ -89,6 +100,14 @@ contract MangroveOffer is IMaker, AccessControlled {
     (noRevert, ) = receiver.call{value: amount}("");
   }
 
+  /// @dev posts a new offer on the mangrove
+  /// @param wants the amount of quote token the offer is asking
+  /// @param gives the amount of base token the offer is proposing
+  /// @param gasreq the amount of gas unit the offer requires to be executed
+  /// @notice we recommend gasreq to be at least 10% higher than dryrun tests
+  /// @param gasprice is used to offer a bounty that is higher than normal (as given by a call to `Mangrove.config(base_erc20,quote_erc20).global.gasprice`) in order to cover this offer from future gasprice increase
+  /// @notice if gasprice is lower than Mangrove's (for instance if gasprice is set to 0), Mangrove's gasprice will be used to compute the bounty
+  /// @param pivotId asks the Mangroce to insert this offer at pivotId in the order book in order to minimize gas costs of insertion. If PivotId is not in the order book (for instance if 0 is chosen), offer will be inserted, starting from best offer.
   function newMangroveOffer(
     address base_erc20,
     address quote_erc20,
@@ -97,7 +116,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     uint gasreq,
     uint gasprice,
     uint pivotId
-  ) public onlyCaller(admin) returns (uint offerId) {
+  ) public virtual onlyCaller(admin) returns (uint offerId) {
     offerId = Mangrove(MGV).newOffer(
       base_erc20,
       quote_erc20,
@@ -118,7 +137,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     uint gasprice,
     uint pivotId,
     uint offerId
-  ) public onlyCaller(admin) {
+  ) public virtual onlyCaller(admin) {
     Mangrove(MGV).updateOffer(
       base_erc20,
       quote_erc20,
@@ -136,73 +155,74 @@ contract MangroveOffer is IMaker, AccessControlled {
     address quote_erc20,
     uint offerId,
     bool deprovision
-  ) public onlyCaller(admin) {
+  ) public virtual onlyCaller(admin) {
     Mangrove(MGV).retractOffer(base_erc20, quote_erc20, offerId, deprovision);
   }
 
-  /// trade and posthook functions
-  function validateOrder(MgvC.SingleOrder calldata order)
-    internal
-    returns (TradeResult, bytes32)
-  {
-    (uint offer_gives, uint offer_wants, , ) = getStoredOffer(order);
-    return fetchLiquidity(order.base, order.quote, offer_gives, offer_wants);
-  }
-
-  //// @notice Basic strategy to fetch liquidity (simply checks the balance of `this`)
+  
+  /// @notice Basic strategy to fetch liquidity (simply checks the balance of `this`)
+  /// @notice Deposit is done only if fetch liquidity succeeds in order to save gas. So strategy is not using flashloan from the taker.
   function fetchLiquidity(
     address base,
     address quote,
-    uint offer_gives,
-    uint offer_wants
-  ) internal returns (TradeResult, bytes32) {
-    (TradeResult result, bytes32 data) = withdraw(base, offer_gives); /// @dev fetches `offer_gives` amount of `base` token as specified by the withdraw function
-    if (result == TradeResult.Proceed) {
-      return deposit(quote, offer_wants); /// @dev places `offer_wants` amount of `quote` token as specified by the deposit function
+    uint order_wants,
+    uint order_gives
+  ) internal virtual {
+    uint fetchedAmount = withdrawStrategy(base, offer_gives); /// @dev fetches `offer_gives` amount of `base` token as specified by the withdraw function
+    if (fetchedAmount >= order_wants) { /// @dev fetched amount could be higher than order requires for gas efficiency
+      depositStrategy(quote, order_wants); /// @dev places `offer_wants` amount of `quote` token as specified by the deposit function
     }
-    return (result, data);
+    tradeRevertWithData(INSUFFICIENTFUNDS);
   }
-
-  function withdraw(address base, uint amount)
-    internal
-    returns (TradeResult, bytes32)
-  {
-    uint balance = IERC20(base).balanceOf(address(this));
-    if (balance >= amount) {
-      return (TradeResult.Proceed, "");
-    }
-    return (TradeResult.NotEnoughFunds, bytes32(amount - balance));
-  }
-
-  function deposit(address quote, uint amount) internal {
-    /// @dev token is just stored at this address
-    return (TradeResult.Success, "");
-  }
-
-  function repostOffer(
-    MgvC.SingleOrder calldata order,
-    MgvC.SingleOrder calldata result
-  ) internal pure virtual {}
 
   /////// Mandatory callback functions
 
   function makerTrade(MgvC.SingleOrder calldata order)
     external
+    virtual 
     onlyCaller(MGV)
     returns (bytes32)
   {
-    (TradeResult result, bytes32 data) =
+    if (lastLook(order)) {
       fetchLiquidity(order.base, order.quote, order.wants, order.gives);
-    if (result != TradeResult.Success) {
-      tradeRevertWithData(data);
+      return VALIDTRADE;
     }
-    return data;
+    else tradeRevertWithData(DROPTRADE);
   }
 
   function makerPosthook(
     MgvC.SingleOrder calldata order,
     MgvC.SingleOrder calldata result
-  ) external onlyCaller(MGV) {
-    repostOffer(order, result);
+  ) external virtual onlyCaller(MGV) {
+    repostStrategy(order, result);
   }
+
+
+/// @title Strategical functions.
+/// @dev these functions correspond to default strategy. Contracts that inherit MangroveOffer to define their own deposit/withdraw strategies should define their own version (and eventually call these ones as backup)
+  function withdrawStrategy(address base, uint amount)
+    internal
+    returns (uint)
+  {
+    uint balance = IERC20(base).balanceOf(address(this));
+    if (balance >= amount) {
+      return 0; ///@dev no more base tokens need to be fetched
+    }
+    return (amount - balance); /// @dev amount of base token still to be fetched to satisfy order
+  }
+
+  function depositStrategy(address quote, uint amount) internal returns (bool){
+    /// @dev receive payment is just stored at this address
+    return true;
+  }
+  
+  /// @dev function MUST use tradeRevertWithData(data) if order is to be reneged.
+  function lastLookStrategy(MgvC.SingleOrder calldata order) internal returns (bool) {
+    return true;
+  }
+
+  function repostStrategy(
+    MgvC.SingleOrder calldata order,
+    MgvC.SingleOrder calldata result
+    ) internal {}
 }

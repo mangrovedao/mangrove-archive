@@ -49,29 +49,54 @@ interface IcERC20 is IERC20 {
 }
 
 abstract contract CompoundSourced is MangroveOffer {
-  bytes32 constant UNEXPECTEDERROR = "UNEXPECTEDERROR";
-  bytes32 constant NOTREDEEMABLE = "NOTREDEEMABLE";
 
-  // returns (Proceed, remaining underlying) + (Drop, [UNEXPECTEDERROR + Missing underlying])
-  function trade_redeemCompoundBase(address base_cErc20, uint amount)
+  event UnexpErrorOnRedeem(address cToken, uint amount);
+  event ErrorOnRedeem(address cToken, uint amount, uint errorCode);
+
+  /// @dev isCompoundSourced[erc20]=cERC20 if erc20 is not solely stored in `this` contract but on Compound as well
+  mapping (address => address) private isCompoundSourced;
+
+  /// @param minCompoundReserve is the minimal amount of token needed to trigger a compound redeem/deposit
+  uint private minCompoundReserve;
+
+  function setMinReserve(uint min) external onlyCaller(admin) {
+    minCompoundReserve = min;
+  }
+
+  function setCompoundSource(address token, address cToken) external onlyCaller(admin) {
+    isCompoundSourced[token] = cToken;
+  }
+
+  function withdraw(address base, uint amount)
     internal
-    returns (TradeResult, bytes32)
+    returns (uint)
   {
-    uint balance = IcERC20(base_cErc20).balanceOfUnderlying(address(this));
-    if (balance >= amount) {
-      try IcERC20(base_cErc20).redeemUnderlying(amount) returns (
-        uint errorCode
-      ) {
-        if (errorCode == 0) {
-          return (TradeResult.Proceed, bytes32(balance - amount));
-        } else {
-          return (TradeResult.Drop, bytes32(errorCode));
+    uint stillToBeFetched = !super.withdraw(base,amount); 
+
+    if (
+      stillToBeFetched == 0 /// @dev test this first to avoid storage reads
+    || stillToBeFetched <= minCompoundReserve 
+    ){
+      return stillToBeFetched;
+    }
+    else {
+      address base_cErc20 = isCompoundSourced[base]; ///@dev this is 0x0 if base is not compound sourced.
+      if (base_cErc20 == address(0)) {return stillToBeFetched;} /// @dev not tested earlier to avoid storage read
+
+      uint compoundBalance = IcERC20(base_cErc20).balanceOfUnderlying(address(this));
+      uint redeemAmount = compoundBalance >= stillToBeFetched ? stillToBeFetched : compoundBalance ; 
+      try IcERC20(base_cErc20).redeemUnderlying(redeemAmount) returns (uint errorCode) {
+        if (errorCode == 0) { /// @dev compound redeem was a success
+          return (stillToBeFetched-redeemAmount);
+        } else { /// @dev compound redeem failed
+          emit ErrorOnRedeem(base_cErc20,redeemAmount,errorCode);
+          return stillToBeFetched;
         }
       } catch {
-        return (TradeResult.Drop, UNEXPECTEDERROR);
+        emit UnexpErrorOnRedeem(base_cErc20,redeemAmount);
+        return stillToBeFetched;
       }
     }
-    return (TradeResult.Drop, NOTREDEEMABLE);
   }
 
   // adapted from https://medium.com/compound-finance/supplying-assets-to-the-compound-protocol-ec2cf5df5aa#afff
@@ -92,7 +117,32 @@ abstract contract CompoundSourced is MangroveOffer {
     uint mintResult = IcERC20(cErc20).mint(numTokensToSupply);
     success = (mintResult == 0);
   }
+
+  function deposit(quote, amount) {
+    /// @dev optim
+    if (amount == 0) {return true;}
+
+    if (amount >= minCompoundReserve){
+      uint cToken = isCompoundSourced[quote];
+      if (cToken != address(0)){
+        try supplyErc20ToCompound(cToken, amount) returns (bool success) {
+          if (success) {
+            return true;
+          }
+          else {
+            emit ErrorOnDeposit(cToken,amount);
+            return false;
+          }
+        } catch {
+          emit UnexpErrorOnDepost(cToken, amount);
+          return false;
+        }
+      } /// @dev quote is not compound sourced
+    } /// @dev ... or amount to deposit is too low to trigger a compound call
+    return super.deposit(quote,amount); /// @dev trying other deposit methods
+  }
 }
+
 
 interface IaERC20 is IERC20 {
   /*** User Interface ***/
