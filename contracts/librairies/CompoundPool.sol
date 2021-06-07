@@ -1,12 +1,11 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./AccessControlled.sol";
-import "./templates/Pooled.sol";
 import "./templates/Persistent.sol";
 import "./templates/CapitalEfficient.sol";
 import "./templates/MangroveOffer.sol";
 
-contract CompoundPool is MangroveOffer, Pooled, Persistent, CompoundSourced {
+contract CompoundPool is MangroveOffer, Persistent, CompoundSourced {
   mapping(address => address) private overlyingAdresses;
   bool transferQuote;
   bytes32 constant FROMPOOL = "FromPool";
@@ -17,22 +16,23 @@ contract CompoundPool is MangroveOffer, Pooled, Persistent, CompoundSourced {
     address base_erc,
     address base_cErc,
     bool _transferQuote
-  ) MangroveOffer(mgv, base_erc) CompoundSourced(base_cErc) {
+  ) MangroveOffer(mgv) CompoundSourced(base_cErc) {
     require(IcERC20(base_cErc).underlying() == base_erc);
     transferQuote = _transferQuote;
   }
 
-  function setOverlyingAddress(address erc20, address cErc20)
+  function addOverlyingAddress(address erc20, address cErc20)
     external
     onlyCaller(admin)
   {
     overlyingAdresses[erc20] = cErc20;
   }
-  function toggleTransferQuote() external onlyCaller(admin){
+
+  function toggleTransferQuote() external onlyCaller(admin) {
     transferQuote = !transferQuote;
   }
 
-  function getOverlyingAddress(address erc20) public returns (address) {
+  function getOverlyingAddress(address erc20) public view returns (address) {
     return (overlyingAdresses[erc20]);
   }
 

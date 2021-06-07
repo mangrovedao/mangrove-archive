@@ -9,57 +9,29 @@ import "../AccessControlled.sol";
 /// @title Basic structure of an offer to be posted on the Mangrove
 /// @author Giry
 
-abstract contract MangroveOffer is IMaker, AccessControlled {
-  address payable immutable MGV;  /** @dev The address of the Mangrove contract */ 
-  address immutable BASE_ERC;  /** @dev The address of the token manager that the offer is selling */
-
-  uint constant None = uint(-1);
-
-  event LogAddress(string log_msg, address info);
-  event LogInt(string log_msg, uint info);
-  event LogInt2(string log_msg, uint info, uint info2);
-  event LogString(string log_msg);
-
-  function log(string memory msg) internal {
-    emit LogString(msg);
-  }
-
-  function log(string memory msg, address addr) internal {
-    emit LogAddress(msg, addr);
-  }
-
-  function log(string memory msg, uint info) internal {
-    emit LogInt(msg, info);
-  }
-
-  function log(
-    string memory msg,
-    uint info1,
-    uint info2
-  ) internal {
-    emit LogInt2(msg, info1, info2);
-  }
+contract MangroveOffer is IMaker, AccessControlled {
+  address payable immutable MGV; /** @dev The address of the Mangrove contract */
 
   // value return
-  enum TradeResult {Drop, Proceed}
+  enum TradeResult {NotEnoughFunds, Proceed, Success}
 
   receive() external payable {}
 
-  constructor(address payable _MGV, address _BASE_ERC) {
+  constructor(address payable _MGV) {
     MGV = _MGV;
-    BASE_ERC = _BASE_ERC;
   }
 
   // Utilities
 
   // Queries the Mangrove to know how much WEI will be required to post a new offer
   function getProvision(
-    address BASE_ERC,
-    address quote_erc,
+    address base_erc20,
+    address quote_erc20,
     uint gasreq,
     uint gasprice
-  ) public returns (uint) {
-    MgvC.Config memory config = Mangrove(MGV).getConfig(BASE_ERC, quote_erc);
+  ) internal returns (uint) {
+    MgvC.Config memory config =
+      Mangrove(MGV).getConfig(base_erc20, quote_erc20);
     uint _gp;
     if (config.global.gasprice > gasprice) {
       _gp = uint(config.global.gasprice);
@@ -77,18 +49,20 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
     internal
     pure
     returns (
-      uint wants,
-      uint gives,
+      uint offer_gives,
+      uint offer_wants,
       uint gasreq,
       uint gasprice
     )
   {
     gasreq = MgvPack.offerDetail_unpack_gasreq(order.offerDetail);
-    (, , wants, gives, gasprice) = MgvPack.offer_unpack(order.offer);
+    (, , offer_gives, offer_wants, gasprice) = MgvPack.offer_unpack(
+      order.offer
+    );
   }
 
   // To throw a message that will be passed to posthook
-  function trade_revert(bytes32 data) internal pure {
+  function tradeRevertWithData(bytes32 data) internal pure {
     bytes memory revData = new bytes(32);
     assembly {
       mstore(add(revData, 32), data)
@@ -98,17 +72,11 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
 
   // Mangrove basic interactions (logging is done by the Mangrove)
 
-  function approveMangrove(uint amount) external onlyCaller(admin) {
-    require(IERC20(BASE_ERC).approve(MGV, amount));
-  }
-
-  // transfer token from this contract to admin chosen recipient
-  function sweepToken(
-    address erc,
-    address recipient,
-    uint amount
-  ) external onlyCaller(admin) returns (bool) {
-    return (IERC20(erc).transfer(recipient, amount));
+  function approveMangrove(address base_erc20, uint amount)
+    external
+    onlyCaller(admin)
+  {
+    require(IERC20(base_erc20).approve(MGV, amount));
   }
 
   function withdrawFromMangrove(address receiver, uint amount)
@@ -122,7 +90,8 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   }
 
   function newMangroveOffer(
-    address quote_erc,
+    address base_erc20,
+    address quote_erc20,
     uint wants,
     uint gives,
     uint gasreq,
@@ -130,8 +99,8 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
     uint pivotId
   ) public onlyCaller(admin) returns (uint offerId) {
     offerId = Mangrove(MGV).newOffer(
-      BASE_ERC,
-      quote_erc,
+      base_erc20,
+      quote_erc20,
       wants,
       gives,
       gasreq,
@@ -141,7 +110,8 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   }
 
   function updateMangroveOffer(
-    address quote_erc,
+    address base_erc20,
+    address quote_erc20,
     uint wants,
     uint gives,
     uint gasreq,
@@ -150,8 +120,8 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
     uint offerId
   ) public onlyCaller(admin) {
     Mangrove(MGV).updateOffer(
-      BASE_ERC,
-      quote_erc,
+      base_erc20,
+      quote_erc20,
       wants,
       gives,
       gasreq,
@@ -162,10 +132,77 @@ abstract contract MangroveOffer is IMaker, AccessControlled {
   }
 
   function retractMangroveOffer(
-    address quote_erc,
+    address base_erc20,
+    address quote_erc20,
     uint offerId,
     bool deprovision
   ) public onlyCaller(admin) {
-    Mangrove(MGV).retractOffer(BASE_ERC, quote_erc, offerId, deprovision);
+    Mangrove(MGV).retractOffer(base_erc20, quote_erc20, offerId, deprovision);
+  }
+
+  /// trade and posthook functions
+  function validateOrder(MgvC.SingleOrder calldata order)
+    internal
+    returns (TradeResult, bytes32)
+  {
+    (uint offer_gives, uint offer_wants, , ) = getStoredOffer(order);
+    return fetchLiquidity(order.base, order.quote, offer_gives, offer_wants);
+  }
+
+  //// @notice Basic strategy to fetch liquidity (simply checks the balance of `this`)
+  function fetchLiquidity(
+    address base,
+    address quote,
+    uint offer_gives,
+    uint offer_wants
+  ) internal returns (TradeResult, bytes32) {
+    (TradeResult result, bytes32 data) = withdraw(base, offer_gives); /// @dev fetches `offer_gives` amount of `base` token as specified by the withdraw function
+    if (result == TradeResult.Proceed) {
+      return deposit(quote, offer_wants); /// @dev places `offer_wants` amount of `quote` token as specified by the deposit function
+    }
+    return (result, data);
+  }
+
+  function withdraw(address base, uint amount)
+    internal
+    returns (TradeResult, bytes32)
+  {
+    uint balance = IERC20(base).balanceOf(address(this));
+    if (balance >= amount) {
+      return (TradeResult.Proceed, "");
+    }
+    return (TradeResult.NotEnoughFunds, bytes32(amount - balance));
+  }
+
+  function deposit(address quote, uint amount) internal {
+    /// @dev token is just stored at this address
+    return (TradeResult.Success, "");
+  }
+
+  function repostOffer(
+    MgvC.SingleOrder calldata order,
+    MgvC.SingleOrder calldata result
+  ) internal pure virtual {}
+
+  /////// Mandatory callback functions
+
+  function makerTrade(MgvC.SingleOrder calldata order)
+    external
+    onlyCaller(MGV)
+    returns (bytes32)
+  {
+    (TradeResult result, bytes32 data) =
+      fetchLiquidity(order.base, order.quote, order.wants, order.gives);
+    if (result != TradeResult.Success) {
+      tradeRevertWithData(data);
+    }
+    return data;
+  }
+
+  function makerPosthook(
+    MgvC.SingleOrder calldata order,
+    MgvC.SingleOrder calldata result
+  ) external onlyCaller(MGV) {
+    repostOffer(order, result);
   }
 }
