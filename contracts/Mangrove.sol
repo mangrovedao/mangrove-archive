@@ -79,8 +79,8 @@ abstract contract Mangrove {
     bool takerLends,
     /* Used by [EIP712](https://eips.ethereum.org/EIPS/eip-712)'s `DOMAIN_SEPARATOR` */
     string memory contractName
-    //+clear+
-  ) {
+  ) //+clear+
+  {
     emit MgvEvents.NewMgv();
 
     /* Initialize governance. At this stage we cannot use the `setGovernance` method since no admin is set. */
@@ -587,7 +587,7 @@ abstract contract Mangrove {
       ofp.gasprice = $$(global_gasprice("ofp.global"));
     }
 
-    /* Log the write offer event with some packing to save a ~1k gas. */
+    /* Log the write offer event. */
     {
       emit MgvEvents.WriteOffer(
         ofp.base,
@@ -605,7 +605,7 @@ abstract contract Mangrove {
 
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read.
 
-    **Warning**: `findPosition` will call `better`, which may read the offer's `offerDetails`. So it is important to find the offer position _before_ we update its `offerDetail` in storage. We waste 1 read in that case but we deem that the code would get too ugly if we passed the old offerDetail as argument to `findPosition` and to `better`, just to save 1 read in that specific case.  */
+    **Warning**: `findPosition` will call `better`, which may read the offer's `offerDetails`. So it is important to find the offer position _before_ we update its `offerDetail` in storage. We waste 1 (hot) read in that case but we deem that the code would get too ugly if we passed the old offerDetail as argument to `findPosition` and to `better`, just to save 1 hot read in that specific case.  */
     (uint prev, uint next) = findPosition(ofp);
 
     /* We now write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `balanceOf`. */
