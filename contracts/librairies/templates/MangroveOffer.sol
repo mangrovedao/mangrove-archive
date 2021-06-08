@@ -4,22 +4,22 @@ import {IMaker, MgvCommon as MgvC} from "../../MgvCommon.sol";
 import "../../interfaces.sol";
 import "../../Mangrove.sol";
 import "../../MgvPack.sol";
-import "../AccessControlled.sol";
+import "./AccessControlled.sol";
 
 /// @title Basic structure of an offer to be posted on the Mangrove
 /// @author Giry
 
 contract MangroveOffer is IMaker, AccessControlled {
+  event RepostFailed(address erc, uint amount);
 
-  /** @dev The address of the Mangrove contract */
-  address payable immutable MGV; 
+  address payable immutable MGV;
 
-  /** @dev passing information about trade validation during the execution `makerTrade`*/ 
-  bytes32 constant INSUFFICIENTFUNDS = "InsufficientFunds"; 
+  bytes32 constant INSUFFICIENTFUNDS = "InsufficientFunds";
   bytes32 constant DROPTRADE = "DropTrade";
   bytes32 constant VALIDTRADE = "ValidTrade";
+  bytes32 constant DEPOSITSUCCESS = "DepositSuccess";
+  bytes32 constant DEPOSITFAIL = "DepositFail";
 
-  /** @dev In order to be able to withdraw ETH bounty from the Mangrove, an offer should always be payable*/
   receive() external payable {}
 
   constructor(address payable _MGV) {
@@ -50,7 +50,7 @@ contract MangroveOffer is IMaker, AccessControlled {
       10**9);
   }
 
-/// @dev extracts old offer from the order that is received from the Mangrove
+  /// @dev extracts old offer from the order that is received from the Mangrove
   function getStoredOffer(MgvC.SingleOrder calldata order)
     internal
     pure
@@ -91,7 +91,7 @@ contract MangroveOffer is IMaker, AccessControlled {
   /// @notice `Mangrove.fund` function need not be called by `this` so is not included here.
   function withdrawFromMangrove(address receiver, uint amount)
     external
-    virtual 
+    virtual
     onlyCaller(admin)
     returns (bool noRevert)
   {
@@ -108,6 +108,7 @@ contract MangroveOffer is IMaker, AccessControlled {
   /// @param gasprice is used to offer a bounty that is higher than normal (as given by a call to `Mangrove.config(base_erc20,quote_erc20).global.gasprice`) in order to cover this offer from future gasprice increase
   /// @notice if gasprice is lower than Mangrove's (for instance if gasprice is set to 0), Mangrove's gasprice will be used to compute the bounty
   /// @param pivotId asks the Mangroce to insert this offer at pivotId in the order book in order to minimize gas costs of insertion. If PivotId is not in the order book (for instance if 0 is chosen), offer will be inserted, starting from best offer.
+  /// @return offerId id>0 of the created offer
   function newMangroveOffer(
     address base_erc20,
     address quote_erc20,
@@ -128,6 +129,16 @@ contract MangroveOffer is IMaker, AccessControlled {
     );
   }
 
+  /// @dev updates an existing offer (i.e having already an offerId) on the mangrove. Gasprice is lower than creating the offer anew.
+  /// @notice the offer may be present on the order book or retracted
+  /// @param wants the amount of quote token the offer is asking
+  /// @param gives the amount of base token the offer is proposing
+  /// @param gasreq the amount of gas unit the offer requires to be executed
+  /// @notice we recommend gasreq to be at least 10% higher than dryrun tests
+  /// @param gasprice is used to offer a bounty that is higher than normal (as given by a call to `Mangrove.config(base_erc20,quote_erc20).global.gasprice`) in order to cover this offer from future gasprice increase
+  /// @notice if gasprice is lower than Mangrove's (for instance if gasprice is set to 0), Mangrove's gasprice will be used to compute the bounty
+  /// @param pivotId asks the Mangroce to insert this offer at pivotId in the order book in order to minimize gas costs of insertion. If PivotId is not in the order book (for instance if 0 is chosen), offer will be inserted, starting from best offer.
+  /// @param offerId should be the id that was attributed to the offer when it was first posted
   function updateMangroveOffer(
     address base_erc20,
     address quote_erc20,
@@ -159,7 +170,6 @@ contract MangroveOffer is IMaker, AccessControlled {
     Mangrove(MGV).retractOffer(base_erc20, quote_erc20, offerId, deprovision);
   }
 
-  
   /// @notice Basic strategy to fetch liquidity (simply checks the balance of `this`)
   /// @notice Deposit is done only if fetch liquidity succeeds in order to save gas. So strategy is not using flashloan from the taker.
   function fetchLiquidity(
@@ -167,62 +177,84 @@ contract MangroveOffer is IMaker, AccessControlled {
     address quote,
     uint order_wants,
     uint order_gives
-  ) internal virtual {
-    uint fetchedAmount = withdrawStrategy(base, offer_gives); /// @dev fetches `offer_gives` amount of `base` token as specified by the withdraw function
-    if (fetchedAmount >= order_wants) { /// @dev fetched amount could be higher than order requires for gas efficiency
-      depositStrategy(quote, order_wants); /// @dev places `offer_wants` amount of `quote` token as specified by the deposit function
+  ) internal virtual returns (bytes32) {
+    bool successDeposit = put(quote, order_gives); // specifies what to do with the received funds
+    uint remaining = get(base, order_wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
+    if (remaining > 0) {
+      // fetched amount could be higher than order requires for gas efficiency
+      tradeRevertWithData(INSUFFICIENTFUNDS);
+    } else {
+      if (successDeposit) {
+        return DEPOSITSUCCESS;
+      } else {
+        return DEPOSITFAIL;
+      }
     }
-    tradeRevertWithData(INSUFFICIENTFUNDS);
   }
 
   /////// Mandatory callback functions
 
   function makerTrade(MgvC.SingleOrder calldata order)
     external
-    virtual 
+    override
     onlyCaller(MGV)
-    returns (bytes32)
+    returns (bytes32 returnData)
   {
-    if (lastLook(order)) {
-      fetchLiquidity(order.base, order.quote, order.wants, order.gives);
-      return VALIDTRADE;
-    }
-    else tradeRevertWithData(DROPTRADE);
+    if (validate(order)) {
+      returnData = fetchLiquidity(
+        order.base,
+        order.quote,
+        order.wants,
+        order.gives
+      );
+    } else tradeRevertWithData(DROPTRADE);
   }
 
   function makerPosthook(
     MgvC.SingleOrder calldata order,
-    MgvC.SingleOrder calldata result
-  ) external virtual onlyCaller(MGV) {
-    repostStrategy(order, result);
+    MgvC.OrderResult calldata result
+  ) external override onlyCaller(MGV) {
+    repost(order, result);
   }
 
-
-/// @title Strategical functions.
-/// @dev these functions correspond to default strategy. Contracts that inherit MangroveOffer to define their own deposit/withdraw strategies should define their own version (and eventually call these ones as backup)
-  function withdrawStrategy(address base, uint amount)
-    internal
-    returns (uint)
-  {
-    uint balance = IERC20(base).balanceOf(address(this));
-    if (balance >= amount) {
-      return 0; ///@dev no more base tokens need to be fetched
-    }
-    return (amount - balance); /// @dev amount of base token still to be fetched to satisfy order
-  }
-
-  function depositStrategy(address quote, uint amount) internal returns (bool){
+  /// @dev these functions correspond to default strategy. Contracts that inherit MangroveOffer to define their own deposit/withdraw strategies should define their own version (and eventually call these ones as backup)
+  ///@dev default strategy is to not deposit payment in another contract
+  ///@param quote is the address of the ERC20 managing the payment token
+  ///@param amount is the amount of quote token that has been flashloaned to `this`
+  function put(address quote, uint amount) internal virtual returns (bool) {
     /// @dev receive payment is just stored at this address
     return true;
   }
-  
+
+  /// @dev default withdraw is to let the Mangrove fetch base token associated to `this`
+  ///@param base is the address of the ERC20 managing the token promised by the offer
+  ///@param amount is the amount of base token that has to be available in the balance of `this` by the end of makerTrade
+  ///@param remainsToBeFetched is the amount of Base token that is yet to be fetched after calling this function.
+  function get(address base, uint amount)
+    internal
+    virtual
+    returns (uint remainsToBeFetched)
+  {
+    uint balance = IERC20(base).balanceOf(address(this));
+    if (balance >= amount) {
+      remainsToBeFetched = 0; ///no more base tokens need to be fetched
+    }
+    remainsToBeFetched = amount - balance; /// amount of base token still to be fetched to satisfy order
+  }
+
   /// @dev function MUST use tradeRevertWithData(data) if order is to be reneged.
-  function lastLookStrategy(MgvC.SingleOrder calldata order) internal returns (bool) {
+  /// @dev default strategy is to accept order at offer price.
+  function validate(MgvC.SingleOrder calldata order)
+    internal
+    virtual
+    returns (bool)
+  {
     return true;
   }
 
-  function repostStrategy(
+  /// @dev default strategy is to not repost a taken offer and let user do this
+  function repost(
     MgvC.SingleOrder calldata order,
-    MgvC.SingleOrder calldata result
-    ) internal {}
+    MgvC.OrderResult calldata result
+  ) internal virtual {}
 }
