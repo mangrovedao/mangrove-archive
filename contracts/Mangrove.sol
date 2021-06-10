@@ -1495,15 +1495,15 @@ abstract contract Mangrove {
   function setFee(
     address base,
     address quote,
-    uint value
+    uint fee
   ) public {
     authOnly();
     /* `fee` is in basis points, i.e. in percents of a percent. */
-    require(value <= 500, "mgv/config/fee/<=500"); // at most 5%
+    require(fee <= 500, "mgv/config/fee/<=500"); // at most 5%
     locals[base][quote] = $$(
-      set_local("locals[base][quote]", [["fee", "value"]])
+      set_local("locals[base][quote]", [["fee", "fee"]])
     );
-    emit MgvEvents.SetFee(base, quote, value);
+    emit MgvEvents.SetFee(base, quote, fee);
   }
 
   /* ### `density` */
@@ -1511,16 +1511,16 @@ abstract contract Mangrove {
   function setDensity(
     address base,
     address quote,
-    uint value
+    uint density
   ) public {
     authOnly();
     /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
-    require(uint32(value) == value, "mgv/config/density/32bits");
+    require(uint32(density) == density, "mgv/config/density/32bits");
     //+clear+
     locals[base][quote] = $$(
-      set_local("locals[base][quote]", [["density", "value"]])
+      set_local("locals[base][quote]", [["density", "density"]])
     );
-    emit MgvEvents.SetDensity(base, quote, value);
+    emit MgvEvents.SetDensity(base, quote, density);
   }
 
   /* ### `gasbase` */
@@ -1563,42 +1563,42 @@ abstract contract Mangrove {
 
   /* ### `gasprice` */
   /* Useless if `global.useOracle is != 0` */
-  function setGasprice(uint value) public {
+  function setGasprice(uint gasprice) public {
     authOnly();
     /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */
-    require(uint16(value) == value, "mgv/config/gasprice/16bits");
+    require(uint16(gasprice) == gasprice, "mgv/config/gasprice/16bits");
     //+clear+
 
-    global = $$(set_global("global", [["gasprice", "value"]]));
-    emit MgvEvents.SetGasprice(value);
+    global = $$(set_global("global", [["gasprice", "gasprice"]]));
+    emit MgvEvents.SetGasprice(gasprice);
   }
 
   /* ### `gasmax` */
-  function setGasmax(uint value) public {
+  function setGasmax(uint gasmax) public {
     authOnly();
     /* Since any new `gasreq` is bounded above by `config.gasmax`, this check implies that all offers' `gasreq` is 24 bits wide at most. */
-    require(uint24(value) == value, "mgv/config/gasmax/24bits");
+    require(uint24(gasmax) == gasmax, "mgv/config/gasmax/24bits");
     //+clear+
-    global = $$(set_global("global", [["gasmax", "value"]]));
-    emit MgvEvents.SetGasmax(value);
+    global = $$(set_global("global", [["gasmax", "gasmax"]]));
+    emit MgvEvents.SetGasmax(gasmax);
   }
 
-  function setGovernance(address value) public {
+  function setGovernance(address governanceAddress) public {
     authOnly();
-    governance = value;
-    emit MgvEvents.SetGovernance(value);
+    governance = governanceAddress;
+    emit MgvEvents.SetGovernance(governanceAddress);
   }
 
-  function setVault(address value) public {
+  function setVault(address vaultAddress) public {
     authOnly();
-    vault = value;
-    emit MgvEvents.SetVault(value);
+    vault = vaultAddress;
+    emit MgvEvents.SetVault(vaultAddress);
   }
 
-  function setMonitor(address value) public {
+  function setMonitor(address monitor) public {
     authOnly();
-    global = $$(set_global("global", [["monitor", "value"]]));
-    emit MgvEvents.SetMonitor(value);
+    global = $$(set_global("global", [["monitor", "monitor"]]));
+    emit MgvEvents.SetMonitor(monitor);
   }
 
   function authOnly() internal view {
@@ -1608,24 +1608,18 @@ abstract contract Mangrove {
     );
   }
 
-  function setUseOracle(bool value) public {
+  function setUseOracle(bool useOracle) public {
     authOnly();
-    if (value) {
-      global = $$(set_global("global", [["useOracle", 1]]));
-    } else {
-      global = $$(set_global("global", [["useOracle", 0]]));
-    }
-    emit MgvEvents.SetUseOracle(value);
+    uint _useOracle = useOracle ? 1 : 0;
+    global = $$(set_global("global", [["useOracle", "_useOracle"]]));
+    emit MgvEvents.SetUseOracle(useOracle);
   }
 
-  function setNotify(bool value) public {
+  function setNotify(bool notify) public {
     authOnly();
-    if (value) {
-      global = $$(set_global("global", [["notify", 1]]));
-    } else {
-      global = $$(set_global("global", [["notify", 0]]));
-    }
-    emit MgvEvents.SetNotify(value);
+    uint _notify = notify ? 1 : 0;
+    global = $$(set_global("global", [["notify", "_notify"]]));
+    emit MgvEvents.SetNotify(notify);
   }
 
   /* # Maker debit/credit utility functions */
