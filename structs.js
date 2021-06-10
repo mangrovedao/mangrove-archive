@@ -157,6 +157,10 @@ Note: An optimization in the `marketOrder` function relies on reentrancy being f
     id_field("best"),
     /* * `last` is a counter for offer ids, incremented every time a new offer is created. It can't go above $2^{24}-1$. */
     id_field("last"),
+    /* `tickpower` is a power of ten indicating the tick precision adjustment. It will be at most 48 to avoid overflow (see tick calculations in [`writeOffer`](#Mangrove/definition/writeOffer)). */
+    { name: "tickpower", bits: 8, type: "uint" },
+    /* `tickrefine` represents a boolean. If true, tickpower improves precision to below 1 wei. If false, `tickpower` reduces precision. */
+    { name: "tickrefine", bits: 8, type: "uint" },
   ],
 };
 

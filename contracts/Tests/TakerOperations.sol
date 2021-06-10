@@ -533,7 +533,7 @@ contract TakerOperations_Test {
   function market_order_stops_for_filled_mid_offer_test() public {
     quoteT.approve(address(mgv), 1 ether);
     for (uint i = 0; i < 10; i++) {
-      mkr.newOffer(i * (0.1 ether), 0.1 ether, 50_000, i);
+      mkr.newOffer((i + 1) * (0.1 ether), 0.1 ether, 50_000, i);
     }
     // first two offers are at right price
     uint takerWants = 0.1 ether + 0.05 ether;
@@ -544,7 +544,7 @@ contract TakerOperations_Test {
   function market_order_stops_for_filled_after_offer_test() public {
     quoteT.approve(address(mgv), 1 ether);
     for (uint i = 0; i < 10; i++) {
-      mkr.newOffer(i * (0.1 ether), 0.1 ether, 50_000, i);
+      mkr.newOffer((i + 1) * (0.1 ether), 0.1 ether, 50_000, i);
     }
     // first two offers are at right price
     uint takerWants = 0.1 ether + 0.1 ether;
