@@ -1479,10 +1479,10 @@ abstract contract Mangrove {
   ) public {
     authOnly();
     locals[base][quote] = $$(set_local("locals[base][quote]", [["active", 1]]));
+    emit MgvEvents.SetActive(base, quote, true);
     setFee(base, quote, fee);
     setDensity(base, quote, density);
     setGasbase(base, quote, overhead_gasbase, offer_gasbase);
-    emit MgvEvents.SetActive(base, quote, true);
   }
 
   function deactivate(address base, address quote) public {

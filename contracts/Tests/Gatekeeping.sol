@@ -950,10 +950,10 @@ contract Gatekeeping_Test is IMaker {
   function activation_emits_events_in_order_test() public {
     mgv.activate(quote, base, 7, 0, 1, 3);
     TestEvents.expectFrom(address(mgv));
+    emit MgvEvents.SetActive(quote, base, true);
     emit MgvEvents.SetFee(quote, base, 7);
     emit MgvEvents.SetDensity(quote, base, 0);
     emit MgvEvents.SetGasbase(quote, base, 1, 3);
-    emit MgvEvents.SetActive(quote, base, true);
   }
 
   function updateOffer_on_inactive_fails_test() public {
