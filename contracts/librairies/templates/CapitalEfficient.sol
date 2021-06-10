@@ -2,15 +2,18 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./MangroveOffer.sol";
 import "./CompoundInterface.sol";
+import "../../SafeMath.sol";
 
-contract CompoundSourced is MangroveOffer {
+contract CompoundLender is MangroveOffer {
   event UnexpErrorOnRedeem(address cToken, uint amount);
   event ErrorOnRedeem(address cToken, uint amount, uint errorCode);
   event UnexpErrorOnDeposit(address cToken, uint amount);
   event ErrorOnDeposit(address cToken, uint amount);
 
   // mapping : ERC20 -> cERC20
-  mapping(address => address) private isCompoundSourced;
+  mapping(address => address) private _overlyings;
+  mapping(address => bool) private _compoundPut;
+  mapping(address => bool) private _compoundGet;
 
   // address of the comptroller
   IComptroller immutable comptroller;
@@ -19,35 +22,58 @@ contract CompoundSourced is MangroveOffer {
   ICompoundPriceOracle immutable oracle;
 
   constructor(address _comptroller, address payable _MGV) MangroveOffer(_MGV) {
-    comptroller = IComptroller(_comptroller);
-    oracle = IComptroller(_comptroller).oracle();
+    comptroller = IComptroller(_comptroller); // comptroller address
+    oracle = IComptroller(_comptroller).oracle(); // pricefeed used by the comptroller
   }
 
+  ///@notice To declare put/get methods should use Compound to manage token assets
+  ///@param token address of the underlying token
+  ///@param cToken address of the overlying token. Put 0x0 here to stop getting/putting token on Compound
   function setCompoundSource(address token, address cToken)
     external
     onlyCaller(admin)
   {
-    isCompoundSourced[token] = cToken;
+    _overlyings[token] = cToken;
   }
 
-  ///@notice note that the above method might fail if user is not a borrower because balanceOfUnderlying does not take into account underlying that is used as a collateral
-  function get(address base, uint amount) internal override returns (uint) {
-    uint stillToBeFetched = super.get(base, amount); //first tries to get available liquidity with higher priority
+  function SetCompoundPut(address erc20, bool flag) external onlyCaller(admin) {
+    _compoundPut[erc20] = flag;
+  }
 
-    if (stillToBeFetched == 0) {
+  function SetCompoundGet(address erc20, bool flag) external onlyCaller(admin) {
+    _compoundGet[erc20] = flag;
+  }
+
+  ///@notice method to get `base` during makerTrade
+  ///@param base address of the ERC20 managing `base` token
+  ///@param amount of token that the trade is still requiring
+  function get(address base, uint amount) internal override returns (uint) {
+    uint stillToBeFetched = super.get(base, amount); // first tries to get available liquidity with higher priority
+
+    if (stillToBeFetched == 0 || !_compoundGet[base]) {
+      // nothing left to be fetched or don't get asset from compound
       return stillToBeFetched;
     } else {
-      address base_cErc20 = isCompoundSourced[base]; // this is 0x0 if base is not compound sourced.
+      address base_cErc20 = _overlyings[base]; // this is 0x0 if base is not compound sourced.
       if (base_cErc20 == address(0)) {
         return stillToBeFetched;
-      } //not tested earlier to avoid storage read
-
-      uint compoundBalance =
-        IcERC20(base_cErc20).balanceOfUnderlying(address(this));
+      }
+      //// computing maximal amount of redeemable base token from compound
+      // 1. Computing max redeem+borrow capacity
+      uint maxGettableUnderlying =
+        SafeMath.div(
+          comptroller.getAccountLiquidity(msg.sender),
+          oracle.getUnderlyingPrice(base_cErc20)
+        );
+      // 2. Computing max redeem capacity
+      uint maxRedeemableUnderlying =
+        IcERC20(base_cErc20).balanceOfUnderlying(msg.sender);
       uint redeemAmount =
-        compoundBalance >= stillToBeFetched
-          ? stillToBeFetched
-          : compoundBalance;
+        maxRedeemableUnderlying > maxGettableUnderlying
+          ? maxGettableUnderlying
+          : maxRedeemableUnderlying;
+      redeemAmount = redeemAmount > amount ? amount : redeemAmount;
+
       try IcERC20(base_cErc20).redeemUnderlying(redeemAmount) returns (
         uint errorCode
       ) {
@@ -92,6 +118,9 @@ contract CompoundSourced is MangroveOffer {
     }
 
     address cToken = isCompoundSourced[quote];
+    (, uint cTokenBal, uint debt, ) =
+      IcERC20(cToken).getAccountSnapshot(msg.sender);
+
     if (cToken != address(0)) {
       try this.supplyErc20ToCompound(cToken, amount) returns (bool success) {
         if (success) {
