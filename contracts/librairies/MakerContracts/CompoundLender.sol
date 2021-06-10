@@ -2,24 +2,23 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./MangroveOffer.sol";
 import "./CompoundInterface.sol";
-import "../../SafeMath.sol";
 
-contract CompoundLender is MangroveOffer {
+contract CompoundLender is MangroveOffer, Exponential {
   event UnexpErrorOnRedeem(address cToken, uint amount);
   event ErrorOnRedeem(address cToken, uint amount, uint errorCode);
   event UnexpErrorOnDeposit(address cToken, uint amount);
   event ErrorOnDeposit(address cToken, uint amount);
 
   // mapping : ERC20 -> cERC20
-  mapping(address => address) private _overlyings;
-  mapping(address => bool) private _compoundPut;
-  mapping(address => bool) private _compoundGet;
+  mapping(address => address) public overlyings;
+  mapping(address => bool) public compoundPut;
+  mapping(address => bool) public compoundGet;
 
   // address of the comptroller
-  IComptroller immutable comptroller;
+  IComptroller immutable public comptroller;
 
   // address of the price oracle used by the comptroller
-  ICompoundPriceOracle immutable oracle;
+  ICompoundPriceOracle immutable public oracle;
 
   constructor(address _comptroller, address payable _MGV) MangroveOffer(_MGV) {
     comptroller = IComptroller(_comptroller); // comptroller address
@@ -29,67 +28,68 @@ contract CompoundLender is MangroveOffer {
   ///@notice To declare put/get methods should use Compound to manage token assets
   ///@param token address of the underlying token
   ///@param cToken address of the overlying token. Put 0x0 here to stop getting/putting token on Compound
-  function setCompoundSource(address token, address cToken)
+  function _setCompoundSource(address token, address cToken)
     external
     onlyCaller(admin)
   {
-    _overlyings[token] = cToken;
+    overlyings[token] = cToken;
   }
 
-  function SetCompoundPut(address erc20, bool flag) external onlyCaller(admin) {
-    _compoundPut[erc20] = flag;
+  function _setCompoundPut(address erc20, bool flag) external onlyCaller(admin) {
+    compoundPut[erc20] = flag;
   }
 
-  function SetCompoundGet(address erc20, bool flag) external onlyCaller(admin) {
-    _compoundGet[erc20] = flag;
+  function _setCompoundGet(address erc20, bool flag) external onlyCaller(admin) {
+    compoundGet[erc20] = flag;
+  }
+
+
+  function maxGettableUnderlying(IcERC20 cToken) internal view returns (uint, uint) {
+    
+    (uint , uint liquidity, uint) = comptroller.getAccountLiquidity(msg.sender);
+    uint maxRedeemableUnderlying = divScalarByExpTruncate(
+      liquidity,
+      mulExp(
+        Exp({exp:comptroller.markets(cToken).collateralFactorMantissa}),
+        Exp({exp:oracle.getUnderlyingPrice(cToken)});
+      )
+    );
+    return (liquidity,maxRedeemableUnderlying);
   }
 
   ///@notice method to get `base` during makerTrade
   ///@param base address of the ERC20 managing `base` token
   ///@param amount of token that the trade is still requiring
   function get(address base, uint amount) internal override returns (uint) {
-    uint stillToBeFetched = super.get(base, amount); // first tries to get available liquidity with higher priority
+    if (!_compoundGet[base]) { // if flag says not to fetch liquidity on compound
+      return amount;
+    }
+    address base_cErc20 = _overlyings[base]; // this is 0x0 if base is not compound sourced.
+    if (base_cErc20 == address(0)) { 
+      return (0,0);
+    }
+    (uint, uint redeemable) = maxGettableUnderlying(base);  
+    uint redeemAmount = redeemable > amount ? amount : redeemable;
+    getInternal()
+  
+  }
 
-    if (stillToBeFetched == 0 || !_compoundGet[base]) {
-      // nothing left to be fetched or don't get asset from compound
-      return stillToBeFetched;
-    } else {
-      address base_cErc20 = _overlyings[base]; // this is 0x0 if base is not compound sourced.
-      if (base_cErc20 == address(0)) {
-        return stillToBeFetched;
-      }
-      //// computing maximal amount of redeemable base token from compound
-      // 1. Computing max redeem+borrow capacity
-      uint maxGettableUnderlying =
-        SafeMath.div(
-          comptroller.getAccountLiquidity(msg.sender),
-          oracle.getUnderlyingPrice(base_cErc20)
-        );
-      // 2. Computing max redeem capacity
-      uint maxRedeemableUnderlying =
-        IcERC20(base_cErc20).balanceOfUnderlying(msg.sender);
-      uint redeemAmount =
-        maxRedeemableUnderlying > maxGettableUnderlying
-          ? maxGettableUnderlying
-          : maxRedeemableUnderlying;
-      redeemAmount = redeemAmount > amount ? amount : redeemAmount;
-
-      try IcERC20(base_cErc20).redeemUnderlying(redeemAmount) returns (
+  function getInternal(address cBase, uint amountToRedeem) internal returns (uint){
+    try IcERC20(cBase).redeemUnderlying(amountToRedeem) returns (
         uint errorCode
       ) {
         if (errorCode == 0) {
           //compound redeem was a success
-          return (stillToBeFetched - redeemAmount);
+          return 0;
         } else {
           //ompound redeem failed
-          emit ErrorOnRedeem(base_cErc20, redeemAmount, errorCode);
-          return stillToBeFetched;
+          emit ErrorOnRedeem(cBase, amountToRedeem, errorCode);
+          return amountToRedeem;
         }
       } catch {
-        emit UnexpErrorOnRedeem(base_cErc20, redeemAmount);
-        return stillToBeFetched;
+        emit UnexpErrorOnRedeem(base_cErc20, amountToRedeem);
+        return amountToRedeem;
       }
-    }
   }
 
   // adapted from https://medium.com/compound-finance/supplying-assets-to-the-compound-protocol-ec2cf5df5aa#afff

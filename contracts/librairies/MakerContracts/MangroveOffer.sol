@@ -4,21 +4,17 @@ import {IMaker, MgvCommon as MgvC} from "../../MgvCommon.sol";
 import "../../interfaces.sol";
 import "../../Mangrove.sol";
 import "../../MgvPack.sol";
-import "./AccessControlled.sol";
+import "../AccessControlled.sol";
+import "../Exponential.sol";
 
 /// @title Basic structure of an offer to be posted on the Mangrove
 /// @author Giry
 
 contract MangroveOffer is IMaker, AccessControlled {
   event RepostFailed(address erc, uint amount);
+  enum GetResult {OK, Error, FatalError}
 
   address payable immutable MGV;
-
-  bytes32 constant INSUFFICIENTFUNDS = "InsufficientFunds";
-  bytes32 constant DROPTRADE = "DropTrade";
-  bytes32 constant VALIDTRADE = "ValidTrade";
-  bytes32 constant DEPOSITSUCCESS = "DepositSuccess";
-  bytes32 constant DEPOSITFAIL = "DepositFail";
 
   receive() external payable {}
 
@@ -26,9 +22,8 @@ contract MangroveOffer is IMaker, AccessControlled {
     MGV = _MGV;
   }
 
-  /// @title Utility function to get/extract data sent by the Mangrove during trade execution
-
-  /// @dev Queries the Mangrove to know how much WEI will be required to post a new offer
+  /// @notice Utility function to get/extract data sent by the Mangrove during trade execution
+  /// @notice Queries the Mangrove to know how much WEI will be required to post a new offer
   function getProvision(
     address base_erc20,
     address quote_erc20,
@@ -229,18 +224,11 @@ contract MangroveOffer is IMaker, AccessControlled {
   /// @dev default withdraw is to let the Mangrove fetch base token associated to `this`
   ///@param base is the address of the ERC20 managing the token promised by the offer
   ///@param amount is the amount of base token that has to be available in the balance of `this` by the end of makerTrade
-  ///@param remainsToBeFetched is the amount of Base token that is yet to be fetched after calling this function.
+  ///@return remainsToBeFetched is the amount of Base token that is yet to be fetched after calling this function.
   function get(address base, uint amount)
     internal
     virtual
-    returns (uint remainsToBeFetched)
-  {
-    uint balance = IERC20(base).balanceOf(address(this));
-    if (balance >= amount) {
-      remainsToBeFetched = 0; ///no more base tokens need to be fetched
-    }
-    remainsToBeFetched = amount - balance; /// amount of base token still to be fetched to satisfy order
-  }
+    returns (GetResult result, uint remainsToBeFetched);
 
   /// @dev function MUST use tradeRevertWithData(data) if order is to be reneged.
   /// @dev default strategy is to accept order at offer price.
