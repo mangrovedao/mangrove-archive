@@ -78,9 +78,8 @@ abstract contract Mangrove {
     /* `takerLends` determines whether the taker or maker does the flashlend. FMD initializes with `true`, FTD initializes with `false`. */
     bool takerLends,
     /* Used by [EIP712](https://eips.ethereum.org/EIPS/eip-712)'s `DOMAIN_SEPARATOR` */
-    string memory contractName
-  ) //+clear+
-  {
+    string memory contractName //+clear+
+  ) {
     emit MgvEvents.NewMgv();
 
     /* Initialize governance. At this stage we cannot use the `setGovernance` method since no admin is set. */
@@ -1551,7 +1550,7 @@ abstract contract Mangrove {
         ]
       )
     );
-    emit MgvEvents.SetGasbase(overhead_gasbase, offer_gasbase);
+    emit MgvEvents.SetGasbase(base, quote, overhead_gasbase, offer_gasbase);
   }
 
   /* ## Globals */

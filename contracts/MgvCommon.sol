@@ -86,7 +86,12 @@ library MgvEvents {
   /* * Mangrove reconfiguration */
   event SetActive(address base, address quote, bool value);
   event SetFee(address base, address quote, uint value);
-  event SetGasbase(uint overhead_gasbase, uint offer_gasbase);
+  event SetGasbase(
+    address base,
+    address quote,
+    uint overhead_gasbase,
+    uint offer_gasbase
+  );
   event SetGovernance(address value);
   event SetMonitor(address value);
   event SetVault(address value);
