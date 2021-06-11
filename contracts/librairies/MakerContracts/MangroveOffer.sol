@@ -11,8 +11,12 @@ import "../Exponential.sol";
 /// @author Giry
 
 contract MangroveOffer is IMaker, AccessControlled {
+  bytes32 constant INSUFFICIENTFUNDS = "InsufficientFunds";
+  bytes32 constant GETFAILED = "GetFailed";
+  bytes32 constant SUCCESS = "Success";
+  bytes32 constant PUTFAILED = "PutFailed";
+
   event RepostFailed(address erc, uint amount);
-  enum GetResult {OK, Error, FatalError}
 
   address payable immutable MGV;
 
@@ -20,29 +24,6 @@ contract MangroveOffer is IMaker, AccessControlled {
 
   constructor(address payable _MGV) {
     MGV = _MGV;
-  }
-
-  /// @notice Utility function to get/extract data sent by the Mangrove during trade execution
-  /// @notice Queries the Mangrove to know how much WEI will be required to post a new offer
-  function getProvision(
-    address base_erc20,
-    address quote_erc20,
-    uint gasreq,
-    uint gasprice
-  ) internal returns (uint) {
-    MgvC.Config memory config =
-      Mangrove(MGV).getConfig(base_erc20, quote_erc20);
-    uint _gp;
-    if (config.global.gasprice > gasprice) {
-      _gp = uint(config.global.gasprice);
-    } else {
-      _gp = gasprice;
-    }
-    return ((gasreq +
-      config.local.overhead_gasbase +
-      config.local.offer_gasbase) *
-      _gp *
-      10**9);
   }
 
   /// @dev extracts old offer from the order that is received from the Mangrove
@@ -76,7 +57,6 @@ contract MangroveOffer is IMaker, AccessControlled {
   /// @dev trader needs to approve the Mangrove to perform base token transfer at the end of the `makerTrade` function
   function approveMangrove(address base_erc20, uint amount)
     external
-    virtual
     onlyCaller(admin)
   {
     require(IERC20(base_erc20).approve(MGV, amount));
@@ -86,7 +66,6 @@ contract MangroveOffer is IMaker, AccessControlled {
   /// @notice `Mangrove.fund` function need not be called by `this` so is not included here.
   function withdrawFromMangrove(address receiver, uint amount)
     external
-    virtual
     onlyCaller(admin)
     returns (bool noRevert)
   {
@@ -112,7 +91,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     uint gasreq,
     uint gasprice,
     uint pivotId
-  ) public virtual onlyCaller(admin) returns (uint offerId) {
+  ) public onlyCaller(admin) returns (uint offerId) {
     offerId = Mangrove(MGV).newOffer(
       base_erc20,
       quote_erc20,
@@ -143,7 +122,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     uint gasprice,
     uint pivotId,
     uint offerId
-  ) public virtual onlyCaller(admin) {
+  ) public onlyCaller(admin) {
     Mangrove(MGV).updateOffer(
       base_erc20,
       quote_erc20,
@@ -161,87 +140,93 @@ contract MangroveOffer is IMaker, AccessControlled {
     address quote_erc20,
     uint offerId,
     bool deprovision
-  ) public virtual onlyCaller(admin) {
+  ) public onlyCaller(admin) {
     Mangrove(MGV).retractOffer(base_erc20, quote_erc20, offerId, deprovision);
-  }
-
-  /// @notice Basic strategy to fetch liquidity (simply checks the balance of `this`)
-  /// @notice Deposit is done only if fetch liquidity succeeds in order to save gas. So strategy is not using flashloan from the taker.
-  function fetchLiquidity(
-    address base,
-    address quote,
-    uint order_wants,
-    uint order_gives
-  ) internal virtual returns (bytes32) {
-    bool successDeposit = put(quote, order_gives); // specifies what to do with the received funds
-    uint remaining = get(base, order_wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
-    if (remaining > 0) {
-      // fetched amount could be higher than order requires for gas efficiency
-      tradeRevertWithData(INSUFFICIENTFUNDS);
-    } else {
-      if (successDeposit) {
-        return DEPOSITSUCCESS;
-      } else {
-        return DEPOSITFAIL;
-      }
-    }
   }
 
   /////// Mandatory callback functions
 
+  // not a virtual function to make sure it is only MGV callable
   function makerTrade(MgvC.SingleOrder calldata order)
     external
     override
     onlyCaller(MGV)
     returns (bytes32 returnData)
   {
-    if (validate(order)) {
+    uint validateDecision = __validate__(order);
+    if (validateDecision == 0) {
       returnData = fetchLiquidity(
         order.base,
         order.quote,
         order.wants,
         order.gives
       );
-    } else tradeRevertWithData(DROPTRADE);
+    } else tradeRevertWithData(bytes32(validateDecision));
   }
 
+  // not a virtual function to make sure it is only MGV callable
   function makerPosthook(
     MgvC.SingleOrder calldata order,
     MgvC.OrderResult calldata result
   ) external override onlyCaller(MGV) {
-    repost(order, result);
+    __repost__(order, result);
   }
 
+  /// @notice Core strategy to fetch liquidity
+  function fetchLiquidity(
+    address base,
+    address quote,
+    uint order_wants,
+    uint order_gives
+  ) internal returns (bytes32) {
+    uint missingPut = __put__(quote, order_gives); // specifies what to do with the received funds
+    uint missingGet = __get__(base, order_wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
+    if (missingGet > 0) {
+      // fetched amount could be higher than order requires for gas efficiency
+      tradeRevertWithData(INSUFFICIENTFUNDS);
+    }
+    if (missingPut == 0) {
+      return SUCCESS;
+      return PUTFAILED;
+    }
+  }
+
+  ////// Virtual functions to customize trading strategies
+
   /// @dev these functions correspond to default strategy. Contracts that inherit MangroveOffer to define their own deposit/withdraw strategies should define their own version (and eventually call these ones as backup)
-  ///@dev default strategy is to not deposit payment in another contract
-  ///@param quote is the address of the ERC20 managing the payment token
-  ///@param amount is the amount of quote token that has been flashloaned to `this`
-  function put(address quote, uint amount) internal virtual returns (bool) {
+  /// @dev default strategy is to not deposit payment in another contract
+  /// @param quote is the address of the ERC20 managing the payment token
+  /// @param amount is the amount of quote token that has been flashloaned to `this`
+  /// @return remainsToBePut is the sub amount that could not be deposited
+  function __put__(address quote, uint amount)
+    internal
+    virtual
+    returns (uint remainsToBePut)
+  {
     /// @dev receive payment is just stored at this address
-    return true;
+    return 0;
   }
 
   /// @dev default withdraw is to let the Mangrove fetch base token associated to `this`
-  ///@param base is the address of the ERC20 managing the token promised by the offer
-  ///@param amount is the amount of base token that has to be available in the balance of `this` by the end of makerTrade
-  ///@return remainsToBeFetched is the amount of Base token that is yet to be fetched after calling this function.
-  function get(address base, uint amount)
-    internal
-    virtual
-    returns (GetResult result, uint remainsToBeFetched);
+  /// @param base is the address of the ERC20 managing the token promised by the offer
+  /// @param amount is the amount of base token that has to be available in the balance of `this` by the end of makerTrade
+  /// @return remainsToBeFetched is the amount of Base token that is yet to be fetched after calling this function.
+  function __get__(address base, uint amount) internal virtual returns (uint) {
+    uint balance = IERC20(base).balanceOf(address(this));
+    return (balance > amount ? 0 : amount - balance);
+  }
 
-  /// @dev function MUST use tradeRevertWithData(data) if order is to be reneged.
   /// @dev default strategy is to accept order at offer price.
-  function validate(MgvC.SingleOrder calldata order)
+  function __validate__(MgvC.SingleOrder calldata order)
     internal
     virtual
-    returns (bool)
+    returns (uint)
   {
-    return true;
+    return 0; // 0 is the convention for a valid order
   }
 
   /// @dev default strategy is to not repost a taken offer and let user do this
-  function repost(
+  function __repost__(
     MgvC.SingleOrder calldata order,
     MgvC.OrderResult calldata result
   ) internal virtual {}
