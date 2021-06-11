@@ -1,4 +1,5 @@
 pragma solidity ^0.7.0;
+pragma abicoder v2;
 import "../../interfaces.sol";
 
 interface ICompoundPriceOracle {
@@ -6,28 +7,17 @@ interface ICompoundPriceOracle {
 }
 
 interface IComptroller {
-  // from https://github.com/compound-finance/compound-protocol
-  
-  struct Market {
-        /// @notice Whether or not this market is listed
-        bool isListed;
-
-        /**
-         * @notice Multiplier representing the most one can borrow against their collateral in this market.
-         *  For instance, 0.9 to allow borrowing 90% of collateral value.
-         *  Must be between 0 and 1, and stored as a mantissa.
-         */
-        uint collateralFactorMantissa;
-
-        /// @notice Per-market mapping of "accounts in this asset"
-        mapping(address => bool) accountMembership;
-
-        /// @notice Whether or not this market receives COMP
-        bool isComped;
-    }
   // adding usefull public getters
   function oracle() external returns (ICompoundPriceOracle oracle);
-  function markets(address cToken) returns (Market market);
+
+  function markets(address cToken)
+    external
+    view
+    returns (
+      bool isListed,
+      uint collateralFactorMantissa,
+      bool isComped
+    );
 
   /*** Assets You Are In ***/
 
@@ -37,19 +27,28 @@ interface IComptroller {
 
   function exitMarket(address cToken) external returns (uint);
 
+  function getAccountLiquidity(address user)
+    external
+    view
+    returns (
+      uint errorCode,
+      uint liquidity,
+      uint shortfall
+    );
 }
 
 interface IcERC20 is IERC20 {
   // from https://github.com/compound-finance/compound-protocol/blob/master/contracts/CTokenInterfaces.sol
-  function mint(uint mintAmount) external returns (uint);
   function redeem(uint redeemTokens) external returns (uint);
-  function redeemUnderlying(uint redeemAmount) external returns (uint);
+
   function borrow(uint borrowAmount) external returns (uint);
+
   function repayBorrow(uint repayAmount) external returns (uint);
-  function repayBorrowBehalf(address borrower, uint repayAmount) external returns (uint);
-  function liquidateBorrow(address borrower, uint repayAmount, CTokenInterface cTokenCollateral) external returns (uint);
-  function sweepToken(EIP20NonStandardInterface token) external;
-  
+
+  function repayBorrowBehalf(address borrower, uint repayAmount)
+    external
+    returns (uint);
+
   function balanceOfUnderlying(address owner) external returns (uint);
 
   function getAccountSnapshot(address account)
