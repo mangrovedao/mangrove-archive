@@ -36,7 +36,8 @@ contract CompoundTrader is CompoundLender {
     uint toRedeem = redeemable > amount ? amount : redeemable;
     uint notRedeemed = compoundRedeem(base, toRedeem);
     if (notRedeemed > 0 && toRedeem > 0) {
-      // this should not fail unless compound is out of cash
+      // => notRedeemed == toRedeem
+      // this should happen unless compound is out of cash, thus no need to try to borrow
       // log already emitted by `compoundRedeem`
       return amount;
     }
