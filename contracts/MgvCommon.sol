@@ -38,6 +38,8 @@ library MgvCommon {
     bool lock;
     uint best;
     uint last;
+    bool tickrefine;
+    uint tickpower;
   }
 
   struct Config {
@@ -92,6 +94,7 @@ library MgvEvents {
     uint overhead_gasbase,
     uint offer_gasbase
   );
+  event SetTick(address base, address quote, bool tickrefine, uint tickpower);
   event SetGovernance(address value);
   event SetMonitor(address value);
   event SetVault(address value);
