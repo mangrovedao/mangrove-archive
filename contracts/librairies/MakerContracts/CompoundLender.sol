@@ -24,6 +24,16 @@ contract CompoundLender is MangroveOffer, Exponential {
     oracle = IComptroller(_comptroller).oracle(); // pricefeed used by the comptroller
   }
 
+  ///@notice approval of cToken contract by the underlying is necessary for minting and repaying borrow
+  ///@notice user must use this function to do so.
+  function approveCToken(
+    IERC20 token,
+    IcERC20 cToken,
+    uint amount
+  ) external onlyCaller(admin) {
+    token.approve(address(cToken), amount);
+  }
+
   ///@notice To declare put/get methods should use Compound to manage token assets
   ///@param token address of the underlying token
   ///@param cToken address of the overlying token. Put 0x0 here to stop getting/putting token on Compound
