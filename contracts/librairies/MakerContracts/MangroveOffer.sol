@@ -26,7 +26,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     MGV = _MGV;
   }
 
-  /// @dev extracts old offer from the order that is received from the Mangrove
+  /// @notice extracts old offer from the order that is received from the Mangrove
   function getStoredOffer(MgvC.SingleOrder calldata order)
     internal
     pure
@@ -43,7 +43,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     );
   }
 
-  /// @dev Throws a message that will be passed to posthook (message is truncated after 32 bytes)
+  /// @notice Throws a message that will be passed to posthook (message is truncated after 32 bytes)
   function tradeRevertWithData(bytes32 data) internal pure {
     bytes memory revData = new bytes(32);
     assembly {
@@ -54,7 +54,7 @@ contract MangroveOffer is IMaker, AccessControlled {
 
   /// @title Mangrove basic interactions (logging is done by the Mangrove)
 
-  /// @dev trader needs to approve the Mangrove to perform base token transfer at the end of the `makerTrade` function
+  /// @notice trader needs to approve the Mangrove to perform base token transfer at the end of the `makerTrade` function
   function approveMangrove(address base_erc20, uint amount)
     external
     onlyCaller(admin)
@@ -62,7 +62,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     require(IERC20(base_erc20).approve(MGV, amount));
   }
 
-  /// @dev withdraws ETH from the bounty vault of the Mangrove.
+  /// @notice withdraws ETH from the bounty vault of the Mangrove.
   /// @notice `Mangrove.fund` function need not be called by `this` so is not included here.
   function withdrawFromMangrove(address receiver, uint amount)
     external
@@ -74,7 +74,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     (noRevert, ) = receiver.call{value: amount}("");
   }
 
-  /// @dev posts a new offer on the mangrove
+  /// @notice posts a new offer on the mangrove
   /// @param wants the amount of quote token the offer is asking
   /// @param gives the amount of base token the offer is proposing
   /// @param gasreq the amount of gas unit the offer requires to be executed
@@ -103,7 +103,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     );
   }
 
-  /// @dev updates an existing offer (i.e having already an offerId) on the mangrove. Gasprice is lower than creating the offer anew.
+  /// @notice updates an existing offer (i.e having already an offerId) on the mangrove. Gasprice is lower than creating the offer anew.
   /// @notice the offer may be present on the order book or retracted
   /// @param wants the amount of quote token the offer is asking
   /// @param gives the amount of base token the offer is proposing
@@ -193,8 +193,8 @@ contract MangroveOffer is IMaker, AccessControlled {
 
   ////// Virtual functions to customize trading strategies
 
-  /// @dev these functions correspond to default strategy. Contracts that inherit MangroveOffer to define their own deposit/withdraw strategies should define their own version (and eventually call these ones as backup)
-  /// @dev default strategy is to not deposit payment in another contract
+  /// @notice these functions correspond to default strategy. Contracts that inherit MangroveOffer to define their own deposit/withdraw strategies should define their own version (and eventually call these ones as backup)
+  /// @notice default strategy is to not deposit payment in another contract
   /// @param quote is the address of the ERC20 managing the payment token
   /// @param amount is the amount of quote token that has been flashloaned to `this`
   /// @return remainsToBePut is the sub amount that could not be deposited
@@ -203,11 +203,11 @@ contract MangroveOffer is IMaker, AccessControlled {
     virtual
     returns (uint remainsToBePut)
   {
-    /// @dev receive payment is just stored at this address
+    /// @notice receive payment is just stored at this address
     return 0;
   }
 
-  /// @dev default withdraw is to let the Mangrove fetch base token associated to `this`
+  /// @notice default withdraw is to let the Mangrove fetch base token associated to `this`
   /// @param base is the address of the ERC20 managing the token promised by the offer
   /// @param amount is the amount of base token that has to be available in the balance of `this` by the end of makerTrade
   /// @return remainsToBeFetched is the amount of Base token that is yet to be fetched after calling this function.
@@ -216,7 +216,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     return (balance > amount ? 0 : amount - balance);
   }
 
-  /// @dev default strategy is to accept order at offer price.
+  /// @notice default strategy is to accept order at offer price.
   function __validate__(MgvC.SingleOrder calldata order)
     internal
     virtual
@@ -225,7 +225,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     return 0; // 0 is the convention for a valid order
   }
 
-  /// @dev default strategy is to not repost a taken offer and let user do this
+  /// @notice default strategy is to not repost a taken offer and let user do this
   function __repost__(
     MgvC.SingleOrder calldata order,
     MgvC.OrderResult calldata result
