@@ -1,18 +1,17 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {IMaker, MgvCommon as MgvC} from "../../MgvCommon.sol";
-import "../../interfaces.sol";
-import "../../Mangrove.sol";
-import "../../MgvPack.sol";
-import "../AccessControlled.sol";
-import "../Exponential.sol";
+import "../interfaces/IMangrove.sol";
+import "../interfaces/IERC20.sol";
+import "../lib/AccessControlled.sol";
+import "../lib/Exponential.sol";
+import "../lib/MgvPack.sol";
 // SPDX-License-Identifier: MIT
 
 
 /// @title Basic structure of an offer to be posted on the Mangrove
 /// @author Giry
 
-contract MangroveOffer is IMaker, AccessControlled {
+contract MangroveOffer is AccessControlled, IMaker {
   bytes32 constant INSUFFICIENTFUNDS = "InsufficientFunds";
   bytes32 constant GETFAILED = "GetFailed";
   bytes32 constant SUCCESS = "Success";
@@ -28,6 +27,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     MGV = _MGV;
   }
 
+  /// @notice 
   function transferToken(
     address token,
     address recipient,
@@ -37,7 +37,7 @@ contract MangroveOffer is IMaker, AccessControlled {
   }
 
   /// @notice extracts old offer from the order that is received from the Mangrove
-  function getStoredOffer(MgvC.SingleOrder calldata order)
+  function getStoredOffer(MgvCommon.SingleOrder calldata order)
     internal
     pure
     returns (
@@ -79,7 +79,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     onlyAdmin
     returns (bool noRevert)
   {
-    require(Mangrove(MGV).withdraw(amount));
+    require(IMangrove(MGV).withdraw(amount));
     require(receiver != address(0), "Cannot transfer WEIs to 0x0 address");
     (noRevert, ) = receiver.call{value: amount}("");
   }
@@ -102,7 +102,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     uint gasprice,
     uint pivotId
   ) public onlyAdmin returns (uint offerId) {
-    offerId = Mangrove(MGV).newOffer(
+    offerId = IMangrove(MGV).newOffer(
       base_erc20,
       quote_erc20,
       wants,
@@ -133,7 +133,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     uint pivotId,
     uint offerId
   ) public onlyAdmin {
-    Mangrove(MGV).updateOffer(
+    IMangrove(MGV).updateOffer(
       base_erc20,
       quote_erc20,
       wants,
@@ -151,13 +151,13 @@ contract MangroveOffer is IMaker, AccessControlled {
     uint offerId,
     bool deprovision
   ) public onlyAdmin {
-    Mangrove(MGV).retractOffer(base_erc20, quote_erc20, offerId, deprovision);
+    IMangrove(MGV).retractOffer(base_erc20, quote_erc20, offerId, deprovision);
   }
 
   /////// Mandatory callback functions
 
   // not a virtual function to make sure it is only MGV callable
-  function makerTrade(MgvC.SingleOrder calldata order)
+  function makerTrade(MgvCommon.SingleOrder calldata order)
     external
     override
     onlyCaller(MGV)
@@ -176,8 +176,8 @@ contract MangroveOffer is IMaker, AccessControlled {
 
   // not a virtual function to make sure it is only MGV callable
   function makerPosthook(
-    MgvC.SingleOrder calldata order,
-    MgvC.OrderResult calldata result
+    MgvCommon.SingleOrder calldata order,
+    MgvCommon.OrderResult calldata result
   ) external override onlyCaller(MGV) {
     __finalize__(order, result);
   }
@@ -214,6 +214,8 @@ contract MangroveOffer is IMaker, AccessControlled {
     returns (uint remainsToBePut)
   {
     /// @notice receive payment is just stored at this address
+    quote;
+    amount;
     return 0;
   }
 
@@ -227,7 +229,7 @@ contract MangroveOffer is IMaker, AccessControlled {
   }
 
   /// @notice default strategy is to accept order at offer price.
-  function __lastLook__(MgvC.SingleOrder calldata order)
+  function __lastLook__(MgvCommon.SingleOrder calldata)
     internal
     virtual
     returns (uint)
@@ -237,7 +239,7 @@ contract MangroveOffer is IMaker, AccessControlled {
 
   /// @notice default strategy is to not repost a taken offer and let user do this
   function __finalize__(
-    MgvC.SingleOrder calldata order,
-    MgvC.OrderResult calldata result
+    MgvCommon.SingleOrder calldata,
+    MgvCommon.OrderResult calldata
   ) internal virtual {}
 }
