@@ -65,23 +65,48 @@ contract CompoundLender is MangroveOffer, Exponential {
     view
     returns (uint, uint)
   {
-    // gets account liquidity in USD units
-    (uint errCode, uint liquidity, ) =
-      comptroller.getAccountLiquidity(msg.sender);
-    if (errCode != 0) {
-      return (0, 0);
+    // NB exchangeRate is correct because getAccountUnderlyingAbove does accrue interests
+    uint balanceOfUnderlying;
+    uint exchangeRateMantissa;
+    {
+      uint cTokenBalance;
+      (
+        ,
+        cTokenBalance, /*borrowBalance*/
+        ,
+        exchangeRateMantissa
+      ) = cToken.getAccountSnapshot(msg.sender);
+      (, balanceOfUnderlying) = mulScalarTruncate(
+        Exp({mantissa: exchangeRateMantissa}),
+        cTokenBalance
+      );
     }
-    // maxRedeem = liquidity / (CF_underlying * price_underlying)
-    (, uint collateralFactorMantissa, ) = comptroller.markets(address(cToken));
-    (, uint maxRedeemableUnderlying) =
-      divScalarByExpTruncate(
+
+    // maxRedeem = liquidity / (CollateralFactor_of_underlying * price_of_underlying )
+    // gets account liquidity in USD units (accrues interests)
+    uint liquidity;
+    (, liquidity, ) = comptroller.getAccountLiquidity(msg.sender);
+    uint maxRedeemableUnderlying;
+    {
+      (, uint collateralFactorMantissa, ) =
+        comptroller.markets(address(cToken));
+      (, maxRedeemableUnderlying) = divScalarByExpTruncate(
         liquidity,
         mul_(
           Exp({mantissa: collateralFactorMantissa}),
-          Exp({mantissa: oracle.getUnderlyingPrice(cToken)})
+          mul_(
+            Exp({mantissa: oracle.getUnderlyingPrice(cToken)}),
+            Exp({mantissa: exchangeRateMantissa})
+          )
         )
       );
-    return (liquidity, maxRedeemableUnderlying);
+    }
+    return (
+      liquidity,
+      maxRedeemableUnderlying > balanceOfUnderlying
+        ? balanceOfUnderlying
+        : maxRedeemableUnderlying
+    );
   }
 
   ///@notice method to get `base` during makerTrade
@@ -115,7 +140,7 @@ contract CompoundLender is MangroveOffer, Exponential {
       //compound redeem was a success
       return 0;
     } else {
-      //ompound redeem failed
+      //compound redeem failed
       emit ErrorOnRedeem(cBase, amountToRedeem, errorCode);
       return amountToRedeem;
     }
