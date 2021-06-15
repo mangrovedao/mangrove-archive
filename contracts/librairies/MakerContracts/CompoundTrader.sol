@@ -1,6 +1,8 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./CompoundLender.sol";
+// SPDX-License-Identifier: MIT
+
 
 contract CompoundTrader is CompoundLender {
   constructor(address _comptroller, address payable _MGV)
@@ -29,11 +31,11 @@ contract CompoundTrader is CompoundLender {
     }
 
     // 1. Computing total borrow and redeem capacities
-    (uint gettable, uint redeemable) =
+    (uint liquidity, uint redeemable) =
       maxGettableUnderlying(IcERC20(base_cErc20));
 
     // 2. trying to redeem liquidity from Compound
-    uint toRedeem = redeemable > amount ? amount : redeemable;
+    uint toRedeem = min(redeemable,amount);
     uint notRedeemed = compoundRedeem(base, toRedeem);
     if (notRedeemed > 0 && toRedeem > 0) {
       // => notRedeemed == toRedeem
@@ -41,16 +43,19 @@ contract CompoundTrader is CompoundLender {
       // log already emitted by `compoundRedeem`
       return amount;
     }
-    // borrowable = gettable - toRedeem
-    uint toBorrow = sub_(gettable, toRedeem);
+    amount = sub_(amount, toRedeem); 
+    uint toBorrow = min(
+      sub_(liquidity, toRedeem),
+      amount
+    );
 
     // 3. trying to borrow missing liquidity
     uint errorCode = IcERC20(base_cErc20).borrow(toBorrow);
     if (errorCode != 0) {
       emit ErrorOnBorrow(base_cErc20, toBorrow, errorCode);
-      return sub_(amount, toRedeem); // unable to borrow requested amount
+      return amount; // unable to borrow requested amount
     }
-    return sub_(amount, add_(toRedeem, toBorrow));
+    return sub_(amount, toBorrow);
   }
 
   /// @notice user need to have approved `quote` overlying in order to repay borrow
@@ -72,8 +77,7 @@ contract CompoundTrader is CompoundLender {
       return amount;
     }
 
-    uint repayable = cQuote.borrowBalanceCurrent(msg.sender); //accrues interests of Compound
-    uint toRepay = repayable > amount ? amount : repayable;
+    uint toRepay = min(cQuote.borrowBalanceCurrent(msg.sender), amount);
     uint toMint;
     uint errCode = cQuote.repayBorrow(toRepay);
     if (errCode != 0) {

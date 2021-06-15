@@ -2,6 +2,8 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./MangroveOffer.sol";
 import "./CompoundInterface.sol";
+// SPDX-License-Identifier: MIT
+
 
 contract CompoundLender is MangroveOffer, Exponential {
   event ErrorOnRedeem(address cToken, uint amount, uint errorCode);
@@ -30,7 +32,7 @@ contract CompoundLender is MangroveOffer, Exponential {
     IERC20 token,
     IcERC20 cToken,
     uint amount
-  ) external onlyCaller(admin) {
+  ) external onlyAdmin {
     token.approve(address(cToken), amount);
   }
 
@@ -39,23 +41,38 @@ contract CompoundLender is MangroveOffer, Exponential {
   ///@param cToken address of the overlying token. Put 0x0 here to stop getting/putting token on Compound
   function setCompoundSource(address token, address cToken)
     external
-    onlyCaller(admin)
+    onlyAdmin
   {
     overlyings[token] = cToken;
   }
 
   function setCompoundPutFlag(address erc20, bool flag)
     external
-    onlyCaller(admin)
+    onlyAdmin
   {
     compoundPutFlag[erc20] = flag;
   }
 
   function setCompoundGetFlag(address erc20, bool flag)
     external
-    onlyCaller(admin)
+    onlyAdmin
   {
     compoundGetFlag[erc20] = flag;
+  }
+
+  /// @notice struct to circumvent stack too deep error in `maxGettableUnderlying` function
+  struct Heap {
+    uint cTokenBalance;
+    uint exchangeRateMantissa;
+    uint liquidity;
+    uint collateralFactorMantissa;
+    uint maxRedeemable;
+    uint balanceOfUnderlying;
+    MathError mErr;
+    uint errCode;
+  }
+  function heapError(Heap memory heap) private pure returns (bool) {
+    return (heap.errCode != 0 || heap.mErr != MathError.NO_ERROR);
   }
 
   /// @notice Returns maximal borrow capacity of the account and maximal redeem capacity
@@ -65,47 +82,36 @@ contract CompoundLender is MangroveOffer, Exponential {
     view
     returns (uint, uint)
   {
+    Heap memory heap;
     // NB exchangeRate is correct because getAccountUnderlyingAbove does accrue interests
-    uint balanceOfUnderlying;
-    uint exchangeRateMantissa;
-    {
-      uint cTokenBalance;
-      (
-        ,
-        cTokenBalance, /*borrowBalance*/
-        ,
-        exchangeRateMantissa
-      ) = cToken.getAccountSnapshot(msg.sender);
-      (, balanceOfUnderlying) = mulScalarTruncate(
-        Exp({mantissa: exchangeRateMantissa}),
-        cTokenBalance
-      );
+    (heap.errCode, heap.cTokenBalance, , heap.exchangeRateMantissa) = cToken.getAccountSnapshot(msg.sender);
+    (heap.mErr, heap.balanceOfUnderlying) = mulScalarTruncate(
+        Exp({mantissa: heap.exchangeRateMantissa}),
+        heap.cTokenBalance
+    );
+    if (heapError(heap)) {
+      return (0,0);
     }
 
-    // maxRedeem = liquidity / (CollateralFactor_of_underlying * price_of_underlying )
-    // gets account liquidity in USD units (accrues interests)
-    uint liquidity;
-    (, liquidity, ) = comptroller.getAccountLiquidity(msg.sender);
-    uint maxRedeemableUnderlying;
-    {
-      (, uint collateralFactorMantissa, ) =
-        comptroller.markets(address(cToken));
-      (, maxRedeemableUnderlying) = divScalarByExpTruncate(
-        liquidity,
+    // maxRedeem = liquidity / (CollateralFactor_of_underlying * price_of_underlying * exchangeRate)
+    (heap.errCode, heap.liquidity, /*shortFall*/) = comptroller.getAccountLiquidity(msg.sender);
+    (, heap.collateralFactorMantissa,) = comptroller.markets(address(cToken));
+    (heap.mErr, heap.maxRedeemable) = divScalarByExpTruncate(
+      heap.liquidity,
+      mul_(
+        Exp({mantissa: heap.collateralFactorMantissa}),
         mul_(
-          Exp({mantissa: collateralFactorMantissa}),
-          mul_(
-            Exp({mantissa: oracle.getUnderlyingPrice(cToken)}),
-            Exp({mantissa: exchangeRateMantissa})
-          )
+          Exp({mantissa: oracle.getUnderlyingPrice(cToken)}),
+          Exp({mantissa: heap.exchangeRateMantissa})
         )
-      );
+      )
+    );
+    if (heapError(heap)) {
+      return (0,0);
     }
     return (
-      liquidity,
-      maxRedeemableUnderlying > balanceOfUnderlying
-        ? balanceOfUnderlying
-        : maxRedeemableUnderlying
+      heap.liquidity, 
+      min(heap.maxRedeemable,heap.balanceOfUnderlying)
     );
   }
 
@@ -126,9 +132,12 @@ contract CompoundLender is MangroveOffer, Exponential {
     if (base_cErc20 == address(0)) {
       return amount;
     }
-    (, uint redeemable) = maxGettableUnderlying(IcERC20(base_cErc20));
-    uint redeemAmount = redeemable > amount ? amount : redeemable;
-    return compoundRedeem(base_cErc20, redeemAmount);
+    (uint liquidity, uint redeemable) = maxGettableUnderlying(IcERC20(base_cErc20));
+    uint redeemAmount = min(redeemable,amount);
+    if (compoundRedeem(base_cErc20, redeemAmount) == 0){ // redeemAmount was transfered to `this`
+      return (amount - redeemAmount);
+    }
+    return amount;
   }
 
   function compoundRedeem(address cBase, uint amountToRedeem)
