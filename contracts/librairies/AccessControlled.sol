@@ -1,5 +1,6 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
+// SPDX-License-Identifier: MIT
 
 contract AccessControlled {
   address admin;
@@ -13,7 +14,12 @@ contract AccessControlled {
     _;
   }
 
-  function setAdmin(address _admin) external onlyCaller(admin) {
+  modifier onlyAdmin(){
+    require(msg.sender == admin, "AccessControlled/Invalid");
+    _;
+  }
+    
+  function setAdmin(address _admin) external onlyAdmin {
     admin = _admin;
   }
 }

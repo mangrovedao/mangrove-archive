@@ -6,6 +6,8 @@ import "../../Mangrove.sol";
 import "../../MgvPack.sol";
 import "../AccessControlled.sol";
 import "../Exponential.sol";
+// SPDX-License-Identifier: MIT
+
 
 /// @title Basic structure of an offer to be posted on the Mangrove
 /// @author Giry
@@ -30,7 +32,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     address token,
     address recipient,
     uint amount
-  ) external onlyCaller(admin) returns (bool success) {
+  ) external onlyAdmin returns (bool success) {
     success = IERC20(token).transfer(recipient, amount);
   }
 
@@ -65,7 +67,7 @@ contract MangroveOffer is IMaker, AccessControlled {
   /// @notice trader needs to approve the Mangrove to perform base token transfer at the end of the `makerTrade` function
   function approveMangrove(address base_erc20, uint amount)
     external
-    onlyCaller(admin)
+    onlyAdmin
   {
     require(IERC20(base_erc20).approve(MGV, amount));
   }
@@ -74,7 +76,7 @@ contract MangroveOffer is IMaker, AccessControlled {
   /// @notice `Mangrove.fund` function need not be called by `this` so is not included here.
   function withdrawFromMangrove(address receiver, uint amount)
     external
-    onlyCaller(admin)
+    onlyAdmin
     returns (bool noRevert)
   {
     require(Mangrove(MGV).withdraw(amount));
@@ -99,7 +101,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     uint gasreq,
     uint gasprice,
     uint pivotId
-  ) public onlyCaller(admin) returns (uint offerId) {
+  ) public onlyAdmin returns (uint offerId) {
     offerId = Mangrove(MGV).newOffer(
       base_erc20,
       quote_erc20,
@@ -130,7 +132,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     uint gasprice,
     uint pivotId,
     uint offerId
-  ) public onlyCaller(admin) {
+  ) public onlyAdmin {
     Mangrove(MGV).updateOffer(
       base_erc20,
       quote_erc20,
@@ -148,7 +150,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     address quote_erc20,
     uint offerId,
     bool deprovision
-  ) public onlyCaller(admin) {
+  ) public onlyAdmin {
     Mangrove(MGV).retractOffer(base_erc20, quote_erc20, offerId, deprovision);
   }
 
