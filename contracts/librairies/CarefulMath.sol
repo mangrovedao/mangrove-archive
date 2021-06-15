@@ -82,4 +82,15 @@ contract CarefulMath {
 
         return subUInt(sum, c);
     }
+
+    /**
+    * @dev min and max functions
+    */
+    function min(uint a, uint b) internal pure returns (uint) {
+        return (a < b ? a : b);
+    }
+    function max(uint a, uint b) internal pure returns (uint) {
+        return (a > b ? a : b);
+    }
+
 }
