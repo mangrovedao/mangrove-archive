@@ -2,7 +2,7 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 // SPDX-License-Identifier: MIT
 
-import "../../interfaces.sol";
+import "./IERC20.sol";
 
 interface ICompoundPriceOracle {
   function getUnderlyingPrice(IcERC20 cToken) external view returns (uint);
