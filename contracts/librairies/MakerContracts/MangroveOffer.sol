@@ -26,6 +26,14 @@ contract MangroveOffer is IMaker, AccessControlled {
     MGV = _MGV;
   }
 
+  function transferToken(
+    address token,
+    address recipient,
+    uint amount
+  ) external onlyCaller(admin) returns (bool success) {
+    success = IERC20(token).transfer(recipient, amount);
+  }
+
   /// @notice extracts old offer from the order that is received from the Mangrove
   function getStoredOffer(MgvC.SingleOrder calldata order)
     internal
@@ -153,15 +161,15 @@ contract MangroveOffer is IMaker, AccessControlled {
     onlyCaller(MGV)
     returns (bytes32 returnData)
   {
-    uint validateDecision = __validate__(order);
-    if (validateDecision == 0) {
+    uint info = __lastLook__(order);
+    if (info == 0) {
       returnData = fetchLiquidity(
         order.base,
         order.quote,
         order.wants,
         order.gives
       );
-    } else tradeRevertWithData(bytes32(validateDecision));
+    } else tradeRevertWithData(bytes32(info));
   }
 
   // not a virtual function to make sure it is only MGV callable
@@ -169,7 +177,7 @@ contract MangroveOffer is IMaker, AccessControlled {
     MgvC.SingleOrder calldata order,
     MgvC.OrderResult calldata result
   ) external override onlyCaller(MGV) {
-    __repost__(order, result);
+    __finalize__(order, result);
   }
 
   /// @notice Core strategy to fetch liquidity
@@ -187,8 +195,8 @@ contract MangroveOffer is IMaker, AccessControlled {
     }
     if (missingPut == 0) {
       return SUCCESS;
-      return PUTFAILED;
     }
+    return PUTFAILED;
   }
 
   ////// Virtual functions to customize trading strategies
@@ -217,7 +225,7 @@ contract MangroveOffer is IMaker, AccessControlled {
   }
 
   /// @notice default strategy is to accept order at offer price.
-  function __validate__(MgvC.SingleOrder calldata order)
+  function __lastLook__(MgvC.SingleOrder calldata order)
     internal
     virtual
     returns (uint)
@@ -226,7 +234,7 @@ contract MangroveOffer is IMaker, AccessControlled {
   }
 
   /// @notice default strategy is to not repost a taken offer and let user do this
-  function __repost__(
+  function __finalize__(
     MgvC.SingleOrder calldata order,
     MgvC.OrderResult calldata result
   ) internal virtual {}
