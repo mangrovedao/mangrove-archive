@@ -1,6 +1,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./AccessControlled.sol";
+// SPDX-License-Identifier: MIT
 
 contract PriceOracle is AccessControlled {
   event QuoteReceived(uint);
@@ -9,14 +10,14 @@ contract PriceOracle is AccessControlled {
   mapping(address => uint) private quotes;
   mapping(address => bool) public subscribers;
 
-  function register(address subscriber) external onlyCaller(admin) {
+  function register(address subscriber) external onlyAdmin {
     subscribers[subscriber] = true;
   }
 
   // price in quote for 1 exaunit of base.
   function set_quote_for(address erc_quote, uint amount)
     external
-    onlyCaller(admin)
+    onlyAdmin
   {
     quotes[erc_quote] = amount;
     emit QuoteReceived(amount);
