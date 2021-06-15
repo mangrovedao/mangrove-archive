@@ -72,7 +72,7 @@ contract CompoundTrader is CompoundLender {
       return amount;
     }
 
-    uint repayable = cQuote.borrowBalanceCurrent(msg.sender);
+    uint repayable = cQuote.borrowBalanceCurrent(msg.sender); //accrues interests of Compound
     uint toRepay = repayable > amount ? amount : repayable;
     uint toMint;
     uint errCode = cQuote.repayBorrow(toRepay);
