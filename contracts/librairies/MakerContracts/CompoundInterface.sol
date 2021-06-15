@@ -1,5 +1,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
+// SPDX-License-Identifier: MIT
+
 import "../../interfaces.sol";
 
 interface ICompoundPriceOracle {
