@@ -581,7 +581,7 @@ abstract contract Mangrove {
       "mgv/writeOffer/density/tooLow"
     );
 
-    /* The following checks are for the maker's convenience only. */
+    /* The following checks are necessary to avoid overflows. */
     require(uint96(ofp.gives) == ofp.gives, "mgv/writeOffer/gives/96bits");
     require(uint96(ofp.wants) == ofp.wants, "mgv/writeOffer/wants/96bits");
 
