@@ -612,10 +612,11 @@ abstract contract Mangrove {
        * Compute $p = \left\lceil\dfrac{w\times s}{g}\right\rceil$.
        * Let $w' = \left\lfloor\dfrac{p\times g}{s}\right\rfloor$.
        * The new price $\frac{w'}{g}$ is at the desired precision.
-       * Note that whenever $s > g$, we have $w' = w$ (with $k$ the integer part of $ws/g$ and $f$ the fractional part, compare $kg/s + fg/s$ with $\lfloor kg/s + g/s \rfloor$). Since $g$ is at most $2^{96}$, any tickpower of 29 or above ensures maximum precision (the [default `tickpower`](#Mangrove/anchor/defaultTick) is 48).
+       * Note that whenever $s > g$, we have $w' = w$ (with $k$ the integer part of $ws/g$ and $f$ the fractional part, compare $kg/s + fg/s$ with $\lfloor kg/s + g/s \rfloor$). Since $g$ is at most $2^{96}$, any tickpower of 29 or above ensures maximum precision (the [default `tickpower`](#Mangrove/anchor/defaultTick) is 47).
        */
       if ($$(local_tickrefine("ofp.local")) > 0) {
         uint priceCeil = (ofp.wants * ticksize - 1) / ofp.gives + 1;
+        // if tickerpower could be > 47, we could have overflow here.
         ofp.wants = (priceCeil * ofp.gives) / ticksize;
       } else {
         /* If the tick is configured for precision coarser than 1 wei, we do the following:
@@ -1528,7 +1529,7 @@ abstract contract Mangrove {
     setDensity(base, quote, density);
     setGasbase(base, quote, overhead_gasbase, offer_gasbase);
     /* <a id="Mangrove/anchor/defaultTick"></a> By default, ticksize is 0. Due to the way calculations are setup in `writeOffer`, a true `tickrefine` combined with any `tickpower` $t$ such that $10^t \geq 2^{96}$ leads to a maximal ticksize. */
-    setTick(base, quote, true, 48);
+    setTick(base, quote, true, 29);
   }
 
   function deactivate(address base, address quote) public {
@@ -1611,7 +1612,7 @@ abstract contract Mangrove {
     /* Checking tickpower is necessary to prevent overflow when adjusting price precision. 
 
     Note that if tickpower=1, tickrefine has no effect. */
-    require(tickpower <= 48, "mgv/config/tickpower/tooHigh");
+    require(tickpower <= 47, "mgv/config/tickpower/tooHigh");
     uint _tickrefine = tickrefine ? 1 : 0;
     locals[base][quote] = $$(
       set_local(
