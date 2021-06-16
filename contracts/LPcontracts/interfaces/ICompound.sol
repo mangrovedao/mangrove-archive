@@ -37,6 +37,8 @@ interface IComptroller {
       uint liquidity,
       uint shortfall
     );
+
+  function claimComp(address holder) external;
 }
 
 interface IcERC20 is IERC20 {
