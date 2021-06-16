@@ -599,7 +599,7 @@ abstract contract Mangrove {
     * An offer at price 1.01 USDC/DAI could be the pair `wants` = $1.01\times 10^6$ (1.01 USDC),`gives` = $10^{18}$ (1 DAI). To set a cent-level precision we have to multiply `wants` by $10^{12}$ before we divide it by `gives`. 
     * In the dual pair (DAI/USDC), consider an offer at 0.99 DAI/USDC given by `wants` = $99\times10^{16}$ (0.99 DAI), `gives` = $10^6$ (1 USDC). To set a cent-level precision we have multiply wants by $10^{-10}$ before we divide it by `gives`.
 
-    Generally speaking, to be precise to the $n$th decimal of the base token when the base token has $b$ decimals and the quote token has $q$ decimals, we should multiply `wants` by $10^{n+q-b}$. Note that the constraint (due to overflow) of $-48 \leq n+q-b \leq 48$ excludes some precisions for some possible pairs of tokens, but we do not expect to see them in practice.
+    Generally speaking, to be precise to the $n$th decimal of the base token when the base token has $b$ decimals and the quote token has $q$ decimals, we should multiply `wants` by $10^{n+b-q}$. Note that the constraint (due to overflow) of $-48 \leq n+b-q \leq 48$ excludes some precisions for some possible pairs of tokens, but we do not expect to see them in practice.
     */
 
       /* We also want to adjust `wants` upwards so that the price (`wants/gives`) is at the desired precision. We can adjust the price downwards or upwards. We choose upwards. This way an admin cannot force a market maker to set very low prices by increasing the ticksize a lot. We still have a choice between increasing `wants` and decreasing `gives`. Since `gives > 0` is an invariant, we choose to increase `wants`. */
