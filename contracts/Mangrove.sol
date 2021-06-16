@@ -585,12 +585,10 @@ abstract contract Mangrove {
     require(uint96(ofp.gives) == ofp.gives, "mgv/writeOffer/gives/96bits");
     require(uint96(ofp.wants) == ofp.wants, "mgv/writeOffer/wants/96bits");
 
-    /* `gasprice` given by maker will be bounded below by internal gasprice estimate at offer write time. With a large enough overapproximation of the gasprice, the maker can regularly update their offer without paying for writes to their `balanceOf`.  */
-    if (ofp.gasprice < $$(global_gasprice("ofp.global"))) {
+    {
+      /* ### Ticks */
       /* Make sure `wants > 0` -- below tick calculation could underflow otherwise. */
       require(ofp.wants > 0, "mgv/writeOffer/wants/tooLow");
-
-      /* ### Ticks */
 
       /*
     Internally, Mangrove does not store prices but (`wants`,`gives`) pairs of width 96 bits each. So the minimum price tick is $2^{-96}$ wei.
@@ -632,7 +630,10 @@ abstract contract Mangrove {
         uint96(ofp.wants) == ofp.wants,
         "mgv/writeOffer/roundWants/96bits"
       );
+    }
 
+    /* `gasprice` given by maker will be bounded below by internal gasprice estimate at offer write time. With a large enough overapproximation of the gasprice, the maker can regularly update their offer without paying for writes to their `balanceOf`.  */
+    if (ofp.gasprice < $$(global_gasprice("ofp.global"))) {
       ofp.gasprice = $$(global_gasprice("ofp.global"));
     }
 
