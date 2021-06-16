@@ -1,8 +1,8 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./CompoundLender.sol";
-// SPDX-License-Identifier: MIT
 
+// SPDX-License-Identifier: MIT
 
 contract CompoundTrader is CompoundLender {
   constructor(address _comptroller, address payable _MGV)
@@ -35,7 +35,7 @@ contract CompoundTrader is CompoundLender {
       maxGettableUnderlying(IcERC20(base_cErc20));
 
     // 2. trying to redeem liquidity from Compound
-    uint toRedeem = min(redeemable,amount);
+    uint toRedeem = min(redeemable, amount);
     uint notRedeemed = compoundRedeem(base, toRedeem);
     if (notRedeemed > 0 && toRedeem > 0) {
       // => notRedeemed == toRedeem
@@ -43,11 +43,8 @@ contract CompoundTrader is CompoundLender {
       // log already emitted by `compoundRedeem`
       return amount;
     }
-    amount = sub_(amount, toRedeem); 
-    uint toBorrow = min(
-      sub_(liquidity, toRedeem),
-      amount
-    );
+    amount = sub_(amount, toRedeem);
+    uint toBorrow = min(sub_(liquidity, toRedeem), amount);
 
     // 3. trying to borrow missing liquidity
     uint errorCode = IcERC20(base_cErc20).borrow(toBorrow);
@@ -77,7 +74,7 @@ contract CompoundTrader is CompoundLender {
       return amount;
     }
 
-    uint toRepay = min(cQuote.borrowBalanceCurrent(msg.sender), amount);
+    uint toRepay = min(cQuote.borrowBalanceCurrent(msg.sender), amount); //accrues interests
     uint toMint;
     uint errCode = cQuote.repayBorrow(toRepay);
     if (errCode != 0) {
