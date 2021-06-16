@@ -26,6 +26,10 @@ contract CompoundLender is MangroveOffer, Exponential {
     oracle = IComptroller(_comptroller).oracle(); // pricefeed used by the comptroller
   }
 
+  /**************************************************************************/
+  ///@notice Required functions to let `this` contract interact with compound
+  /**************************************************************************/
+
   ///@notice approval of cToken contract by the underlying is necessary for minting and repaying borrow
   ///@notice user must use this function to do so.
   function approveCToken(
@@ -34,6 +38,25 @@ contract CompoundLender is MangroveOffer, Exponential {
     uint amount
   ) external onlyAdmin {
     token.approve(address(cToken), amount);
+  }
+
+  ///@notice enters markets in order to be able to use assets as collateral
+  function enterMarkets(address[] calldata cTokens)
+    external
+    onlyAdmin
+    returns (uint[] memory)
+  {
+    return comptroller.enterMarkets(cTokens);
+  }
+
+  ///@notice exit markets
+  function exitMarkets(address cToken) external onlyAdmin returns (uint) {
+    return comptroller.exitMarket(cToken);
+  }
+
+  ///@notice claims COMP token for `this` contract. One may afterward transfer them using `MangroveOffer.transferToken`
+  function claimComp() external onlyAdmin {
+    comptroller.claimComp(address(this));
   }
 
   ///@notice To declare put/get methods should use Compound to manage token assets

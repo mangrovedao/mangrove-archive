@@ -5,8 +5,8 @@ import "../interfaces/IERC20.sol";
 import "../lib/AccessControlled.sol";
 import "../lib/Exponential.sol";
 import "../lib/MgvPack.sol";
-// SPDX-License-Identifier: MIT
 
+// SPDX-License-Identifier: MIT
 
 /// @title Basic structure of an offer to be posted on the Mangrove
 /// @author Giry
@@ -27,7 +27,7 @@ contract MangroveOffer is AccessControlled, IMaker {
     MGV = _MGV;
   }
 
-  /// @notice 
+  /// @notice transfers token stored in `this` contract to some recipient address
   function transferToken(
     address token,
     address recipient,
@@ -65,10 +65,7 @@ contract MangroveOffer is AccessControlled, IMaker {
   /// @title Mangrove basic interactions (logging is done by the Mangrove)
 
   /// @notice trader needs to approve the Mangrove to perform base token transfer at the end of the `makerTrade` function
-  function approveMangrove(address base_erc20, uint amount)
-    external
-    onlyAdmin
-  {
+  function approveMangrove(address base_erc20, uint amount) external onlyAdmin {
     require(IERC20(base_erc20).approve(MGV, amount));
   }
 
