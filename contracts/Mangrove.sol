@@ -627,6 +627,11 @@ abstract contract Mangrove {
         uint priceCeil = (ofp.wants - 1) / (ticksize * ofp.gives) + 1;
         ofp.wants = priceCeil * ofp.gives * ticksize;
       }
+      /* We may not fit in 96 bits anymore */
+      require(
+        uint96(ofp.wants) == ofp.wants,
+        "mgv/writeOffer/roundWants/96bits"
+      );
 
       ofp.gasprice = $$(global_gasprice("ofp.global"));
     }
