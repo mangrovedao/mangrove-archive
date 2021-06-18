@@ -34,9 +34,6 @@ abstract contract Mangrove {
   /* Configuration mapping for each token pair. The information is also detailed in `structs.js`. */
   mapping(address => mapping(address => bytes32)) public locals;
 
-  /* The signature of the low-level swapping function. Given at construction time by inheriting contracts. In FMD, for each offer executed, `FLASHLOANER` sends from taker to maker, then calls maker. In FTD, `FLASHLOANER` first sends from maker to taker for each offer, then calls taker once, then transfers back to each maker. */
-  bytes4 immutable FLASHLOANER;
-
   /* Given a `base`,`quote` pair, the mappings `offers` and `offerDetails` associate two 256 bits words to each offer id. Those words encode information detailed in `structs.js`.
 
      The mapping are `base => quote => offerId => bytes32`.
@@ -90,11 +87,6 @@ abstract contract Mangrove {
     setVault(msg.sender);
     setGasprice(_gasprice);
     setGasmax(gasmax);
-    /* In FMD, takers lend the liquidity to the maker. */
-    /* In FTD, takers come ask the makers for liquidity. */
-    FLASHLOANER = takerLends
-      ? Mangrove.flashloan.selector
-      : Mangrove.invertedFlashloan.selector;
 
     /* Initialize [EIP712](https://eips.ethereum.org/EIPS/eip-712) `DOMAIN_SEPARATOR`. */
     uint chainId;
@@ -1181,13 +1173,13 @@ abstract contract Mangrove {
       sor.gives = makerWouldWant;
     }
 
-    /* The flashloan is executed by call to `FLASHLOANER`. If the call reverts, it means the maker failed to send back `sor.wants` `base` to the taker. Notes :
+    /* The flashloan is executed by call to `flashloan`. If the call reverts, it means the maker failed to send back `sor.wants` `base` to the taker. Notes :
      * `msg.sender` is the Mangrove itself in those calls -- all operations related to the actual caller should be done outside of this call.
      * any spurious exception due to an error in Mangrove code will be falsely blamed on the Maker, and its provision for the offer will be unfairly taken away.
      */
     bytes memory retdata;
     (success, retdata) = address(this).call(
-      abi.encodeWithSelector(FLASHLOANER, sor, mor.taker)
+      abi.encodeWithSelector(this.flashloan.selector, sor, mor.taker)
     );
 
     /* `success` is true: trade is complete */
@@ -1251,7 +1243,7 @@ abstract contract Mangrove {
       } else if (errorCode == "mgv/takerFailToPayMaker") {
         revert("mgv/takerFailToPayMaker");
       } else {
-        /* This code must be unreachable. **Danger**: if a well-crafted offer/maker pair can force a revert of FLASHLOANER, the Mangrove will be stuck. */
+        /* This code must be unreachable. **Danger**: if a well-crafted offer/maker pair can force a revert of `flashloan`, the Mangrove will be stuck. */
         revert("mgv/swapError");
       }
     }
@@ -1736,73 +1728,6 @@ abstract contract Mangrove {
     allowances[base][quote][owner][msg.sender] = allowed - amount;
   }
 
-  /* # Flashloans */
-  //+clear+
-  /* ## Flashloan */
-  /*
-     `flashloan` is for the 'normal' mode of operation. It:
-     1. Flashloans `takerGives` `quote` from the taker to the maker and returns false if the loan fails.
-     2. Runs `offerDetail.maker`'s `execute` function.
-     3. Returns the result of the operations, with optional makerData to help the maker debug.
-   */
-  function flashloan(MC.SingleOrder calldata sor, address taker)
-    external
-    returns (uint gasused)
-  {
-    /* `flashloan` must be used with a call (hence the `external` modifier) so its effect can be reverted. But a call from the outside would be fatal. */
-    require(msg.sender == address(this), "mgv/flashloan/protected");
-    /* The transfer taker -> maker is in 2 steps. First, taker->mgv. Then
-       mgv->maker. With a direct taker->maker transfer, if one of taker/maker
-       is blacklisted, we can't tell which one. We need to know which one:
-       if we incorrectly blame the taker, a blacklisted maker can block a pair forever; if we incorrectly blame the maker, a blacklisted taker can unfairly make makers fail all the time. Of course we assume the Mangrove is not blacklisted. Also note that this setup doesn not work well with tokens that take fees or recompute balances at transfer time. */
-    if (transferTokenFrom(sor.quote, taker, address(this), sor.gives)) {
-      if (
-        transferToken(
-          sor.quote,
-          $$(offerDetail_maker("sor.offerDetail")),
-          sor.gives
-        )
-      ) {
-        gasused = makerExecute(sor);
-      } else {
-        innerRevert([bytes32("mgv/makerReceiveFail"), bytes32(0), ""]);
-      }
-    } else {
-      innerRevert([bytes32("mgv/takerFailToPayMaker"), "", ""]);
-    }
-  }
-
-  /* ## Inverted Flashloan */
-  /*
-     `invertedFlashloan` is for the 'arbitrage' mode of operation. It:
-     0. Calls the maker's `execute` function. If successful (tokens have been sent to taker):
-     2. Runs `taker`'s `execute` function.
-     4. Returns the results ofthe operations, with optional makerData to help the maker debug.
-
-     There are two ways to do the flashloan:
-     1. balanceOf before/after
-     2. run transferFrom ourselves.
-
-     ### balanceOf pros:
-       * maker may `transferFrom` another address they control; saves gas compared to Mangrove's `transferFrom`
-       * maker does not need to `approve` Mangrove
-
-     ### balanceOf cons
-       * if the ERC20 transfer method has a callback to receiver, the method does not work (the receiver can set its balance to 0 during the callback)
-       * if the taker is malicious, they can analyze the maker code. If the maker goes on any Mangrove2, they may execute code provided by the taker. This would reduce the taker balance and make the maker fail. So the taker could steal the maker's balance.
-
-    We choose `transferFrom`.
-    */
-
-  function invertedFlashloan(MC.SingleOrder calldata sor, address)
-    external
-    returns (uint gasused)
-  {
-    /* `invertedFlashloan` must be used with a call (hence the `external` modifier) so its effect can be reverted. But a call from the outside would be fatal. */
-    require(msg.sender == address(this), "mgv/invertedFlashloan/protected");
-    gasused = makerExecute(sor);
-  }
-
   /* ## Maker Execute */
 
   function makerExecute(MC.SingleOrder calldata sor)
@@ -1913,6 +1838,11 @@ abstract contract Mangrove {
     virtual;
 
   function executeCallback(MC.SingleOrder memory sor) internal virtual;
+
+  function flashloan(MC.SingleOrder calldata sor, address taker)
+    external
+    virtual
+    returns (uint gasused);
 }
 
 /* # FMD and FTD instanciations of Mangrove */
@@ -1928,6 +1858,41 @@ contract MMgv is Mangrove {
   {}
 
   function executeCallback(MC.SingleOrder memory sor) internal override {}
+
+  /* ## Flashloan */
+  /*
+     `flashloan` is for the 'normal' mode of operation. It:
+     1. Flashloans `takerGives` `quote` from the taker to the maker and returns false if the loan fails.
+     2. Runs `offerDetail.maker`'s `execute` function.
+     3. Returns the result of the operations, with optional makerData to help the maker debug.
+   */
+  function flashloan(MC.SingleOrder calldata sor, address taker)
+    external
+    override
+    returns (uint gasused)
+  {
+    /* `flashloan` must be used with a call (hence the `external` modifier) so its effect can be reverted. But a call from the outside would be fatal. */
+    require(msg.sender == address(this), "mgv/flashloan/protected");
+    /* The transfer taker -> maker is in 2 steps. First, taker->mgv. Then
+       mgv->maker. With a direct taker->maker transfer, if one of taker/maker
+       is blacklisted, we can't tell which one. We need to know which one:
+       if we incorrectly blame the taker, a blacklisted maker can block a pair forever; if we incorrectly blame the maker, a blacklisted taker can unfairly make makers fail all the time. Of course we assume the Mangrove is not blacklisted. Also note that this setup doesn not work well with tokens that take fees or recompute balances at transfer time. */
+    if (transferTokenFrom(sor.quote, taker, address(this), sor.gives)) {
+      if (
+        transferToken(
+          sor.quote,
+          $$(offerDetail_maker("sor.offerDetail")),
+          sor.gives
+        )
+      ) {
+        gasused = makerExecute(sor);
+      } else {
+        innerRevert([bytes32("mgv/makerReceiveFail"), bytes32(0), ""]);
+      }
+    } else {
+      innerRevert([bytes32("mgv/takerFailToPayMaker"), "", ""]);
+    }
+  }
 }
 
 contract TMgv is Mangrove {
@@ -1968,5 +1933,39 @@ So :
       $$(offerDetail_maker("sor.offerDetail")),
       sor.gives
     );
+  }
+
+  /* # Flashloans */
+  //+clear+
+  /* ## Inverted Flashloan */
+  /*
+     `invertedFlashloan` is for the 'arbitrage' mode of operation. It:
+     0. Calls the maker's `execute` function. If successful (tokens have been sent to taker):
+     2. Runs `taker`'s `execute` function.
+     4. Returns the results ofthe operations, with optional makerData to help the maker debug.
+
+     There are two ways to do the flashloan:
+     1. balanceOf before/after
+     2. run transferFrom ourselves.
+
+     ### balanceOf pros:
+       * maker may `transferFrom` another address they control; saves gas compared to Mangrove's `transferFrom`
+       * maker does not need to `approve` Mangrove
+
+     ### balanceOf cons
+       * if the ERC20 transfer method has a callback to receiver, the method does not work (the receiver can set its balance to 0 during the callback)
+       * if the taker is malicious, they can analyze the maker code. If the maker goes on any Mangrove2, they may execute code provided by the taker. This would reduce the taker balance and make the maker fail. So the taker could steal the maker's balance.
+
+    We choose `transferFrom`.
+    */
+
+  function flashloan(MC.SingleOrder calldata sor, address)
+    external
+    override
+    returns (uint gasused)
+  {
+    /* `invertedFlashloan` must be used with a call (hence the `external` modifier) so its effect can be reverted. But a call from the outside would be fatal. */
+    require(msg.sender == address(this), "mgv/invertedFlashloan/protected");
+    gasused = makerExecute(sor);
   }
 }
