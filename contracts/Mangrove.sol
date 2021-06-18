@@ -72,8 +72,6 @@ abstract contract Mangrove {
     /* `_gasprice` is underscored to avoid builtin `gasprice` name shadowing. */
     uint _gasprice,
     uint gasmax,
-    /* `takerLends` determines whether the taker or maker does the flashlend. FMD initializes with `true`, FTD initializes with `false`. */
-    bool takerLends,
     /* Used by [EIP712](https://eips.ethereum.org/EIPS/eip-712)'s `DOMAIN_SEPARATOR` */
     string memory contractName //+clear+
   ) {
@@ -1848,9 +1846,7 @@ abstract contract Mangrove {
 /* # FMD and FTD instanciations of Mangrove */
 
 contract MMgv is Mangrove {
-  constructor(uint gasprice, uint gasmax)
-    Mangrove(gasprice, gasmax, true, "FMD")
-  {}
+  constructor(uint gasprice, uint gasmax) Mangrove(gasprice, gasmax, "FMD") {}
 
   function executeEnd(MultiOrder memory mor, MC.SingleOrder memory sor)
     internal
@@ -1896,9 +1892,7 @@ contract MMgv is Mangrove {
 }
 
 contract TMgv is Mangrove {
-  constructor(uint gasprice, uint gasmax)
-    Mangrove(gasprice, gasmax, false, "FTD")
-  {}
+  constructor(uint gasprice, uint gasmax) Mangrove(gasprice, gasmax, "FTD") {}
 
   // execute taker trade
   function executeEnd(MultiOrder memory mor, MC.SingleOrder memory sor)
