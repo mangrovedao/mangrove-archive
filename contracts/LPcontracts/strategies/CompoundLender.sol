@@ -82,6 +82,8 @@ contract CompoundLender is MangroveOffer, Exponential {
     uint collateralFactorMantissa;
     uint maxRedeemable;
     uint balanceOfUnderlying;
+    uint priceMantissa;
+    uint underlyingLiquidity;
     MathError mErr;
     uint errCode;
   }
@@ -102,6 +104,7 @@ contract CompoundLender is MangroveOffer, Exponential {
     // NB balance below is underestimated unless accrue interest was triggered earlier in the transaction
     (heap.errCode, heap.cTokenBalance, , heap.exchangeRateMantissa) = cToken
       .getAccountSnapshot(msg.sender); // underapprox
+    heap.priceMantissa = oracle.getUnderlyingPrice(cToken);
     // balanceOfUnderlying(A) : cA.balance * exchange_rate(cA,A)
     (heap.mErr, heap.balanceOfUnderlying) = mulScalarTruncate(
       Exp({mantissa: heap.exchangeRateMantissa}),
@@ -117,18 +120,27 @@ contract CompoundLender is MangroveOffer, Exponential {
       heap.liquidity, /*shortFall*/
 
     ) = comptroller.getAccountLiquidity(msg.sender); // underapprox
+    // to get liquidity expressed in base token instead of USD
+    (heap.mErr, heap.underlyingLiquidity) = divScalarByExpTruncate(
+      heap.liquidity,
+      Exp({mantissa: heap.priceMantissa})
+    );
+    if (heapError(heap)) {
+      return (0, 0);
+    }
     (, heap.collateralFactorMantissa, ) = comptroller.markets(address(cToken));
     // if collateral factor is 0 then any token can be redeemed from the pool
+    // NB also true if market is not entered
     if (heap.collateralFactorMantissa == 0) {
-      return (heap.liquidity, heap.balanceOfUnderlying);
+      return (heap.underlyingLiquidity, heap.balanceOfUnderlying);
     }
 
-    // maxRedeem:[Base] = liquidity:[USD] / (price(Base):[USD] * collateralFactor(Base))
+    // maxRedeem:[underlying] = liquidity:[USD / 18 decimals ] / (price(Base):[USD.underlying^-1 / 18 decimals] * collateralFactor(Base): [0-1] 18 decimals)
     (heap.mErr, heap.maxRedeemable) = divScalarByExpTruncate(
       heap.liquidity,
       mul_(
         Exp({mantissa: heap.collateralFactorMantissa}),
-        Exp({mantissa: oracle.getUnderlyingPrice(cToken)})
+        Exp({mantissa: heap.priceMantissa})
       )
     );
     if (heapError(heap)) {
@@ -154,8 +166,10 @@ contract CompoundLender is MangroveOffer, Exponential {
     if (base_cErc20 == address(0)) {
       return amount;
     }
-    (uint liquidity, uint redeemable) =
-      maxGettableUnderlying(IcERC20(base_cErc20));
+    (
+      uint liquidity,
+      uint redeemable // liquidity:underlying, redeemable: underlying
+    ) = maxGettableUnderlying(IcERC20(base_cErc20));
     uint redeemAmount = min(redeemable, amount);
     if (compoundRedeem(base_cErc20, redeemAmount) == 0) {
       // redeemAmount was transfered to `this`
