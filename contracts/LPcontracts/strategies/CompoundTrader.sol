@@ -24,32 +24,41 @@ contract CompoundTrader is CompoundLender {
     if (!compoundGetFlag[base]) {
       return amount;
     }
-    address base_cErc20 = overlyings[base]; // this is 0x0 if base is not compound sourced for borrow.
+    IcERC20 base_cErc20 = IcERC20(overlyings[base]); // this is 0x0 if base is not compound sourced for borrow.
 
-    if (base_cErc20 == address(0)) {
+    if (address(base_cErc20) == address(0)) {
       return amount;
     }
 
-    // 1. Computing total borrow and redeem capacities
+    // 1. Computing total borrow and redeem capacities of underlying asset
     (uint liquidity, uint redeemable) =
-      maxGettableUnderlying(IcERC20(base_cErc20));
+      maxGettableUnderlying(base_cErc20);
 
     // 2. trying to redeem liquidity from Compound
     uint toRedeem = min(redeemable, amount);
-    uint notRedeemed = compoundRedeem(base, toRedeem);
+    uint notRedeemed = compoundRedeem(base_cErc20, toRedeem);
     if (notRedeemed > 0 && toRedeem > 0) {
       // => notRedeemed == toRedeem
-      // this should happen unless compound is out of cash, thus no need to try to borrow
+      // this should not happen unless compound is out of cash, thus no need to try to borrow
       // log already emitted by `compoundRedeem`
       return amount;
     }
     amount = sub_(amount, toRedeem);
-    uint toBorrow = min(sub_(liquidity, toRedeem), amount);
+    uint toBorrow;
+    if (comptroller.checkMembership(msg.sender, base_cErc20)) { //base_cErc20 participates to liquidity
+      toBorrow = min(sub_(liquidity, toRedeem), amount); // we know liquidity > toRedeem
+    }
+    else {
+      toBorrow = min(liquidity,amount); // redeemed token do not decrease liquidity
+    }
+    if (toBorrow == 0) {
+      return amount;  
+    }
 
     // 3. trying to borrow missing liquidity
-    uint errorCode = IcERC20(base_cErc20).borrow(toBorrow);
+    uint errorCode = base_cErc20.borrow(toBorrow);
     if (errorCode != 0) {
-      emit ErrorOnBorrow(base_cErc20, toBorrow, errorCode);
+      emit ErrorOnBorrow(address(base_cErc20), toBorrow, errorCode);
       return amount; // unable to borrow requested amount
     }
     return sub_(amount, toBorrow);
@@ -83,6 +92,6 @@ contract CompoundTrader is CompoundLender {
     } else {
       toMint = amount - toRepay;
     }
-    return compoundMint(quote, address(cQuote), toMint);
+    return compoundMint(cQuote, toMint);
   }
 }

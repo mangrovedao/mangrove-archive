@@ -33,11 +33,11 @@ contract CompoundLender is MangroveOffer, Exponential {
   ///@notice approval of cToken contract by the underlying is necessary for minting and repaying borrow
   ///@notice user must use this function to do so.
   function approveCToken(
-    IERC20 token,
-    IcERC20 cToken,
+    address token,
+    address cToken,
     uint amount
   ) external onlyAdmin {
-    token.approve(address(cToken), amount);
+    IERC20(token).approve(cToken, amount);
   }
 
   ///@notice enters markets in order to be able to use assets as collateral
@@ -49,7 +49,7 @@ contract CompoundLender is MangroveOffer, Exponential {
     return comptroller.enterMarkets(cTokens);
   }
 
-  ///@notice exit markets
+  ///@notice exits markets
   function exitMarkets(address cToken) external onlyAdmin returns (uint) {
     return comptroller.exitMarket(cToken);
   }
@@ -92,9 +92,10 @@ contract CompoundLender is MangroveOffer, Exponential {
     return (heap.errCode != 0 || heap.mErr != MathError.NO_ERROR);
   }
 
-  /// @notice Returns maximal borrow capacity of the account and maximal redeem capacity
+  /// @notice Computes maximal borrow capacity of the account and maximal redeem capacity
   /// @notice The returned value is underestimated unless accrueInterest is called in the transaction
   /// @notice Putting liquidity on Compound (either through minting or borrowing) will accrue interests
+  /// return (underlyingLiquidity, maxRedeemableUnderlying)
   function maxGettableUnderlying(IcERC20 cToken)
     internal
     view
@@ -114,11 +115,11 @@ contract CompoundLender is MangroveOffer, Exponential {
       return (0, 0);
     }
 
-    // max amount of Base token than can be redeemed
+    // max amount of Base token than can be borrowed
     (
       heap.errCode,
-      heap.liquidity, /*shortFall*/
-
+      heap.liquidity, // is USD:18 decimals
+      /*shortFall*/
     ) = comptroller.getAccountLiquidity(msg.sender); // underapprox
     // to get liquidity expressed in base token instead of USD
     (heap.mErr, heap.underlyingLiquidity) = divScalarByExpTruncate(
@@ -130,8 +131,8 @@ contract CompoundLender is MangroveOffer, Exponential {
     }
     (, heap.collateralFactorMantissa, ) = comptroller.markets(address(cToken));
     // if collateral factor is 0 then any token can be redeemed from the pool
-    // NB also true if market is not entered
-    if (heap.collateralFactorMantissa == 0) {
+    // also true if market is not entered
+    if (heap.collateralFactorMantissa == 0 || !comptroller.checkMembership(msg.sender, cToken)) {
       return (heap.underlyingLiquidity, heap.balanceOfUnderlying);
     }
 
@@ -146,7 +147,7 @@ contract CompoundLender is MangroveOffer, Exponential {
     if (heapError(heap)) {
       return (0, 0);
     }
-    return (heap.liquidity, min(heap.maxRedeemable, heap.balanceOfUnderlying));
+    return (heap.underlyingLiquidity, min(heap.maxRedeemable, heap.balanceOfUnderlying));
   }
 
   ///@notice method to get `base` during makerTrade
@@ -162,14 +163,11 @@ contract CompoundLender is MangroveOffer, Exponential {
       // if flag says not to fetch liquidity on compound
       return amount;
     }
-    address base_cErc20 = overlyings[base]; // this is 0x0 if base is not compound sourced.
-    if (base_cErc20 == address(0)) {
+    IcERC20 base_cErc20 = IcERC20(overlyings[base]); // this is 0x0 if base is not compound sourced.
+    if (address(base_cErc20) == address(0)) {
       return amount;
     }
-    (
-      uint liquidity,
-      uint redeemable // liquidity:underlying, redeemable: underlying
-    ) = maxGettableUnderlying(IcERC20(base_cErc20));
+    (,uint redeemable) = maxGettableUnderlying(base_cErc20);
     uint redeemAmount = min(redeemable, amount);
     if (compoundRedeem(base_cErc20, redeemAmount) == 0) {
       // redeemAmount was transfered to `this`
@@ -178,17 +176,17 @@ contract CompoundLender is MangroveOffer, Exponential {
     return amount;
   }
 
-  function compoundRedeem(address cBase, uint amountToRedeem)
+  function compoundRedeem(IcERC20 cBase, uint amountToRedeem)
     internal
     returns (uint)
   {
-    uint errorCode = IcERC20(cBase).redeemUnderlying(amountToRedeem); // accrues interests
+    uint errorCode = cBase.redeemUnderlying(amountToRedeem); // accrues interests
     if (errorCode == 0) {
       //compound redeem was a success
       return 0;
     } else {
       //compound redeem failed
-      emit ErrorOnRedeem(cBase, amountToRedeem, errorCode);
+      emit ErrorOnRedeem(address(cBase), amountToRedeem, errorCode);
       return amountToRedeem;
     }
   }
@@ -206,9 +204,9 @@ contract CompoundLender is MangroveOffer, Exponential {
     if (!compoundPutFlag[quote]) {
       return amount;
     }
-    address cToken = overlyings[quote];
-    if (cToken != address(0)) {
-      return compoundMint(quote, cToken, amount);
+    IcERC20 cToken = IcERC20(overlyings[quote]);
+    if (address(cToken) != address(0)) {
+      return compoundMint(cToken, amount);
     } else {
       return amount;
     }
@@ -219,18 +217,17 @@ contract CompoundLender is MangroveOffer, Exponential {
   // NB `cToken` contract MUST be approved to perform `transferFrom token` by `this` contract.
   /// @notice user need to approve cToken in order to mint
   function compoundMint(
-    address token,
-    address cToken,
+    IcERC20 cToken,
     uint amount
   ) internal returns (uint missing) {
     // Approve transfer on the ERC20 contract (not needed if cERC20 is already approved for `this`)
-    // IERC20(token).approve(cToken, amount);
-    uint errCode = IcERC20(cToken).mint(amount); // accrues interest
+    // IERC20(cToken.underlying()).approve(cToken, amount);
+    uint errCode = cToken.mint(amount); // accrues interest
     // Mint cTokens
     if (errCode == 0) {
       return 0;
     } else {
-      emit ErrorOnMint(cToken, amount, errCode);
+      emit ErrorOnMint(address(cToken), amount, errCode);
       return amount;
     }
   }

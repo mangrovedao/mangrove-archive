@@ -39,6 +39,7 @@ interface IComptroller {
     );
 
   function claimComp(address holder) external;
+  function checkMembership(address account, IcERC20 cToken) external view returns (bool);
 }
 
 interface IcERC20 is IERC20 {
