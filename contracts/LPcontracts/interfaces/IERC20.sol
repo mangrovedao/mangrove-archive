@@ -70,6 +70,8 @@ interface IERC20 {
     uint amount
   ) external returns (bool);
 
+  function symbol() external view returns (string memory);
+
   /**
    * @dev Emitted when `value` tokens are moved from one account (`from`) to
    * another (`to`).
