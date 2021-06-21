@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "../Mangrove.sol";
+import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
@@ -20,7 +20,7 @@ import "./Agents/MM1.sol";
 contract MM1T_Test {
   receive() external payable {}
 
-  Mangrove mgv;
+  AbstractMangrove mgv;
   TestTaker tkr;
   TestMaker mkr;
   MM1 mm1;

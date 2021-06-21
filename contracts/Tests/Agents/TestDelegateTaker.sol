@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "../../interfaces.sol";
-import "../../Mangrove.sol";
+import "../../AbstractMangrove.sol";
 import "./OfferManager.sol";
 import "./TestToken.sol";
 
@@ -40,7 +40,7 @@ contract TestDelegateTaker is ITaker {
     OfferManager mgr,
     uint wants,
     uint gives,
-    Mangrove mgv,
+    AbstractMangrove mgv,
     bool invertedResidual
   ) public {
     try quote.approve(address(mgr), gives) {

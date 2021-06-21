@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../Mangrove.sol";
+import "../AbstractMangrove.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -18,7 +18,7 @@ import "./Agents/TestMonitor.sol";
 contract Monitor_Test {
   receive() external payable {}
 
-  Mangrove mgv;
+  AbstractMangrove mgv;
   TestMaker mkr;
   MgvMonitor monitor;
   address base;

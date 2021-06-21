@@ -2,7 +2,7 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "../Mangrove.sol";
+import "../AbstractMangrove.sol";
 import "../MgvIt.sol";
 import "../MgvLib.sol";
 import "../interfaces.sol";
@@ -15,7 +15,7 @@ import "./Toolbox/Display.sol";
 import "./Agents/TestToken.sol";
 
 contract MakerPosthook_Test is IMaker {
-  Mangrove mgv;
+  AbstractMangrove mgv;
   TestTaker tkr;
   TestToken baseT;
   TestToken quoteT;

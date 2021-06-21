@@ -46,7 +46,7 @@ async function main() {
 
   // Follow https://eips.ethereum.org/EIPS/eip-2612
   const domain = {
-    name: "MMgv",
+    name: "Mangrove",
     version: "1",
     chainId: 31337, // hardhat chainid
     verifyingContract: mgvAddress,

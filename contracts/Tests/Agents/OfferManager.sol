@@ -2,7 +2,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../../Mangrove.sol";
+import "../../AbstractMangrove.sol";
 import "../../interfaces.sol";
 //import "../../MgvLib.sol";
 import {
@@ -18,14 +18,14 @@ import "../Toolbox/Display.sol";
 
 contract OfferManager is IMaker, ITaker {
   // erc_addr -> owner_addr -> balance
-  Mangrove mgv;
-  Mangrove invMgv;
+  AbstractMangrove mgv;
+  AbstractMangrove invMgv;
   address caller_id;
   // mgv_addr -> base_addr -> quote_addr -> offerId -> owner
   mapping(address => mapping(address => mapping(address => mapping(uint => address)))) owners;
   uint constant gas_to_execute = 100_000;
 
-  constructor(Mangrove _mgv, Mangrove _inverted) {
+  constructor(AbstractMangrove _mgv, AbstractMangrove _inverted) {
     mgv = _mgv;
     invMgv = _inverted;
   }
@@ -103,7 +103,7 @@ contract OfferManager is IMaker, ITaker {
 
   //marketOrder (base,quote) + NewOffer(quote,base)
   function order(
-    Mangrove MGV,
+    AbstractMangrove MGV,
     address base,
     address quote,
     uint wants,
@@ -125,7 +125,7 @@ contract OfferManager is IMaker, ITaker {
       uint residual_w = wants - netReceived;
       uint residual_g = (gives * residual_w) / wants;
 
-      Mangrove _MGV;
+      AbstractMangrove _MGV;
       if (invertedResidual) {
         _MGV = invMgv;
       } else {

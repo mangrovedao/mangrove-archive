@@ -10,8 +10,8 @@ import "../Agents/TestToken.sol";
 
 import "./TestEvents.sol";
 import "./Display.sol";
-import "../../TMgv.sol";
-import "../../MMgv.sol";
+import "../../InvertedMangrove.sol";
+import "../../Mangrove.sol";
 
 library TestUtils {
   struct Balances {
@@ -47,19 +47,19 @@ library TestUtils {
   }
 
   function isEmptyOB(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote
   ) internal view returns (bool) {
     return mgv.best(base, quote) == 0;
   }
 
-  function adminOf(Mangrove mgv) internal view returns (address) {
+  function adminOf(AbstractMangrove mgv) internal view returns (address) {
     return mgv.governance();
   }
 
   function getFee(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote,
     uint price
@@ -68,7 +68,7 @@ library TestUtils {
   }
 
   function getProvision(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote,
     uint gasreq
@@ -82,7 +82,7 @@ library TestUtils {
   }
 
   function getProvision(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote,
     uint gasreq,
@@ -103,7 +103,7 @@ library TestUtils {
   }
 
   function getOfferInfo(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote,
     Info infKey,
@@ -131,7 +131,7 @@ library TestUtils {
   }
 
   function hasOffer(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote,
     uint offerId
@@ -140,7 +140,7 @@ library TestUtils {
   }
 
   function makerOf(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote,
     uint offerId
@@ -166,11 +166,11 @@ library TokenSetup {
 library MgvSetup {
   function setup(TestToken base, TestToken quote)
     external
-    returns (Mangrove mgv)
+    returns (AbstractMangrove mgv)
   {
     TestEvents.not0x(address(base));
     TestEvents.not0x(address(quote));
-    mgv = new MMgv({gasprice: 40, gasmax: 1_000_000});
+    mgv = new Mangrove({gasprice: 40, gasmax: 1_000_000});
 
     mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
     mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
@@ -182,18 +182,18 @@ library MgvSetup {
     TestToken base,
     TestToken quote,
     bool inverted
-  ) external returns (Mangrove mgv) {
+  ) external returns (AbstractMangrove mgv) {
     TestEvents.not0x(address(base));
     TestEvents.not0x(address(quote));
     if (inverted) {
-      mgv = new TMgv({gasprice: 40, gasmax: 1_000_000});
+      mgv = new InvertedMangrove({gasprice: 40, gasmax: 1_000_000});
 
       mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
       mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
 
       return mgv;
     } else {
-      mgv = new MMgv({gasprice: 40, gasmax: 1_000_000});
+      mgv = new Mangrove({gasprice: 40, gasmax: 1_000_000});
 
       mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
       mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
@@ -205,7 +205,7 @@ library MgvSetup {
 
 library MakerSetup {
   function setup(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote,
     uint failer // 1 shouldFail, 2 shouldRevert
@@ -217,7 +217,7 @@ library MakerSetup {
   }
 
   function setup(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote
   ) external returns (TestMaker) {
@@ -227,7 +227,7 @@ library MakerSetup {
 
 library MakerDeployerSetup {
   function setup(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote
   ) external returns (MakerDeployer) {
@@ -238,7 +238,7 @@ library MakerDeployerSetup {
 
 library TakerSetup {
   function setup(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote
   ) external returns (TestTaker) {

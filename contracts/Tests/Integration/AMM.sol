@@ -15,8 +15,8 @@ import "../Agents/OfferManager.sol";
 import "../Agents/UniSwapMaker.sol";
 
 contract AMM_Test {
-  Mangrove mgv;
-  Mangrove invMgv;
+  AbstractMangrove mgv;
+  AbstractMangrove invMgv;
   TestToken tk0;
   TestToken tk1;
 
@@ -116,7 +116,7 @@ contract AMM_Test {
       0.8 ether,
       1 ether
     );
-    Mangrove MGV = mgv;
+    AbstractMangrove MGV = mgv;
     if (inverted) {
       TestEvents.expectFrom(address(invMgv));
       MGV = invMgv;

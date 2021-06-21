@@ -14,12 +14,12 @@ import "hardhat/console.sol";
 contract MakerDeployer {
   address payable[] makers;
   bool deployed;
-  Mangrove mgv;
+  AbstractMangrove mgv;
   address base;
   address quote;
 
   constructor(
-    Mangrove _mgv,
+    AbstractMangrove _mgv,
     address _base,
     address _quote
   ) {

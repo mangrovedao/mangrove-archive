@@ -4,20 +4,20 @@ pragma abicoder v2;
 
 import "./Passthrough.sol";
 import "../../interfaces.sol";
-import "../../Mangrove.sol";
+import "../../AbstractMangrove.sol";
 import "../../MgvPack.sol";
 import "hardhat/console.sol";
 import {IMaker} from "../../MgvLib.sol";
 
 contract TestMaker is IMaker, Passthrough {
-  Mangrove _mgv;
+  AbstractMangrove _mgv;
   address _base;
   address _quote;
   bool _shouldFail;
   bool _shouldRevert;
 
   constructor(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     IERC20 base,
     IERC20 quote
   ) {

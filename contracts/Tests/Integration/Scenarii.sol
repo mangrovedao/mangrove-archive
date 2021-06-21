@@ -32,7 +32,7 @@ import "./TestMarketOrder.sol";
 // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
 
 contract Scenarii_Test {
-  Mangrove mgv;
+  AbstractMangrove mgv;
   TestTaker taker;
   MakerDeployer makers;
   TestToken base;
@@ -182,7 +182,7 @@ contract Scenarii_Test {
 contract DeepCollect_Test {
   TestToken base;
   TestToken quote;
-  Mangrove mgv;
+  AbstractMangrove mgv;
   TestTaker tkr;
   TestMoriartyMaker evil;
 

@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "../Mangrove.sol";
+import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
@@ -19,9 +19,9 @@ import "./Agents/MakerDeployer.sol";
 import "./Agents/TestTaker.sol";
 
 contract NotAdmin {
-  Mangrove mgv;
+  AbstractMangrove mgv;
 
-  constructor(Mangrove _mgv) {
+  constructor(AbstractMangrove _mgv) {
     mgv = _mgv;
   }
 
@@ -90,7 +90,7 @@ contract NotAdmin {
 contract Gatekeeping_Test is IMaker {
   receive() external payable {}
 
-  Mangrove mgv;
+  AbstractMangrove mgv;
   TestTaker tkr;
   TestMaker mkr;
   TestMaker dual_mkr;

@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../Mangrove.sol";
+import "../AbstractMangrove.sol";
 import {IMaker as IM, MgvLib} from "../MgvLib.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
@@ -24,7 +24,7 @@ contract InvertedTakerOperations_Test is ITaker {
   TestToken quoteT;
   address base;
   address quote;
-  Mangrove mgv;
+  AbstractMangrove mgv;
   TestMaker mkr;
   bytes4 takerTrade_bytes;
   uint baseBalance;

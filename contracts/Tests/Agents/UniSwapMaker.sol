@@ -3,13 +3,13 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "../../ERC20BL.sol";
-import "../../Mangrove.sol";
+import "../../AbstractMangrove.sol";
 import {IMaker} from "../../MgvLib.sol";
 
 // Mangrove must be provisioned in the name of UniSwapMaker
 // UniSwapMaker must have ERC20 credit in tk0 and tk1 and these credits should not be shared (since contract is memoryless)
 contract UniSwapMaker is IMaker {
-  Mangrove mgv;
+  AbstractMangrove mgv;
   address private admin;
   uint gasreq = 80_000;
   uint8 share; // [1,100] for 1/1 to 1/100
@@ -18,7 +18,7 @@ contract UniSwapMaker is IMaker {
   uint24 ofr1;
 
   constructor(
-    Mangrove _mgv,
+    AbstractMangrove _mgv,
     uint _share,
     uint _fee
   ) {

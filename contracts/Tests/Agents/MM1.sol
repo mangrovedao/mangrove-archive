@@ -9,7 +9,7 @@ import {
   MgvEvents,
   IMgvMonitor
 } from "../../MgvLib.sol";
-import "../../Mangrove.sol";
+import "../../AbstractMangrove.sol";
 import "../../interfaces.sol";
 import "../Toolbox/Display.sol";
 import "hardhat/console.sol";
@@ -24,14 +24,14 @@ contract MM1 {
   uint immutable buy_id;
   address immutable a_addr;
   address immutable b_addr;
-  Mangrove immutable mgv;
+  AbstractMangrove immutable mgv;
 
   /* This MM has 1 offer on each side of a book. After each take, it updates both offers.
      The new price is based on the midprice between each books, a base_spread,
      and the ratio of a/b inventories normalized by the current midprice. */
 
   constructor(
-    Mangrove _mgv,
+    AbstractMangrove _mgv,
     address _a_addr,
     address _b_addr
   ) payable {

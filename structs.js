@@ -3,12 +3,12 @@
    * Offers are sorted in a doubly linked list.
    * Each offer promises `base` and requests `quote`.
    * Each offer has an attached `maker` address.
-   * In the normal operation mode (called MMgv for Maker Mangrove), when an offer is executed, we:
+   * In the normal operation mode (called Mangrove for Maker Mangrove), when an offer is executed, we:
      1. Flashloan some `quote` to the offer's `maker`.
      2. Call an arbitrary `execute` function on that address.
      3. Transfer back some `base`.
      4. Call back the `maker` so they can update their offers.
-   * There is an inverted operation mode (called TMgv for Taker Mangrove), the flashloan is reversed (from the maker to the taker).
+   * There is an inverted operation mode (called InvertedMangrove for Taker Mangrove), the flashloan is reversed (from the maker to the taker).
    * Offer are just promises. They can fail.
    * If an offer fails to transfer the right amount back, the loan is reverted.
    * A penalty mechanism incentivizes keepers to keep the book clean of failing offers.

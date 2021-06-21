@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../Mangrove.sol";
+import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
@@ -26,7 +26,7 @@ contract TakerOperations_Test {
   TestToken quoteT;
   address base;
   address quote;
-  Mangrove mgv;
+  AbstractMangrove mgv;
   TestMaker mkr;
   TestMaker refusemkr;
   TestMaker failmkr;

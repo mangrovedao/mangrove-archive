@@ -8,7 +8,7 @@ library TestSnipe {
   function run(
     TestUtils.Balances storage balances,
     mapping(uint => mapping(TestUtils.Info => uint)) storage offers,
-    Mangrove mgv,
+    AbstractMangrove mgv,
     MakerDeployer makers,
     TestTaker taker,
     TestToken base,

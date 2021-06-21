@@ -5,7 +5,7 @@ import "../Toolbox/TestUtils.sol";
 
 library TestFailingMarketOrder {
   function moWithFailures(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote,
     TestTaker taker

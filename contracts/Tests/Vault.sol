@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../Mangrove.sol";
+import "../AbstractMangrove.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -17,7 +17,7 @@ import "./Agents/TestToken.sol";
 contract Vault_Test {
   receive() external payable {}
 
-  Mangrove mgv;
+  AbstractMangrove mgv;
   TestMaker mkr;
   address base;
   address quote;

@@ -3,16 +3,16 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "../../interfaces.sol";
-import "../../Mangrove.sol";
+import "../../AbstractMangrove.sol";
 import "./OfferManager.sol";
 
 contract TestTaker is ITaker {
-  Mangrove _mgv;
+  AbstractMangrove _mgv;
   address _base;
   address _quote;
 
   constructor(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     IERC20 base,
     IERC20 quote
   ) {
@@ -66,7 +66,7 @@ contract TestTaker is ITaker {
   }
 
   function snipe(
-    Mangrove __mgv,
+    AbstractMangrove __mgv,
     address __base,
     address __quote,
     uint offerId,
@@ -96,7 +96,7 @@ contract TestTaker is ITaker {
   }
 
   function marketOrder(
-    Mangrove __mgv,
+    AbstractMangrove __mgv,
     address __base,
     address __quote,
     uint takerWants,

@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../Mangrove.sol";
+import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
@@ -22,7 +22,7 @@ import "./Agents/TestTaker.sol";
 contract Gas_Test is IMaker {
   receive() external payable {}
 
-  Mangrove _mgv;
+  AbstractMangrove _mgv;
   TestTaker _tkr;
   address _base;
   address _quote;
@@ -65,7 +65,7 @@ contract Gas_Test is IMaker {
     internal
     view
     returns (
-      Mangrove,
+      AbstractMangrove,
       TestTaker,
       address,
       address
@@ -89,7 +89,7 @@ contract Gas_Test is IMaker {
   ) external override {}
 
   function update_min_move_0_offer_test() public {
-    (Mangrove mgv, , address base, address quote) = getStored();
+    (AbstractMangrove mgv, , address base, address quote) = getStored();
     //uint g = gasleft();
     //uint h;
     mgv.updateOffer(base, quote, 1 ether, 1 ether, 100_000, 0, 1, 1);
@@ -98,7 +98,7 @@ contract Gas_Test is IMaker {
   }
 
   function update_full_offer_test() public {
-    (Mangrove mgv, , address base, address quote) = getStored();
+    (AbstractMangrove mgv, , address base, address quote) = getStored();
     //uint g = gasleft();
     //uint h;
     mgv.updateOffer(base, quote, 0.5 ether, 1 ether, 100_001, 0, 1, 1);
@@ -107,14 +107,14 @@ contract Gas_Test is IMaker {
   }
 
   function update_min_move_3_offer_before() public {
-    (Mangrove mgv, , address base, address quote) = getStored();
+    (AbstractMangrove mgv, , address base, address quote) = getStored();
     mgv.newOffer(base, quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
     mgv.newOffer(base, quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
     mgv.newOffer(base, quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
   }
 
   function update_min_move_3_offer_test() public {
-    (Mangrove mgv, , address base, address quote) = getStored();
+    (AbstractMangrove mgv, , address base, address quote) = getStored();
     //uint g = gasleft();
     //uint h;
     mgv.updateOffer(base, quote, 1.0 ether, 0.1 ether, 100_00, 0, 1, 1);
@@ -123,7 +123,7 @@ contract Gas_Test is IMaker {
   }
 
   function update_min_move_6_offer_before() public {
-    (Mangrove mgv, , address base, address quote) = getStored();
+    (AbstractMangrove mgv, , address base, address quote) = getStored();
     mgv.newOffer(base, quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
     mgv.newOffer(base, quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
     mgv.newOffer(base, quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
@@ -133,7 +133,7 @@ contract Gas_Test is IMaker {
   }
 
   function update_min_move_6_offer_test() public {
-    (Mangrove mgv, , address base, address quote) = getStored();
+    (AbstractMangrove mgv, , address base, address quote) = getStored();
     //uint g = gasleft();
     //uint h;
     mgv.updateOffer(base, quote, 1.0 ether, 0.1 ether, 100_00, 0, 1, 1);
@@ -142,7 +142,7 @@ contract Gas_Test is IMaker {
   }
 
   function new_offer_test() public {
-    (Mangrove mgv, , address base, address quote) = getStored();
+    (AbstractMangrove mgv, , address base, address quote) = getStored();
     //uint g = gasleft();
     //uint h;
     mgv.newOffer(base, quote, 0.1 ether, 0.1 ether, 100_000, 0, 1);
@@ -151,7 +151,8 @@ contract Gas_Test is IMaker {
   }
 
   function take_offer_test() public {
-    (Mangrove mgv, TestTaker tkr, address base, address quote) = getStored();
+    (AbstractMangrove mgv, TestTaker tkr, address base, address quote) =
+      getStored();
     //uint g = gasleft();
     //uint h;
     tkr.snipe(mgv, base, quote, 1, 1 ether, 1 ether, 100_000);
@@ -160,7 +161,8 @@ contract Gas_Test is IMaker {
   }
 
   function partial_take_offer_test() public {
-    (Mangrove mgv, TestTaker tkr, address base, address quote) = getStored();
+    (AbstractMangrove mgv, TestTaker tkr, address base, address quote) =
+      getStored();
     //uint g = gasleft();
     //uint h;
     tkr.snipe(mgv, base, quote, 1, 0.5 ether, 0.5 ether, 100_000);
@@ -169,7 +171,8 @@ contract Gas_Test is IMaker {
   }
 
   function market_order_1_test() public {
-    (Mangrove mgv, TestTaker tkr, address base, address quote) = getStored();
+    (AbstractMangrove mgv, TestTaker tkr, address base, address quote) =
+      getStored();
     //uint g = gasleft();
     //uint h;
     tkr.marketOrder(mgv, base, quote, 1 ether, 1 ether);
@@ -178,7 +181,7 @@ contract Gas_Test is IMaker {
   }
 
   function market_order_8_before() public {
-    (Mangrove mgv, , address base, address quote) = getStored();
+    (AbstractMangrove mgv, , address base, address quote) = getStored();
     mgv.newOffer(base, quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
     mgv.newOffer(base, quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
     mgv.newOffer(base, quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
@@ -189,7 +192,8 @@ contract Gas_Test is IMaker {
   }
 
   function market_order_8_test() public {
-    (Mangrove mgv, TestTaker tkr, address base, address quote) = getStored();
+    (AbstractMangrove mgv, TestTaker tkr, address base, address quote) =
+      getStored();
     //uint g = gasleft();
     //uint h;
     tkr.marketOrder(mgv, base, quote, 2 ether, 2 ether);

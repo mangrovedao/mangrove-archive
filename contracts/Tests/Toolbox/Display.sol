@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "hardhat/console.sol";
-import "../../Mangrove.sol";
+import "../../AbstractMangrove.sol";
 import "../Agents/TestToken.sol";
 
 library Display {
@@ -351,7 +351,7 @@ library Display {
   );
 
   function logOfferBook(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote,
     uint size
@@ -379,7 +379,7 @@ library Display {
   }
 
   function printOfferBook(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     address base,
     address quote
   ) internal view {

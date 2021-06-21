@@ -11,7 +11,7 @@ import {MgvLib as ML, MgvEvents, IMgvMonitor} from "./MgvLib.sol";
 
    There is a secondary mode of operation ('Flash Taker') in which the _maker_ flashloans the sold amount to the taker.
 
-   The Mangrove contract is `abstract` and accomodates both modes. Two contracts, `MMgv` (Maker Mangrove) and `TMgv` (Taker Mangrove) inherit from it, one per mode of operation.
+   The Mangrove contract is `abstract` and accomodates both modes. Two contracts, `Mangrove` (Maker Mangrove) and `InvertedMangrove` (Taker Mangrove) inherit from it, one per mode of operation.
 
    The contract structure is as follows:
    <img src="./modular_mangrove.svg" width="200%"> </img>

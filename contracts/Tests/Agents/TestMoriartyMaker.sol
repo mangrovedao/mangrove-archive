@@ -3,18 +3,18 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./Passthrough.sol";
 import "../../interfaces.sol";
-import "../../Mangrove.sol";
+import "../../AbstractMangrove.sol";
 import {IMaker} from "../../MgvLib.sol";
 
 contract TestMoriartyMaker is IMaker, Passthrough {
-  Mangrove mgv;
+  AbstractMangrove mgv;
   address base;
   address quote;
   bool succeed;
   uint dummy;
 
   constructor(
-    Mangrove _mgv,
+    AbstractMangrove _mgv,
     address _base,
     address _quote
   ) {

@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "../Mangrove.sol";
+import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
@@ -27,7 +27,7 @@ import "./Agents/TestTaker.sol";
 contract PermitHelper is IMaker {
   receive() external payable {}
 
-  Mangrove mgv;
+  AbstractMangrove mgv;
   address base;
   address quote;
 

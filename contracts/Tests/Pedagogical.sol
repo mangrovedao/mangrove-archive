@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../Mangrove.sol";
+import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
@@ -22,7 +22,7 @@ import "./Agents/Compound.sol";
 contract Pedagogical_Test {
   receive() external payable {}
 
-  Mangrove mgv;
+  AbstractMangrove mgv;
   TestToken bat;
   TestToken dai;
   TestTaker tkr;
@@ -141,7 +141,7 @@ contract Pedagogical_Test {
 
     dai = new TestToken({admin: address(this), name: "Dai", symbol: "DAI"});
 
-    mgv = new MMgv({gasprice: 40, gasmax: 1_000_000});
+    mgv = new Mangrove({gasprice: 40, gasmax: 1_000_000});
 
     // activate a market where taker buys BAT using DAI
     mgv.activate({
@@ -218,7 +218,7 @@ contract Pedagogical_Test {
 // Sends amount to taker.
 contract Maker_basic is TestMaker {
   constructor(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     ERC20BL base,
     ERC20BL quote
   ) TestMaker(mgv, base, quote) {
@@ -242,7 +242,7 @@ contract Maker_compound is TestMaker {
   Compound _compound;
 
   constructor(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     ERC20BL base,
     ERC20BL quote,
     Compound compound
@@ -278,7 +278,7 @@ contract Maker_compound is TestMaker {
 // Reinserts the offer if necessary.
 contract Maker_callback is TestMaker {
   constructor(
-    Mangrove mgv,
+    AbstractMangrove mgv,
     ERC20BL base,
     ERC20BL quote
   ) TestMaker(mgv, base, quote) {
@@ -304,7 +304,7 @@ contract Maker_callback is TestMaker {
     override
   {
     Display.log("Reinserting offer...");
-    Mangrove mgv = Mangrove(msg.sender);
+    AbstractMangrove mgv = AbstractMangrove(msg.sender);
     mgv.updateOffer({
       base: order.base,
       quote: order.quote,

@@ -6,7 +6,7 @@ import "../Toolbox/TestUtils.sol";
 library TestInsert {
   function run(
     TestUtils.Balances storage balances,
-    Mangrove mgv,
+    AbstractMangrove mgv,
     MakerDeployer makers,
     TestTaker, /* taker */ // silence warning about unused argument
     TestToken base,

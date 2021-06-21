@@ -3,10 +3,12 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 import {ITaker, MgvLib as ML} from "./MgvLib.sol";
 
-import {Mangrove} from "./Mangrove.sol";
+import {AbstractMangrove} from "./AbstractMangrove.sol";
 
-contract TMgv is Mangrove {
-  constructor(uint gasprice, uint gasmax) Mangrove(gasprice, gasmax, "FTD") {}
+contract InvertedMangrove is AbstractMangrove {
+  constructor(uint gasprice, uint gasmax)
+    AbstractMangrove(gasprice, gasmax, "FTD")
+  {}
 
   // execute taker trade
   function executeEnd(MultiOrder memory mor, ML.SingleOrder memory sor)

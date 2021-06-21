@@ -7,7 +7,7 @@ library TestCollectFailingOffer {
   function run(
     TestUtils.Balances storage balances,
     mapping(uint => mapping(TestUtils.Info => uint)) storage offers,
-    Mangrove mgv,
+    AbstractMangrove mgv,
     uint failingOfferId,
     MakerDeployer makers,
     TestTaker taker,
