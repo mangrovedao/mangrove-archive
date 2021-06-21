@@ -10,7 +10,7 @@ interface ICompoundPriceOracle {
 
 interface IComptroller {
   // adding usefull public getters
-  function oracle() external returns (ICompoundPriceOracle oracle);
+  function oracle() external returns (ICompoundPriceOracle priceFeed);
 
   function markets(address cToken)
     external

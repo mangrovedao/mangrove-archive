@@ -75,26 +75,44 @@ contract TakerOperations_Test {
   }
 
   function snipe_reverts_if_taker_is_blacklisted_for_quote_test() public {
-    uint mkr_provision = TestUtils.getProvision(mgv, base, quote, 50_000);
+    uint weiBalanceBefore = mgv.balanceOf(address(this));
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
     quoteT.approve(address(mgv), 1 ether);
     quoteT.blacklists(address(this));
     try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000) {
       TestEvents.fail("Snipe should fail");
-    } catch Error(string memory msg) {
-      TestEvents.eq(msg, "mgv/takerFailToPayMaker", "Unexpected revert reason");
+    } catch Error(string memory errorMsg) {
+      TestEvents.eq(
+        errorMsg,
+        "mgv/takerFailToPayMaker",
+        "Unexpected revert reason"
+      );
+      TestEvents.eq(
+        weiBalanceBefore,
+        mgv.balanceOf(address(this)),
+        "Taker should not take bounty"
+      );
     }
   }
 
   function snipe_reverts_if_taker_is_blacklisted_for_base_test() public {
-    uint mkr_provision = TestUtils.getProvision(mgv, base, quote, 50_000);
+    uint weiBalanceBefore = mgv.balanceOf(address(this));
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
     quoteT.approve(address(mgv), 1 ether);
     baseT.blacklists(address(this));
     try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000) {
       TestEvents.fail("Snipe should fail");
-    } catch Error(string memory msg) {
-      TestEvents.eq(msg, "mgv/MgvFailToPayTaker", "Unexpected revert reason");
+    } catch Error(string memory errorMsg) {
+      TestEvents.eq(
+        errorMsg,
+        "mgv/MgvFailToPayTaker",
+        "Unexpected revert reason"
+      );
+      TestEvents.eq(
+        weiBalanceBefore,
+        mgv.balanceOf(address(this)),
+        "Taker should not take bounty"
+      );
     }
   }
 
@@ -261,7 +279,7 @@ contract TakerOperations_Test {
         1 ether,
         "Incorrect delivered amount"
       );
-    } catch Error(string memory r) {
+    } catch {
       TestEvents.fail("Snipe should succeed");
     }
   }

@@ -76,8 +76,7 @@ contract MM1T_Test {
   function ta_test() public {
     Display.logOfferBook(mgv, base, quote, 3);
     Display.logOfferBook(mgv, quote, base, 3);
-    (MgvLib.Offer memory ofr, MgvLib.OfferDetail memory det) =
-      mgv.offerInfo(base, quote, 1);
+    (MgvLib.Offer memory ofr, ) = mgv.offerInfo(base, quote, 1);
     console.log("prev", ofr.prev);
     mkr.newOffer(base, quote, 0.05 ether, 0.1 ether, 200_000, 0);
     mkr.newOffer(quote, base, 0.05 ether, 0.05 ether, 200_000, 0);

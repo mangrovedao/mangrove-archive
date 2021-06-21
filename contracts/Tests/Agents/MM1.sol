@@ -52,12 +52,11 @@ contract MM1 {
     doMakerPosthook();
   }
 
-  function makerTrade(DC.SingleOrder calldata order) external {}
+  function makerTrade(DC.SingleOrder calldata) external {}
 
-  function makerPosthook(
-    DC.SingleOrder calldata order,
-    DC.OrderResult calldata result
-  ) external {
+  function makerPosthook(DC.SingleOrder calldata, DC.OrderResult calldata)
+    external
+  {
     doMakerPosthook();
   }
 
