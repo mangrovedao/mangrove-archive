@@ -4,6 +4,7 @@ pragma abicoder v2;
 
 import "../../ERC20BL.sol";
 import "../../Mangrove.sol";
+import {IMaker} from "../../MgvCommon.sol";
 
 // Mangrove must be provisioned in the name of UniSwapMaker
 // UniSwapMaker must have ERC20 credit in tk0 and tk1 and these credits should not be shared (since contract is memoryless)

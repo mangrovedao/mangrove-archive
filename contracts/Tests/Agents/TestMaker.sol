@@ -7,6 +7,7 @@ import "../../interfaces.sol";
 import "../../Mangrove.sol";
 import "../../MgvPack.sol";
 import "hardhat/console.sol";
+import {IMaker} from "../../MgvCommon.sol";
 
 contract TestMaker is IMaker, Passthrough {
   Mangrove _mgv;

@@ -5,7 +5,13 @@ pragma abicoder v2;
 import "../../Mangrove.sol";
 import "../../interfaces.sol";
 //import "../../MgvCommon.sol";
-import {MgvCommon as MC, MgvEvents, IMgvMonitor} from "../../MgvCommon.sol";
+import {
+  IMaker,
+  ITaker,
+  MgvCommon as MC,
+  MgvEvents,
+  IMgvMonitor
+} from "../../MgvCommon.sol";
 import "hardhat/console.sol";
 
 import "../Toolbox/Display.sol";

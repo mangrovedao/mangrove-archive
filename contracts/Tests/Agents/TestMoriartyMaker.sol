@@ -4,6 +4,7 @@ pragma abicoder v2;
 import "./Passthrough.sol";
 import "../../interfaces.sol";
 import "../../Mangrove.sol";
+import {IMaker} from "../../MgvCommon.sol";
 
 contract TestMoriartyMaker is IMaker, Passthrough {
   Mangrove mgv;

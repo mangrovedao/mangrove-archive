@@ -446,7 +446,7 @@ contract TakerOperations_Test {
 
     bytes memory cd =
       abi.encodeWithSelector(
-        Mangrove.snipe.selector,
+        mgv.snipe.selector,
         base,
         quote,
         ofr,

@@ -10,6 +10,8 @@ import "../Agents/TestToken.sol";
 
 import "./TestEvents.sol";
 import "./Display.sol";
+import "../../TMgv.sol";
+import "../../MMgv.sol";
 
 library TestUtils {
   struct Balances {
@@ -162,7 +164,10 @@ library TokenSetup {
 }
 
 library MgvSetup {
-  function setup(TestToken base, TestToken quote) external returns (Mangrove mgv) {
+  function setup(TestToken base, TestToken quote)
+    external
+    returns (Mangrove mgv)
+  {
     TestEvents.not0x(address(base));
     TestEvents.not0x(address(quote));
     mgv = new MMgv({gasprice: 40, gasmax: 1_000_000});
