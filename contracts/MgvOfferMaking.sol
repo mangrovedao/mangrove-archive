@@ -3,9 +3,9 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import {IMaker, MgvEvents} from "./MgvCommon.sol";
-import {MgvBase} from "./MgvBase.sol";
+import {MgvHasOffers} from "./MgvHasOffers.sol";
 
-contract MgvOfferMaking is MgvBase {
+contract MgvOfferMaking is MgvHasOffers {
   /* # Public Maker operations
      ## New Offer */
   //+clear+

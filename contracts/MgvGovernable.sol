@@ -3,13 +3,13 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import {MgvEvents} from "./MgvCommon.sol";
-import {MgvBase} from "./MgvBase.sol";
+import {MgvRoot} from "./MgvRoot.sol";
 
-contract MgvGovernable is MgvBase {
+contract MgvGovernable is MgvRoot {
   /* The `governance` address. Governance is the only address that can configure parameters. */
   address public governance;
 
-  constructor(uint _gasprice, uint gasmax) MgvBase() {
+  constructor(uint _gasprice, uint gasmax) MgvRoot() {
     emit MgvEvents.NewMgv();
 
     /* Initialize governance. At this stage we cannot use the `setGovernance` method since no admin is set. */

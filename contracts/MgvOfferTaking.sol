@@ -3,10 +3,10 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import {MgvEvents, IMaker, IMgvMonitor, MgvCommon as MC} from "./MgvCommon.sol";
-import {MgvBase} from "./MgvBase.sol";
+import {MgvHasOffers} from "./MgvHasOffers.sol";
 import {IERC20} from "./interfaces.sol";
 
-abstract contract MgvOfferTaking is MgvBase {
+abstract contract MgvOfferTaking is MgvHasOffers {
   /* The `MultiOrder` struct is used by market orders and snipes. Some of its fields are only used by market orders (`initialWants, initialGives`), and `successCount` is only used by snipes. The struct is helpful in decreasing stack use. */
   struct MultiOrder {
     uint initialWants;
