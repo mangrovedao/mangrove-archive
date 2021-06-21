@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "../Mangrove.sol";
-import "../MgvCommon.sol";
+import "../MgvLib.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -74,7 +74,7 @@ contract Gas_Test is IMaker {
     return (_mgv, _tkr, _base, _quote);
   }
 
-  function makerTrade(MC.SingleOrder calldata)
+  function makerTrade(ML.SingleOrder calldata)
     external
     pure
     override
@@ -84,8 +84,8 @@ contract Gas_Test is IMaker {
   }
 
   function makerPosthook(
-    MC.SingleOrder calldata order,
-    MC.OrderResult calldata result
+    ML.SingleOrder calldata order,
+    ML.OrderResult calldata result
   ) external override {}
 
   function update_min_move_0_offer_test() public {

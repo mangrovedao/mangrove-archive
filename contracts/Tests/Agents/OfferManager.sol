@@ -4,14 +4,14 @@ pragma abicoder v2;
 
 import "../../Mangrove.sol";
 import "../../interfaces.sol";
-//import "../../MgvCommon.sol";
+//import "../../MgvLib.sol";
 import {
   IMaker,
   ITaker,
-  MgvCommon as MC,
+  MgvLib as ML,
   MgvEvents,
   IMgvMonitor
-} from "../../MgvCommon.sol";
+} from "../../MgvLib.sol";
 import "hardhat/console.sol";
 
 import "../Toolbox/Display.sol";
@@ -52,8 +52,8 @@ contract OfferManager is IMaker, ITaker {
   }
 
   function makerPosthook(
-    MC.SingleOrder calldata _order,
-    MC.OrderResult calldata
+    ML.SingleOrder calldata _order,
+    ML.OrderResult calldata
   ) external override {
     if (msg.sender == address(invMgv)) {
       //should have received funds by now
@@ -74,7 +74,7 @@ contract OfferManager is IMaker, ITaker {
     uint takerGives
   );
 
-  function makerTrade(MC.SingleOrder calldata _order)
+  function makerTrade(ML.SingleOrder calldata _order)
     external
     override
     returns (bytes32 ret)
@@ -131,7 +131,7 @@ contract OfferManager is IMaker, ITaker {
       } else {
         _MGV = mgv;
       }
-      MC.Config memory config = _MGV.getConfig(base, quote);
+      ML.Config memory config = _MGV.getConfig(base, quote);
       require(
         msg.value >= gas_to_execute * uint(config.global.gasprice) * 10**9,
         "Insufficent funds to delegate order"

@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {MgvCommon as MC, MgvEvents, IMgvMonitor} from "./MgvCommon.sol";
+import {MgvLib as ML, MgvEvents, IMgvMonitor} from "./MgvLib.sol";
 
 /*
    These contracts describe an orderbook-based exchange ("the Mangrove") where market makers *do not have to provision their offer*. See `structs.js` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. In the normal mode of operation ('Flash Maker'), the Mangrove transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
@@ -47,10 +47,10 @@ contract MgvRoot {
   /* Returns the configuration in an ABI-compatible struct. Should not be called internally, would be a huge memory copying waste. Use `config` instead. */
   function getConfig(address base, address quote)
     external
-    returns (MC.Config memory ret)
+    returns (ML.Config memory ret)
   {
     (bytes32 _global, bytes32 _local) = config(base, quote);
-    ret.global = MC.Global({
+    ret.global = ML.Global({
       monitor: $$(global_monitor("_global")),
       useOracle: $$(global_useOracle("_global")) > 0,
       notify: $$(global_notify("_global")) > 0,
@@ -58,7 +58,7 @@ contract MgvRoot {
       gasmax: $$(global_gasmax("_global")),
       dead: $$(global_dead("_global")) > 0
     });
-    ret.local = MC.Local({
+    ret.local = ML.Local({
       active: $$(local_active("_local")) > 0,
       overhead_gasbase: $$(local_overhead_gasbase("_local")),
       offer_gasbase: $$(local_offer_gasbase("_local")),

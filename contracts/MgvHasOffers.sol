@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {MgvCommon as MC, MgvEvents, IMgvMonitor} from "./MgvCommon.sol";
+import {MgvLib as ML, MgvEvents, IMgvMonitor} from "./MgvLib.sol";
 import {MgvRoot} from "./MgvRoot.sol";
 
 contract MgvHasOffers is MgvRoot {
@@ -34,10 +34,10 @@ contract MgvHasOffers is MgvRoot {
     address base,
     address quote,
     uint offerId
-  ) external view returns (MC.Offer memory, MC.OfferDetail memory) {
+  ) external view returns (ML.Offer memory, ML.OfferDetail memory) {
     bytes32 offer = offers[base][quote][offerId];
-    MC.Offer memory offerStruct =
-      MC.Offer({
+    ML.Offer memory offerStruct =
+      ML.Offer({
         prev: $$(offer_prev("offer")),
         next: $$(offer_next("offer")),
         wants: $$(offer_wants("offer")),
@@ -47,8 +47,8 @@ contract MgvHasOffers is MgvRoot {
 
     bytes32 offerDetail = offerDetails[base][quote][offerId];
 
-    MC.OfferDetail memory offerDetailStruct =
-      MC.OfferDetail({
+    ML.OfferDetail memory offerDetailStruct =
+      ML.OfferDetail({
         maker: $$(offerDetail_maker("offerDetail")),
         gasreq: $$(offerDetail_gasreq("offerDetail")),
         overhead_gasbase: $$(offerDetail_overhead_gasbase("offerDetail")),

@@ -7,7 +7,7 @@ import "../../interfaces.sol";
 import "../../Mangrove.sol";
 import "../../MgvPack.sol";
 import "hardhat/console.sol";
-import {IMaker} from "../../MgvCommon.sol";
+import {IMaker} from "../../MgvLib.sol";
 
 contract TestMaker is IMaker, Passthrough {
   Mangrove _mgv;
@@ -68,7 +68,7 @@ contract TestMaker is IMaker, Passthrough {
     token.transfer(to, amount);
   }
 
-  function makerTrade(MC.SingleOrder calldata order)
+  function makerTrade(ML.SingleOrder calldata order)
     public
     virtual
     override
@@ -100,8 +100,8 @@ contract TestMaker is IMaker, Passthrough {
   }
 
   function makerPosthook(
-    MC.SingleOrder calldata order,
-    MC.OrderResult calldata result
+    ML.SingleOrder calldata order,
+    ML.OrderResult calldata result
   ) external virtual override {}
 
   function newOffer(

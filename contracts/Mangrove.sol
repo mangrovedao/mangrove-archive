@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {MgvCommon as MC} from "./MgvCommon.sol";
+import {MgvLib as ML} from "./MgvLib.sol";
 
 import {MgvOfferMaking} from "./MgvOfferMaking.sol";
 import {MgvOfferTakingWithPermit} from "./MgvOfferTakingWithPermit.sol";

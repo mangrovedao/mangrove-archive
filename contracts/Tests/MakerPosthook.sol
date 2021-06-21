@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "../Mangrove.sol";
 import "../MgvIt.sol";
-import "../MgvCommon.sol";
+import "../MgvLib.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -40,7 +40,7 @@ contract MakerPosthook_Test is IMaker {
 
   receive() external payable {}
 
-  function makerTrade(MgvCommon.SingleOrder calldata trade)
+  function makerTrade(MgvLib.SingleOrder calldata trade)
     external
     override
     returns (bytes32)
@@ -62,8 +62,8 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function renew_offer_at_posthook(
-    MgvCommon.SingleOrder calldata order,
-    MgvCommon.OrderResult calldata
+    MgvLib.SingleOrder calldata order,
+    MgvLib.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
     called = true;
@@ -80,8 +80,8 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function update_gas_offer_at_posthook(
-    MgvCommon.SingleOrder calldata order,
-    MgvCommon.OrderResult calldata
+    MgvLib.SingleOrder calldata order,
+    MgvLib.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
     called = true;
@@ -98,8 +98,8 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function failer_posthook(
-    MgvCommon.SingleOrder calldata,
-    MgvCommon.OrderResult calldata
+    MgvLib.SingleOrder calldata,
+    MgvLib.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
     called = true;
@@ -107,8 +107,8 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function retractOffer_posthook(
-    MgvCommon.SingleOrder calldata,
-    MgvCommon.OrderResult calldata
+    MgvLib.SingleOrder calldata,
+    MgvLib.OrderResult calldata
   ) external {
     require(msg.sender == address(this));
     called = true;
@@ -124,8 +124,8 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function makerPosthook(
-    MgvCommon.SingleOrder calldata order,
-    MgvCommon.OrderResult calldata result
+    MgvLib.SingleOrder calldata order,
+    MgvLib.OrderResult calldata result
   ) external override {
     require(msg.sender == address(mgv));
     TestEvents.check(
@@ -275,8 +275,8 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function treat_fail_at_posthook(
-    MgvCommon.SingleOrder calldata,
-    MgvCommon.OrderResult calldata res
+    MgvLib.SingleOrder calldata,
+    MgvLib.OrderResult calldata res
   ) external {
     TestEvents.check(!res.success, "Offer should be marked as failed");
     TestEvents.check(res.makerData == "NOK", "Incorrect maker data");
@@ -452,11 +452,11 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function check_best_in_posthook(
-    MgvCommon.SingleOrder calldata order,
-    MgvCommon.OrderResult calldata
+    MgvLib.SingleOrder calldata order,
+    MgvLib.OrderResult calldata
   ) external {
     called = true;
-    MgvCommon.Config memory cfg = mgv.getConfig(order.base, order.quote);
+    MgvLib.Config memory cfg = mgv.getConfig(order.base, order.quote);
     TestEvents.eq(cfg.local.best, ofr, "Incorrect best offer id in posthook");
   }
 
@@ -472,11 +472,11 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function check_lastId_in_posthook(
-    MgvCommon.SingleOrder calldata order,
-    MgvCommon.OrderResult calldata
+    MgvLib.SingleOrder calldata order,
+    MgvLib.OrderResult calldata
   ) external {
     called = true;
-    MgvCommon.Config memory cfg = mgv.getConfig(order.base, order.quote);
+    MgvLib.Config memory cfg = mgv.getConfig(order.base, order.quote);
     TestEvents.eq(cfg.local.last, ofr, "Incorrect last offer id in posthook");
   }
 
@@ -527,8 +527,8 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function reverting_posthook(
-    MgvCommon.SingleOrder calldata,
-    MgvCommon.OrderResult calldata
+    MgvLib.SingleOrder calldata,
+    MgvLib.OrderResult calldata
   ) external pure {
     assert(false);
   }

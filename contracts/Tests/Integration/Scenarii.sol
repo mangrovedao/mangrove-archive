@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 //import "../Mangrove.sol";
-//import "../MgvCommon.sol";
+//import "../MgvLib.sol";
 //import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -47,7 +47,7 @@ contract Scenarii_Test {
   function saveOffers() internal {
     uint offerId = mgv.best(address(base), address(quote));
     while (offerId != 0) {
-      (MC.Offer memory offer, MC.OfferDetail memory offerDetail) =
+      (ML.Offer memory offer, ML.OfferDetail memory offerDetail) =
         mgv.offerInfo(address(base), address(quote), offerId);
       offers[offerId][TestUtils.Info.makerWants] = offer.wants;
       offers[offerId][TestUtils.Info.makerGives] = offer.gives;

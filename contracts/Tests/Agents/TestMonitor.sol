@@ -3,11 +3,11 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../../MgvCommon.sol";
+import "../../MgvLib.sol";
 
 library L {
-  event TradeSuccess(MgvCommon.SingleOrder order, address taker);
-  event TradeFail(MgvCommon.SingleOrder order, address taker);
+  event TradeSuccess(MgvLib.SingleOrder order, address taker);
+  event TradeFail(MgvLib.SingleOrder order, address taker);
 }
 
 contract MgvMonitor is IMgvMonitor {
@@ -35,14 +35,14 @@ contract MgvMonitor is IMgvMonitor {
     return (gasprice, densities[base][quote]);
   }
 
-  function notifySuccess(MgvCommon.SingleOrder calldata sor, address taker)
+  function notifySuccess(MgvLib.SingleOrder calldata sor, address taker)
     external
     override
   {
     emit L.TradeSuccess(sor, taker);
   }
 
-  function notifyFail(MgvCommon.SingleOrder calldata sor, address taker)
+  function notifyFail(MgvLib.SingleOrder calldata sor, address taker)
     external
     override
   {

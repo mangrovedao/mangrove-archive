@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {IMaker, MgvEvents} from "./MgvCommon.sol";
+import {IMaker, MgvEvents} from "./MgvLib.sol";
 import {MgvHasOffers} from "./MgvHasOffers.sol";
 
 contract MgvOfferMaking is MgvHasOffers {

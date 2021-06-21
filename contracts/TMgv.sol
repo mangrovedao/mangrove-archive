@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {ITaker, MgvCommon as MC} from "./MgvCommon.sol";
+import {ITaker, MgvLib as ML} from "./MgvLib.sol";
 
 import {Mangrove} from "./Mangrove.sol";
 
@@ -9,7 +9,7 @@ contract TMgv is Mangrove {
   constructor(uint gasprice, uint gasmax) Mangrove(gasprice, gasmax, "FTD") {}
 
   // execute taker trade
-  function executeEnd(MultiOrder memory mor, MC.SingleOrder memory sor)
+  function executeEnd(MultiOrder memory mor, ML.SingleOrder memory sor)
     internal
     override
   {
@@ -34,7 +34,7 @@ So :
    2. Is OK, but has an extra CALL cost on top of the token transfer, one for each maker. This is unavoidable anyway when calling makerTrade (since the maker must be able to execute arbitrary code at that moment), but we can skip it here.
    3. Is the cheapest, but it has the drawbacks of `transferFrom`: money must end up owned by the taker, and taker needs to `approve` Mangrove
    */
-  function executeCallback(MC.SingleOrder memory sor) internal override {
+  function executeCallback(ML.SingleOrder memory sor) internal override {
     /* If `transferToken` returns false here, we're in a special (and bad) situation. The taker is returning part of their total loan to a maker, but the maker can't receive the tokens. Only case we can see: maker is blacklisted. We could punish maker. We don't. We could send money back to taker. We don't. */
     transferToken(
       sor.quote,
@@ -67,7 +67,7 @@ So :
     We choose `transferFrom`.
     */
 
-  function flashloan(MC.SingleOrder calldata sor, address)
+  function flashloan(ML.SingleOrder calldata sor, address)
     external
     override
     returns (uint gasused)

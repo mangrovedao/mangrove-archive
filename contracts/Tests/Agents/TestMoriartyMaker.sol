@@ -4,7 +4,7 @@ pragma abicoder v2;
 import "./Passthrough.sol";
 import "../../interfaces.sol";
 import "../../Mangrove.sol";
-import {IMaker} from "../../MgvCommon.sol";
+import {IMaker} from "../../MgvLib.sol";
 
 contract TestMoriartyMaker is IMaker, Passthrough {
   Mangrove mgv;
@@ -24,7 +24,7 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     succeed = true;
   }
 
-  function makerTrade(MC.SingleOrder calldata order)
+  function makerTrade(ML.SingleOrder calldata order)
     public
     override
     returns (bytes32 ret)
@@ -41,8 +41,8 @@ contract TestMoriartyMaker is IMaker, Passthrough {
   }
 
   function makerPosthook(
-    MC.SingleOrder calldata order,
-    MC.OrderResult calldata result
+    ML.SingleOrder calldata order,
+    ML.OrderResult calldata result
   ) external override {}
 
   function newOffer(

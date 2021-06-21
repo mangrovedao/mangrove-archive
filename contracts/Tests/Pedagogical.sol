@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "../Mangrove.sol";
-import "../MgvCommon.sol";
+import "../MgvLib.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -225,7 +225,7 @@ contract Maker_basic is TestMaker {
     approveMgv(base, 500 ether);
   }
 
-  function makerTrade(MC.SingleOrder calldata)
+  function makerTrade(ML.SingleOrder calldata)
     public
     pure
     override
@@ -258,7 +258,7 @@ contract Maker_compound is TestMaker {
     _compound.mint(ERC20BL(_base), 10 ether);
   }
 
-  function makerTrade(MC.SingleOrder calldata order)
+  function makerTrade(ML.SingleOrder calldata order)
     public
     override
     returns (bytes32 ret)
@@ -285,7 +285,7 @@ contract Maker_callback is TestMaker {
     approveMgv(base, 500 ether);
   }
 
-  function makerTrade(MC.SingleOrder calldata)
+  function makerTrade(ML.SingleOrder calldata)
     public
     pure
     override
@@ -299,7 +299,7 @@ contract Maker_callback is TestMaker {
   uint price = 340; // in %
   uint gasreq = 400_000;
 
-  function makerPosthook(MC.SingleOrder calldata order, MC.OrderResult calldata)
+  function makerPosthook(ML.SingleOrder calldata order, ML.OrderResult calldata)
     external
     override
   {

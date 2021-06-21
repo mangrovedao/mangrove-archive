@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "../Mangrove.sol";
-import "../MgvCommon.sol";
+import "../MgvLib.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -360,7 +360,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function makerGasreq_bigger_than_gasmax_fails_newOffer_test() public {
-    MgvCommon.Config memory cfg = mgv.getConfig(base, quote);
+    MgvLib.Config memory cfg = mgv.getConfig(base, quote);
     try mkr.newOffer(1, 1, cfg.global.gasmax + 1, 0) {
       TestEvents.fail("Offer should not be inserted");
     } catch Error(string memory r) {
@@ -369,7 +369,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function makerGasreq_at_gasmax_succeeds_newOffer_test() public {
-    MgvCommon.Config memory cfg = mgv.getConfig(base, quote);
+    MgvLib.Config memory cfg = mgv.getConfig(base, quote);
     try mkr.newOffer(1 ether, 1 ether, cfg.global.gasmax, 0) returns (
       uint ofr
     ) {
@@ -405,7 +405,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function makerGasreq_lower_than_density_fails_newOffer_test() public {
-    MgvCommon.Config memory cfg = mgv.getConfig(base, quote);
+    MgvLib.Config memory cfg = mgv.getConfig(base, quote);
     uint amount = (1 + cfg.local.offer_gasbase) * cfg.local.density;
     try mkr.newOffer(amount - 1, amount - 1, 1, 0) {
       TestEvents.fail("Offer should not be inserted");
@@ -415,7 +415,7 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function makerGasreq_at_density_suceeds_test() public {
-    MgvCommon.Config memory cfg = mgv.getConfig(base, quote);
+    MgvLib.Config memory cfg = mgv.getConfig(base, quote);
     uint amount = (1 + cfg.local.offer_gasbase) * cfg.local.density;
     try mkr.newOffer(amount, amount, 1, 0) returns (uint ofr) {
       TestEvents.check(
@@ -575,7 +575,7 @@ contract Gatekeeping_Test is IMaker {
   bytes posthook_cb;
 
   // maker's trade fn for the mgv
-  function makerTrade(MC.SingleOrder calldata)
+  function makerTrade(ML.SingleOrder calldata)
     external
     override
     returns (bytes32 ret)
@@ -589,8 +589,8 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function makerPosthook(
-    MC.SingleOrder calldata order,
-    MC.OrderResult calldata result
+    ML.SingleOrder calldata order,
+    ML.OrderResult calldata result
   ) external override {
     bool success;
     order; // silence compiler warning
@@ -677,7 +677,7 @@ contract Gatekeeping_Test is IMaker {
     );
     uint ofr = mgv.newOffer(base, quote, 1 ether, 1 ether, 400_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    (, MC.OfferDetail memory od) = mgv.offerInfo(quote, base, other_ofr);
+    (, ML.OfferDetail memory od) = mgv.offerInfo(quote, base, other_ofr);
     require(od.gasreq == 35_000, "updateOffer on swapped pair must work");
   }
 
@@ -691,7 +691,7 @@ contract Gatekeeping_Test is IMaker {
     );
     uint ofr = mgv.newOffer(base, quote, 1 ether, 1 ether, 300_000, 0, 0);
     require(tkr.take(ofr, 1 ether), "take must succeed or test is void");
-    (, MC.OfferDetail memory od) = mgv.offerInfo(base, quote, other_ofr);
+    (, ML.OfferDetail memory od) = mgv.offerInfo(base, quote, other_ofr);
     require(od.gasreq == 35_000, "updateOffer on posthook must work");
   }
 

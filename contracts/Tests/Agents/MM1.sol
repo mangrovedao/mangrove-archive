@@ -5,10 +5,10 @@ pragma abicoder v2;
 import {
   ITaker,
   IMaker,
-  MgvCommon as DC,
+  MgvLib as DC,
   MgvEvents,
   IMgvMonitor
-} from "../../MgvCommon.sol";
+} from "../../MgvLib.sol";
 import "../../Mangrove.sol";
 import "../../interfaces.sol";
 import "../Toolbox/Display.sol";

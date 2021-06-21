@@ -73,7 +73,7 @@ library TestUtils {
     address quote,
     uint gasreq
   ) internal returns (uint) {
-    MC.Config memory config = mgv.getConfig(base, quote);
+    ML.Config memory config = mgv.getConfig(base, quote);
     return ((gasreq +
       config.local.overhead_gasbase +
       config.local.offer_gasbase) *
@@ -88,7 +88,7 @@ library TestUtils {
     uint gasreq,
     uint gasprice
   ) internal returns (uint) {
-    MC.Config memory config = mgv.getConfig(base, quote);
+    ML.Config memory config = mgv.getConfig(base, quote);
     uint _gp;
     if (config.global.gasprice > gasprice) {
       _gp = uint(config.global.gasprice);
@@ -109,7 +109,7 @@ library TestUtils {
     Info infKey,
     uint offerId
   ) internal view returns (uint) {
-    (MC.Offer memory offer, MC.OfferDetail memory offerDetail) =
+    (ML.Offer memory offer, ML.OfferDetail memory offerDetail) =
       mgv.offerInfo(base, quote, offerId);
     if (!mgv.isLive(mgv.offers(base, quote, offerId))) {
       return 0;
@@ -145,7 +145,7 @@ library TestUtils {
     address quote,
     uint offerId
   ) internal view returns (address) {
-    (, MC.OfferDetail memory od) = mgv.offerInfo(base, quote, offerId);
+    (, ML.OfferDetail memory od) = mgv.offerInfo(base, quote, offerId);
     return od.maker;
   }
 }

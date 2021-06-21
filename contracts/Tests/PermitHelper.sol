@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "../Mangrove.sol";
-import "../MgvCommon.sol";
+import "../MgvLib.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -31,13 +31,13 @@ contract PermitHelper is IMaker {
   address base;
   address quote;
 
-  function makerTrade(MC.SingleOrder calldata)
+  function makerTrade(ML.SingleOrder calldata)
     external
     override
     returns (bytes32)
   {}
 
-  function makerPosthook(MC.SingleOrder calldata, MC.OrderResult calldata)
+  function makerPosthook(ML.SingleOrder calldata, ML.OrderResult calldata)
     external
     override
   {}

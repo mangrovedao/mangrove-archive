@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {MgvEvents, IMaker, IMgvMonitor, MgvCommon as MC} from "./MgvCommon.sol";
+import {MgvEvents, IMaker, IMgvMonitor, MgvLib as ML} from "./MgvLib.sol";
 import {MgvHasOffers} from "./MgvHasOffers.sol";
 import {IERC20} from "./interfaces.sol";
 
@@ -49,8 +49,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
     require(uint160(takerWants) == takerWants, "mgv/mOrder/takerWants/160bits");
 
-    /* `SingleOrder` is defined in `MgvCommon.sol` and holds information for ordering the execution of one offer. */
-    MC.SingleOrder memory sor;
+    /* `SingleOrder` is defined in `MgvLib.sol` and holds information for ordering the execution of one offer. */
+    ML.SingleOrder memory sor;
     sor.base = base;
     sor.quote = quote;
     (sor.global, sor.local) = config(base, quote);
@@ -96,7 +96,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   //+clear+
   function internalMarketOrder(
     MultiOrder memory mor,
-    MC.SingleOrder memory sor,
+    ML.SingleOrder memory sor,
     bool proceed
   ) internal {
     /* #### Case 1 : End of order */
@@ -190,7 +190,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   //+clear+
   /* `snipe` takes a single offer `offerId` from the book. Since offers can be updated, we specify `takerWants`,`takerGives` and `gasreq`, and only execute if the offer price is acceptable and the offer's gasreq does not exceed `gasreq`.
 
-  It is possible to ask for 0, so we return an additional boolean indicating if `offerId` was successfully executed. Note that we do not distinguish further between mismatched arguments/offer fields on the one hand, and an execution failure on the other. Still, a failed offer has to pay a penalty, and ultimately transaction logs explicitly mention execution failures (see `MgvCommon.sol`). */
+  It is possible to ask for 0, so we return an additional boolean indicating if `offerId` was successfully executed. Note that we do not distinguish further between mismatched arguments/offer fields on the one hand, and an execution failure on the other. Still, a failed offer has to pay a penalty, and ultimately transaction logs explicitly mention execution failures (see `MgvLib.sol`). */
 
   function snipe(
     address base,
@@ -275,7 +275,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       uint
     )
   {
-    MC.SingleOrder memory sor;
+    ML.SingleOrder memory sor;
     sor.base = base;
     sor.quote = quote;
     (sor.global, sor.local) = config(base, quote);
@@ -309,7 +309,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   //+clear+
   function internalSnipes(
     MultiOrder memory mor,
-    MC.SingleOrder memory sor,
+    ML.SingleOrder memory sor,
     uint[4][] memory targets,
     uint i
   ) internal {
@@ -408,7 +408,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     * `success && executed`: offer has succeeded
     * `!success && executed`: offer has failed
     * `!success && !executed`: offer has not been executed */
-  function execute(MultiOrder memory mor, MC.SingleOrder memory sor)
+  function execute(MultiOrder memory mor, ML.SingleOrder memory sor)
     internal
     returns (
       bool success,
@@ -539,7 +539,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
    */
   function postExecute(
     MultiOrder memory mor,
-    MC.SingleOrder memory sor,
+    ML.SingleOrder memory sor,
     bool success,
     uint gasused,
     bytes32 makerData,
@@ -572,7 +572,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
   /* ## Maker Posthook */
   function makerPosthook(
-    MC.SingleOrder memory sor,
+    ML.SingleOrder memory sor,
     uint gasLeft,
     bool success,
     bytes32 makerData,
@@ -583,7 +583,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       abi.encodeWithSelector(
         IMaker.makerPosthook.selector,
         sor,
-        MC.OrderResult({
+        ML.OrderResult({
           success: success,
           makerData: makerData,
           errorCode: errorCode
@@ -637,7 +637,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
    * `offerDetail.gasbase` and `offer.gasprice` are the values of the Mangrove parameters `config.*_gasbase` and `config.gasprice` when the offer was created. Without caching those values, the provision set aside could end up insufficient to reimburse the maker (or to retribute the taker).
    */
   function applyPenalty(
-    MC.SingleOrder memory sor,
+    ML.SingleOrder memory sor,
     uint gasused,
     uint failCount
   ) internal returns (uint) {
@@ -680,7 +680,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   }
 
   /* Post-trade, `payTakerMinusFees` sends what's due to the taker and the rest (the fees) to the vault. Routing through the Mangrove like that also deals with blacklisting issues (separates the maker-blacklisted and the taker-blacklisted cases). */
-  function payTakerMinusFees(MultiOrder memory mor, MC.SingleOrder memory sor)
+  function payTakerMinusFees(MultiOrder memory mor, ML.SingleOrder memory sor)
     internal
   {
     /* Should be statically provable that the 2 transfers below cannot return false under well-behaved ERC20s and a non-blacklisted, non-0 target. */
@@ -703,7 +703,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
   /* ## Maker Execute */
 
-  function makerExecute(MC.SingleOrder calldata sor)
+  function makerExecute(ML.SingleOrder calldata sor)
     internal
     returns (uint gasused)
   {
@@ -806,14 +806,14 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
   /* # Abstract functions */
 
-  function flashloan(MC.SingleOrder calldata sor, address taker)
+  function flashloan(ML.SingleOrder calldata sor, address taker)
     external
     virtual
     returns (uint gasused);
 
-  function executeEnd(MultiOrder memory mor, MC.SingleOrder memory sor)
+  function executeEnd(MultiOrder memory mor, ML.SingleOrder memory sor)
     internal
     virtual;
 
-  function executeCallback(MC.SingleOrder memory sor) internal virtual;
+  function executeCallback(ML.SingleOrder memory sor) internal virtual;
 }

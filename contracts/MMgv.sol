@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {MgvCommon as MC} from "./MgvCommon.sol";
+import {MgvLib as ML} from "./MgvLib.sol";
 
 import {Mangrove} from "./Mangrove.sol";
 
 contract MMgv is Mangrove {
   constructor(uint gasprice, uint gasmax) Mangrove(gasprice, gasmax, "FMD") {}
 
-  function executeEnd(MultiOrder memory mor, MC.SingleOrder memory sor)
+  function executeEnd(MultiOrder memory mor, ML.SingleOrder memory sor)
     internal
     override
   {}
 
-  function executeCallback(MC.SingleOrder memory sor) internal override {}
+  function executeCallback(ML.SingleOrder memory sor) internal override {}
 
   /* ## Flashloan */
   /*
@@ -22,7 +22,7 @@ contract MMgv is Mangrove {
      2. Runs `offerDetail.maker`'s `execute` function.
      3. Returns the result of the operations, with optional makerData to help the maker debug.
    */
-  function flashloan(MC.SingleOrder calldata sor, address taker)
+  function flashloan(ML.SingleOrder calldata sor, address taker)
     external
     override
     returns (uint gasused)

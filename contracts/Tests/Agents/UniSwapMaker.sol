@@ -4,7 +4,7 @@ pragma abicoder v2;
 
 import "../../ERC20BL.sol";
 import "../../Mangrove.sol";
-import {IMaker} from "../../MgvCommon.sol";
+import {IMaker} from "../../MgvLib.sol";
 
 // Mangrove must be provisioned in the name of UniSwapMaker
 // UniSwapMaker must have ERC20 credit in tk0 and tk1 and these credits should not be shared (since contract is memoryless)
@@ -50,7 +50,7 @@ contract UniSwapMaker is IMaker {
     uint takerGives
   );
 
-  function makerTrade(MC.SingleOrder calldata order)
+  function makerTrade(ML.SingleOrder calldata order)
     external
     override
     returns (bytes32 avoid_compilation_warning)
@@ -88,7 +88,7 @@ contract UniSwapMaker is IMaker {
     ofr1 = uint24(mgv.newOffer(tk1, tk0, wants1, gives0, gasreq, 0, 0)); // natural OB
   }
 
-  function makerPosthook(MC.SingleOrder calldata order, MC.OrderResult calldata)
+  function makerPosthook(ML.SingleOrder calldata order, ML.OrderResult calldata)
     external
     override
   {

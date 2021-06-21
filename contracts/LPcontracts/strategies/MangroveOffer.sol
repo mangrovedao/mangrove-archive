@@ -37,7 +37,7 @@ contract MangroveOffer is AccessControlled, IMaker {
   }
 
   /// @notice extracts old offer from the order that is received from the Mangrove
-  function getStoredOffer(MgvCommon.SingleOrder calldata order)
+  function getStoredOffer(MgvLib.SingleOrder calldata order)
     internal
     pure
     returns (
@@ -154,7 +154,7 @@ contract MangroveOffer is AccessControlled, IMaker {
   /////// Mandatory callback functions
 
   // not a virtual function to make sure it is only MGV callable
-  function makerTrade(MgvCommon.SingleOrder calldata order)
+  function makerTrade(MgvLib.SingleOrder calldata order)
     external
     override
     onlyCaller(MGV)
@@ -173,8 +173,8 @@ contract MangroveOffer is AccessControlled, IMaker {
 
   // not a virtual function to make sure it is only MGV callable
   function makerPosthook(
-    MgvCommon.SingleOrder calldata order,
-    MgvCommon.OrderResult calldata result
+    MgvLib.SingleOrder calldata order,
+    MgvLib.OrderResult calldata result
   ) external override onlyCaller(MGV) {
     __finalize__(order, result);
   }
@@ -226,7 +226,7 @@ contract MangroveOffer is AccessControlled, IMaker {
   }
 
   /// @notice default strategy is to accept order at offer price.
-  function __lastLook__(MgvCommon.SingleOrder calldata)
+  function __lastLook__(MgvLib.SingleOrder calldata)
     internal
     virtual
     returns (uint)
@@ -236,7 +236,7 @@ contract MangroveOffer is AccessControlled, IMaker {
 
   /// @notice default strategy is to not repost a taken offer and let user do this
   function __finalize__(
-    MgvCommon.SingleOrder calldata,
-    MgvCommon.OrderResult calldata
+    MgvLib.SingleOrder calldata,
+    MgvLib.OrderResult calldata
   ) internal virtual {}
 }

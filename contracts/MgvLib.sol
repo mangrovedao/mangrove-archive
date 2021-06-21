@@ -5,7 +5,7 @@ pragma abicoder v2;
 
 /* # Structs
 The structs defined in `structs.js` have their counterpart as solidity structs that are easy to manipulate for outside contracts / callers of view functions. */
-library MgvCommon {
+library MgvLib {
   struct Offer {
     uint prev;
     uint next;
@@ -155,14 +155,14 @@ library MgvEvents {
 interface IMaker {
   /* Called upon offer execution. If this function reverts, Mangrove will not try to transfer funds. Returned data (truncated to 32 bytes) can be accessed during the call to `makerPosthook` in the `result.errorCode` field.
   Reverting with a message (for further processing during posthook) should be done using low level `revertTrade(bytes32)` provided in the `MgvIt` library. It is not possible to reenter the order book of the traded pair whilst this function is executed.*/
-  function makerTrade(MgvCommon.SingleOrder calldata order)
+  function makerTrade(MgvLib.SingleOrder calldata order)
     external
     returns (bytes32);
 
   /* Called after all offers of an order have been executed. Posthook of the last executed order is called first and full reentrancy into the Mangrove is enabled at this time. `order` recalls key arguments of the order that was processed and `result` recalls important information for updating the current offer.*/
   function makerPosthook(
-    MgvCommon.SingleOrder calldata order,
-    MgvCommon.OrderResult calldata result
+    MgvLib.SingleOrder calldata order,
+    MgvLib.OrderResult calldata result
   ) external;
 }
 
@@ -182,11 +182,10 @@ interface ITaker {
 /* # Monitor interface
 If enabled, the monitor receives notification after each offer execution and is read for each pair's `gasprice` and `density`. */
 interface IMgvMonitor {
-  function notifySuccess(MgvCommon.SingleOrder calldata sor, address taker)
+  function notifySuccess(MgvLib.SingleOrder calldata sor, address taker)
     external;
 
-  function notifyFail(MgvCommon.SingleOrder calldata sor, address taker)
-    external;
+  function notifyFail(MgvLib.SingleOrder calldata sor, address taker) external;
 
   function read(address base, address quote)
     external

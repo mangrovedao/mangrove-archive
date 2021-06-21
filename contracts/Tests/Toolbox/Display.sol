@@ -365,7 +365,7 @@ library Display {
     uint[] memory gasreqs = new uint[](size);
     uint c = 0;
     while ((offerId != 0) && (c < size)) {
-      (MC.Offer memory offer, MC.OfferDetail memory od) =
+      (ML.Offer memory offer, ML.OfferDetail memory od) =
         mgv.offerInfo(base, quote, offerId);
       wants[c] = offer.wants;
       gives[c] = offer.gives;
@@ -389,7 +389,7 @@ library Display {
 
     console.log("-----Best offer: %d-----", offerId);
     while (offerId != 0) {
-      (MC.Offer memory ofr, ) = mgv.offerInfo(base, quote, offerId);
+      (ML.Offer memory ofr, ) = mgv.offerInfo(base, quote, offerId);
       console.log(
         "[offer %d] %s/%s",
         offerId,

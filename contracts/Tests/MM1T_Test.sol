@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "../Mangrove.sol";
-import "../MgvCommon.sol";
+import "../MgvLib.sol";
 import "../interfaces.sol";
 import "hardhat/console.sol";
 
@@ -76,7 +76,7 @@ contract MM1T_Test {
   function ta_test() public {
     Display.logOfferBook(mgv, base, quote, 3);
     Display.logOfferBook(mgv, quote, base, 3);
-    (MgvCommon.Offer memory ofr, MgvCommon.OfferDetail memory det) =
+    (MgvLib.Offer memory ofr, MgvLib.OfferDetail memory det) =
       mgv.offerInfo(base, quote, 1);
     console.log("prev", ofr.prev);
     mkr.newOffer(base, quote, 0.05 ether, 0.1 ether, 200_000, 0);
