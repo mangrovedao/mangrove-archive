@@ -679,8 +679,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
   function sendPenalty(uint amount) internal {
     if (amount > 0) {
-      bool noRevert;
-      (noRevert, ) = msg.sender.call{gas: 0, value: amount}("");
+      (bool noRevert, ) = msg.sender.call{value: amount}("");
+      require(noRevert, "mgv/sendPenaltyReverted");
     }
   }
 

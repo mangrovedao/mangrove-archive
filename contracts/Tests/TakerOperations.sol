@@ -30,7 +30,13 @@ contract TakerOperations_Test {
   TestMaker refusemkr;
   TestMaker failmkr;
 
-  receive() external payable {}
+  bool refuseReceive = false;
+
+  receive() external payable {
+    if (refuseReceive) {
+      revert("no");
+    }
+  }
 
   function a_beforeAll() public {
     baseT = TokenSetup.setup("A", "$A");
@@ -146,6 +152,19 @@ contract TakerOperations_Test {
       "testMaker/transferFail"
     );
     MgvEvents.Credit(address(refusemkr), mkr_provision - penalty);
+  }
+
+  function taker_reverts_on_penalty_triggers_revert_test() public {
+    uint ofr = refusemkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    refuseReceive = true;
+    quoteT.approve(address(mgv), 1 ether);
+    try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000) {
+      TestEvents.fail(
+        "Snipe should fail because taker has reverted on penalty send."
+      );
+    } catch Error(string memory r) {
+      TestEvents.eq(r, "mgv/sendPenaltyReverted", "wrong revert reason");
+    }
   }
 
   function taker_reimbursed_if_maker_is_blacklisted_for_base_test() public {
