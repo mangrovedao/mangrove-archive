@@ -12,7 +12,13 @@ import "../lib/MgvPack.sol";
 /// @author Giry
 
 contract MangroveOffer is AccessControlled, IMaker {
-  enum Fail {LastLook, Liquidity}
+  enum Fail {
+    None, // Trade was a success. NB: Do not move this field as it should be the default value
+    Slippage, // Trade was dropped by maker due to a price slippage
+    Liquidity, // Trade was dropped by maker due to a lack of liquidity
+    Receive, // Mangrove dropped trade when ERC20 (quote) rejected maker address as receiver
+    Transfer // Mangrove dropped trade when ERC20 (base) refused to transfer funds from maker account to Mangrove
+  }
 
   bytes32 constant GETFAILED = "GetFailed";
   bytes32 constant SUCCESS = "Success";
@@ -52,15 +58,6 @@ contract MangroveOffer is AccessControlled, IMaker {
     (, , offer_gives, offer_wants, gasprice) = MgvPack.offer_unpack(
       order.offer
     );
-  }
-
-  /// @notice Throws a message that will be passed to posthook (message is truncated after 32 bytes)
-  function tradeRevertWithData(bytes32 data) internal pure {
-    bytes memory revData = new bytes(32);
-    assembly {
-      mstore(add(revData, 32), data)
-      revert(add(revData, 32), 32)
-    }
   }
 
   /// @title Mangrove basic interactions (logging is done by the Mangrove)
@@ -162,7 +159,7 @@ contract MangroveOffer is AccessControlled, IMaker {
     returns (bytes32 returnData)
   {
     __lastLook__(order); // might revert or let the trade proceed
-    returnData = fetchLiquidity(
+    returnData = makerTradeInternal(
       order.base,
       order.quote,
       order.wants,
@@ -175,58 +172,35 @@ contract MangroveOffer is AccessControlled, IMaker {
     MgvLib.SingleOrder calldata order,
     MgvLib.OrderResult calldata result
   ) external override onlyCaller(MGV) {
-    __finalize__(order, result);
+    postHookInternal(order, result);
   }
 
-  function failTrade(Fail failtype, uint240 arg) internal pure {
-    bytes memory failMsg = new bytes(32);
-    failMsg = abi.encode(failtype, arg);
-    bytes32 revData;
-    assembly {
-      revData := mload(add(failMsg, 32))
-    }
-    tradeRevertWithData(revData);
-  }
-
-  function failTrade(
-    Fail failtype,
-    uint120 arg0,
-    uint120 arg1
-  ) internal pure {
-    bytes memory failMsg = new bytes(32);
-    failMsg = abi.encode(failtype, arg0, arg1);
-    bytes32 revData;
-    assembly {
-      revData := mload(add(failMsg, 32))
-    }
-    tradeRevertWithData(revData);
-  }
-
-  function getFailData(bytes32 data)
-    internal
-    pure
-    returns (Fail, uint[] memory)
-  {
-    bytes memory _data = new bytes(32);
-    assembly {
-      mstore(add(_data, 32), data)
-    }
-    (Fail failtype, uint120 arg0, uint120 arg1) =
-      abi.decode(_data, (Fail, uint120, uint120));
+  function postHookInternal(
+    MgvLib.SingleOrder calldata order,
+    MgvLib.OrderResult calldata result
+  ) internal {
+    Fail failtype;
     uint[] memory args;
-    if (failtype == Fail.Liquidity) {
-      args = new uint[](1);
-      args[0] = uint(arg0);
-      return (failtype, args);
+    if (!result.success) {
+      if (result.errorCode == "mgv/makerRevert") {
+        // if trade was dropped by maker
+        (failtype, args) = getMakerFailData(result.makerData);
+      } else {
+        // trade was dropped by the Mangrove
+        if (result.errorCode == "mgv/makerTransferFail") {
+          failtype = Fail.Transfer;
+        } else {
+          if (result.errorCode == "mgv/makerReceiveFail") {
+            failtype = Fail.Receive;
+          }
+        }
+      }
     }
-    args = new uint[](2);
-    args[0] = uint(arg0);
-    args[1] = uint(arg1);
-    return (failtype, args);
+    __finalize__(order, failtype, args); // NB failtype == Fail.None and args = uint[](0) if trade was a success
   }
 
   /// @notice Core strategy to fetch liquidity
-  function fetchLiquidity(
+  function makerTradeInternal(
     address base,
     address quote,
     uint order_wants,
@@ -235,8 +209,9 @@ contract MangroveOffer is AccessControlled, IMaker {
     uint missingPut = __put__(quote, order_gives); // specifies what to do with the received funds
     uint missingGet = __get__(base, order_wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
     if (missingGet > 0) {
+      //missingGet is padded uint96
       // fetched amount could be higher than order requires for gas efficiency
-      failTrade(Fail.Liquidity, uint240(missingGet));
+      failTrade(Fail.Liquidity, uint96(missingGet), uint96(0));
     }
     if (missingPut == 0) {
       return SUCCESS;
@@ -277,6 +252,55 @@ contract MangroveOffer is AccessControlled, IMaker {
   /// @notice default strategy is to not repost a taken offer and let user do this
   function __finalize__(
     MgvLib.SingleOrder calldata,
-    MgvLib.OrderResult calldata
+    Fail,
+    uint[] memory
   ) internal virtual {}
+
+  //// Trade failing management
+  /// @notice Throws a message that will be passed to posthook (message is truncated after 32 bytes)
+  function tradeRevertWithData(bytes32 data) internal pure {
+    bytes memory revData = new bytes(32);
+    assembly {
+      mstore(add(revData, 32), data)
+      revert(add(revData, 32), 32)
+    }
+  }
+
+  function failTrade(
+    Fail failtype,
+    uint96 arg0,
+    uint96 arg1
+  ) internal pure {
+    bytes memory failMsg = new bytes(32);
+    failMsg = abi.encode(failtype, arg0, arg1);
+    bytes32 revData;
+    assembly {
+      revData := mload(add(failMsg, 32))
+    }
+    tradeRevertWithData(revData);
+  }
+
+  function getMakerFailData(bytes32 data)
+    internal
+    pure
+    returns (Fail failtype, uint[] memory args)
+  {
+    bytes memory _data = new bytes(32);
+    assembly {
+      mstore(add(_data, 32), data)
+    }
+    uint96 arg0;
+    uint96 arg1;
+
+    (failtype, arg0, arg1) = abi.decode(_data, (Fail, uint96, uint96)); // arg1 will be 0 if Fail argument is Fail.liquidity
+
+    if (failtype == Fail.Liquidity) {
+      args = new uint[](1);
+      args[0] = uint(arg0);
+    } else {
+      args = new uint[](2);
+      args[0] = uint(arg0);
+      args[1] = uint(arg1);
+    }
+  }
 }

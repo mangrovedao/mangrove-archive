@@ -28,6 +28,7 @@ contract Defensive is MangroveOffer, Exponential, OpenOraclePriceData {
   function __lastLook__(MgvLib.SingleOrder calldata order)
     internal
     view
+    virtual
     override
   {
     IERC20 base = IERC20(order.base);
@@ -56,7 +57,11 @@ contract Defensive is MangroveOffer, Exponential, OpenOraclePriceData {
       oracleWantsTimesOfferGives
     ) {
       //revert if price is beyond slippage
-      failTrade(Fail.LastLook, uint120(oracle_wants), uint120(oracle_gives)); //passing fail data to __finalize__
+      failTrade(Fail.Slippage, uint96(oracle_wants), uint96(oracle_gives)); //passing fail data to __finalize__
     }
   }
+
+  // function __finalize__(MgvLib.SingleOrder calldata order, MgvLib.OrderResult calldata result) {
+
+  // }
 }
