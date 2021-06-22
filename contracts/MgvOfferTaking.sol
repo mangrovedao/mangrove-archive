@@ -12,6 +12,7 @@ import {
 import {MgvHasOffers} from "./MgvHasOffers.sol";
 
 abstract contract MgvOfferTaking is MgvHasOffers {
+  /* # MultiOrder struct */
   /* The `MultiOrder` struct is used by market orders and snipes. Some of its fields are only used by market orders (`initialWants, initialGives`), and `successCount` is only used by snipes. The struct is helpful in decreasing stack use. */
   struct MultiOrder {
     uint initialWants;
@@ -23,6 +24,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     uint successCount;
     uint failCount;
   }
+
+  /* # Market Orders */
 
   /* ## Market Order */
   //+clear+
@@ -97,7 +100,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     return (mor.totalGot, mor.totalGave);
   }
 
-  /* ### Recursive market order function */
+  /* ## Internal market order */
   //+clear+
   function internalMarketOrder(
     MultiOrder memory mor,
@@ -112,7 +115,6 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       bytes32 makerData; // data returned by maker
       bytes32 errorCode; // internal Mangrove error code
       /* `executed` is false if offer could not be executed against 2nd and 3rd argument of execute. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
-      // reduce stack size for recursion
 
       bool executed; // offer execution attempted or not
 
@@ -192,6 +194,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   }
 
   /* # Sniping */
+  /* ## Snipe(s) */
   //+clear+
   /* `snipe` takes a single offer `offerId` from the book. Since offers can be updated, we specify `takerWants`,`takerGives` and `gasreq`, and only execute if the offer price is acceptable and the offer's gasreq does not exceed `gasreq`.
 
@@ -310,7 +313,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     return (mor.successCount, mor.totalGot, mor.totalGave);
   }
 
-  /* ### Recursive snipes function */
+  /* ## Internal snipes */
   //+clear+
   function internalSnipes(
     MultiOrder memory mor,
@@ -402,6 +405,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   }
 
   /* # General execution */
+  /* During a market order or a snipe(s), offers get executed. The following code takes care of executing a single offer with parameters given by a `SingleOrder` within a larger context given by a `MultiOrder`. */
+
   /* ## Execute */
   /* This function will compare `sor.wants` `sor.gives` with `sor.offer.wants` and `sor.offer.gives`. If the price of the offer is low enough, an execution will be attempted (with volume limited by the offer's advertised volume).
 
@@ -430,12 +435,6 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     **Note**: We never check that `offerId` is actually a `uint24`, or that `offerId` actually points to an offer: it is not possible to insert an offer with an id larger than that, and a wrong `offerId` will point to a zero-initialized offer, which will revert the call when dividing by `offer.gives`.
 
    Prices are rounded down.
-
-   **Historical note**: prices used to be rounded up (`makerWouldWant = product/offer.gives + (product % offer.gives == 0 ? 0 : 1)`) because partially filled offers used to remain on the book. A snipe which names an offer by its id also specifies its price in the form of a `(wants,gives)` pair to be compared to the offers' `(wants,gives)`. When a snipe can specifies a wants and a gives, it accepts any offer price better than `wants/gives`.
-
-   Now consider an order $r$ for the offer $o$. If $o$ is partially consumed into $o'$ before $r$ is mined, we still want $r$ to succeed (as long as $o'$ has enough volume). But `wants` and `gives` of $o$ are not equal to `wants` and `gives` of $o'$. Worse: their ratios are not equal, due to rounding errors.
-
-   Our solution was to make sure that the price of a partially filled offer could only improve. To do that, we rounded up the amount required by the maker.
        */
     uint makerWouldWant =
       (sor.wants * $$(offer_wants("sor.offer"))) / $$(offer_gives("sor.offer"));
@@ -538,8 +537,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
   /* ## Post execute */
   /* After executing an offer (whether in a market order or in snipes), we
-     1. FTD only, if execution successful: transfer the correct amount back to the maker.
-     2. If offer was executed: call the maker's posthook and sum the total gas used. In FTD, the posthook is called with the amount already in the maker's hands.
+     1. Call the maker's posthook and sum the total gas used.
      3. If offer failed: sum total penalty due to taker and give remainder to maker.
    */
   function postExecute(
@@ -583,7 +581,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     bytes32 makerData,
     bytes32 errorCode
   ) internal returns (uint gasused) {
-    /* At this point, errorCode can only be "mgv/makerRevert" or "mgv/makerTransferFail" */
+    /* At this point, errorCode can only be `"mgv/makerRevert"` or `"mgv/makerTransferFail"` */
     bytes memory cd =
       abi.encodeWithSelector(
         IMaker.makerPosthook.selector,
@@ -595,7 +593,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         })
       );
 
-    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq`. This yul call only retrieves the first byte of the maker's `returndata`. */
+    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq`. This yul call only retrieves the first 32 bytes of the maker's `returndata`. */
     bytes memory retdata = new bytes(32);
 
     address maker = $$(offerDetail_maker("sor.offerDetail"));
