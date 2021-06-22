@@ -12,7 +12,8 @@ import "../lib/MgvPack.sol";
 /// @author Giry
 
 contract MangroveOffer is AccessControlled, IMaker {
-  bytes32 constant INSUFFICIENTFUNDS = "InsufficientFunds";
+  enum Fail {LastLook, Liquidity}
+
   bytes32 constant GETFAILED = "GetFailed";
   bytes32 constant SUCCESS = "Success";
   bytes32 constant PUTFAILED = "PutFailed";
@@ -160,15 +161,13 @@ contract MangroveOffer is AccessControlled, IMaker {
     onlyCaller(MGV)
     returns (bytes32 returnData)
   {
-    uint info = __lastLook__(order);
-    if (info == 0) {
-      returnData = fetchLiquidity(
-        order.base,
-        order.quote,
-        order.wants,
-        order.gives
-      );
-    } else tradeRevertWithData(bytes32(info));
+    __lastLook__(order); // might revert or let the trade proceed
+    returnData = fetchLiquidity(
+      order.base,
+      order.quote,
+      order.wants,
+      order.gives
+    );
   }
 
   // not a virtual function to make sure it is only MGV callable
@@ -177,6 +176,53 @@ contract MangroveOffer is AccessControlled, IMaker {
     MgvLib.OrderResult calldata result
   ) external override onlyCaller(MGV) {
     __finalize__(order, result);
+  }
+
+  function failTrade(Fail failtype, uint240 arg) internal pure {
+    bytes memory failMsg = new bytes(32);
+    failMsg = abi.encode(failtype, arg);
+    bytes32 revData;
+    assembly {
+      revData := mload(add(failMsg, 32))
+    }
+    tradeRevertWithData(revData);
+  }
+
+  function failTrade(
+    Fail failtype,
+    uint120 arg0,
+    uint120 arg1
+  ) internal pure {
+    bytes memory failMsg = new bytes(32);
+    failMsg = abi.encode(failtype, arg0, arg1);
+    bytes32 revData;
+    assembly {
+      revData := mload(add(failMsg, 32))
+    }
+    tradeRevertWithData(revData);
+  }
+
+  function getFailData(bytes32 data)
+    internal
+    pure
+    returns (Fail, uint[] memory)
+  {
+    bytes memory _data = new bytes(32);
+    assembly {
+      mstore(add(_data, 32), data)
+    }
+    (Fail failtype, uint120 arg0, uint120 arg1) =
+      abi.decode(_data, (Fail, uint120, uint120));
+    uint[] memory args;
+    if (failtype == Fail.Liquidity) {
+      args = new uint[](1);
+      args[0] = uint(arg0);
+      return (failtype, args);
+    }
+    args = new uint[](2);
+    args[0] = uint(arg0);
+    args[1] = uint(arg1);
+    return (failtype, args);
   }
 
   /// @notice Core strategy to fetch liquidity
@@ -190,7 +236,7 @@ contract MangroveOffer is AccessControlled, IMaker {
     uint missingGet = __get__(base, order_wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
     if (missingGet > 0) {
       // fetched amount could be higher than order requires for gas efficiency
-      tradeRevertWithData(INSUFFICIENTFUNDS);
+      failTrade(Fail.Liquidity, uint240(missingGet));
     }
     if (missingPut == 0) {
       return SUCCESS;
@@ -226,13 +272,7 @@ contract MangroveOffer is AccessControlled, IMaker {
   }
 
   /// @notice default strategy is to accept order at offer price.
-  function __lastLook__(MgvLib.SingleOrder calldata)
-    internal
-    virtual
-    returns (uint)
-  {
-    return 0; // 0 is the convention for a valid order
-  }
+  function __lastLook__(MgvLib.SingleOrder calldata) internal virtual {}
 
   /// @notice default strategy is to not repost a taken offer and let user do this
   function __finalize__(
