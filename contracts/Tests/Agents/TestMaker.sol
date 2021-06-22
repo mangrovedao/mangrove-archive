@@ -3,11 +3,10 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "./Passthrough.sol";
-import "../../interfaces.sol";
 import "../../AbstractMangrove.sol";
 import "../../MgvPack.sol";
 import "hardhat/console.sol";
-import {IMaker} from "../../MgvLib.sol";
+import {IERC20, IMaker} from "../../MgvLib.sol";
 
 contract TestMaker is IMaker, Passthrough {
   AbstractMangrove _mgv;

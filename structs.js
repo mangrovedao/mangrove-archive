@@ -72,13 +72,13 @@ They have the following fields: */
   offerDetail: [
     /* * `maker` is the address that created the offer. It will be called when the offer is executed, and later during the posthook phase. */
     { name: "maker", bits: 160, type: "address" },
-    /* * `gasreq` gas will be provided to `execute`. _24 bits wide_, 33% more than the block limit as of late 2020. Note that if more room was needed, we could bring it down to 16 bits and have it represent 1k gas increments.
+    /* * <a id="structs.js/gasreq"></a>`gasreq` gas will be provided to `execute`. _24 bits wide_, 33% more than the block limit as of late 2020. Note that if more room was needed, we could bring it down to 16 bits and have it represent 1k gas increments.
 
   */
     fields.gasreq,
     /*
-       * `overhead_gasbase` represents the gas used by initiating an entire order (snipes or market order).
-          `offer_gasbase` represents the gas overhead used by processing the offer inside the Mangrove.
+       * <a id="structs.js/gasbase"></a>`overhead_gasbase` represents the gas used by initiating an entire order (snipes or market order).
+       *  `offer_gasbase` represents the gas overhead used by processing the offer inside the Mangrove.
 
     The gas considered 'used' by an offer is the sum of
     * gas consumed during the call to the offer
@@ -89,9 +89,9 @@ They have the following fields: */
    provision per unit of gas used. `gasprice` should approximate the average gas
    price at offer creation time.
 
-   `*_gasbase` is _24 bits wide_ -- note that if more room was needed, we could bring it down to 8 bits and have it represent 1k gas increments.
+   `overhead_gasbase` and `offer_gasbase` are _24 bits wide_ -- note that if more room was needed, we could bring them down to 8 bits and have it represent 1k gas increments.
 
-   `*_gasbase` are also the names of global Mangrove
+   `overhead_gasbase` and `offer_gasbase` are also the names of global Mangrove
    parameters. When an offer is created, their current value is copied from the Mangrove global configuration.  The maker does not choose it.
 
    So, when an offer is created, the maker is asked to provision the
@@ -99,12 +99,16 @@ They have the following fields: */
    ```
    (gasreq + offer_gasbase + overhead_gasbase) * gasprice
    ```
+
+    where `overhead_gasbase`, `offer_gasbase` and `gasprice` are the Mangrove's current configuration values (or a higher value for `gasprice` if specified by the maker).
+
+
     When an offer fails, the following amount is given to the taker as compensation:
    ```
    (gasused + offer_gasbase + overhead_gasbase/n) * gasprice
    ```
 
-   where `n` is the number of failing offers, and the rest is given back to the maker.
+   where `n` is the number of failing offers, and `overhead_gasbase`, `offer_gasbase`, and `gasprice` are the Mangrove's current configuration values.  The rest is given back to the maker.
 
     */
     fields.overhead_gasbase,
@@ -112,7 +116,7 @@ They have the following fields: */
   ],
 
   /* ## Configuration and state
-   Most configuration and state information for a `base`,`quote` pair is either in a `global` struct (common to all pairs), or in a `local` struct. All state variable can be found at the beginning of the `Mangrove` contract in `Mangrove.sol`. Configuration fields are:
+   Configuration information for a `base`,`quote` pair is split between a `global` struct (common to all pairs) and a `local` struct specific to each pair. Configuration fields are:
 */
   /* ### Global Configuration */
   global: [
@@ -135,7 +139,7 @@ They have the following fields: */
   local: [
     /* * A `base`,`quote` pair is in`active` by default, but may be activated/deactivated by governance. */
     { name: "active", bits: 8, type: "uint" },
-    /* * `fee`, in basis points, of `base` given to the taker. This fee is sent to the Mangrove. Fee is capped to 5% (see Mangrove.sol). */
+    /* * `fee`, in basis points, of `base` given to the taker. This fee is sent to the Mangrove. Fee is capped to 5%. */
     { name: "fee", bits: 16, type: "uint" },
     /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `base` per gas requested. For instance, if `density == 10`, `offer_gasbase == 5000`, `overhead_gasbase == 0`, an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `base`. */
     { name: "density", bits: 32, type: "uint" },

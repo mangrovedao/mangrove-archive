@@ -5,6 +5,7 @@ pragma abicoder v2;
 import {IMaker, MgvEvents} from "./MgvLib.sol";
 import {MgvHasOffers} from "./MgvHasOffers.sol";
 
+/* `MgvOfferMaking` contains market-making-related functions. */
 contract MgvOfferMaking is MgvHasOffers {
   /* # Public Maker operations
      ## New Offer */
@@ -131,12 +132,12 @@ contract MgvOfferMaking is MgvHasOffers {
 
   /* ## Retract Offer */
   //+clear+
-  /* `retractOffer` takes the offer `offerId` out of the book. However, `_deprovision == true` also refunds the provision associated with the offer. */
+  /* `retractOffer` takes the offer `offerId` out of the book. However, `deprovision == true` also refunds the provision associated with the offer. */
   function retractOffer(
     address base,
     address quote,
     uint offerId,
-    bool _deprovision
+    bool deprovision
   ) external {
     (, bytes32 local) = config(base, quote);
     unlockedMarketOnly(local);
@@ -162,11 +163,11 @@ contract MgvOfferMaking is MgvHasOffers {
         locals[base][quote] = local;
       }
       /* Set `gives` to 0. Moreover, the last argument depends on whether the user wishes to get their provision back. */
-      dirtyDeleteOffer(base, quote, offerId, offer, _deprovision);
+      dirtyDeleteOffer(base, quote, offerId, offer, deprovision);
     }
 
     /* If the user wants to get their provision back, we compute its provision from the offer's `gasprice`, `*_gasbase` and `gasreq`. */
-    if (_deprovision) {
+    if (deprovision) {
       uint provision =
         10**9 *
           $$(offer_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
@@ -187,11 +188,15 @@ contract MgvOfferMaking is MgvHasOffers {
   */
   //+clear+
 
-  /* Fund may be called with a nonzero value (hence the `payable` modifier). The provision will be given to `maker`, not `msg.sender`. */
+  /* Fund should be called with a nonzero value (hence the `payable` modifier). The provision will be given to `maker`, not `msg.sender`. */
   function fund(address maker) public payable {
     (bytes32 _global, ) = config(address(0), address(0));
     liveMgvOnly(_global);
     creditWei(maker, msg.value);
+  }
+
+  function fund() external payable {
+    fund(msg.sender);
   }
 
   /* A transfer with enough gas to the Mangrove will increase the caller's available `balanceOf` balance. _You should send enough gas to execute this function when sending money to the Mangrove._  */
@@ -241,27 +246,25 @@ contract MgvOfferMaking is MgvHasOffers {
     }
 
     /* Log the write offer event. */
-    {
-      emit MgvEvents.WriteOffer(
-        ofp.base,
-        ofp.quote,
-        msg.sender,
-        ofp.wants,
-        ofp.gives,
-        ofp.gasprice,
-        ofp.gasreq,
-        ofp.id
-      );
-    }
+    emit MgvEvents.WriteOffer(
+      ofp.base,
+      ofp.quote,
+      msg.sender,
+      ofp.wants,
+      ofp.gives,
+      ofp.gasprice,
+      ofp.gasreq,
+      ofp.id
+    );
 
     /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
 
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read.
 
-    **Warning**: `findPosition` will call `better`, which may read the offer's `offerDetails`. So it is important to find the offer position _before_ we update its `offerDetail` in storage. We waste 1 (hot) read in that case but we deem that the code would get too ugly if we passed the old offerDetail as argument to `findPosition` and to `better`, just to save 1 hot read in that specific case.  */
+    **Warning**: `findPosition` will call `better`, which may read the offer's `offerDetails`. So it is important to find the offer position _before_ we update its `offerDetail` in storage. We waste 1 (hot) read in that case but we deem that the code would get too ugly if we passed the old `offerDetail` as argument to `findPosition` and to `better`, just to save 1 hot read in that specific case.  */
     (uint prev, uint next) = findPosition(ofp);
 
-    /* We now write the new offerDetails and remember the previous provision (0 by default, for new offers) to balance out maker's `balanceOf`. */
+    /* We now write the new `offerDetails` and remember the previous provision (0 by default, for new offers) to balance out maker's `balanceOf`. */
     uint oldProvision;
     {
       bytes32 offerDetail = offerDetails[ofp.base][ofp.quote][ofp.id];
@@ -278,7 +281,7 @@ contract MgvOfferMaking is MgvHasOffers {
             $$(offerDetail_offer_gasbase("offerDetail")));
       }
 
-      /* If the offer is new, has a new gasreq, or if the Mangrove's `*_gasbase` configuration parameter has changed, we also update offerDetails. */
+      /* If the offer is new, has a new `gasreq`, or if the Mangrove's `*_gasbase` configuration parameter has changed, we also update `offerDetails`. */
       if (
         !update ||
         $$(offerDetail_gasreq("offerDetail")) != ofp.gasreq ||
@@ -302,7 +305,7 @@ contract MgvOfferMaking is MgvHasOffers {
       }
     }
 
-    /* With every change to an offer, a maker must deduct provisions from its `balanceOf` balance, or get some back if the updated offer requires fewer provisions. */
+    /* With every change to an offer, a maker may deduct provisions from its `balanceOf` balance. It may also get provisions back if the updated offer requires fewer provisions than before. */
     {
       uint provision =
         (ofp.gasreq +

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 
+/* `MgvLib` contains data structures returned by external calls to Mangrove and the interfaces it uses for its own external calls. */
+
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
@@ -64,6 +66,8 @@ library MgvLib {
     bytes32 local;
   }
 
+  /* <a id="MgvLib/OrderResult"></a> `OrderResult` holds additional data for the maker and is given to them _after_ they fulfilled an offer. It gives them a success/fail boolean, their own returned data from the previous call, and an [error code](#MgvOfferTaking/errorCodes) if Mangrove encountered an error. */
+
   struct OrderResult {
     bool success;
     bytes32 makerData;
@@ -77,10 +81,10 @@ library MgvEvents {
   /* * Emitted at the creation of the new Mangrove contract on the pair (`quote`, `base`)*/
   event NewMgv();
 
-  /* * Mangrove adds or removes wei from `maker`'s account */
-  /* *Credit event occurs when an offer is removed from the Mangrove or when the `fund` function is called*/
+  /* Mangrove adds or removes wei from `maker`'s account */
+  /* * Credit event occurs when an offer is removed from the Mangrove or when the `fund` function is called*/
   event Credit(address maker, uint amount);
-  /* *Debit event occurs when an offer is posted or when the `withdraw` function is called*/
+  /* * Debit event occurs when an offer is posted or when the `withdraw` function is called */
   event Debit(address maker, uint amount);
 
   /* * Mangrove reconfiguration */
@@ -153,13 +157,22 @@ library MgvEvents {
 
 /* # IMaker interface */
 interface IMaker {
-  /* Called upon offer execution. If this function reverts, Mangrove will not try to transfer funds. Returned data (truncated to 32 bytes) can be accessed during the call to `makerPosthook` in the `result.errorCode` field.
-  Reverting with a message (for further processing during posthook) should be done using low level `revertTrade(bytes32)` provided in the `MgvIt` library. It is not possible to reenter the order book of the traded pair whilst this function is executed.*/
+  /* Called upon offer execution. If this function reverts, Mangrove will not try to transfer funds. Returned data (truncated to leftmost 32 bytes) can be accessed during the call to `makerPosthook` in the `result.errorCode` field. To revert with a 32 bytes value, use something like:
+     ```
+     function tradeRevert(bytes32 data) internal pure {
+       bytes memory revData = new bytes(32);
+         assembly {
+           mstore(add(revData, 32), data)
+           revert(add(revData, 32), 32)
+         }
+     }
+     ```
+     */
   function makerTrade(MgvLib.SingleOrder calldata order)
     external
     returns (bytes32);
 
-  /* Called after all offers of an order have been executed. Posthook of the last executed order is called first and full reentrancy into the Mangrove is enabled at this time. `order` recalls key arguments of the order that was processed and `result` recalls important information for updating the current offer.*/
+  /* Called after all offers of an order have been executed. Posthook of the last executed order is called first and full reentrancy into the Mangrove is enabled at this time. `order` recalls key arguments of the order that was processed and `result` recalls important information for updating the current offer. (see [above](#MgvLib/OrderResult))*/
   function makerPosthook(
     MgvLib.SingleOrder calldata order,
     MgvLib.OrderResult calldata result
@@ -190,4 +203,28 @@ interface IMgvMonitor {
   function read(address base, address quote)
     external
     returns (uint gasprice, uint density);
+}
+
+interface IERC20 {
+  function totalSupply() external view returns (uint);
+
+  function balanceOf(address account) external view returns (uint);
+
+  function transfer(address recipient, uint amount) external returns (bool);
+
+  function allowance(address owner, address spender)
+    external
+    view
+    returns (uint);
+
+  function approve(address spender, uint amount) external returns (bool);
+
+  function transferFrom(
+    address sender,
+    address recipient,
+    uint amount
+  ) external returns (bool);
+
+  event Transfer(address indexed from, address indexed to, uint value);
+  event Approval(address indexed owner, address indexed spender, uint value);
 }

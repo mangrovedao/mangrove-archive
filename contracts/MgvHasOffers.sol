@@ -5,10 +5,12 @@ pragma abicoder v2;
 import {MgvLib as ML, MgvEvents, IMgvMonitor} from "./MgvLib.sol";
 import {MgvRoot} from "./MgvRoot.sol";
 
+/* `MgvHasOffers` contains the state variables and functions common to both market-maker operations and market-taker operations. Mostly: storing offers, removing them, updating market makers' provisions. */
 contract MgvHasOffers is MgvRoot {
-  /* Given a `base`,`quote` pair, the mappings `offers` and `offerDetails` associate two 256 bits words to each offer id. Those words encode information detailed in `structs.js`.
+  /* # State variables */
+  /* Given a `base`,`quote` pair, the mappings `offers` and `offerDetails` associate two 256 bits words to each offer id. Those words encode information detailed in [`structs.js`](#structs.js).
 
-     The mapping are `base => quote => offerId => bytes32`.
+     The mappings are `base => quote => offerId => bytes32`.
    */
   mapping(address => mapping(address => mapping(uint => bytes32)))
     public offers;
@@ -17,12 +19,13 @@ contract MgvHasOffers is MgvRoot {
 
   /* Makers provision their possible penalties in the `balanceOf` mapping.
 
-       Offers specify the amount of gas they require for successful execution (`gasreq`). To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq` and on the pair's `*_gasbase`. This provision is deducted from their `balanceOf`. If an offer fails, part of that provision is given to the taker, as retribution. The exact amount depends on the gas used by the offer before failing.
+       Offers specify the amount of gas they require for successful execution ([`gasreq`](#structs.js/gasreq)). To minimize book spamming, market makers must provision a *penalty*, which depends on their `gasreq` and on the pair's [`*_gasbase`](#structs.js/gasbase). This provision is deducted from their `balanceOf`. If an offer fails, part of that provision is given to the taker, as retribution. The exact amount depends on the gas used by the offer before failing.
 
        The Mangrove keeps track of their available balance in the `balanceOf` map, which is decremented every time a maker creates a new offer, and may be modified on offer updates/cancelations/takings.
      */
   mapping(address => uint) public balanceOf;
 
+  /* # Read functions */
   /* Convenience function to get best offer of the given pair */
   function best(address base, address quote) external view returns (uint) {
     bytes32 local = locals[base][quote];
@@ -72,11 +75,12 @@ contract MgvHasOffers is MgvRoot {
     emit MgvEvents.Credit(maker, amount);
   }
 
-  /* # Low-level offer deletion */
+  /* # Misc. low-level functions */
+  /* ## Offer deletion */
 
   /* When an offer is deleted, it is marked as such by setting `gives` to 0. Note that provision accounting in the Mangrove aims to minimize writes. Each maker `fund`s the Mangrove to increase its balance. When an offer is created/updated, we compute how much should be reserved to pay for possible penalties. That amount can always be recomputed with `offer.gasprice * (offerDetail.gasreq + offerDetail.overhead_gasbase + offerDetail.offer_gasbase)`. The balance is updated to reflect the remaining available ethers.
 
-     Now, when an offer is deleted, the offer can stay provisioned, or be `deprovision`ed. In the latter case, we set `gasprice` to 0, which induces a provision of 0. */
+     Now, when an offer is deleted, the offer can stay provisioned, or be `deprovision`ed. In the latter case, we set `gasprice` to 0, which induces a provision of 0. All code calling `dirtyDeleteOffer` with `deprovision` set to `true` must be careful to correctly account for where that provision is going (back to the maker's `balanceOf`, or sent to a taker as compensation). */
   function dirtyDeleteOffer(
     address base,
     address quote,
@@ -91,9 +95,9 @@ contract MgvHasOffers is MgvRoot {
     offers[base][quote][offerId] = offer;
   }
 
-  /* # Misc. low-level functions */
+  /* ## Stitching the orderbook */
 
-  /* Connect the predecessor and sucessor of `id` through their `next`/`prev` pointers. For more on the book structure, see `MangroveCommon.sol`. This step is not necessary during a market order, so we only call `dirtyDeleteOffer`.
+  /* Connect the offers `worseId` and `betterId` through their `next`/`prev` pointers. For more on the book structure, see [`structs.js`](#structs.js). Used after executing an offer (or a segment of offers), after removing an offer, or moving an offer.
 
   **Warning**: calling with `worseId = 0` will set `betterId` as the best. So with `worseId = 0` and `betterId = 0`, it sets the book to empty and loses track of existing offers.
 
@@ -122,7 +126,8 @@ contract MgvHasOffers is MgvRoot {
     return local;
   }
 
-  /* Check whether an offer is 'live', that is: inserted in the order book. The Mangrove holds a `base => quote => id => bytes32` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to the null word. A common way to check for initialization is to add an `exists` field to a struct. In our case, liveness can be denoted by `offer.gives > 0`. So we just check the `gives` field. */
+  /* ## Check offer is live */
+  /* Check whether an offer is 'live', that is: inserted in the order book. The Mangrove holds a `base => quote => id => bytes32` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an offer with `gives` field at 0. */
   function isLive(bytes32 offer) public pure returns (bool) {
     return $$(offer_gives("offer")) > 0;
   }

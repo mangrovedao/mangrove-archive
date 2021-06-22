@@ -5,7 +5,6 @@ pragma abicoder v2;
 
 import "../AbstractMangrove.sol";
 import {IMaker as IM, MgvLib} from "../MgvLib.sol";
-import "../interfaces.sol";
 import "hardhat/console.sol";
 
 import "./Toolbox/TestEvents.sol";

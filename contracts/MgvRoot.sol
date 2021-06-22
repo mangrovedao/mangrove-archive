@@ -1,35 +1,35 @@
 // SPDX-License-Identifier: UNLICENSED
+/* `MgvRoot` and its descendants describe an orderbook-based exchange ("the Mangrove") where market makers *do not have to provision their offer*. See `structs.js` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. In the normal mode of operation, the Mangrove transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
+
+   There is one Mangrove contract that manages all tradeable pairs. This reduces deployment costs for new pairs and lets market makers have all their provision for all pairs in the same place.
+
+   There is a secondary mode of operation in which the _maker_ flashloans the sold amount to the taker.
+
+   The Mangrove contract is `abstract` and accomodates both modes. Two contracts, `Mangrove` and `InvertedMangrove` inherit from it, one per mode of operation.
+
+   The contract structure is as follows:
+   <img src="./modular_mangrove.svg" width="220%"> </img>
+ */
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import {MgvLib as ML, MgvEvents, IMgvMonitor} from "./MgvLib.sol";
 
-/*
-   These contracts describe an orderbook-based exchange ("the Mangrove") where market makers *do not have to provision their offer*. See `structs.js` for a longer introduction. In a nutshell: each offer created by a maker specifies an address (`maker`) to call upon offer execution by a taker. In the normal mode of operation ('Flash Maker'), the Mangrove transfers the amount to be paid by the taker to the maker, calls the maker, attempts to transfer the amount promised by the maker to the taker, and reverts if it cannot.
-
-   There is one Mangrove contract that manages all tradeable pairs. This reduces deployment costs for new pairs and makes it easier to have maker provisions for all pairs in the same place.
-
-   There is a secondary mode of operation ('Flash Taker') in which the _maker_ flashloans the sold amount to the taker.
-
-   The Mangrove contract is `abstract` and accomodates both modes. Two contracts, `Mangrove` (Maker Mangrove) and `InvertedMangrove` (Taker Mangrove) inherit from it, one per mode of operation.
-
-   The contract structure is as follows:
-   <img src="./modular_mangrove.svg" width="200%"> </img>
- */
-
+/* `MgvRoot` contains state variables used everywhere in the operation of the Mangrove and their related function. */
 contract MgvRoot {
   /* # State variables */
   //+clear+
   /* The `vault` address. If a pair has fees >0, those fees are sent to the vault. */
   address public vault;
 
-  /* Global mgv configuration, encoded in a 256 bits word. The information encoded is detailed in `structs.js`. */
+  /* Global mgv configuration, encoded in a 256 bits word. The information encoded is detailed in [`structs.js`](#structs.js). */
   bytes32 public global;
-  /* Configuration mapping for each token pair. The information is also detailed in `structs.js`. */
+  /* Configuration mapping for each token pair of the form `base => quote => bytes32`. The structure of each `bytes32` value is detailed in [`structs.js`](#structs.js). */
   mapping(address => mapping(address => bytes32)) public locals;
 
   /* # Configuration Reads */
 
+  /* Reading the configuration for a pair involves reading the config global to all pairs and the local one. In addition, a global parameter (`gasprice`) and a local one (`density`) may be read from the oracle. */
   function config(address base, address quote)
     public
     returns (bytes32 _global, bytes32 _local)

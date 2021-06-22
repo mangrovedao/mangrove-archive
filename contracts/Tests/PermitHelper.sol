@@ -5,7 +5,6 @@ pragma experimental ABIEncoderV2;
 
 import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
-import "../interfaces.sol";
 import "hardhat/console.sol";
 
 import "./Toolbox/TestEvents.sol";

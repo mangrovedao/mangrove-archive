@@ -2,9 +2,14 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {MgvEvents, IMaker, IMgvMonitor, MgvLib as ML} from "./MgvLib.sol";
+import {
+  IERC20,
+  MgvEvents,
+  IMaker,
+  IMgvMonitor,
+  MgvLib as ML
+} from "./MgvLib.sol";
 import {MgvHasOffers} from "./MgvHasOffers.sol";
-import {IERC20} from "./interfaces.sol";
 
 abstract contract MgvOfferTaking is MgvHasOffers {
   /* The `MultiOrder` struct is used by market orders and snipes. Some of its fields are only used by market orders (`initialWants, initialGives`), and `successCount` is only used by snipes. The struct is helpful in decreasing stack use. */
@@ -488,7 +493,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     } else {
       /* In case of failure, `retdata` encodes a short error code, the gas used by the offer, and an arbitrary 256 bits word sent by the maker. `errorCode` should not be exploitable by the maker! */
       (errorCode, gasused, makerData) = innerDecode(retdata);
-      /* Note that in the `if`s, the literals are bytes32 (stack values), while as revert arguments, they are strings (memory pointers). */
+      /* <a id="MgvOfferTaking/errorCodes"></a> Note that in the `if`s, the literals are bytes32 (stack values), while as revert arguments, they are strings (memory pointers). */
       if (
         errorCode == "mgv/makerRevert" ||
         errorCode == "mgv/makerTransferFail" ||

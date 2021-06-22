@@ -3,7 +3,6 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../../interfaces.sol";
 import "hardhat/console.sol";
 
 import "../Toolbox/TestUtils.sol";
