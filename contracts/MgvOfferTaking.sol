@@ -89,9 +89,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     sor.local = $$(set_local("sor.local", [["lock", 1]]));
     locals[base][quote] = sor.local;
 
-    /* `internalMarketOrder` works recursively. Going downward, each successive offer is executed until the market order stops (due to: volume exhausted, bad price, or empty book). Going upward, each offer's `maker` contract is called again with its remaining gas and given the chance to update its offers on the book.
-
-    The last argument is a boolean named `proceed`. If an offer was not executed, it means the price has become too high. In that case, we notify the next recursive call that the market order should end. In this initial call, no offer has been executed yet so `proceed` is true. */
+    /* Call recursive `internalMarketOrder` function.*/
     internalMarketOrder(mor, sor, true);
 
     /* Over the course of the market order, a penalty reserved for `msg.sender` has accumulated in `mor.totalPenalty`. No actual transfers have occured yet -- all the ethers given by the makers as provision are owned by the Mangrove. `sendPenalty` finally gives the accumulated penalty to `msg.sender`. */
@@ -102,6 +100,9 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
   /* ## Internal market order */
   //+clear+
+  /* `internalMarketOrder` works recursively. Going downward, each successive offer is executed until the market order stops (due to: volume exhausted, bad price, or empty book). Then the [reentrancy lock is lifted](#internalMarketOrder/liftReentrancy). Going upward, each offer's `maker` contract is called again with its remaining gas and given the chance to update its offers on the book.
+
+    The last argument is a boolean named `proceed`. If an offer was not executed, it means the price has become too high. In that case, we notify the next recursive call that the market order should end. In this initial call, no offer has been executed yet so `proceed` is true. */
   function internalMarketOrder(
     MultiOrder memory mor,
     ML.SingleOrder memory sor,
@@ -138,7 +139,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         /* It is known statically that `mor.initialWants - mor.totalGot` does not underflow since
       1. `mor.totalGot` was increased by `sor.wants` during `execute`,
       2. `sor.wants` was at most `mor.initialWants - mor.totalGot` from earlier step,
-      3. `sor.wants` may be have been clamped _down_ to `offer.gives` during `execute`
+      3. `sor.wants` may have been clamped _down_ to `offer.gives` during `execute`
       */
         sor.wants = mor.initialWants - mor.totalGot;
         /* It is known statically that `mor.initialGives - mor.totalGave` does not underflow since
@@ -175,7 +176,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     } else {
       /* During the market order, all executed offers have been removed from the book. We end by stitching together the `best` offer pointer and the new best offer. */
       sor.local = stitchOffers(sor.base, sor.quote, 0, sor.offerId, sor.local);
-      /* Now that the market order is over, we can lift the lock on the book. In the same operation we
+      /* <a id="internalMarketOrder/liftReentrancy"></a>Now that the market order is over, we can lift the lock on the book. In the same operation we
 
       * lift the reentrancy lock, and
       * update the storage
@@ -302,9 +303,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     sor.local = $$(set_local("sor.local", [["lock", 1]]));
     locals[base][quote] = sor.local;
 
-    /* `internalSnipes` works recursively. Going downward, each successive offer is executed until each snipe in the array has been tried. Going upward, each offer's `maker` contract is called again with its remaining gas and given the chance to update its offers on the book.
-
-    The last argument is the array index for the current offer. It is initially 0. */
+    /* Call recursive `internalSnipes` function. */
     internalSnipes(mor, sor, targets, 0);
 
     /* Over the course of the snipes order, a penalty reserved for `msg.sender` has accumulated in `mor.totalPenalty`. No actual transfers have occured yet -- all the ethers given by the makers as provision are owned by the Mangrove. `sendPenalty` finally gives the accumulated penalty to `msg.sender`. */
@@ -315,6 +314,9 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
   /* ## Internal snipes */
   //+clear+
+  /* `internalSnipes` works recursively. Going downward, each successive offer is executed until each snipe in the array has been tried. Then the reentrancy lock [is lifted](#internalSnipes/liftReentrancy). Going upward, each offer's `maker` contract is called again with its remaining gas and given the chance to update its offers on the book.
+
+    The last argument is the array index for the current offer. It is initially 0. */
   function internalSnipes(
     MultiOrder memory mor,
     ML.SingleOrder memory sor,
@@ -389,7 +391,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       }
       /* #### Case 2 : End of snipes */
     } else {
-      /* Now that the snipes is over, we can lift the lock on the book. In the same operation we
+      /* <a id="internalSnipes/liftReentrancy"></a> Now that the snipes is over, we can lift the lock on the book. In the same operation we
       * lift the reentrancy lock, and
       * update the storage
 
