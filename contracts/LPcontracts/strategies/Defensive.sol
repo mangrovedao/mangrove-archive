@@ -6,6 +6,10 @@ import "../lib/OpenOraclePriceData.sol";
 // SPDX-License-Identifier: MIT
 
 contract Defensive is MangroveOffer, Exponential, OpenOraclePriceData {
+  event MissingLiquidity(address erc20, uint amount, uint offerId);
+  event TransferFailure(address erc20, uint amount, uint offerId);
+  event ReceiveFailure(address erc20, uint amount, uint offerId);
+
   OpenOraclePriceData immutable priceFeed;
   address immutable trustedSource;
   uint16 slippage;
@@ -61,7 +65,41 @@ contract Defensive is MangroveOffer, Exponential, OpenOraclePriceData {
     }
   }
 
-  // function __finalize__(MgvLib.SingleOrder calldata order, MgvLib.OrderResult calldata result) {
-
-  // }
+  function __finalize__(
+    MgvLib.SingleOrder calldata order,
+    Fail failtype,
+    uint[] calldata args
+  ) internal override {
+    if (failtype == Fail.None) {
+      return; // order was correctly processed nothing to be done
+    }
+    if (failtype == Fail.Liquidity) {
+      emit MissingLiquidity(order.base, args[0], order.offerId);
+      return; // offer was not provisioned enough, not reposting
+    }
+    if (failtype == Fail.Slippage) {
+      (, , uint gasreq, uint gasprice) = getStoredOffer(order);
+      updateMangroveOffer( // assumes there is enough provision for offer bounty (gasprice may have changed)
+        order.base,
+        order.quote,
+        args[0],
+        args[1],
+        gasreq,
+        gasprice,
+        0,
+        order.offerId
+      );
+      return;
+    }
+    if (failtype == Fail.Receive) {
+      // contract was not able to receive taker's money
+      emit ReceiveFailure(order.quote, order.gives, order.offerId);
+      return;
+    }
+    if (failtype == Fail.Transfer) {
+      // Mangrove was not able to transfer maker's asset
+      emit TransferFailure(order.base, order.wants, order.offerId);
+      return;
+    }
+  }
 }
