@@ -66,11 +66,15 @@ library MgvLib {
     bytes32 local;
   }
 
-  /* <a id="MgvLib/OrderResult"></a> `OrderResult` holds additional data for the maker and is given to them _after_ they fulfilled an offer. It gives them a success/fail boolean, their own returned data from the previous call, and an [error code](#MgvOfferTaking/errorCodes) if Mangrove encountered an error. */
+  /* <a id="MgvLib/OrderResult"></a> `OrderResult` holds additional data for the maker and is given to them _after_ they fulfilled an offer. It gives them a success/fail boolean, their own returned data from the previous call, and an `errorCode` if Mangrove encountered an error. */
 
   struct OrderResult {
+    /* `success` holds whenever offer was fullfilled by the maker. `errorCode` contains an error message whenever `success` is false.*/
     bool success;
+    /* `makerdata` holds a message that was either returned by the maker or passed as revert message at the end of the trade execution*/
     bytes32 makerData;
+    /* Mangrove [error code](#MgvOfferTaking/errorCodes) that is assigned to the current trade when `success` is false. `errorCode == "mgv/makerRevert"` when maker reverted during the trade execution. `errorCode == "mgv/makerTransferFail"` whenever Mangrove was unable to transfer `base` tokens from the maker and 
+      `errorCode == "mgv/makerReceiveFail"` when Mangrove was unable to transfer `quote` tokens to the maker.*/
     bytes32 errorCode;
   }
 }
