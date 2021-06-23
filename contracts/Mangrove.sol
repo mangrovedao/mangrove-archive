@@ -5,6 +5,7 @@ import {MgvLib as ML} from "./MgvLib.sol";
 
 import {AbstractMangrove} from "./AbstractMangrove.sol";
 
+/* <a id="Mangrove"></a> The `Mangrove` contract implements the "normal" version of Mangrove, where the taker flashloans the desired amount to each maker. Each time, makers are called after the loan. When the order is complete, each maker is called once again (with the orderbook unlocked). */
 contract Mangrove is AbstractMangrove {
   constructor(uint gasprice, uint gasmax)
     AbstractMangrove(gasprice, gasmax, "FMD")
@@ -15,7 +16,7 @@ contract Mangrove is AbstractMangrove {
     override
   {}
 
-  function executeCallback(ML.SingleOrder memory sor) internal override {}
+  function beforePosthook(ML.SingleOrder memory sor) internal override {}
 
   /* ## Flashloan */
   /*

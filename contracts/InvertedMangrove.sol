@@ -5,6 +5,7 @@ import {ITaker, MgvLib as ML} from "./MgvLib.sol";
 
 import {AbstractMangrove} from "./AbstractMangrove.sol";
 
+/* <a id="InvertedMangrove"></a> The `InvertedMangrove` contract implements the "inverted" version of Mangrove, where each maker loans money to the taker. The taker is then called, and finally each maker is sent its payment and called again (with the orderbook unlocked). */
 contract InvertedMangrove is AbstractMangrove {
   constructor(uint gasprice, uint gasmax)
     AbstractMangrove(gasprice, gasmax, "FTD")
@@ -36,7 +37,7 @@ So :
    2. Is OK, but has an extra CALL cost on top of the token transfer, one for each maker. This is unavoidable anyway when calling makerTrade (since the maker must be able to execute arbitrary code at that moment), but we can skip it here.
    3. Is the cheapest, but it has the drawbacks of `transferFrom`: money must end up owned by the taker, and taker needs to `approve` Mangrove
    */
-  function executeCallback(ML.SingleOrder memory sor) internal override {
+  function beforePosthook(ML.SingleOrder memory sor) internal override {
     /* If `transferToken` returns false here, we're in a special (and bad) situation. The taker is returning part of their total loan to a maker, but the maker can't receive the tokens. Only case we can see: maker is blacklisted. We could punish maker. We don't. We could send money back to taker. We don't. */
     transferToken(
       sor.quote,

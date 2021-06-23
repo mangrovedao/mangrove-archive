@@ -537,6 +537,71 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     }
   }
 
+  /* ## flashloan (abstract) */
+  /* Externally called by `execute`, flashloan lends money (from the taker to the maker, or from the maker to the taker, depending on the implementation) then calls `makerExecute` to run the maker liquidity fetching code. If `makerExecute` is unsuccessful, `flashloan` reverts (but the larger orderbook traversal will continue). 
+
+  All `flashloan` implementations must `require(msg.sender) == address(this))`. */
+  function flashloan(ML.SingleOrder calldata sor, address taker)
+    external
+    virtual
+    returns (uint gasused);
+
+  /* ## Maker Execute */
+  /* Called by `flashloan`, `makerExecute` runs the maker code and checks that it can safely send the desired assets to the taker. */
+
+  function makerExecute(ML.SingleOrder calldata sor)
+    internal
+    returns (uint gasused)
+  {
+    bytes memory cd = abi.encodeWithSelector(IMaker.makerTrade.selector, sor);
+
+    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + overhead_gasbase/n + offer_gasbase` where `n` is the number of failing offers. This yul call only retrieves the first 32 bytes of the maker's `returndata`. */
+    uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
+    address maker = $$(offerDetail_maker("sor.offerDetail"));
+    bytes memory retdata = new bytes(32);
+    bool callSuccess;
+    bytes32 makerData;
+    uint oldGas = gasleft();
+    /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of `CALL`) is $h$, the maker will receive at worst $\textrm{gasreq} - \frac{63h}{64}$ gas. */
+    /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether `63/64(gasleft-overhead_gasbase-offer_gasbase) > gasreq`. If no, we could stop and know by induction that there is enough gas left to apply fees, stitch offers, etc for the offers already executed. */
+    if (!(oldGas - oldGas / 64 >= gasreq)) {
+      innerRevert([bytes32("mgv/notEnoughGasForMakerTrade"), "", ""]);
+    }
+
+    assembly {
+      callSuccess := call(
+        gasreq,
+        maker,
+        0,
+        add(cd, 32),
+        mload(cd),
+        add(retdata, 32),
+        32
+      )
+      makerData := mload(add(retdata, 32))
+    }
+    gasused = oldGas - gasleft();
+
+    if (!callSuccess) {
+      innerRevert([bytes32("mgv/makerRevert"), bytes32(gasused), makerData]);
+    }
+
+    bool transferSuccess =
+      transferTokenFrom(sor.base, maker, address(this), sor.wants);
+
+    if (!transferSuccess) {
+      innerRevert(
+        [bytes32("mgv/makerTransferFail"), bytes32(gasused), makerData]
+      );
+    }
+  }
+
+  /* ## executeEnd (abstract) */
+  /* Called by `internalSnipes` and `internalMarketOrder`, `executeEnd` may run implementation-specific code after all makers have been called once. In [`InvertedMangrove`](#InvertedMangrove), the function calls the taker once so they can act on their flashloan. In [`Mangrove`], it does nothing. */
+  function executeEnd(MultiOrder memory mor, ML.SingleOrder memory sor)
+    internal
+    virtual;
+
   /* ## Post execute */
   /* After executing an offer (whether in a market order or in snipes), we
      1. Call the maker's posthook and sum the total gas used.
@@ -551,7 +616,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     bytes32 errorCode
   ) internal {
     if (success) {
-      executeCallback(sor);
+      beforePosthook(sor);
     }
 
     uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
@@ -574,6 +639,11 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       mor.totalPenalty += applyPenalty(sor, gasused, mor.failCount);
     }
   }
+
+  /* ## beforePosthook (abstract) */
+  /* Called by `makerPosthook`, this function can run implementation-specific code before calling the maker has been called a second time. In [`InvertedMangrove`](#InvertedMangrove), all makers are called once so the taker gets all of its money in one shot. Then makers are traversed again and the money is sent back to each taker using `beforePosthook`. In [`Mangrove`](#Mangrove), `beforePosthook` does nothing. */
+
+  function beforePosthook(ML.SingleOrder memory sor) internal virtual;
 
   /* ## Maker Posthook */
   function makerPosthook(
@@ -706,56 +776,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     }
   }
 
-  /* ## Maker Execute */
-
-  function makerExecute(ML.SingleOrder calldata sor)
-    internal
-    returns (uint gasused)
-  {
-    bytes memory cd = abi.encodeWithSelector(IMaker.makerTrade.selector, sor);
-
-    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + overhead_gasbase/n + offer_gasbase` where `n` is the number of failing offers. This yul call only retrieves the first byte of the maker's `returndata`. */
-    uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
-    address maker = $$(offerDetail_maker("sor.offerDetail"));
-    bytes memory retdata = new bytes(32);
-    bool callSuccess;
-    bytes32 makerData;
-    uint oldGas = gasleft();
-    /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of `CALL`) is $h$, the maker will receive at worst $\textrm{gasreq} - \frac{63h}{64}$ gas. */
-    /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether `63/64(gasleft-overhead_gasbase-offer_gasbase) > gasreq`. If no, we'd know by induction that there is enough gas left to apply fees, stitch offers, etc (or could revert safely if no offer has been taken yet). */
-    if (!(oldGas - oldGas / 64 >= gasreq)) {
-      innerRevert([bytes32("mgv/notEnoughGasForMakerTrade"), "", ""]);
-    }
-
-    assembly {
-      callSuccess := call(
-        gasreq,
-        maker,
-        0,
-        add(cd, 32),
-        mload(cd),
-        add(retdata, 32),
-        32
-      )
-      makerData := mload(add(retdata, 32))
-    }
-    gasused = oldGas - gasleft();
-
-    if (!callSuccess) {
-      innerRevert([bytes32("mgv/makerRevert"), bytes32(gasused), makerData]);
-    }
-
-    bool transferSuccess =
-      transferTokenFrom(sor.base, maker, address(this), sor.wants);
-
-    if (!transferSuccess) {
-      innerRevert(
-        [bytes32("mgv/makerTransferFail"), bytes32(gasused), makerData]
-      );
-    }
-  }
-
-  /* ## Misc. functions */
+  /* # Misc. functions */
 
   /* Regular solidity reverts prepend the string argument with a [function signature](https://docs.soliditylang.org/en/v0.7.6/control-structures.html#revert). Since we wish transfer data through a revert, the `innerRevert` function does a low-level revert with only the required data. `innerCode` decodes this data. */
   function innerDecode(bytes memory data)
@@ -808,17 +829,4 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     (bool noRevert, bytes memory data) = tokenAddress.call(cd);
     return (noRevert && (data.length == 0 || abi.decode(data, (bool))));
   }
-
-  /* # Abstract functions */
-
-  function flashloan(ML.SingleOrder calldata sor, address taker)
-    external
-    virtual
-    returns (uint gasused);
-
-  function executeEnd(MultiOrder memory mor, ML.SingleOrder memory sor)
-    internal
-    virtual;
-
-  function executeCallback(ML.SingleOrder memory sor) internal virtual;
 }

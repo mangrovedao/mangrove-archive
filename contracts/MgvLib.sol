@@ -165,10 +165,10 @@ interface IMaker {
      ```
      function tradeRevert(bytes32 data) internal pure {
        bytes memory revData = new bytes(32);
-       assembly {
-         mstore(add(revData, 32), data)
-         revert(add(revData, 32), 32)
-       }
+         assembly {
+           mstore(add(revData, 32), data)
+           revert(add(revData, 32), 32)
+         }
      }
      ```
      */

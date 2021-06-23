@@ -7,6 +7,7 @@ import {MgvOfferMaking} from "./MgvOfferMaking.sol";
 import {MgvOfferTakingWithPermit} from "./MgvOfferTakingWithPermit.sol";
 import {MgvGovernable} from "./MgvGovernable.sol";
 
+/* `AbstractMangrove` inherits the three contracts that implement generic Mangrove functionality (`MgvGovernable`,`MgvOfferTakingWithPermit` and `MgvOfferMaking`) but does not implement the abstract functions. */
 abstract contract AbstractMangrove is
   MgvGovernable,
   MgvOfferTakingWithPermit,
