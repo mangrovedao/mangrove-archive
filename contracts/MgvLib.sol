@@ -185,7 +185,7 @@ interface IMaker {
 
 /* # ITaker interface */
 interface ITaker {
-  /* FTD only: call to taker after loans went through */
+  /* Inverted mangrove only: call to taker after loans went through */
   function takerTrade(
     address base,
     address quote,

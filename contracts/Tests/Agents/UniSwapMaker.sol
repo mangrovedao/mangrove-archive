@@ -25,7 +25,7 @@ contract UniSwapMaker is IMaker {
     require(_share > 1, "Invalid parameters");
     require(uint8(_fee) == _fee && uint8(_share) == _share);
     admin = msg.sender;
-    mgv = _mgv; // FMD or FTD
+    mgv = _mgv; // Abstract Mangrove
     share = uint8(_share);
     fee = uint8(_fee);
   }

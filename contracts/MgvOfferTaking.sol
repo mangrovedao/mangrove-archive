@@ -189,7 +189,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       /* `payTakerMinusFees` sends the fee to the vault, proportional to the amount purchased, and gives the rest to the taker */
       payTakerMinusFees(mor, sor);
 
-      /* In an FTD, amounts have been lent by each offer's maker to the taker. We now call the taker. This is a noop in an FMD. */
+      /* In an inverted Mangrove, amounts have been lent by each offer's maker to the taker. We now call the taker. This is a noop in a normal Mangrove. */
       executeEnd(mor, sor);
     }
   }
@@ -401,7 +401,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       locals[sor.base][sor.quote] = sor.local;
       /* `payTakerMinusFees` sends the fee to the vault, proportional to the amount purchased, and gives the rest to the taker */
       payTakerMinusFees(mor, sor);
-      /* In an FTD, amounts have been lent by each offer's maker to the taker. We now call the taker. This is a noop in an FMD. */
+      /* In an inverted Mangrove, amounts have been lent by each offer's maker to the taker. We now call the taker. This is a noop in a normal Mangrove. */
       executeEnd(mor, sor);
     }
   }
