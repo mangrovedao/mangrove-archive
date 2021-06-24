@@ -12,9 +12,8 @@ contract MgvGovernable is MgvRoot {
   constructor(uint _gasprice, uint gasmax) MgvRoot() {
     emit MgvEvents.NewMgv();
 
-    /* Initialize governance. At this stage we cannot use the `setGovernance` method since no admin is set. */
-    governance = msg.sender;
-    emit MgvEvents.SetGovernance(msg.sender);
+    /* Initialize governance. */
+    _setGovernance(msg.sender);
 
     /* Initialize vault to sender's address, and set initial gasprice and gasmax. */
     setVault(msg.sender);
@@ -140,8 +139,14 @@ contract MgvGovernable is MgvRoot {
     emit MgvEvents.SetGasmax(gasmax);
   }
 
-  function setGovernance(address governanceAddress) public {
+  /* ### `governance` */
+  /* Since this is called from the constructor before gov has been set, the setter must be split between an internal and an external function. */
+  function setGovernance(address governanceAddress) external {
     authOnly();
+    _setGovernance(governanceAddress);
+  }
+
+  function _setGovernance(address governanceAddress) internal {
     governance = governanceAddress;
     emit MgvEvents.SetGovernance(governanceAddress);
   }
