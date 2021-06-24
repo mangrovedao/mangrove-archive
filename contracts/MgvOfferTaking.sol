@@ -792,7 +792,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     }
   }
 
-  /* `innerRevert` reverts a raw triple of values to be interpreted by `innerDecode`. The possible values for the first value element of the triple are:
+  /* <a id="MgvOfferTaking/innerRevert"></a>`innerRevert` reverts a raw triple of values to be interpreted by `innerDecode`. The possible values for the first value element of the triple are:
    * `"mgv/tradeSuccess"`: trade cleared normally
    * `"mgv/notEnoughGasForMakerTrade"`: cannot give maker close enough to `gasreq`. Triggers a revert of the entire order, cannot appear in `postHook`.
    * `"mgv/makerRevert"`: execution of `makerTrade` reverted
