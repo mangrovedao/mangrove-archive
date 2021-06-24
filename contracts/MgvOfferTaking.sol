@@ -524,8 +524,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         /* It is crucial that any error code which indicates an error caused by the taker triggers a revert, because functions that call `execute` consider that `execute && !success` should be blamed on the maker. */
       } else if (statusCode == "mgv/notEnoughGasForMakerTrade") {
         revert("mgv/notEnoughGasForMakerTrade");
-      } else if (statusCode == "mgv/takerFailToPayMaker") {
-        revert("mgv/takerFailToPayMaker");
+      } else if (statusCode == "mgv/takerTransferFail") {
+        revert("mgv/takerTransferFail");
       } else {
         /* This code must be unreachable. **Danger**: if a well-crafted offer/maker pair can force a revert of `flashloan`, the Mangrove will be stuck. */
         revert("mgv/swapError");

@@ -24,7 +24,7 @@ contract InvertedMangrove is AbstractMangrove {
     );
     bool success =
       transferTokenFrom(sor.quote, mor.taker, address(this), mor.totalGave);
-    require(success, "mgv/takerFailToPayMaker");
+    require(success, "mgv/takerFailToPayTotal");
   }
 
   /* We use `transferFrom` with takers (instead of checking `balanceOf` before/after the call) for the following reason we want the taker to be awaken after all loans have been made, so either

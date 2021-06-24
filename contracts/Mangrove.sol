@@ -49,7 +49,7 @@ contract Mangrove is AbstractMangrove {
         innerRevert([bytes32("mgv/makerReceiveFail"), bytes32(0), ""]);
       }
     } else {
-      innerRevert([bytes32("mgv/takerFailToPayMaker"), "", ""]);
+      innerRevert([bytes32("mgv/takerTransferFail"), "", ""]);
     }
   }
 }

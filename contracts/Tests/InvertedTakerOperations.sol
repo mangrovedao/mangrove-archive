@@ -159,7 +159,7 @@ contract InvertedTakerOperations_Test is ITaker {
     } catch Error(string memory reason) {
       TestEvents.eq(
         reason,
-        "mgv/takerFailToPayMaker",
+        "mgv/takerFailToPayTotal",
         "Unexpected throw message"
       );
     }

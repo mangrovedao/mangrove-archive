@@ -90,7 +90,7 @@ contract TakerOperations_Test {
     } catch Error(string memory errorMsg) {
       TestEvents.eq(
         errorMsg,
-        "mgv/takerFailToPayMaker",
+        "mgv/takerTransferFail",
         "Unexpected revert reason"
       );
       TestEvents.eq(
@@ -330,7 +330,7 @@ contract TakerOperations_Test {
     try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000) {
       TestEvents.fail("Order should fail when base is not mgv approved");
     } catch Error(string memory r) {
-      TestEvents.eq(r, "mgv/takerFailToPayMaker", "wrong revert reason");
+      TestEvents.eq(r, "mgv/takerTransferFail", "wrong revert reason");
     }
   }
 
@@ -422,7 +422,7 @@ contract TakerOperations_Test {
         "Taker does not have enough quote tokens, order should fail"
       );
     } catch Error(string memory r) {
-      TestEvents.eq(r, "mgv/takerFailToPayMaker", "wrong revert reason");
+      TestEvents.eq(r, "mgv/takerTransferFail", "wrong revert reason");
     }
   }
 
