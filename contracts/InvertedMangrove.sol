@@ -38,12 +38,17 @@ So :
    3. Is the cheapest, but it has the drawbacks of `transferFrom`: money must end up owned by the taker, and taker needs to `approve` Mangrove
    */
   function beforePosthook(ML.SingleOrder memory sor) internal override {
-    /* If `transferToken` returns false here, we're in a special (and bad) situation. The taker is returning part of their total loan to a maker, but the maker can't receive the tokens. Only case we can see: maker is blacklisted. We could punish maker. We don't. We could send money back to taker. We don't. */
-    transferToken(
-      sor.quote,
-      $$(offerDetail_maker("sor.offerDetail")),
-      sor.gives
-    );
+    /* If `transferToken` returns false here, we're in a special (and bad) situation. The taker is returning part of their total loan to a maker, but the maker can't receive the tokens. Only case we can see: maker is blacklisted. In that case, we send the tokens to the vault, so things have a chance of getting sorted out later (Mangrove is a token black hole). */
+    if (
+      !transferToken(
+        sor.quote,
+        $$(offerDetail_maker("sor.offerDetail")),
+        sor.gives
+      )
+    ) {
+      /* If that transfer fails there's nothing we can do -- reverting would punish the taker for the maker's blacklisting. */
+      transferToken(sor.quote, vault, sor.gives);
+    }
   }
 
   /* # Flashloans */

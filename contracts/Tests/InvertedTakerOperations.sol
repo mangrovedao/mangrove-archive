@@ -55,6 +55,7 @@ contract InvertedTakerOperations_Test is ITaker {
     Display.register(quote, "$B");
     Display.register(address(mgv), "mgv");
     Display.register(address(mkr), "maker");
+    Display.register(mgv.vault(), "vault");
   }
 
   uint toPay;
@@ -163,6 +164,24 @@ contract InvertedTakerOperations_Test is ITaker {
         "Unexpected throw message"
       );
     }
+  }
+
+  function vault_receives_quote_tokens_if_maker_is_blacklisted_for_quote_test()
+    public
+  {
+    takerTrade_bytes = this.noop.selector;
+    quoteT.blacklists(address(mkr));
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    address vault = address(1);
+    mgv.setVault(vault);
+    uint vaultBal = quoteT.balanceOf(vault);
+    (bool success, , ) = mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000);
+    TestEvents.check(success, "Trade should succeed");
+    TestEvents.eq(
+      quoteT.balanceOf(vault) - vaultBal,
+      1 ether,
+      "Vault balance should have increased"
+    );
   }
 
   function noop(
