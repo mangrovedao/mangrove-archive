@@ -114,10 +114,10 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       bool success; // execution success/failure
       uint gasused; // gas used by `makerTrade`
       bytes32 makerData; // data returned by maker
-      bytes32 statusCode; // internal Mangrove error code
+      /* `statusCode` is an internal status string held in a `bytes32` value. It appears in the maker's `postHook` function arguments and can hold a subset of the values returned by [`innerRevert`](#MgvOfferTaking/innerRevert). */
+      bytes32 statusCode;
       /* `executed` is false if offer could not be executed against 2nd and 3rd argument of execute. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
-
-      bool executed; // offer execution attempted or not
+      bool executed;
 
       /* Load additional information about the offer. We don't do it earlier to save one storage read in case `proceed` was false. */
       sor.offerDetail = offerDetails[sor.base][sor.quote][sor.offerId];
@@ -774,7 +774,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
   /* # Misc. functions */
 
-  /* Regular solidity reverts prepend the string argument with a [function signature](https://docs.soliditylang.org/en/v0.7.6/control-structures.html#revert). Since we wish transfer data through a revert, the `innerRevert` function does a low-level revert with only the required data. `innerCode` decodes this data. */
+  /* Regular solidity reverts prepend the string argument with a [function signature](https://docs.soliditylang.org/en/v0.7.6/control-structures.html#revert). Since we wish to transfer data through a revert, the `innerRevert` function does a low-level revert with only the required data. `innerCode` decodes this data. */
   function innerDecode(bytes memory data)
     internal
     pure
@@ -784,7 +784,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       bytes32 makerData
     )
   {
-    /* The `data` pointer is of the form `[3,statusCode,gasused,makerData]` where each array element is contiguous and has size 256 bits. 3 is added by solidity as the length of the rest of the data. */
+    /* The `data` pointer is of the form `[statusCode,gasused,makerData]` where each array element is contiguous and has size 256 bits. */
     assembly {
       statusCode := mload(add(data, 32))
       gasused := mload(add(data, 64))
@@ -792,6 +792,14 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     }
   }
 
+  /* `innerRevert` reverts a raw triple of values to be interpreted by `innerDecode`. The possible values for the first value element of the triple are:
+   * `"mgv/tradeSuccess"`: trade cleared normally
+   * `"mgv/notEnoughGasForMakerTrade"`: cannot give maker close enough to `gasreq`. Triggers a revert of the entire order, cannot appear in `postHook`.
+   * `"mgv/makerRevert"`: execution of `makerTrade` reverted
+   * `"mgv/makerTransferFail"`: maker could not send base tokens
+   * `"mgv/makerReceiveFail"`: maker could not receive quote tokens
+   * `"mgv/takerTransferFail"`: taker could not send quote tokens. Triggers a revert of the entire order, cannot appear in `postHook`.
+   */
   function innerRevert(bytes32[3] memory data) internal pure {
     assembly {
       revert(data, 96)
