@@ -81,10 +81,11 @@ contract TakerOperations_Test {
 
   function snipe_reverts_if_taker_is_blacklisted_for_quote_test() public {
     uint weiBalanceBefore = mgv.balanceOf(address(this));
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
     quoteT.approve(address(mgv), 1 ether);
     quoteT.blacklists(address(this));
-    try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000) {
+    try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000) {
       TestEvents.fail("Snipe should fail");
     } catch Error(string memory errorMsg) {
       TestEvents.eq(
@@ -102,10 +103,11 @@ contract TakerOperations_Test {
 
   function snipe_reverts_if_taker_is_blacklisted_for_base_test() public {
     uint weiBalanceBefore = mgv.balanceOf(address(this));
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
     quoteT.approve(address(mgv), 1 ether);
     baseT.blacklists(address(this));
-    try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000) {
+    try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000) {
       TestEvents.fail("Snipe should fail");
     } catch Error(string memory errorMsg) {
       TestEvents.eq(
@@ -122,9 +124,10 @@ contract TakerOperations_Test {
   }
 
   function taker_reimbursed_if_maker_doesnt_pay_test() public {
-    uint mkr_provision = TestUtils.getProvision(mgv, base, quote, 50_000);
+    uint mkr_provision = TestUtils.getProvision(mgv, base, quote, 100_000);
     quoteT.approve(address(mgv), 1 ether);
-    uint ofr = refusemkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    uint ofr = refusemkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.expect("mgv/makerTransferFail"); // status visible in the posthook
     uint beforeQuote = quoteT.balanceOf(address(this));
     uint beforeWei = address(this).balance;
     (bool success, uint takerGot, uint takerGave) =
@@ -168,9 +171,11 @@ contract TakerOperations_Test {
   }
 
   function taker_reimbursed_if_maker_is_blacklisted_for_base_test() public {
-    uint mkr_provision = TestUtils.getProvision(mgv, base, quote, 50_000);
+    uint mkr_provision = TestUtils.getProvision(mgv, base, quote, 100_000);
     quoteT.approve(address(mgv), 1 ether);
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.expect("mgv/makerTransferFail"); // status visible in the posthook
+
     baseT.blacklists(address(mkr));
     uint beforeQuote = quoteT.balanceOf(address(this));
     uint beforeWei = address(this).balance;
@@ -202,9 +207,11 @@ contract TakerOperations_Test {
   }
 
   function taker_reimbursed_if_maker_is_blacklisted_for_quote_test() public {
-    uint mkr_provision = TestUtils.getProvision(mgv, base, quote, 50_000);
+    uint mkr_provision = TestUtils.getProvision(mgv, base, quote, 100_000);
     quoteT.approve(address(mgv), 1 ether);
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.expect("mgv/makerReceiveFail"); // status visible in the posthook
+
     quoteT.blacklists(address(mkr));
     uint beforeQuote = quoteT.balanceOf(address(this));
     uint beforeWei = address(this).balance;
@@ -368,6 +375,7 @@ contract TakerOperations_Test {
   function simple_marketOrder_test() public {
     mkr.newOffer(1.1 ether, 1 ether, 50_000, 0);
     mkr.newOffer(1.2 ether, 1 ether, 50_000, 0);
+    mkr.expect("mgv/tradeSuccess");
 
     baseT.approve(address(mgv), 10 ether);
     quoteT.approve(address(mgv), 10 ether);
@@ -405,6 +413,8 @@ contract TakerOperations_Test {
 
   function taker_has_no_quote_fails_order_test() public {
     uint ofr = mkr.newOffer(100 ether, 2 ether, 50_000, 0);
+    mkr.expect("mgv/tradeSuccess");
+
     quoteT.approve(address(mgv), 100 ether);
     baseT.approve(address(mgv), 1 ether); // not necessary since no fee
     try mgv.snipe(base, quote, ofr, 2 ether, 100 ether, 100_000) {
@@ -418,6 +428,7 @@ contract TakerOperations_Test {
 
   function maker_has_not_enough_base_fails_order_test() public {
     uint ofr = mkr.newOffer(1 ether, 100 ether, 100_000, 0);
+    mkr.expect("mgv/makerTransferFail");
     // getting rid of base tokens
     //mkr.transferToken(baseT,address(this),5 ether);
     quoteT.approve(address(mgv), 0.5 ether);
@@ -439,6 +450,7 @@ contract TakerOperations_Test {
 
   function maker_revert_is_logged_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
+    mkr.expect("mgv/makerRevert");
     mkr.shouldRevert(true);
     quoteT.approve(address(mgv), 1 ether);
     mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000);
@@ -540,6 +552,7 @@ contract TakerOperations_Test {
     quoteT.approve(address(mgv), 1 ether);
     mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 0);
     mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 1);
+    mkr.expect("mgv/tradeSuccess");
     (uint takerGot, ) = mgv.marketOrder(base, quote, 0.15 ether, 0.15 ether);
     TestEvents.eq(
       takerGot,
@@ -559,6 +572,7 @@ contract TakerOperations_Test {
     for (uint i = 0; i < 10; i++) {
       mkr.newOffer((i + 1) * (0.1 ether), 0.1 ether, 50_000, i);
     }
+    mkr.expect("mgv/tradeSuccess");
     // first two offers are at right price
     uint takerWants = 2 * (0.1 ether + 0.1 ether);
     uint takerGives = 2 * (0.1 ether + 0.2 ether);
@@ -571,6 +585,7 @@ contract TakerOperations_Test {
     for (uint i = 0; i < 10; i++) {
       mkr.newOffer(i * (0.1 ether), 0.1 ether, 50_000, i);
     }
+    mkr.expect("mgv/tradeSuccess");
     // first two offers are at right price
     uint takerWants = 0.1 ether + 0.05 ether;
     uint takerGives = 0.1 ether + 0.1 ether;
@@ -582,6 +597,7 @@ contract TakerOperations_Test {
     for (uint i = 0; i < 10; i++) {
       mkr.newOffer(i * (0.1 ether), 0.1 ether, 50_000, i);
     }
+    mkr.expect("mgv/tradeSuccess");
     // first two offers are at right price
     uint takerWants = 0.1 ether + 0.1 ether;
     uint takerGives = 0.1 ether + 0.2 ether;

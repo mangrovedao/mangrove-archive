@@ -7,6 +7,7 @@ import "../../AbstractMangrove.sol";
 import "../../MgvPack.sol";
 import "hardhat/console.sol";
 import {IERC20, IMaker} from "../../MgvLib.sol";
+import "../Toolbox/TestEvents.sol";
 
 contract TestMaker is IMaker, Passthrough {
   AbstractMangrove _mgv;
@@ -14,6 +15,7 @@ contract TestMaker is IMaker, Passthrough {
   address _quote;
   bool _shouldFail;
   bool _shouldRevert;
+  bytes32 _expectedStatus;
 
   constructor(
     AbstractMangrove mgv,
@@ -59,6 +61,10 @@ contract TestMaker is IMaker, Passthrough {
     token.approve(address(_mgv), amount);
   }
 
+  function expect(bytes32 statusCode) external {
+    _expectedStatus = statusCode;
+  }
+
   function transferToken(
     IERC20 token,
     address to,
@@ -101,7 +107,16 @@ contract TestMaker is IMaker, Passthrough {
   function makerPosthook(
     ML.SingleOrder calldata order,
     ML.OrderResult calldata result
-  ) external virtual override {}
+  ) external virtual override {
+    order; //shh
+    if (_expectedStatus != bytes32("")) {
+      TestEvents.eq(
+        result.statusCode,
+        _expectedStatus,
+        "Incorrect status message"
+      );
+    }
+  }
 
   function newOffer(
     uint wants,
