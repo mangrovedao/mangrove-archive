@@ -629,7 +629,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
     gasused =
       gasused +
-      makerPosthook(sor, gasreq - gasused, success, makerData, statusCode);
+      makerPosthook(sor, gasreq - gasused, makerData, statusCode);
 
     /* Once again, the gas used may exceed `gasreq`. Since penalties extracted depend on `gasused` and the maker has at most provisioned for `gasreq` being used, we prevent fund leaks by bounding `gasused` once more. */
     if (gasused > gasreq) {
@@ -650,7 +650,6 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   function makerPosthook(
     ML.SingleOrder memory sor,
     uint gasLeft,
-    bool success,
     bytes32 makerData,
     bytes32 statusCode
   ) internal returns (uint gasused) {

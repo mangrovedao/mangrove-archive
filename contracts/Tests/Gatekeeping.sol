@@ -595,8 +595,8 @@ contract Gatekeeping_Test is IMaker {
     order; // silence compiler warning
     if (posthook_cb.length > 0) {
       (success, ) = address(this).call(posthook_cb);
-      bool result = (result.statusCode == "mgv/tradeSuccess");
-      require(success == result, "makerPosthook callback must work");
+      bool tradeResult = (result.statusCode == "mgv/tradeSuccess");
+      require(success == tradeResult, "makerPosthook callback must work");
     }
   }
 

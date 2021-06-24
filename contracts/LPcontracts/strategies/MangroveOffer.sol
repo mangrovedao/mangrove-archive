@@ -181,16 +181,16 @@ contract MangroveOffer is AccessControlled, IMaker {
   ) internal {
     Fail failtype;
     uint[] memory args;
-    if (!result.success) {
-      if (result.errorCode == "mgv/makerRevert") {
+    if (result.statusCode != "mgv/tradeSuccess") {
+      if (result.statusCode == "mgv/makerRevert") {
         // if trade was dropped by maker
         (failtype, args) = getMakerFailData(result.makerData);
       } else {
         // trade was dropped by the Mangrove
-        if (result.errorCode == "mgv/makerTransferFail") {
+        if (result.statusCode == "mgv/makerTransferFail") {
           failtype = Fail.Transfer;
         } else {
-          if (result.errorCode == "mgv/makerReceiveFail") {
+          if (result.statusCode == "mgv/makerReceiveFail") {
             failtype = Fail.Receive;
           }
         }

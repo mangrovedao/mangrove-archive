@@ -56,9 +56,8 @@ contract MgvLib {
   }
 
   struct OrderResult {
-    bool success;
     bytes32 makerData;
-    bytes32 errorCode;
+    bytes32 statusCode;
   }
 }
 

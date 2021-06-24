@@ -203,9 +203,6 @@ contract InvertedTakerOperations_Test is ITaker {
     TestEvents.expectFrom(address(mgv));
     emit MgvEvents.Success(base, quote, 1, address(this), 0.1 ether, 0.1 ether);
     emit MgvEvents.Success(base, quote, 2, address(this), 0.1 ether, 0.1 ether);
-    TestEvents.expectFrom(address(mkr));
-    mkr.logExecute(address(mgv), base, quote, 1, 0.1 ether, 0.1 ether);
-    mkr.logExecute(address(mgv), base, quote, 2, 0.1 ether, 0.1 ether);
   }
 
   function taker_pays_back_correct_amount_1_test() public {
