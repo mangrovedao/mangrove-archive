@@ -21,6 +21,15 @@ contract MgvGovernable is MgvRoot {
     setGasmax(gasmax);
   }
 
+  /* ## `authOnly` check */
+
+  function authOnly() internal view {
+    require(
+      msg.sender == governance || msg.sender == address(this),
+      "mgv/unauthorized"
+    );
+  }
+
   /* # Set configuration and Mangrove state */
 
   /* ## Locals */
@@ -151,25 +160,21 @@ contract MgvGovernable is MgvRoot {
     emit MgvEvents.SetGovernance(governanceAddress);
   }
 
+  /* ### `vault` */
   function setVault(address vaultAddress) public {
     authOnly();
     vault = vaultAddress;
     emit MgvEvents.SetVault(vaultAddress);
   }
 
+  /* ### `monitor` */
   function setMonitor(address monitor) public {
     authOnly();
     global = $$(set_global("global", [["monitor", "monitor"]]));
     emit MgvEvents.SetMonitor(monitor);
   }
 
-  function authOnly() internal view {
-    require(
-      msg.sender == governance || msg.sender == address(this),
-      "mgv/unauthorized"
-    );
-  }
-
+  /* ### `useOracle` */
   function setUseOracle(bool useOracle) public {
     authOnly();
     uint _useOracle = useOracle ? 1 : 0;
@@ -177,6 +182,7 @@ contract MgvGovernable is MgvRoot {
     emit MgvEvents.SetUseOracle(useOracle);
   }
 
+  /* ### `notify` */
   function setNotify(bool notify) public {
     authOnly();
     uint _notify = notify ? 1 : 0;
