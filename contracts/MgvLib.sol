@@ -66,16 +66,14 @@ library MgvLib {
     bytes32 local;
   }
 
-  /* <a id="MgvLib/OrderResult"></a> `OrderResult` holds additional data for the maker and is given to them _after_ they fulfilled an offer. It gives them a success/fail boolean, their own returned data from the previous call, and an `errorCode` if Mangrove encountered an error. */
+  /* <a id="MgvLib/OrderResult"></a> `OrderResult` holds additional data for the maker and is given to them _after_ they fulfilled an offer. It gives them their own returned data from the previous call, and an `statusCode` specifying whether the Mangrove encountered an error. */
 
   struct OrderResult {
-    /* `success` holds whenever offer was fullfilled by the maker. `errorCode` contains an error message whenever `success` is false.*/
-    bool success;
     /* `makerdata` holds a message that was either returned by the maker or passed as revert message at the end of the trade execution*/
     bytes32 makerData;
-    /* Mangrove [error code](#MgvOfferTaking/errorCodes) that is assigned to the current trade when `success` is false. `errorCode == "mgv/makerRevert"` when maker reverted during the trade execution. `errorCode == "mgv/makerTransferFail"` whenever Mangrove was unable to transfer `base` tokens from the maker and 
-      `errorCode == "mgv/makerReceiveFail"` when Mangrove was unable to transfer `quote` tokens to the maker.*/
-    bytes32 errorCode;
+    /* Mangrove [status code](#MgvOfferTaking/statusCodes) that is assigned to the current trade. `statusCode=="mgv/tradeSuccess"` whenever the trade was successful, `statusCode == "mgv/makerRevert"` when maker reverted during the trade execution. `statusCode == "mgv/makerTransferFail"` whenever Mangrove was unable to transfer `base` tokens from the maker and 
+      `statusCode == "mgv/makerReceiveFail"` when Mangrove was unable to transfer `quote` tokens to the maker (for instance if the maker is blacklisted).*/
+    bytes32 statusCode;
   }
 }
 
@@ -127,7 +125,8 @@ library MgvEvents {
     address taker,
     uint takerWants,
     uint takerGives,
-    bytes32 errorCode,
+    // `statusCode` may only be `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"`
+    bytes32 statusCode,
     bytes32 makerData
   );
 
@@ -161,7 +160,7 @@ library MgvEvents {
 
 /* # IMaker interface */
 interface IMaker {
-  /* Called upon offer execution. If this function reverts, Mangrove will not try to transfer funds. Returned data (truncated to leftmost 32 bytes) can be accessed during the call to `makerPosthook` in the `result.errorCode` field. To revert with a 32 bytes value, use something like:
+  /* Called upon offer execution. If this function reverts, Mangrove will not try to transfer funds. Returned data (truncated to leftmost 32 bytes) can be accessed during the call to `makerPosthook` in the `result.statusCode` field. To revert with a 32 bytes value, use something like:
      ```
      function tradeRevert(bytes32 data) internal pure {
        bytes memory revData = new bytes(32);

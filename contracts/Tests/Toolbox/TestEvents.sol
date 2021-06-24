@@ -34,6 +34,14 @@ library TestEvents {
   }
 
   event TestEqUint(bool success, uint actual, uint expected, string message);
+  event TestEqBytes32(
+    bool success,
+    bytes32 actual,
+    bytes32 expected,
+    string message
+  );
+  event TestEqBool(bool success, bool actual, bool expected, string message);
+
   event TestLess(bool success, uint actual, uint expected, string message);
 
   function min(uint a, uint b) internal pure returns (uint) {
@@ -94,6 +102,16 @@ library TestEvents {
     return success;
   }
 
+  function eq(
+    bool actual,
+    bool expected,
+    string memory message
+  ) internal returns (bool) {
+    bool success = (actual == expected);
+    emit TestEqBool(success, actual, expected, message);
+    return success;
+  }
+
   event TestEqAddress(
     bool success,
     address actual,
@@ -116,6 +134,16 @@ library TestEvents {
   ) internal returns (bool) {
     bool success = actual == expected;
     emit TestEqAddress(success, actual, expected, message);
+    return success;
+  }
+
+  function eq(
+    bytes32 actual,
+    bytes32 expected,
+    string memory message
+  ) internal returns (bool) {
+    bool success = (actual == expected);
+    emit TestEqBytes32(success, actual, expected, message);
     return success;
   }
 

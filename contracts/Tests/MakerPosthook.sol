@@ -134,6 +134,21 @@ contract MakerPosthook_Test is IMaker {
     MgvLib.OrderResult calldata result
   ) external override {
     require(msg.sender == address(mgv));
+    bool success = (result.statusCode == "mgv/tradeSuccess");
+    TestEvents.eq(success, !abort, "incorrect success flag");
+    if (abort) {
+      TestEvents.eq(
+        result.statusCode,
+        "mgv/makerRevert",
+        "incorrect statusCode"
+      );
+    } else {
+      TestEvents.eq(
+        result.statusCode,
+        bytes32("mgv/tradeSuccess"),
+        "incorrect statusCode"
+      );
+    }
     TestEvents.check(
       !TestUtils.hasOffer(mgv, order.base, order.quote, order.offerId),
       "Offer was not removed after take"
@@ -284,7 +299,8 @@ contract MakerPosthook_Test is IMaker {
     MgvLib.SingleOrder calldata,
     MgvLib.OrderResult calldata res
   ) external {
-    TestEvents.check(!res.success, "Offer should be marked as failed");
+    bool success = (res.statusCode == "mgv/tradeSuccess");
+    TestEvents.check(!success, "Offer should be marked as failed");
     TestEvents.check(res.makerData == "NOK", "Incorrect maker data");
   }
 
