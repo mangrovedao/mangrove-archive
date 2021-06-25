@@ -214,17 +214,17 @@ contract AMM_Test {
     mgv.fund{value: 5 ether}(address(amm));
 
     tk1.mint(address(this), 5 ether);
-    tk1.approve(address(mgv), 2**256 - 1);
+    tk1.approve(address(mgv), 2**160 - 1);
 
     tk0.mint(address(this), 5 ether);
-    tk0.approve(address(mgv), 2**256 - 1);
+    tk0.approve(address(mgv), 2**160 - 1);
 
     amm.newMarket(address(tk0), address(tk1));
 
     Display.logOfferBook(mgv, address(tk0), address(tk1), 1);
     Display.logOfferBook(mgv, address(tk1), address(tk0), 1);
 
-    mgv.marketOrder(address(tk0), address(tk1), 3 ether, 2**256 - 1);
+    mgv.marketOrder(address(tk0), address(tk1), 3 ether, 2**160 - 1, true);
 
     Display.logOfferBook(mgv, address(tk0), address(tk1), 1);
     Display.logOfferBook(mgv, address(tk1), address(tk0), 1);

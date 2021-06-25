@@ -546,7 +546,7 @@ contract Gatekeeping_Test is IMaker {
 
   function cannot_marketOrderFor_for_without_allowance_test() public {
     mkr.newOffer(1 ether, 1 ether, 100_000, 0);
-    try mgv.marketOrderFor(base, quote, 1 ether, 1 ether, address(tkr)) {
+    try mgv.marketOrderFor(base, quote, 1 ether, 1 ether, true, address(tkr)) {
       TestEvents.fail("marketOrderfor should fail without allowance");
     } catch Error(string memory reason) {
       TestEvents.revertEq(reason, "mgv/lowAllowance");
@@ -559,7 +559,7 @@ contract Gatekeeping_Test is IMaker {
     mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     tkr.approveSpender(address(this), 1.2 ether);
     (uint takerGot, ) =
-      mgv.marketOrderFor(base, quote, 1 ether, 1 ether, address(tkr));
+      mgv.marketOrderFor(base, quote, 1 ether, 1 ether, true, address(tkr));
     console.log(takerGot);
     TestEvents.eq(
       mgv.allowances(base, quote, address(tkr), address(this)),
@@ -755,7 +755,7 @@ contract Gatekeeping_Test is IMaker {
   /* Market Order failure */
 
   function marketOrderKO() external {
-    try mgv.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
+    try mgv.marketOrder(base, quote, 0.2 ether, 0.2 ether, true) {
       TestEvents.fail("marketOrder on same pair should fail");
     } catch Error(string memory reason) {
       TestEvents.revertEq(reason, "mgv/reentrancyLocked");
@@ -771,9 +771,9 @@ contract Gatekeeping_Test is IMaker {
   /* Market Order Success */
 
   function marketOrderOK(address _base, address _quote) external {
-    try mgv.marketOrder(_base, _quote, 0.5 ether, 0.5 ether) {} catch Error(
-      string memory r
-    ) {
+    try
+      mgv.marketOrder(_base, _quote, 0.5 ether, 0.5 ether, true)
+    {} catch Error(string memory r) {
       console.log("ERR", r);
     }
   }

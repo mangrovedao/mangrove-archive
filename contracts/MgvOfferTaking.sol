@@ -13,7 +13,7 @@ import {MgvHasOffers} from "./MgvHasOffers.sol";
 
 abstract contract MgvOfferTaking is MgvHasOffers {
   /* # MultiOrder struct */
-  /* The `MultiOrder` struct is used by market orders and snipes. Some of its fields are only used by market orders (`initialWants, initialGives`), and `successCount` is only used by snipes. The struct is helpful in decreasing stack use. */
+  /* The `MultiOrder` struct is used by market orders and snipes. Some of its fields are only used by market orders (`initialWants, initialGives`, `fillWants`), and others only by snipes (`successCount`). We need a common data structure for both since low-level calls are shared between market orders and snipes. The struct is helpful in decreasing stack use. */
   struct MultiOrder {
     uint initialWants;
     uint initialGives;
@@ -23,6 +23,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     address taker;
     uint successCount;
     uint failCount;
+    bool fillWants;
   }
 
   /* # Market Orders */
@@ -32,30 +33,44 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
   /* A market order specifies a (`base`,`quote`) pair, a desired total amount of `base` (`takerWants`), and an available total amount of `quote` (`takerGives`). It returns two `uint`s: the total amount of `base` received and the total amount of `quote` spent.
 
-     The `takerGives/takerWants` ratio induces a maximum average price that the taker is ready to pay across all offers that will be executed during the market order. It is thus possible to execute an offer with a price worse than given as argument to `marketOrder` if some cheaper offers were executed earlier in the market order (to request a specific volume (at any price), set `takerWants` to the amount desired and `takerGives` to max uint).
+     The `takerGives/takerWants` ratio induces a maximum average price that the taker is ready to pay across all offers that will be executed during the market order. It is thus possible to execute an offer with a price worse than the initial (`takerGives`/`takerWants`) ratio given as argument to `marketOrder` if some cheaper offers were executed earlier in the market order.
 
-  The market order stops when `takerWants` units of `base` have been obtained, or when the price has become too high, or when the end of the book has been reached. */
+  The market order stops when the price has become too high, or when the end of the book has been reached, or:
+  * If `fillWants` is true, the market order stops when `takerWants` units of `base` have been obtained. With `fillWants` set to true, to buy a specific volume of `base` at any price, set `takerWants` to the amount desired and `takerGives` to $2^{160}-1$.
+  * If `fillWants` is false, the taker is filling `gives` instead: the market order stops when `takerGives` units of `quote` have been sold. With `fillWants` set to false, to sell a specific volume of `quote` at any price, set `takerGives` to the amount desired and `takerWants` to $0$. */
   function marketOrder(
     address base,
     address quote,
     uint takerWants,
-    uint takerGives
+    uint takerGives,
+    bool fillWants
   ) external returns (uint, uint) {
-    return generalMarketOrder(base, quote, takerWants, takerGives, msg.sender);
+    return
+      generalMarketOrder(
+        base,
+        quote,
+        takerWants,
+        takerGives,
+        fillWants,
+        msg.sender
+      );
   }
 
-  /* ## General Market Order */
+  /* # General Market Order */
   //+clear+
-  /* General market orders set up the market order with a given `taker` (`msg.sender` in the most common case). Returns `(totalGot, totalGave)`. */
+  /* General market orders set up the market order with a given `taker` (`msg.sender` in the most common case). Returns `(totalGot, totalGave)`.
+  Note that the `taker` can be anyone. This is safe when `taker == msg.sender`, but `generalMarketOrder` must not be called with `taker != msg.sender` unless a security check is done after (see [`MgvOfferTakingWithPermit`](#mgvoffertakingwithpermit.sol)`. */
   function generalMarketOrder(
     address base,
     address quote,
     uint takerWants,
     uint takerGives,
+    bool fillWants,
     address taker
   ) internal returns (uint, uint) {
-    /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` fits in 160 bits prevents overflow during the main market order loop. */
+    /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` and `takerGives` fit in 160 bits prevents overflow during the main market order loop. */
     require(uint160(takerWants) == takerWants, "mgv/mOrder/takerWants/160bits");
+    require(uint160(takerGives) == takerGives, "mgv/mOrder/takerGives/160bits");
 
     /* `SingleOrder` is defined in `MgvLib.sol` and holds information for ordering the execution of one offer. */
     ML.SingleOrder memory sor;
@@ -74,6 +89,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     mor.initialWants = takerWants;
     mor.initialGives = takerGives;
     mor.taker = taker;
+    mor.fillWants = fillWants;
 
     /* For the market order to even start, the market needs to be both active, and not currently protected from reentrancy. */
     activeMarketOnly(sor.global, sor.local);
@@ -110,7 +126,11 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   ) internal {
     /* #### Case 1 : End of order */
     /* We execute the offer currently stored in `sor`. */
-    if (proceed && sor.wants > 0 && sor.offerId > 0) {
+    if (
+      proceed &&
+      (mor.fillWants ? sor.wants > 0 : sor.gives > 0) &&
+      sor.offerId > 0
+    ) {
       bool success; // execution success/failure
       uint gasused; // gas used by `makerTrade`
       bytes32 makerData; // data returned by maker
@@ -136,14 +156,11 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
       /* If an execution was attempted, we move `sor` to the next offer. Note that the current state is inconsistent, since we have not yet updated `sor.offerDetails`. */
       if (executed) {
-        /* It is known statically that `mor.initialWants - mor.totalGot` does not underflow since
-      1. `mor.totalGot` was increased by `sor.wants` during `execute`,
-      2. `sor.wants` was at most `mor.initialWants - mor.totalGot` from earlier step,
-      3. `sor.wants` may have been clamped _down_ to `offer.gives` during `execute`
-      */
-        sor.wants = mor.initialWants - mor.totalGot;
+        sor.wants = mor.initialWants > mor.totalGot
+          ? mor.initialWants - mor.totalGot
+          : 0;
         /* It is known statically that `mor.initialGives - mor.totalGave` does not underflow since
-           1. `mor.totalGave` was increase by `sor.gives` during `execute`,
+           1. `mor.totalGave` was increased by `sor.gives` during `execute`,
            2. `sor.gives` was at most `mor.initialGives - mor.totalGave` from earlier step,
            3. `sor.gives` may have been clamped _down_ during `execute` (to `makerWouldWant`, cf. code of `execute`).
         */
@@ -291,6 +308,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
     MultiOrder memory mor;
     mor.taker = taker;
+    mor.fillWants = true;
 
     /* For the snipes to even start, the market needs to be both active and not currently protected from reentrancy. */
     activeMarketOnly(sor.global, sor.local);
@@ -436,11 +454,10 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
     **Note**: We never check that `offerId` is actually a `uint24`, or that `offerId` actually points to an offer: it is not possible to insert an offer with an id larger than that, and a wrong `offerId` will point to a zero-initialized offer, which will revert the call when dividing by `offer.gives`.
 
-   Prices are rounded down.
+   Offer prices are rounded down for the purpose of checking price compatibility.
        */
     uint makerWouldWant =
       (sor.wants * $$(offer_wants("sor.offer"))) / $$(offer_gives("sor.offer"));
-
     /* If the price is too high, we return early. Otherwise we now know we'll execute the offer. */
     if (makerWouldWant > sor.gives) {
       return (false, false, 0, bytes32(0), bytes32(0));
@@ -448,14 +465,27 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
     executed = true;
 
-    /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So we adjust `sor.wants` and `sor.gives` as follow: if the offer cannot fully satisfy the taker (`sor.offer.gives < sor.wants`), we consume the entire offer. Otherwise `sor.wants` doesn't need to change (the taker will receive everything they wants), and `sor.gives` is adjusted downward to meet the offer's price. */
+    /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So we adjust `sor.wants` and `sor.gives` as follow: if the offer cannot fully satisfy the taker (`sor.offer.gives < sor.wants`), we consume the entire offer. */
     if ($$(offer_gives("sor.offer")) < sor.wants) {
       sor.wants = $$(offer_gives("sor.offer"));
       sor.gives = $$(offer_wants("sor.offer"));
+      /* Otherwise, if `fillWants` is true, `sor.wants` doesn't need to change (the taker will receive everything they want), and `sor.gives` is adjusted downward to meet the offer's price. If `fillWants` is false, `sor.gives` doesn't need to change (the taker will give everything they have) and `sor.wants` is adjusted upward to meet the offer's price. */
     } else {
-      sor.gives = makerWouldWant;
+      if (mor.fillWants) {
+        sor.gives = makerWouldWant;
+      } else {
+        /* Here we round down how much the maker should give. */
+        uint makerWouldGive;
+        if ($$(offer_wants("sor.offer")) == 0) {
+          makerWouldGive = $$(offer_gives("sor.offer"));
+        } else {
+          makerWouldGive =
+            (sor.gives * $$(offer_gives("sor.offer"))) /
+            $$(offer_wants("sor.offer"));
+        }
+        sor.wants = makerWouldGive;
+      }
     }
-
     /* The flashloan is executed by call to `flashloan`. If the call reverts, it means the maker failed to send back `sor.wants` `base` to the taker. Notes :
      * `msg.sender` is the Mangrove itself in those calls -- all operations related to the actual caller should be done outside of this call.
      * any spurious exception due to an error in Mangrove code will be falsely blamed on the Maker, and its provision for the offer will be unfairly taken away.

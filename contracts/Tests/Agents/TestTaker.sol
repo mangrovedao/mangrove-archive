@@ -91,7 +91,7 @@ contract TestTaker is ITaker {
   ) external pure override {}
 
   function marketOrder(uint wants, uint gives) external returns (uint, uint) {
-    return _mgv.marketOrder(_base, _quote, wants, gives);
+    return _mgv.marketOrder(_base, _quote, wants, gives, true);
   }
 
   function marketOrder(
@@ -101,13 +101,13 @@ contract TestTaker is ITaker {
     uint takerWants,
     uint takerGives
   ) external returns (uint, uint) {
-    return __mgv.marketOrder(__base, __quote, takerWants, takerGives);
+    return __mgv.marketOrder(__base, __quote, takerWants, takerGives, true);
   }
 
   function marketOrderWithFail(uint wants, uint gives)
     external
     returns (uint, uint)
   {
-    return _mgv.marketOrder(_base, _quote, wants, gives);
+    return _mgv.marketOrder(_base, _quote, wants, gives, true);
   }
 }

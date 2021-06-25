@@ -100,7 +100,7 @@ contract InvertedTakerOperations_Test is ITaker {
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.checkPay.selector;
     toPay = 0.2 ether;
-    (, uint gave) = mgv.marketOrder(base, quote, 0.2 ether, 0.2 ether);
+    (, uint gave) = mgv.marketOrder(base, quote, 0.2 ether, 0.2 ether, true);
     TestEvents.eq(
       quoteBalance - gave,
       quoteT.balanceOf(address(this)),
@@ -121,7 +121,7 @@ contract InvertedTakerOperations_Test is ITaker {
     uint _ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.revertTrade.selector;
     skipCheck = true;
-    try mgv.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
+    try mgv.marketOrder(base, quote, 0.2 ether, 0.2 ether, true) {
       TestEvents.fail("Market order should have reverted");
     } catch Error(string memory reason) {
       TestEvents.eq("TradeFail", reason, "Unexpected throw");
@@ -155,7 +155,7 @@ contract InvertedTakerOperations_Test is ITaker {
   function taker_refuses_to_deliver_during_trade_test() public {
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.refusePayTrade.selector;
-    try mgv.marketOrder(base, quote, 0.2 ether, 0.2 ether) {
+    try mgv.marketOrder(base, quote, 0.2 ether, 0.2 ether, true) {
       TestEvents.fail("Market order should have reverted");
     } catch Error(string memory reason) {
       TestEvents.eq(
@@ -208,7 +208,8 @@ contract InvertedTakerOperations_Test is ITaker {
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.reenter.selector;
-    (uint got, uint gave) = mgv.marketOrder(base, quote, 0.1 ether, 0.1 ether);
+    (uint got, uint gave) =
+      mgv.marketOrder(base, quote, 0.1 ether, 0.1 ether, true);
     TestEvents.eq(
       quoteBalance - gave - 0.1 ether,
       quoteT.balanceOf(address(this)),

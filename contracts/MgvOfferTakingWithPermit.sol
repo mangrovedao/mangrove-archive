@@ -102,6 +102,7 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
     address quote,
     uint takerWants,
     uint takerGives,
+    bool fillWants,
     address taker
   ) external returns (uint takerGot, uint takerGave) {
     (takerGot, takerGave) = generalMarketOrder(
@@ -109,6 +110,7 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
       quote,
       takerWants,
       takerGives,
+      fillWants,
       taker
     );
     deductSenderAllowance(base, quote, taker, takerGave);
