@@ -3,12 +3,18 @@
 
    There is one Mangrove contract that manages all tradeable pairs. This reduces deployment costs for new pairs and lets market makers have all their provision for all pairs in the same place.
 
+   The interaction map between the different actors is as follows:
+   <img src="./contactMap.png" width="150%"></img>
+
+   The sequence diagram of a market order is as follows:
+   <img src="./sequenceChart.svg" width="100%"></img>
+
    There is a secondary mode of operation in which the _maker_ flashloans the sold amount to the taker.
 
    The Mangrove contract is `abstract` and accomodates both modes. Two contracts, `Mangrove` and `InvertedMangrove` inherit from it, one per mode of operation.
 
    The contract structure is as follows:
-   <img src="./modular_mangrove.svg" width="220%"> </img>
+   <img src="./modular_mangrove.svg" width="150%"> </img>
  */
 
 pragma solidity ^0.7.0;
