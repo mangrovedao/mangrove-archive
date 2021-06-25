@@ -1,4 +1,4 @@
-# Dex2 development repo
+# Mangrove development repo
 
 ## How to install
 
@@ -49,4 +49,4 @@ It has an extendable task system; this repo adds a `test-solidity` task. Run `np
 
 ## Generate documentation
 
-After running `npm install`, run `npm run doc` to generate a `DexDoc.html` file.
+After running `npm install`, run `npm run doc` to generate a `doc/MgvDoc.html` file.
