@@ -38,7 +38,7 @@ npx hardhat run scripts/permit.js
 
 #### More on tests
 
-See [`Greeter.sol`](contracts/Greeter.sol). To test a contract `C`, create a contract `C_Test`. It should probably inherit [`Test`](contracts/Test.sol). To see how it all works, see [`test_solidity.js`](lib/test_solidity.js).
+To test a contract `C`, create a contract `C_Test`. You will probably use the contents of `contracts/Toolbox/TestEvents.sol`. To see how it all works, see [`test_solidity.js`](lib/test_solidity.js).
 
 [Hardhat](https://hardhat.org) is a development framework for Ethereum. It includes an [EVM interpreter](https://hardhat.org/hardhat-network/) with special hooks for
 
