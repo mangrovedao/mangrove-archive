@@ -1,32 +1,31 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./MangroveOffer.sol";
-import "../lib/OpenOraclePriceData.sol";
+import "../lib/OpenOracleView.sol";
 
 // SPDX-License-Identifier: MIT
 
-contract Defensive is MangroveOffer, Exponential, OpenOraclePriceData {
+contract Defensive is MangroveOffer, Exponential, OpenOracleView {
   event MissingLiquidity(address erc20, uint amount, uint offerId);
   event TransferFailure(address erc20, uint amount, uint offerId);
   event ReceiveFailure(address erc20, uint amount, uint offerId);
 
-  OpenOraclePriceData immutable priceFeed;
-  address immutable trustedSource;
   uint16 slippage;
   uint constant BP = 1000;
 
   constructor(
-    address _priceFeed,
-    address _trustedSource,
+    address _priceData,
+    address[] memory _trustedSources,
     address payable _MGV
-  ) MangroveOffer(_MGV) {
-    priceFeed = OpenOraclePriceData(_priceFeed);
-    trustedSource = _trustedSource;
-  }
+  ) MangroveOffer(_MGV) OpenOracleView(_priceData,_trustedSources) {}
 
   function setSlippage(uint _slippage) external onlyAdmin {
     require(uint16(_slippage) == _slippage, "Slippage overflow");
     slippage = uint16(_slippage);
+  }
+
+  function __getPrice__(string memory symbol) internal virtual view returns (uint){
+    return uint(medianPrice(symbol));
   }
 
   function __lastLook__(MgvLib.SingleOrder calldata order)
@@ -40,20 +39,20 @@ contract Defensive is MangroveOffer, Exponential, OpenOraclePriceData {
     uint oracle_gives =
       mul_( //amount of base tokens required by taker (in ~USD, 6 decimals)
         order.wants,
-        uint(priceFeed.getPrice(trustedSource, base.symbol())) //could be checking age of the time stamp of data
+        __getPrice__(base.symbol()) // calling the method to get the price from priceData
       );
     uint oracle_wants =
       mul_( //amount of quote tokens given by taker (in ~USD, 6 decimals)
-        order.gives,
-        uint(priceFeed.getPrice(trustedSource, quote.symbol()))
+        order.gives, //padded uint96
+        __getPrice__(quote.symbol()) //padded uint96
       );
-    uint offer_wants = order.gives; //uint96
-    uint offer_gives = order.wants; //uint96
+    uint offer_wants = order.gives; //padded uint96
+    uint offer_gives = order.wants; //padded uint96
     // if p'=oracle_wants/oracle_gives > p=offer_wants/offer_gives
     // we require p'-p > p*slippage/BP
     // which is (oracle_gives * offer_wants * slippage)/BP - offer_gives * oracle_wants + oracle_gives*offer_wants > 0
-    uint oracleWantsTimesOfferGives = oracle_wants * offer_gives; // both are uint96 cannot overflow
-    uint offerWantsTimesOracleGives = offer_wants * oracle_gives; // both are uint96 cannot overflow
+    uint oracleWantsTimesOfferGives = oracle_wants * offer_gives; // both are padded uint96 cannot overflow
+    uint offerWantsTimesOracleGives = offer_wants * oracle_gives; // both are padded uint96 cannot overflow
     if (
       (offerWantsTimesOracleGives * slippage) /
         BP +
@@ -69,7 +68,7 @@ contract Defensive is MangroveOffer, Exponential, OpenOraclePriceData {
     MgvLib.SingleOrder calldata order,
     Fail failtype,
     uint[] calldata args
-  ) internal override {
+  ) internal virtual override {
     if (failtype == Fail.None) {
       return; // order was correctly processed nothing to be done
     }
