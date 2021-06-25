@@ -652,4 +652,24 @@ contract TakerOperations_Test {
       "mgv should not be locked after marketOrder on empty OB"
     );
   }
+
+  function takerWants_is_zero_succeeds_test() public {
+    try mgv.marketOrder(base, quote, 0, 1 ether) returns (uint got, uint gave){
+      TestEvents.eq(got,0,"Taker got too much");
+      TestEvents.eq(gave,0 ether,"Taker gave too much");
+    } catch Error(string memory r) {
+      TestEvents.fail("Unexpected revert");
+    }
+  }
+
+  function takerGives_is_zero_succeeds_test() public {
+    try mgv.marketOrder(base, quote, 1 ether, 0) returns (uint got, uint gave){
+      TestEvents.eq(got,0,"Taker got too much");
+      TestEvents.eq(gave,0 ether,"Taker gave too much");
+    } catch Error(string memory r) {
+      TestEvents.fail("Unexpected revert");
+    }
+  }
+
+
 }
