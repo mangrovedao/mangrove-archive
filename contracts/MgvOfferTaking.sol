@@ -162,7 +162,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         /* It is known statically that `mor.initialGives - mor.totalGave` does not underflow since
            1. `mor.totalGave` was increased by `sor.gives` during `execute`,
            2. `sor.gives` was at most `mor.initialGives - mor.totalGave` from earlier step,
-           3. `sor.gives` may have been clamped _down_ during `execute` (to `makerWouldWant`, cf. code of `execute`).
+           3. `sor.gives` may have been clamped _down_ during `execute` (to "`offer.wants`" if the offer is entirely consumed, or to `makerWouldWant`, cf. code of `execute`).
         */
         sor.gives = mor.initialGives - mor.totalGave;
         sor.offerId = $$(offer_next("sor.offer"));
@@ -448,42 +448,47 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       bytes32 statusCode
     )
   {
-    /* #### `makerWouldWant` */
+    /* #### `Price comparison` */
     //+clear+
-    /* The current offer has a price <code>_p_ = sor.offer.wants/sor.offer.gives</code>. `makerWouldWant` is the amount of `quote` the offer would require at price _p_ to provide `sor.wants` `base`. Computing `makeWouldWant` gives us both a test that _p_ is an acceptable price for the taker, and the amount of `quote` to send to the maker.
+    /* The current offer has a price `p = offerWants ÷ offerGives` and the taker is ready to accept a price up to `p' = takerGives ÷ takerWants`. Comparing `offerWants * takerWants` and `offerGives * takerGives` tels us whether `p < p'`.
+     */
+    {
+      uint offerWants = $$(offer_wants("sor.offer"));
+      uint offerGives = $$(offer_gives("sor.offer"));
+      uint takerWants = sor.wants;
+      uint takerGives = sor.gives;
+      /* If the price is too high, we return early.
 
-    **Note**: We never check that `offerId` is actually a `uint24`, or that `offerId` actually points to an offer: it is not possible to insert an offer with an id larger than that, and a wrong `offerId` will point to a zero-initialized offer, which will revert the call when dividing by `offer.gives`.
+         Otherwise we now know we'll execute the offer. */
+      if (offerWants * takerWants > offerGives * takerGives) {
+        return (false, false, 0, bytes32(0), bytes32(0));
+      }
 
-   Offer prices are rounded down for the purpose of checking price compatibility.
-       */
-    uint makerWouldWant =
-      (sor.wants * $$(offer_wants("sor.offer"))) / $$(offer_gives("sor.offer"));
-    /* If the price is too high, we return early. Otherwise we now know we'll execute the offer. */
-    if (makerWouldWant > sor.gives) {
-      return (false, false, 0, bytes32(0), bytes32(0));
-    }
+      executed = true;
 
-    executed = true;
+      /* If `fillWants` is true, we want to give the taker no more than they required. So if the offer does not provide enough, we completely consume it. 
 
-    /* If the current offer is good enough for the taker can accept, we compute how much the taker should give/get on the _current offer_. So we adjust `sor.wants` and `sor.gives` as follow: if the offer cannot fully satisfy the taker (`sor.offer.gives < sor.wants`), we consume the entire offer. */
-    if ($$(offer_gives("sor.offer")) < sor.wants) {
-      sor.wants = $$(offer_gives("sor.offer"));
-      sor.gives = $$(offer_wants("sor.offer"));
-      /* Otherwise, if `fillWants` is true, `sor.wants` doesn't need to change (the taker will receive everything they want), and `sor.gives` is adjusted downward to meet the offer's price. If `fillWants` is false, `sor.gives` doesn't need to change (the taker will give everything they have) and `sor.wants` is adjusted upward to meet the offer's price. */
-    } else {
-      if (mor.fillWants) {
-        sor.gives = makerWouldWant;
+         Conversely, if `fillWants` is false, we want the taker to give as much as they can. So if the offer does not take enough, we completely consume it. 
+
+         Finally, if the offer has price 0 (`offerWants == 0`), we completely consume it. This avoids a division by 0 below where `fillWants` is false and we adjust `sor.wants`  (currently impossible to trigger a) snipes always have `fillWants == true`, and b) taking that branch under a price of 0 implies `takerGives == 0`, but market orders stop when `takerGives == 0`); it does not change the result in the other cases. */
+      if (
+        (mor.fillWants && offerGives < takerWants) ||
+        (!mor.fillWants && offerWants < takerGives) ||
+        offerWants == 0
+      ) {
+        sor.wants = offerGives;
+        sor.gives = offerWants;
+        /* If we are in neither of the above cases, then the offer will be partially consumed. */
       } else {
-        /* Here we round down how much the maker should give. */
-        uint makerWouldGive;
-        if ($$(offer_wants("sor.offer")) == 0) {
-          makerWouldGive = $$(offer_gives("sor.offer"));
+        /* If `fillWants` is true, we give `takerWants` to the taker and adjust how much they give based on the offer's price. Note that we round down how much the taker will give. */
+        if (mor.fillWants) {
+          /* **Note**: We know statically that the offer is live (`offer.gives > 0`) since market orders only traverse live offers and `internalSnipes` check for offer liveness before executing. */
+          sor.gives = (offerWants * takerWants) / offerGives;
+          /* If `fillWants` is false, we take `takerGives` from the taker and adjust how much they get based on the offer's price. Note that we round down how much the taker will get.*/
         } else {
-          makerWouldGive =
-            (sor.gives * $$(offer_gives("sor.offer"))) /
-            $$(offer_wants("sor.offer"));
+          /* **Note**: We know statically by outer `else` branch that `offerGives > 0`. */
+          sor.wants = (offerGives * takerGives) / offerWants;
         }
-        sor.wants = makerWouldGive;
       }
     }
     /* The flashloan is executed by call to `flashloan`. If the call reverts, it means the maker failed to send back `sor.wants` `base` to the taker. Notes :
