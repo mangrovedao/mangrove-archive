@@ -73,7 +73,7 @@ contract Gas_Test is IMaker {
     return (_mgv, _tkr, _base, _quote);
   }
 
-  function makerTrade(ML.SingleOrder calldata)
+  function makerExecute(ML.SingleOrder calldata)
     external
     pure
     override

@@ -12,7 +12,7 @@ contract CompoundTrader is CompoundLender {
   event ErrorOnBorrow(address cToken, uint amount, uint errorCode);
   event ErrorOnRepay(address cToken, uint amount, uint errorCode);
 
-  ///@notice method to get `base` during makerTrade
+  ///@notice method to get `base` during makerExecute
   ///@param base address of the ERC20 managing `base` token
   ///@param amount of token that the trade is still requiring
   function __get__(address base, uint amount)
@@ -31,8 +31,7 @@ contract CompoundTrader is CompoundLender {
     }
 
     // 1. Computing total borrow and redeem capacities of underlying asset
-    (uint liquidity, uint redeemable) =
-      maxGettableUnderlying(base_cErc20);
+    (uint liquidity, uint redeemable) = maxGettableUnderlying(base_cErc20);
 
     // 2. trying to redeem liquidity from Compound
     uint toRedeem = min(redeemable, amount);
@@ -45,14 +44,14 @@ contract CompoundTrader is CompoundLender {
     }
     amount = sub_(amount, toRedeem);
     uint toBorrow;
-    if (comptroller.checkMembership(msg.sender, base_cErc20)) { //base_cErc20 participates to liquidity
+    if (comptroller.checkMembership(msg.sender, base_cErc20)) {
+      //base_cErc20 participates to liquidity
       toBorrow = min(sub_(liquidity, toRedeem), amount); // we know liquidity > toRedeem
-    }
-    else {
-      toBorrow = min(liquidity,amount); // redeemed token do not decrease liquidity
+    } else {
+      toBorrow = min(liquidity, amount); // redeemed token do not decrease liquidity
     }
     if (toBorrow == 0) {
-      return amount;  
+      return amount;
     }
 
     // 3. trying to borrow missing liquidity

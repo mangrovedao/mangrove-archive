@@ -120,6 +120,7 @@ contract CompoundLender is MangroveOffer, Exponential {
       heap.errCode,
       heap.liquidity, // is USD:18 decimals
       /*shortFall*/
+
     ) = comptroller.getAccountLiquidity(msg.sender); // underapprox
     // to get liquidity expressed in base token instead of USD
     (heap.mErr, heap.underlyingLiquidity) = divScalarByExpTruncate(
@@ -132,7 +133,10 @@ contract CompoundLender is MangroveOffer, Exponential {
     (, heap.collateralFactorMantissa, ) = comptroller.markets(address(cToken));
     // if collateral factor is 0 then any token can be redeemed from the pool
     // also true if market is not entered
-    if (heap.collateralFactorMantissa == 0 || !comptroller.checkMembership(msg.sender, cToken)) {
+    if (
+      heap.collateralFactorMantissa == 0 ||
+      !comptroller.checkMembership(msg.sender, cToken)
+    ) {
       return (heap.underlyingLiquidity, heap.balanceOfUnderlying);
     }
 
@@ -147,10 +151,13 @@ contract CompoundLender is MangroveOffer, Exponential {
     if (heapError(heap)) {
       return (0, 0);
     }
-    return (heap.underlyingLiquidity, min(heap.maxRedeemable, heap.balanceOfUnderlying));
+    return (
+      heap.underlyingLiquidity,
+      min(heap.maxRedeemable, heap.balanceOfUnderlying)
+    );
   }
 
-  ///@notice method to get `base` during makerTrade
+  ///@notice method to get `base` during makerExecute
   ///@param base address of the ERC20 managing `base` token
   ///@param amount of token that the trade is still requiring
   function __get__(address base, uint amount)
@@ -167,7 +174,7 @@ contract CompoundLender is MangroveOffer, Exponential {
     if (address(base_cErc20) == address(0)) {
       return amount;
     }
-    (,uint redeemable) = maxGettableUnderlying(base_cErc20);
+    (, uint redeemable) = maxGettableUnderlying(base_cErc20);
     uint redeemAmount = min(redeemable, amount);
     if (compoundRedeem(base_cErc20, redeemAmount) == 0) {
       // redeemAmount was transfered to `this`
@@ -216,10 +223,10 @@ contract CompoundLender is MangroveOffer, Exponential {
   // utility to supply erc20 to compound
   // NB `cToken` contract MUST be approved to perform `transferFrom token` by `this` contract.
   /// @notice user need to approve cToken in order to mint
-  function compoundMint(
-    IcERC20 cToken,
-    uint amount
-  ) internal returns (uint missing) {
+  function compoundMint(IcERC20 cToken, uint amount)
+    internal
+    returns (uint missing)
+  {
     // Approve transfer on the ERC20 contract (not needed if cERC20 is already approved for `this`)
     // IERC20(cToken.underlying()).approve(cToken, amount);
     uint errCode = cToken.mint(amount); // accrues interest

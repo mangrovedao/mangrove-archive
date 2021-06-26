@@ -171,7 +171,7 @@ interface IMaker {
      }
      ```
      */
-  function makerTrade(MgvLib.SingleOrder calldata order)
+  function makerExecute(MgvLib.SingleOrder calldata order)
     external
     returns (bytes32);
 

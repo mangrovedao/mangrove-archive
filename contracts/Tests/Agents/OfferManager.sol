@@ -73,7 +73,7 @@ contract OfferManager is IMaker, ITaker {
     uint takerGives
   );
 
-  function makerTrade(ML.SingleOrder calldata _order)
+  function makerExecute(ML.SingleOrder calldata _order)
     external
     override
     returns (bytes32 ret)

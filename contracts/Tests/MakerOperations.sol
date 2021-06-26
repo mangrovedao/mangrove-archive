@@ -91,7 +91,7 @@ contract MakerOperations_Test is IMaker {
   }
 
   // since we check calldata, execute must be internal
-  function makerTrade(ML.SingleOrder calldata order)
+  function makerExecute(ML.SingleOrder calldata order)
     external
     override
     returns (bytes32 ret)
@@ -144,7 +144,7 @@ contract MakerOperations_Test is IMaker {
     ML.OrderResult calldata result
   ) external override {}
 
-  function calldata_and_balance_in_makerTrade_are_correct_test() public {
+  function calldata_and_balance_in_makerExecute_are_correct_test() public {
     bool funded;
     (funded, ) = address(mgv).call{value: 1 ether}("");
     base.mint(address(this), 1 ether);

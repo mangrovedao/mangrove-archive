@@ -14,7 +14,7 @@ import "../Toolbox/Display.sol";
 import "hardhat/console.sol";
 
 /* TODO
- * dans makerTrade: check oracle price to see if I'm still in reasonable spread
+ * dans makerExecute: check oracle price to see if I'm still in reasonable spread
  * don't sell all liquidity otherwie what is my price when I have 0 balance ? at least check that.
  */
 
@@ -51,7 +51,7 @@ contract MM1 {
     doMakerPosthook();
   }
 
-  function makerTrade(DC.SingleOrder calldata) external {}
+  function makerExecute(DC.SingleOrder calldata) external {}
 
   function makerPosthook(DC.SingleOrder calldata, DC.OrderResult calldata)
     external

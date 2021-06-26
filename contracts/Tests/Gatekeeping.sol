@@ -574,7 +574,7 @@ contract Gatekeeping_Test is IMaker {
   bytes posthook_cb;
 
   // maker's trade fn for the mgv
-  function makerTrade(ML.SingleOrder calldata)
+  function makerExecute(ML.SingleOrder calldata)
     external
     override
     returns (bytes32 ret)
@@ -583,7 +583,7 @@ contract Gatekeeping_Test is IMaker {
     bool success;
     if (trade_cb.length > 0) {
       (success, ) = address(this).call(trade_cb);
-      require(success, "makerTrade callback must work");
+      require(success, "makerExecute callback must work");
     }
   }
 

@@ -132,7 +132,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       sor.offerId > 0
     ) {
       bool success; // execution success/failure
-      uint gasused; // gas used by `makerTrade`
+      uint gasused; // gas used by `makerExecute`
       bytes32 makerData; // data returned by maker
       /* `statusCode` is an internal status string held in a `bytes32` value. It appears in the maker's `postHook` function arguments and can hold a subset of the values returned by [`innerRevert`](#MgvOfferTaking/innerRevert). */
       bytes32 statusCode;
@@ -589,7 +589,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     internal
     returns (uint gasused)
   {
-    bytes memory cd = abi.encodeWithSelector(IMaker.makerTrade.selector, sor);
+    bytes memory cd = abi.encodeWithSelector(IMaker.makerExecute.selector, sor);
 
     /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + overhead_gasbase/n + offer_gasbase` where `n` is the number of failing offers. This yul call only retrieves the first 32 bytes of the maker's `returndata`. */
     uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
@@ -830,7 +830,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   /* <a id="MgvOfferTaking/innerRevert"></a>`innerRevert` reverts a raw triple of values to be interpreted by `innerDecode`. The possible values for the first value element of the triple are:
    * `"mgv/tradeSuccess"`: trade cleared normally
    * `"mgv/notEnoughGasForMakerTrade"`: cannot give maker close enough to `gasreq`. Triggers a revert of the entire order, cannot appear in `postHook`.
-   * `"mgv/makerRevert"`: execution of `makerTrade` reverted
+   * `"mgv/makerRevert"`: execution of `makerExecute` reverted
    * `"mgv/makerTransferFail"`: maker could not send base tokens
    * `"mgv/makerReceiveFail"`: maker could not receive quote tokens
    * `"mgv/takerTransferFail"`: taker could not send quote tokens. Triggers a revert of the entire order, cannot appear in `postHook`.

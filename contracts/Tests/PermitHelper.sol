@@ -30,7 +30,7 @@ contract PermitHelper is IMaker {
   address base;
   address quote;
 
-  function makerTrade(ML.SingleOrder calldata)
+  function makerExecute(ML.SingleOrder calldata)
     external
     override
     returns (bytes32)

@@ -46,7 +46,7 @@ contract MakerPosthook_Test is IMaker {
     }
   }
 
-  function makerTrade(MgvLib.SingleOrder calldata trade)
+  function makerExecute(MgvLib.SingleOrder calldata trade)
     external
     override
     returns (bytes32)

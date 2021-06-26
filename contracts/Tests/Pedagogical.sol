@@ -224,7 +224,7 @@ contract Maker_basic is TestMaker {
     approveMgv(base, 500 ether);
   }
 
-  function makerTrade(ML.SingleOrder calldata)
+  function makerExecute(ML.SingleOrder calldata)
     public
     pure
     override
@@ -257,7 +257,7 @@ contract Maker_compound is TestMaker {
     _compound.mint(ERC20BL(_base), 10 ether);
   }
 
-  function makerTrade(ML.SingleOrder calldata order)
+  function makerExecute(ML.SingleOrder calldata order)
     public
     override
     returns (bytes32 ret)
@@ -284,7 +284,7 @@ contract Maker_callback is TestMaker {
     approveMgv(base, 500 ether);
   }
 
-  function makerTrade(ML.SingleOrder calldata)
+  function makerExecute(ML.SingleOrder calldata)
     public
     pure
     override

@@ -62,7 +62,7 @@ contract MangroveOffer is AccessControlled, IMaker {
 
   /// @title Mangrove basic interactions (logging is done by the Mangrove)
 
-  /// @notice trader needs to approve the Mangrove to perform base token transfer at the end of the `makerTrade` function
+  /// @notice trader needs to approve the Mangrove to perform base token transfer at the end of the `makerExecute` function
   function approveMangrove(address base_erc20, uint amount) external onlyAdmin {
     require(IERC20(base_erc20).approve(MGV, amount));
   }
@@ -152,14 +152,14 @@ contract MangroveOffer is AccessControlled, IMaker {
   /////// Mandatory callback functions
 
   // not a virtual function to make sure it is only MGV callable
-  function makerTrade(MgvLib.SingleOrder calldata order)
+  function makerExecute(MgvLib.SingleOrder calldata order)
     external
     override
     onlyCaller(MGV)
     returns (bytes32 returnData)
   {
     __lastLook__(order); // might revert or let the trade proceed
-    returnData = makerTradeInternal(
+    returnData = makerExecuteInternal(
       order.base,
       order.quote,
       order.wants,
@@ -200,7 +200,7 @@ contract MangroveOffer is AccessControlled, IMaker {
   }
 
   /// @notice Core strategy to fetch liquidity
-  function makerTradeInternal(
+  function makerExecuteInternal(
     address base,
     address quote,
     uint order_wants,
@@ -239,7 +239,7 @@ contract MangroveOffer is AccessControlled, IMaker {
 
   /// @notice default withdraw is to let the Mangrove fetch base token associated to `this`
   /// @param base is the address of the ERC20 managing the token promised by the offer
-  /// @param amount is the amount of base token that has to be available in the balance of `this` by the end of makerTrade
+  /// @param amount is the amount of base token that has to be available in the balance of `this` by the end of makerExecute
   /// @return remainsToBeFetched is the amount of Base token that is yet to be fetched after calling this function.
   function __get__(address base, uint amount) internal virtual returns (uint) {
     uint balance = IERC20(base).balanceOf(address(this));

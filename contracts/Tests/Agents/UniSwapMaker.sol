@@ -50,7 +50,7 @@ contract UniSwapMaker is IMaker {
     uint takerGives
   );
 
-  function makerTrade(ML.SingleOrder calldata order)
+  function makerExecute(ML.SingleOrder calldata order)
     external
     override
     returns (bytes32 avoid_compilation_warning)

@@ -23,7 +23,7 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     succeed = true;
   }
 
-  function makerTrade(ML.SingleOrder calldata order)
+  function makerExecute(ML.SingleOrder calldata order)
     public
     override
     returns (bytes32 ret)
