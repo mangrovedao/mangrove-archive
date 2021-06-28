@@ -71,8 +71,7 @@ library MgvLib {
   struct OrderResult {
     /* `makerdata` holds a message that was either returned by the maker or passed as revert message at the end of the trade execution*/
     bytes32 makerData;
-    /* Mangrove [status code](#MgvOfferTaking/statusCodes) that is assigned to the current trade. `statusCode=="mgv/tradeSuccess"` whenever the trade was successful, `statusCode == "mgv/makerRevert"` when maker reverted during the trade execution. `statusCode == "mgv/makerTransferFail"` whenever Mangrove was unable to transfer `base` tokens from the maker and 
-      `statusCode == "mgv/makerReceiveFail"` when Mangrove was unable to transfer `quote` tokens to the maker (for instance if the maker is blacklisted).*/
+    /* `statusCode` is an [internal Mangrove status](#MgvOfferTaking/statusCodes) code. */
     bytes32 statusCode;
   }
 }

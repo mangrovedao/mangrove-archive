@@ -133,15 +133,23 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     ) {
       uint gasused; // gas used by `makerExecute`
       bytes32 makerData; // data returned by maker
-      /* `statusCode` is an internal status string held in a `bytes32` value. It appears in the maker's `postHook` function arguments and can hold a subset of the values returned by [`innerRevert`](#MgvOfferTaking/innerRevert).
 
-      `statusCode == "mgv/notExecuted"` if the offer could not be executed against the 2nd and 3rd argument of execute. Currently, we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
+      /* <a id="MgvOfferTaking/statusCodes"></a> `statusCode` is an internal Mangrove status code. It may appear in an [`OrderResult`](#MgvLib/OrderResult). Its possible values are:
+      * `"mgv/notExecuted"`: offer was not executed.
+      * `"mgv/tradeSuccess"`: offer execution succeeded. Will appear in `OrderResult`.
+      * `"mgv/notEnoughGasForMakerTrade"`: cannot give maker close enough to `gasreq`. Triggers a revert of the entire order.
+      * `"mgv/makerRevert"`: execution of `makerExecute` reverted. Will appear in `OrderResult`.
+      * `"mgv/makerTransferFail"`: maker could not send base tokens. Will appear in `OrderResult`.
+      * `"mgv/makerReceiveFail"`: maker could not receive quote tokens. Will appear in `OrderResult`.
+      * `"mgv/takerTransferFail"`: taker could not send quote tokens. Triggers a revert of the entire order.
+
+      `statusCode` should not be exploitable by the maker! */
       bytes32 statusCode;
 
       /* Load additional information about the offer. We don't do it earlier to save one storage read in case `proceed` was false. */
       sor.offerDetail = offerDetails[sor.base][sor.quote][sor.offerId];
 
-      /* `execute` will adjust `sor.wants`,`sor.gives`, and may attempt to execute the offer if its price is low enough. It is crucial that an error due to `taker` triggers a revert. That way, `statusCode == "mgv/notExecuted"` means there was no execution attempt, and otherwise, `statusCode != "mgv/tradeSuccess"` means the failure is the maker's fault. */
+      /* `execute` will adjust `sor.wants`,`sor.gives`, and may attempt to execute the offer if its price is low enough. It is crucial that an error due to `taker` triggers a revert. That way, [`statusCode`](#MgvOfferTaking/statusCodes) not in `["mgv/notExecuted","mgv/tradeSuccess"]` means the failure is the maker's fault. */
       /* Post-execution, `sor.wants`/`sor.gives` reflect how much was sent/taken by the offer. We will need it after the recursive call, so we save it in local variables. Same goes for `offerId`, `sor.offer` and `sor.offerDetail`. */
 
       (gasused, makerData, statusCode) = execute(mor, sor);
@@ -172,7 +180,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       internalMarketOrder(
         mor,
         sor,
-        // `proceed` value for next call
+        /* `proceed` value for next call. Currently, when an offer did not execute, it's because the offer's price was too high. In that case we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
         statusCode != "mgv/notExecuted"
       );
 
@@ -374,7 +382,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         sor.wants = targets[i][1];
         sor.gives = targets[i][2];
 
-        /* `execute` will adjust `sor.wants`,`sor.gives`, and may attempt to execute the offer if its price is low enough. It is crucial that an error due to `taker` triggers a revert. That way, `statusCode == "mgv/notExecuted" means there was no execution attempt, and `statusCode` not in `["mgv/tradeSuccess","mgv/notExecuted"]` means the failure is the maker's fault. */
+        /* `execute` will adjust `sor.wants`,`sor.gives`, and may attempt to execute the offer if its price is low enough. It is crucial that an error due to `taker` triggers a revert. That way [`statusCode`](#MgvOfferTaking/statusCodes) not in `["mgv/tradeSuccess","mgv/notExecuted"]` means the failure is the maker's fault. */
         /* Post-execution, `sor.wants`/`sor.gives` reflect how much was sent/taken by the offer. We will need it after the recursive call, so we save it in local variables. Same goes for `offerId`, `sor.offer` and `sor.offerDetail`. */
         (gasused, makerData, statusCode) = execute(mor, sor);
 
@@ -439,10 +447,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
      Summary of the meaning of the return values:
     * `gasused` is the gas consumed by the execution
     * `makerData` is the data returned after executing the offer
-    * `statusCode` is an [internal Mangrove status code](#MgvOfferTaking/statusCodes):
-      * `statusCode == "mgv/tradeSuccess"`: offer has succeeded
-      * `statusCode == "mgv/notExecuted"`: offer was not executed
-      * otherwise: offer has failed */
+    * `statusCode` is an [internal Mangrove status code](#MgvOfferTaking/statusCodes).
+  */
   function execute(MultiOrder memory mor, ML.SingleOrder memory sor)
     internal
     returns (
@@ -529,9 +535,9 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       mor.totalGot += sor.wants;
       mor.totalGave += sor.gives;
     } else {
-      /* In case of failure, `retdata` encodes a short error code, the gas used by the offer, and an arbitrary 256 bits word sent by the maker. `statusCode` should not be exploitable by the maker! */
+      /* In case of failure, `retdata` encodes a short [status code](#MgvOfferTaking/statusCodes), the gas used by the offer, and an arbitrary 256 bits word sent by the maker.  */
       (statusCode, gasused, makerData) = innerDecode(retdata);
-      /* <a id="MgvOfferTaking/statusCodes"></a> Note that in the `if`s, the literals are bytes32 (stack values), while as revert arguments, they are strings (memory pointers). */
+      /* Note that in the `if`s, the literals are bytes32 (stack values), while as revert arguments, they are strings (memory pointers). */
       if (
         statusCode == "mgv/makerRevert" ||
         statusCode == "mgv/makerTransferFail" ||
@@ -557,7 +563,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
             mor.taker
           );
         }
-        /* It is crucial that any error code which indicates an error caused by the taker triggers a revert, because functions that call `execute` consider that `execute && !success` should be blamed on the maker. */
+        /* It is crucial that any error code which indicates an error caused by the taker triggers a revert, because functions that call `execute` consider that `statusCode` not in `["mgv/notExecuted","mgv/tradeSuccess"]` should be blamed on the maker. */
       } else if (statusCode == "mgv/notEnoughGasForMakerTrade") {
         revert("mgv/notEnoughGasForMakerTrade");
       } else if (statusCode == "mgv/takerTransferFail") {
@@ -833,15 +839,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     }
   }
 
-  /* <a id="MgvOfferTaking/innerRevert"></a>`innerRevert` reverts a raw triple of values to be interpreted by `innerDecode`. The possible values for the first value element of the triple are:
-   * `"mgv/notExecuted"`: offer was not executed. Cannot appear in `postHook`
-   * `"mgv/tradeSuccess"`: trade cleared normally
-   * `"mgv/notEnoughGasForMakerTrade"`: cannot give maker close enough to `gasreq`. Triggers a revert of the entire order, cannot appear in `postHook`.
-   * `"mgv/makerRevert"`: execution of `makerExecute` reverted
-   * `"mgv/makerTransferFail"`: maker could not send base tokens
-   * `"mgv/makerReceiveFail"`: maker could not receive quote tokens
-   * `"mgv/takerTransferFail"`: taker could not send quote tokens. Triggers a revert of the entire order, cannot appear in `postHook`.
-   */
+  /* <a id="MgvOfferTaking/innerRevert"></a>`innerRevert` reverts a raw triple of values to be interpreted by `innerDecode`.    */
   function innerRevert(bytes32[3] memory data) internal pure {
     assembly {
       revert(data, 96)
