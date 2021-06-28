@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 
 import "../../Mangrove.sol";
 import "./TestMaker.sol";
-import "../../ERC20BL.sol";
+import "./TestToken.sol";
 import "hardhat/console.sol";
 
 //import "./TestMaker.sol";
@@ -50,8 +50,8 @@ contract MakerDeployer {
     if (!deployed) {
       makers = new address payable[](k);
       for (uint i = 0; i < k; i++) {
-        makers[i] = address(new TestMaker(mgv, ERC20BL(base), ERC20BL(quote)));
-        TestMaker(makers[i]).approveMgv(ERC20BL(base), 10 ether);
+        makers[i] = address(new TestMaker(mgv, TestToken(base), TestToken(quote)));
+        TestMaker(makers[i]).approveMgv(TestToken(base), 10 ether);
         TestMaker(makers[i]).shouldFail(i == 0); //maker-0 is failer
       }
     }

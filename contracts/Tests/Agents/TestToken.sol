@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.0;
 
-import "../../ERC20BL.sol";
+import "../ERC20BL.sol";
 
 contract TestToken is ERC20BL {
   mapping(address => bool) admins;

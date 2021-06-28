@@ -3,7 +3,7 @@ pragma abicoder v2;
 pragma solidity ^0.7.4;
 
 import "./TestToken.sol";
-import {SafeMath as S} from "../../SafeMath.sol";
+import {SafeMath as S} from "../SafeMath.sol";
 
 contract MoneyMarket {
   // all prices are 1:1

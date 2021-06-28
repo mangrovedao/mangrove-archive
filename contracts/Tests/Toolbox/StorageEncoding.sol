@@ -109,3 +109,66 @@ contract StorageEncoding_Test {
     console.log("___________________");
   }
 }
+
+// contract EncodeDecode_Test {
+//   receive() external payable {}
+//   enum T {U,B} 
+
+//   function encode(uint192 x) internal view returns (bytes memory){
+//     console.log("encoding",uint(x));
+//     bytes memory data = new bytes(32);
+//     data = abi.encode(T.U,abi.encode(x));
+//     console.logBytes(data);
+//     return data;
+//   }
+//   function encode(uint96 x, uint96 y) internal view returns (bytes memory){
+//     console.log("encoding",uint(x),uint(y));
+
+//     bytes memory data = new bytes(32);
+//     data = abi.encode(T.B,abi.encode(x,y));
+//     console.logBytes(data);
+//     return data;
+//   }
+
+//   function decode(bytes memory data) internal view returns (uint[] memory) {
+//     console.log("Decoding");
+//     console.logBytes(data);
+//     (T t,bytes memory data_) = abi.decode(data,(T,bytes));
+//     if (t==T.B) {
+//       console.log("Binary predicate detected");
+//       uint[] memory args = new uint[](2);
+//       (uint96 x, uint96 y) = abi.decode(data_,(uint96,uint96));
+//       args[0] = uint(x);
+//       args[1] = uint(y);
+//       return args;
+//     }
+//     else{
+//       console.log("Unary predicate detected");
+//       uint[] memory args = new uint[](1);
+//       args[0] = uint(abi.decode(data_,(uint192))); 
+//       return args;
+//     }
+//   }
+
+//   function encode_decode(uint x) internal view {
+//     bytes memory data = encode(uint192(x));
+//     uint[] memory args = decode(data);
+//     for (uint i=0;i<args.length;i++){
+//       console.log(args[i]);
+//     }
+//   }
+
+//   function encode_decode(uint x, uint y) internal view {
+//     bytes memory data = encode(uint96(x), uint96(y));
+//     uint[] memory args = decode(data);
+//     for (uint i=0;i<args.length;i++){
+//       console.log(args[i]);
+//     }
+//   }
+
+//   function encode_decode_test() public view {
+//     encode_decode(123456789);
+//     encode_decode(1234,56789);
+//   }
+
+// }

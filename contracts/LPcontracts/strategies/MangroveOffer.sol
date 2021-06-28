@@ -1,10 +1,10 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import "../interfaces/IMangrove.sol";
-import "../interfaces/IERC20.sol";
+import "../../Mangrove.sol";
+import "../../MgvLib.sol";
+import "../../MgvPack.sol";
 import "../lib/AccessControlled.sol";
 import "../lib/Exponential.sol";
-import "../lib/MgvPack.sol";
 
 // SPDX-License-Identifier: MIT
 
@@ -74,7 +74,7 @@ contract MangroveOffer is AccessControlled, IMaker {
     onlyAdmin
     returns (bool noRevert)
   {
-    require(IMangrove(MGV).withdraw(amount));
+    require(Mangrove(MGV).withdraw(amount));
     require(receiver != address(0), "Cannot transfer WEIs to 0x0 address");
     (noRevert, ) = receiver.call{value: amount}("");
   }
@@ -97,7 +97,7 @@ contract MangroveOffer is AccessControlled, IMaker {
     uint gasprice,
     uint pivotId
   ) public onlyAdmin returns (uint offerId) {
-    offerId = IMangrove(MGV).newOffer(
+    offerId = Mangrove(MGV).newOffer(
       base_erc20,
       quote_erc20,
       wants,
@@ -128,7 +128,7 @@ contract MangroveOffer is AccessControlled, IMaker {
     uint pivotId,
     uint offerId
   ) public onlyAdmin {
-    IMangrove(MGV).updateOffer(
+    Mangrove(MGV).updateOffer(
       base_erc20,
       quote_erc20,
       wants,
@@ -146,7 +146,7 @@ contract MangroveOffer is AccessControlled, IMaker {
     uint offerId,
     bool deprovision
   ) public onlyAdmin {
-    IMangrove(MGV).retractOffer(base_erc20, quote_erc20, offerId, deprovision);
+    Mangrove(MGV).retractOffer(base_erc20, quote_erc20, offerId, deprovision);
   }
 
   /////// Mandatory callback functions
@@ -266,13 +266,15 @@ contract MangroveOffer is AccessControlled, IMaker {
     }
   }
 
+
+  // failing a trade with either 1 or 2 arguments.
   function failTrade(
     Fail failtype,
     uint96 arg0,
     uint96 arg1
   ) internal pure {
     bytes memory failMsg = new bytes(32);
-    failMsg = abi.encode(failtype, arg0, arg1);
+    failMsg = abi.encode(failtype, abi.encode(arg0, arg1));
     bytes32 revData;
     assembly {
       revData := mload(add(failMsg, 32))
@@ -280,25 +282,38 @@ contract MangroveOffer is AccessControlled, IMaker {
     tradeRevertWithData(revData);
   }
 
-  function getMakerFailData(bytes32 data)
+  function failTrade(
+    Fail failtype,
+    uint96 arg
+  ) internal pure {
+    bytes memory failMsg = new bytes(32);
+    failMsg = abi.encode(failtype, abi.encode(arg));
+    bytes32 revData;
+    assembly {
+      revData := mload(add(failMsg, 32))
+    }
+    tradeRevertWithData(revData);
+  }
+
+
+  function getMakerFailData(bytes32 data32)
     internal
     pure
     returns (Fail failtype, uint[] memory args)
   {
-    bytes memory _data = new bytes(32);
+    bytes memory data = new bytes(32);
     assembly {
-      mstore(add(_data, 32), data)
+      mstore(add(data, 32), data32)
     }
-    uint96 arg0;
-    uint96 arg1;
-
-    (failtype, arg0, arg1) = abi.decode(_data, (Fail, uint96, uint96)); // arg1 will be 0 if Fail argument is Fail.liquidity
+    bytes memory _data;
+    (failtype, _data) = abi.decode(data, (Fail, bytes));
 
     if (failtype == Fail.Liquidity) {
       args = new uint[](1);
-      args[0] = uint(arg0);
-    } else {
+      args[0] = abi.decode(_data,(uint96));
+    } else { // failtype == Fail.Slippage
       args = new uint[](2);
+      (uint arg0, uint arg1) = abi.decode(_data,(uint96,uint96));
       args[0] = uint(arg0);
       args[1] = uint(arg1);
     }
