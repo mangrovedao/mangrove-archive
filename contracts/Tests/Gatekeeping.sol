@@ -467,10 +467,26 @@ contract Gatekeeping_Test is IMaker {
       type(uint96).max,
       type(uint).max
     ];
-    try mgv.snipes(base, quote, targets) {
+    try mgv.snipes(base, quote, targets, true) {
       TestEvents.fail("Snipes with takerWants > 96bits should fail");
     } catch Error(string memory reason) {
       TestEvents.revertEq(reason, "mgv/snipes/takerWants/96bits");
+    }
+  }
+
+  function takerGives_above_96bits_fails_snipes_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [
+      ofr,
+      type(uint96).max,
+      uint(type(uint96).max) + 1,
+      type(uint).max
+    ];
+    try mgv.snipes(base, quote, targets, true) {
+      TestEvents.fail("Snipes with takerGives > 96bits should fail");
+    } catch Error(string memory reason) {
+      TestEvents.revertEq(reason, "mgv/snipes/takerGives/96bits");
     }
   }
 
@@ -485,7 +501,16 @@ contract Gatekeeping_Test is IMaker {
   function cannot_snipeFor_for_without_allowance_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     try
-      mgv.snipeFor(base, quote, ofr, 1 ether, 1 ether, 300_000, address(tkr))
+      mgv.snipeFor(
+        base,
+        quote,
+        ofr,
+        1 ether,
+        1 ether,
+        300_000,
+        true,
+        address(tkr)
+      )
     {
       TestEvents.fail("snipeFor should fail without allowance");
     } catch Error(string memory reason) {
@@ -499,7 +524,16 @@ contract Gatekeeping_Test is IMaker {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     tkr.approveSpender(address(this), 1.2 ether);
     (bool success, , ) =
-      mgv.snipeFor(base, quote, ofr, 1 ether, 1 ether, 300_000, address(tkr));
+      mgv.snipeFor(
+        base,
+        quote,
+        ofr,
+        1 ether,
+        1 ether,
+        300_000,
+        true,
+        address(tkr)
+      );
     TestEvents.check(success, "snipeFor should succeed");
     TestEvents.eq(
       mgv.allowances(base, quote, address(tkr), address(this)),
@@ -521,7 +555,7 @@ contract Gatekeeping_Test is IMaker {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     uint[4][] memory targets = new uint[4][](1);
     targets[0] = [ofr, type(uint96).max, type(uint96).max, type(uint).max];
-    try mgv.snipesFor(base, quote, targets, address(tkr)) {
+    try mgv.snipesFor(base, quote, targets, true, address(tkr)) {
       TestEvents.fail("snipesFor should fail without allowance");
     } catch Error(string memory reason) {
       TestEvents.revertEq(reason, "mgv/lowAllowance");
@@ -535,7 +569,8 @@ contract Gatekeeping_Test is IMaker {
     tkr.approveSpender(address(this), 1.2 ether);
     uint[4][] memory targets = new uint[4][](1);
     targets[0] = [ofr, type(uint96).max, type(uint96).max, type(uint).max];
-    (uint successes, , ) = mgv.snipesFor(base, quote, targets, address(tkr));
+    (uint successes, , ) =
+      mgv.snipesFor(base, quote, targets, true, address(tkr));
     TestEvents.eq(successes, 1, "snipesFor should have 1 success");
     TestEvents.eq(
       mgv.allowances(base, quote, address(tkr), address(this)),
@@ -812,7 +847,15 @@ contract Gatekeeping_Test is IMaker {
 
   function snipeKO(uint id) external {
     try
-      mgv.snipe(base, quote, id, 1 ether, type(uint96).max, type(uint24).max)
+      mgv.snipe(
+        base,
+        quote,
+        id,
+        1 ether,
+        type(uint96).max,
+        type(uint24).max,
+        true
+      )
     {
       TestEvents.fail("snipe on same pair should fail");
     } catch Error(string memory reason) {
@@ -833,7 +876,15 @@ contract Gatekeeping_Test is IMaker {
     address _quote,
     uint id
   ) external {
-    mgv.snipe(_base, _quote, id, 1 ether, type(uint96).max, type(uint24).max);
+    mgv.snipe(
+      _base,
+      _quote,
+      id,
+      1 ether,
+      type(uint96).max,
+      type(uint24).max,
+      true
+    );
   }
 
   function snipes_on_reentrancy_succeeds_test() public {

@@ -38,7 +38,8 @@ contract TestTaker is ITaker {
       offerId,
       takerWants,
       type(uint96).max, //takergives
-      type(uint48).max //gasreq
+      type(uint48).max, //gasreq
+      true
     );
     //return taken;
   }
@@ -59,7 +60,8 @@ contract TestTaker is ITaker {
         offerId,
         takerWants,
         type(uint96).max, //takergives
-        type(uint48).max //gasreq
+        type(uint48).max, //gasreq
+        true
       );
     //return taken;
   }
@@ -79,7 +81,8 @@ contract TestTaker is ITaker {
       offerId,
       takerWants,
       takerGives,
-      gasreq
+      gasreq,
+      true
     );
   }
 

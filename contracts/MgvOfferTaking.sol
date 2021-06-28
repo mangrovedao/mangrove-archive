@@ -224,7 +224,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     uint offerId,
     uint takerWants,
     uint takerGives,
-    uint gasreq
+    uint gasreq,
+    bool fillWants
   )
     external
     returns (
@@ -241,6 +242,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         takerWants,
         takerGives,
         gasreq,
+        fillWants,
         msg.sender
       );
   }
@@ -249,7 +251,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   function snipes(
     address base,
     address quote,
-    uint[4][] memory targets
+    uint[4][] memory targets,
+    bool fillWants
   )
     external
     returns (
@@ -258,7 +261,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       uint
     )
   {
-    return generalSnipes(base, quote, targets, msg.sender);
+    return generalSnipes(base, quote, targets, fillWants, msg.sender);
   }
 
   /* ## General Snipe(s) */
@@ -270,6 +273,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     uint takerWants,
     uint takerGives,
     uint gasreq,
+    bool fillWants,
     address taker
   )
     internal
@@ -282,7 +286,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     uint[4][] memory targets = new uint[4][](1);
     targets[0] = [offerId, takerWants, takerGives, gasreq];
     (uint successes, uint takerGot, uint takerGave) =
-      generalSnipes(base, quote, targets, taker);
+      generalSnipes(base, quote, targets, fillWants, taker);
     return (successes == 1, takerGot, takerGave);
   }
 
@@ -292,6 +296,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     address base,
     address quote,
     uint[4][] memory targets,
+    bool fillWants,
     address taker
   )
     internal
@@ -308,7 +313,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
     MultiOrder memory mor;
     mor.taker = taker;
-    mor.fillWants = true;
+    mor.fillWants = fillWants;
 
     /* For the snipes to even start, the market needs to be both active and not currently protected from reentrancy. */
     activeMarketOnly(sor.global, sor.local);
@@ -364,6 +369,10 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         require(
           uint96(targets[i][1]) == targets[i][1],
           "mgv/snipes/takerWants/96bits"
+        );
+        require(
+          uint96(targets[i][2]) == targets[i][2],
+          "mgv/snipes/takerGives/96bits"
         );
         sor.wants = targets[i][1];
         sor.gives = targets[i][2];

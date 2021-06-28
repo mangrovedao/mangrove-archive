@@ -130,7 +130,7 @@ contract Monitor_Test {
     uint ofrId = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     bytes32 offer = mgv.offers(base, quote, ofrId);
     (bool success, , ) =
-      mgv.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000);
+      mgv.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000, true);
     TestEvents.check(success, "snipe should succeed");
     (bytes32 _global, bytes32 _local) = mgv.config(base, quote);
     _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
@@ -158,7 +158,7 @@ contract Monitor_Test {
     uint ofrId = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     bytes32 offer = mgv.offers(base, quote, ofrId);
     (bool success, , ) =
-      mgv.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000);
+      mgv.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000, true);
     TestEvents.check(!success, "snipe should fail");
 
     (bytes32 _global, bytes32 _local) = mgv.config(base, quote);

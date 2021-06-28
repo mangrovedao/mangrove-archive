@@ -124,6 +124,7 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
     uint takerWants,
     uint takerGives,
     uint gasreq,
+    bool fillWants,
     address taker
   )
     external
@@ -140,6 +141,7 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
       takerWants,
       takerGives,
       gasreq,
+      fillWants,
       taker
     );
     deductSenderAllowance(base, quote, taker, takerGave);
@@ -150,6 +152,7 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
     address base,
     address quote,
     uint[4][] memory targets,
+    bool fillWants,
     address taker
   )
     external
@@ -163,6 +166,7 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
       base,
       quote,
       targets,
+      fillWants,
       taker
     );
     deductSenderAllowance(base, quote, taker, takerGave);

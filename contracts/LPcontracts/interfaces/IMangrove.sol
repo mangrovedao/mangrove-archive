@@ -129,7 +129,8 @@ interface IMangrove {
     address base,
     address quote,
     uint takerWants,
-    uint takerGives
+    uint takerGives,
+    bool fillWants
   ) external returns (uint, uint);
 
   function marketOrderFor(
@@ -137,6 +138,7 @@ interface IMangrove {
     address quote,
     uint takerWants,
     uint takerGives,
+    bool fillWants,
     address taker
   ) external returns (uint takerGot, uint takerGave);
 
@@ -228,7 +230,8 @@ interface IMangrove {
     uint offerId,
     uint takerWants,
     uint takerGives,
-    uint gasreq
+    uint gasreq,
+    bool fillWants
   )
     external
     returns (
@@ -244,6 +247,7 @@ interface IMangrove {
     uint takerWants,
     uint takerGives,
     uint gasreq,
+    bool fillWants,
     address taker
   )
     external
@@ -256,7 +260,8 @@ interface IMangrove {
   function snipes(
     address base,
     address quote,
-    uint[4][] memory targets
+    uint[4][] memory targets,
+    bool fillWants
   )
     external
     returns (
