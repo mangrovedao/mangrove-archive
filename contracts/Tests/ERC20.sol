@@ -3,7 +3,7 @@
 pragma solidity ^0.7.0;
 
 import "./SafeMath.sol";
-import {IERC20} from "./MgvLib.sol";
+import {IERC20} from "../MgvLib.sol";
 
 // From OpenZeppelin
 //The MIT License (MIT)
@@ -74,10 +74,9 @@ abstract contract Context {
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IERC20-approve}.
  */
-contract ERC20BL is Context, IERC20 {
+contract ERC20 is Context, IERC20 {
   using SafeMath for uint;
 
-  mapping(address => bool) private _blacklisted;
   mapping(address => uint) private _balances;
 
   mapping(address => mapping(address => uint)) private _allowances;
@@ -87,22 +86,6 @@ contract ERC20BL is Context, IERC20 {
   string private _name;
   string private _symbol;
   uint8 private _decimals;
-
-  modifier notBlackListed(address addr) {
-    require(
-      !_blacklisted[addr] && !_blacklisted[_msgSender()],
-      "ERC20BL/Blacklisted"
-    );
-    _;
-  }
-
-  function _blacklists(address addr) public {
-    _blacklisted[addr] = true;
-  }
-
-  function _whitelists(address addr) public {
-    _blacklisted[addr] = false;
-  }
 
   /**
    * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
@@ -130,7 +113,7 @@ contract ERC20BL is Context, IERC20 {
    * @dev Returns the symbol of the token, usually a shorter version of the
    * name.
    */
-  function symbol() public view returns (string memory) {
+  function symbol() public view override returns (string memory) {
     return _symbol;
   }
 
@@ -177,7 +160,6 @@ contract ERC20BL is Context, IERC20 {
     public
     virtual
     override
-    notBlackListed(recipient)
     returns (bool)
   {
     _transfer(_msgSender(), recipient, amount);
@@ -208,7 +190,6 @@ contract ERC20BL is Context, IERC20 {
     public
     virtual
     override
-    notBlackListed(spender)
     returns (bool)
   {
     _approve(_msgSender(), spender, amount);
@@ -232,14 +213,7 @@ contract ERC20BL is Context, IERC20 {
     address sender,
     address recipient,
     uint amount
-  )
-    public
-    virtual
-    override
-    notBlackListed(sender)
-    notBlackListed(recipient)
-    returns (bool)
-  {
+  ) public virtual override returns (bool) {
     _transfer(sender, recipient, amount);
     _approve(
       sender,
@@ -267,7 +241,6 @@ contract ERC20BL is Context, IERC20 {
   function increaseAllowance(address spender, uint addedValue)
     public
     virtual
-    notBlackListed(spender)
     returns (bool)
   {
     _approve(
