@@ -493,7 +493,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
           sor.gives = (offerWants * takerWants) / offerGives;
           /* If `fillWants` is false, we take `takerGives` from the taker and adjust how much they get based on the offer's price. Note that we round down how much the taker will get.*/
         } else {
-          /* **Note**: We know statically by outer `else` branch that `offerGives > 0`. */
+          /* **Note**: We know statically by outer `else` branch that `offerWants > 0`. */
           sor.wants = (offerGives * takerGives) / offerWants;
         }
       }
