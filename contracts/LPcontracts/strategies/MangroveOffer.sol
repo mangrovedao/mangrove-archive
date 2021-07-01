@@ -1,11 +1,11 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import "../../Mangrove.sol";
-import "../../MgvLib.sol";
-import "../../MgvPack.sol";
 import "../lib/AccessControlled.sol";
 import "../lib/Exponential.sol";
 import "../lib/TradeHandler.sol";
+import "../../Mangrove.sol";
+import "../../MgvLib.sol";
+import "../../MgvPack.sol";
 
 // SPDX-License-Identifier: MIT
 
@@ -174,22 +174,13 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     MgvLib.SingleOrder calldata order,
     MgvLib.OrderResult calldata result
   ) internal {
-    Fail failtype;
+    Fail failtype; 
     uint[] memory args;
-    if (result.statusCode != "mgv/tradeSuccess") {
-      if (result.statusCode == "mgv/makerRevert") {
-        // if trade was dropped by maker
+    if ( result.statusCode == "mgv/tradeSuccess" || result.statusCode == "mgv/makerRevert") {
+        // if trade was a success or dropped by maker, retrieving makerData 
         (failtype, args) = getMakerData(result.makerData);
-      } else {
-        // trade was dropped by the Mangrove
-        if (result.statusCode == "mgv/makerTransferFail") {
-          failtype = Fail.Transfer;
-        } else {
-          if (result.statusCode == "mgv/makerReceiveFail") {
-            failtype = Fail.Receive;
-          }
-        }
-      }
+    } else {
+        failtype = failOfStatus(result.statusCode);
     }
     __finalize__(order, failtype, args); // NB failtype == Fail.None and args = uint[](0) if trade was a success
   }
@@ -204,14 +195,12 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint missingPut = __put__(quote, order_gives); // specifies what to do with the received funds
     uint missingGet = __get__(base, order_wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
     if (missingGet > 0) {
-      //missingGet is padded uint96
-      // fetched amount could be higher than order requires for gas efficiency
-      //failTrade(Fail.Liquidity, uint96(missingGet), uint96(0));
+      endTrade({drop:true, fail_switch:Fail.Get, arg:uint96(missingGet)});
     }
-    if (missingPut == 0) {
-      return "Success";
+    if (missingPut > 0) { // NB: Failing to put the totality of received quotes might not be considered a reason to drop trade. We assume here it is.
+      endTrade({drop:true, fail_switch:Fail.Put, arg:uint96(missingPut)}); 
     }
-    return "PutFailed";
+    endTrade({drop:false, fail_switch:Fail.None});
   }
 
   ////// Virtual functions to customize trading strategies

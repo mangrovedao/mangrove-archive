@@ -124,12 +124,32 @@ contract Abi_Test {
     }
   }
 
+  function wordOfUint(uint x) internal pure returns (bytes32 w) {
+    w = bytes32(x);
+  }
+
+  enum Arity {N,U,B,T}
+  bytes32 constant MASKHEADER =   0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+  bytes32 constant MASKFIRSTARG = 0x00000000000000000000000000ffffffffffffffffffffffffffffffffffffff;
+
   function encode_decode_test() public {
-    bytes memory y = abi.encode(uint96(1), uint96(2));
-    console.log(y.length);
-    bytes32 w = wordOfBytes(y);
-    bytes memory z = bytesOfWord(w);
-    console.log(z.length);
+    bytes memory x = abi.encodePacked(Arity.B,uint96(1 ether), uint96(2 ether));
+    bytes32 w = wordOfBytes(x);
+    console.logBytes32(w);
+    console.logBytes32(w>>(31*8));
+    bytes memory header = bytesOfWord(w>>(31*8)); // header is encode in the first byte
+    Arity t = abi.decode(header,(Arity));
+    TestEvents.check(t==Arity.B,"Incorrect decoding of header");
+    bytes memory arg1 = bytesOfWord( 
+      (w & MASKHEADER) >> (19*8)
+    );
+    console.logBytes(arg1);
+    TestEvents.check(uint96(1 ether)==abi.decode(arg1,(uint96)),"Incorrect decoding of arg1");
+    bytes memory arg2 = bytesOfWord( 
+      (w & MASKFIRSTARG) >> (7*8)
+    );
+    console.logBytes(arg2);
+    TestEvents.check(uint96(2 ether)==abi.decode(arg2,(uint96)),"Incorrect decoding of arg2");
   }
 }
 

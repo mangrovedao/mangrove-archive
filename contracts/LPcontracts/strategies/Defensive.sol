@@ -63,10 +63,10 @@ contract Defensive is MangroveOffer, OpenOracleView {
       oracleWantsTimesOfferGives
     ) {
       //revert if price is beyond slippage
-      uint96[] memory args = new uint96[](2);
-      args[0] = uint96(oracle_wants);
-      args[1] = uint96(oracle_gives);
-      endTrade(Fail.Slippage, args); //passing fail data to __finalize__
+      endTrade({drop:true, fail_switch:Fail.Price, arg0:uint96(oracle_wants), arg1: uint96(oracle_gives)}); //passing fail data to __finalize__
+    }
+    else { //oportunistic adjustment to price
+      endTrade({drop:false, fail_switch:Fail.Price, arg0:uint96(oracle_wants), arg1: uint96(oracle_gives)});
     }
   }
 
@@ -78,11 +78,11 @@ contract Defensive is MangroveOffer, OpenOracleView {
     if (failtype == Fail.None) {
       return; // order was correctly processed nothing to be done
     }
-    if (failtype == Fail.Liquidity) {
+    if (failtype == Fail.Get) {
       emit MissingLiquidity(order.base, args[0], order.offerId);
       return; // offer was not provisioned enough, not reposting
     }
-    if (failtype == Fail.Slippage) {
+    if (failtype == Fail.Price) {
       (, , uint gasreq, uint gasprice) = unpackFromOrder(order);
       update( // assumes there is enough provision for offer bounty (gasprice may have changed)
         order.base,
