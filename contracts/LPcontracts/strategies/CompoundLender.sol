@@ -5,7 +5,7 @@ import "../interfaces/ICompound.sol";
 
 // SPDX-License-Identifier: MIT
 
-contract CompoundLender is MangroveOffer, Exponential {
+contract CompoundLender is MangroveOffer {
   event ErrorOnRedeem(address cToken, uint amount, uint errorCode);
   event ErrorOnMint(address cToken, uint amount, uint errorCode);
   event ComptrollerError(address comp, uint errorCode);
@@ -104,7 +104,7 @@ contract CompoundLender is MangroveOffer, Exponential {
     Heap memory heap;
     // NB balance below is underestimated unless accrue interest was triggered earlier in the transaction
     (heap.errCode, heap.cTokenBalance, , heap.exchangeRateMantissa) = cToken
-      .getAccountSnapshot(msg.sender); // underapprox
+    .getAccountSnapshot(msg.sender); // underapprox
     heap.priceMantissa = oracle.getUnderlyingPrice(cToken);
     // balanceOfUnderlying(A) : cA.balance * exchange_rate(cA,A)
     (heap.mErr, heap.balanceOfUnderlying) = mulScalarTruncate(

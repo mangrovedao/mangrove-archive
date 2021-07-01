@@ -58,10 +58,9 @@ contract Failer_Test {
 
   function failer_small_test() public {
     uint g0 = gasleft();
-    (bool success, bytes memory retdata) =
-      address(this).delegatecall{gas: 500_000}(
-        abi.encodeWithSelector(this.exec.selector)
-      );
+    (bool success, bytes memory retdata) = address(this).delegatecall{
+      gas: 500_000
+    }(abi.encodeWithSelector(this.exec.selector));
     success;
     retdata;
     console.log("GasUsed: %d", g0 - gasleft());
@@ -71,10 +70,9 @@ contract Failer_Test {
     bytes memory b = new bytes(100_000);
     b;
     uint g0 = gasleft();
-    (bool success, bytes memory retdata) =
-      address(this).delegatecall{gas: 500_000}(
-        abi.encodeWithSelector(this.execBig.selector)
-      );
+    (bool success, bytes memory retdata) = address(this).delegatecall{
+      gas: 500_000
+    }(abi.encodeWithSelector(this.execBig.selector));
     success;
     retdata;
 
@@ -110,9 +108,34 @@ contract StorageEncoding_Test {
   }
 }
 
+contract Abi_Test {
+  receive() external payable {}
+
+  function wordOfBytes(bytes memory data) internal pure returns (bytes32 w) {
+    assembly {
+      w := mload(add(data, 32))
+    }
+  }
+
+  function bytesOfWord(bytes32 w) internal pure returns (bytes memory data) {
+    data = new bytes(32);
+    assembly {
+      mstore(add(data, 32), w)
+    }
+  }
+
+  function encode_decode_test() public {
+    bytes memory y = abi.encode(uint96(1), uint96(2));
+    console.log(y.length);
+    bytes32 w = wordOfBytes(y);
+    bytes memory z = bytesOfWord(w);
+    console.log(z.length);
+  }
+}
+
 // contract EncodeDecode_Test {
 //   receive() external payable {}
-//   enum T {U,B} 
+//   enum T {U,B}
 
 //   function encode(uint192 x) internal view returns (bytes memory){
 //     console.log("encoding",uint(x));
@@ -145,7 +168,7 @@ contract StorageEncoding_Test {
 //     else{
 //       console.log("Unary predicate detected");
 //       uint[] memory args = new uint[](1);
-//       args[0] = uint(abi.decode(data_,(uint192))); 
+//       args[0] = uint(abi.decode(data_,(uint192)));
 //       return args;
 //     }
 //   }

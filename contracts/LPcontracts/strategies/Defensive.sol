@@ -5,7 +5,7 @@ import "../lib/OpenOracleView.sol";
 
 // SPDX-License-Identifier: MIT
 
-contract Defensive is MangroveOffer, Exponential, OpenOracleView {
+contract Defensive is MangroveOffer, OpenOracleView {
   event MissingLiquidity(address erc20, uint amount, uint offerId);
   event TransferFailure(address erc20, uint amount, uint offerId);
   event ReceiveFailure(address erc20, uint amount, uint offerId);
@@ -17,14 +17,19 @@ contract Defensive is MangroveOffer, Exponential, OpenOracleView {
     address _priceData,
     address[] memory _trustedSources,
     address payable _MGV
-  ) MangroveOffer(_MGV) OpenOracleView(_priceData,_trustedSources) {}
+  ) MangroveOffer(_MGV) OpenOracleView(_priceData, _trustedSources) {}
 
   function setSlippage(uint _slippage) external onlyAdmin {
     require(uint16(_slippage) == _slippage, "Slippage overflow");
     slippage = uint16(_slippage);
   }
 
-  function __getPrice__(string memory symbol) internal virtual view returns (uint){
+  function __getPrice__(string memory symbol)
+    internal
+    view
+    virtual
+    returns (uint)
+  {
     return uint(medianPrice(symbol));
   }
 
@@ -36,16 +41,14 @@ contract Defensive is MangroveOffer, Exponential, OpenOracleView {
   {
     IERC20 base = IERC20(order.base);
     IERC20 quote = IERC20(order.quote);
-    uint oracle_gives =
-      mul_( //amount of base tokens required by taker (in ~USD, 6 decimals)
-        order.wants,
-        __getPrice__(base.symbol()) // calling the method to get the price from priceData
-      );
-    uint oracle_wants =
-      mul_( //amount of quote tokens given by taker (in ~USD, 6 decimals)
-        order.gives, //padded uint96
-        __getPrice__(quote.symbol()) //padded uint96
-      );
+    uint oracle_gives = mul_( //amount of base tokens required by taker (in ~USD, 6 decimals)
+      order.wants,
+      __getPrice__(base.symbol()) // calling the method to get the price from priceData
+    );
+    uint oracle_wants = mul_( //amount of quote tokens given by taker (in ~USD, 6 decimals)
+      order.gives, //padded uint96
+      __getPrice__(quote.symbol()) //padded uint96
+    );
     uint offer_wants = order.gives; //padded uint96
     uint offer_gives = order.wants; //padded uint96
     // if p'=oracle_wants/oracle_gives > p=offer_wants/offer_gives
@@ -60,7 +63,10 @@ contract Defensive is MangroveOffer, Exponential, OpenOracleView {
       oracleWantsTimesOfferGives
     ) {
       //revert if price is beyond slippage
-      failTrade(Fail.Slippage, uint96(oracle_wants), uint96(oracle_gives)); //passing fail data to __finalize__
+      uint96[] memory args = new uint96[](2);
+      args[0] = uint96(oracle_wants);
+      args[1] = uint96(oracle_gives);
+      endTrade(Fail.Slippage, args); //passing fail data to __finalize__
     }
   }
 
@@ -77,8 +83,8 @@ contract Defensive is MangroveOffer, Exponential, OpenOracleView {
       return; // offer was not provisioned enough, not reposting
     }
     if (failtype == Fail.Slippage) {
-      (, , uint gasreq, uint gasprice) = getStoredOffer(order);
-      updateMangroveOffer( // assumes there is enough provision for offer bounty (gasprice may have changed)
+      (, , uint gasreq, uint gasprice) = unpackFromOrder(order);
+      update( // assumes there is enough provision for offer bounty (gasprice may have changed)
         order.base,
         order.quote,
         args[0],

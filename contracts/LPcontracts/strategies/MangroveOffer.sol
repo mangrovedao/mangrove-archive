@@ -5,33 +5,20 @@ import "../../MgvLib.sol";
 import "../../MgvPack.sol";
 import "../lib/AccessControlled.sol";
 import "../lib/Exponential.sol";
+import "../lib/TradeHandler.sol";
 
 // SPDX-License-Identifier: MIT
 
 /// @title Basic structure of an offer to be posted on the Mangrove
 /// @author Giry
 
-contract MangroveOffer is AccessControlled, IMaker {
-  enum Fail {
-    None, // Trade was a success. NB: Do not move this field as it should be the default value
-    Slippage, // Trade was dropped by maker due to a price slippage
-    Liquidity, // Trade was dropped by maker due to a lack of liquidity
-    Receive, // Mangrove dropped trade when ERC20 (quote) rejected maker address as receiver
-    Transfer // Mangrove dropped trade when ERC20 (base) refused to transfer funds from maker account to Mangrove
-  }
-
-  bytes32 constant GETFAILED = "GetFailed";
-  bytes32 constant SUCCESS = "Success";
-  bytes32 constant PUTFAILED = "PutFailed";
-
-  event RepostFailed(address erc, uint amount);
-
-  address payable immutable MGV;
+contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
+  Mangrove immutable MGV;
 
   receive() external payable {}
 
   constructor(address payable _MGV) {
-    MGV = _MGV;
+    MGV = Mangrove(_MGV);
   }
 
   /// @notice transfers token stored in `this` contract to some recipient address
@@ -44,7 +31,7 @@ contract MangroveOffer is AccessControlled, IMaker {
   }
 
   /// @notice extracts old offer from the order that is received from the Mangrove
-  function getStoredOffer(MgvLib.SingleOrder calldata order)
+  function unpackFromOrder(MgvLib.SingleOrder calldata order)
     internal
     pure
     returns (
@@ -64,61 +51,64 @@ contract MangroveOffer is AccessControlled, IMaker {
 
   /// @notice trader needs to approve the Mangrove to perform base token transfer at the end of the `makerExecute` function
   function approveMangrove(address base_erc20, uint amount) external onlyAdmin {
-    require(IERC20(base_erc20).approve(MGV, amount));
+    require(IERC20(base_erc20).approve(address(MGV), amount));
   }
 
   /// @notice withdraws ETH from the bounty vault of the Mangrove.
   /// @notice `Mangrove.fund` function need not be called by `this` so is not included here.
-  function withdrawFromMangrove(address receiver, uint amount)
+  function withdraw(address receiver, uint amount)
     external
     onlyAdmin
     returns (bool noRevert)
   {
-    require(Mangrove(MGV).withdraw(amount));
+    require(MGV.withdraw(amount));
     require(receiver != address(0), "Cannot transfer WEIs to 0x0 address");
     (noRevert, ) = receiver.call{value: amount}("");
   }
 
-  /// @notice posts a new offer on the mangrove
-  /// @param wants the amount of quote token the offer is asking
-  /// @param gives the amount of base token the offer is proposing
-  /// @param gasreq the amount of gas unit the offer requires to be executed
-  /// @notice we recommend gasreq to be at least 10% higher than dryrun tests
-  /// @param gasprice is used to offer a bounty that is higher than normal (as given by a call to `Mangrove.config(base_erc20,quote_erc20).global.gasprice`) in order to cover this offer from future gasprice increase
-  /// @notice if gasprice is lower than Mangrove's (for instance if gasprice is set to 0), Mangrove's gasprice will be used to compute the bounty
-  /// @param pivotId asks the Mangroce to insert this offer at pivotId in the order book in order to minimize gas costs of insertion. If PivotId is not in the order book (for instance if 0 is chosen), offer will be inserted, starting from best offer.
-  /// @return offerId id>0 of the created offer
-  function newMangroveOffer(
-    address base_erc20,
-    address quote_erc20,
-    uint wants,
-    uint gives,
-    uint gasreq,
-    uint gasprice,
-    uint pivotId
+  function post(
+    address _base,
+    address _quote,
+    uint promised_base,
+    uint quote_for_promised_base,
+    uint _gasreq,
+    uint _gasprice,
+    uint _pivotId
   ) public onlyAdmin returns (uint offerId) {
-    offerId = Mangrove(MGV).newOffer(
-      base_erc20,
-      quote_erc20,
-      wants,
-      gives,
-      gasreq,
-      gasprice,
-      pivotId
-    );
+    offerId = MGV.newOffer({
+      base: _quote,
+      quote: _base,
+      gives: promised_base,
+      wants: quote_for_promised_base,
+      gasreq: _gasreq,
+      gasprice: _gasprice,
+      pivotId: _pivotId
+    });
   }
 
-  /// @notice updates an existing offer (i.e having already an offerId) on the mangrove. Gasprice is lower than creating the offer anew.
-  /// @notice the offer may be present on the order book or retracted
-  /// @param wants the amount of quote token the offer is asking
-  /// @param gives the amount of base token the offer is proposing
-  /// @param gasreq the amount of gas unit the offer requires to be executed
-  /// @notice we recommend gasreq to be at least 10% higher than dryrun tests
-  /// @param gasprice is used to offer a bounty that is higher than normal (as given by a call to `Mangrove.config(base_erc20,quote_erc20).global.gasprice`) in order to cover this offer from future gasprice increase
-  /// @notice if gasprice is lower than Mangrove's (for instance if gasprice is set to 0), Mangrove's gasprice will be used to compute the bounty
-  /// @param pivotId asks the Mangroce to insert this offer at pivotId in the order book in order to minimize gas costs of insertion. If PivotId is not in the order book (for instance if 0 is chosen), offer will be inserted, starting from best offer.
-  /// @param offerId should be the id that was attributed to the offer when it was first posted
-  function updateMangroveOffer(
+  function getProvision(
+    address base,
+    address quote,
+    uint gasreq,
+    uint gasprice
+  ) internal returns (uint) {
+    ML.Config memory config = MGV.getConfig(base, quote);
+    uint _gp;
+    if (config.global.gasprice > gasprice) {
+      _gp = uint(config.global.gasprice);
+    } else {
+      _gp = gasprice;
+    }
+    return ((gasreq +
+      config.local.overhead_gasbase +
+      config.local.offer_gasbase) *
+      _gp *
+      10**9);
+  }
+
+  // updates an existing offer on the Mangrove. `update` will throw if offer density is no longer compatible with Mangrove's parameters
+  // `update` will also throw if user provision no longer covers for the offer's bounty. `__autoRefill__` function may be use to provide a method to refill automatically.
+  function update(
     address base_erc20,
     address quote_erc20,
     uint wants,
@@ -128,7 +118,12 @@ contract MangroveOffer is AccessControlled, IMaker {
     uint pivotId,
     uint offerId
   ) public onlyAdmin {
-    Mangrove(MGV).updateOffer(
+    uint bounty = getProvision(base_erc20, quote_erc20, gasreq, gasprice);
+    uint provision = MGV.balanceOf(address(this));
+    if (bounty > provision) {
+      __autoRefill__(bounty - provision);
+    }
+    MGV.updateOffer(
       base_erc20,
       quote_erc20,
       wants,
@@ -140,13 +135,13 @@ contract MangroveOffer is AccessControlled, IMaker {
     );
   }
 
-  function retractMangroveOffer(
+  function retract(
     address base_erc20,
     address quote_erc20,
     uint offerId,
     bool deprovision
   ) public onlyAdmin {
-    Mangrove(MGV).retractOffer(base_erc20, quote_erc20, offerId, deprovision);
+    MGV.retractOffer(base_erc20, quote_erc20, offerId, deprovision);
   }
 
   /////// Mandatory callback functions
@@ -155,7 +150,7 @@ contract MangroveOffer is AccessControlled, IMaker {
   function makerExecute(MgvLib.SingleOrder calldata order)
     external
     override
-    onlyCaller(MGV)
+    onlyCaller(address(MGV))
     returns (bytes32 returnData)
   {
     __lastLook__(order); // might revert or let the trade proceed
@@ -171,7 +166,7 @@ contract MangroveOffer is AccessControlled, IMaker {
   function makerPosthook(
     MgvLib.SingleOrder calldata order,
     MgvLib.OrderResult calldata result
-  ) external override onlyCaller(MGV) {
+  ) external override onlyCaller(address(MGV)) {
     postHookInternal(order, result);
   }
 
@@ -184,7 +179,7 @@ contract MangroveOffer is AccessControlled, IMaker {
     if (result.statusCode != "mgv/tradeSuccess") {
       if (result.statusCode == "mgv/makerRevert") {
         // if trade was dropped by maker
-        (failtype, args) = getMakerFailData(result.makerData);
+        (failtype, args) = getMakerData(result.makerData);
       } else {
         // trade was dropped by the Mangrove
         if (result.statusCode == "mgv/makerTransferFail") {
@@ -211,12 +206,12 @@ contract MangroveOffer is AccessControlled, IMaker {
     if (missingGet > 0) {
       //missingGet is padded uint96
       // fetched amount could be higher than order requires for gas efficiency
-      failTrade(Fail.Liquidity, uint96(missingGet), uint96(0));
+      //failTrade(Fail.Liquidity, uint96(missingGet), uint96(0));
     }
     if (missingPut == 0) {
-      return SUCCESS;
+      return "Success";
     }
-    return PUTFAILED;
+    return "PutFailed";
   }
 
   ////// Virtual functions to customize trading strategies
@@ -256,66 +251,8 @@ contract MangroveOffer is AccessControlled, IMaker {
     uint[] memory
   ) internal virtual {}
 
-  //// Trade failing management
-  /// @notice Throws a message that will be passed to posthook (message is truncated after 32 bytes)
-  function tradeRevertWithData(bytes32 data) internal pure {
-    bytes memory revData = new bytes(32);
-    assembly {
-      mstore(add(revData, 32), data)
-      revert(add(revData, 32), 32)
-    }
-  }
-
-
-  // failing a trade with either 1 or 2 arguments.
-  function failTrade(
-    Fail failtype,
-    uint96 arg0,
-    uint96 arg1
-  ) internal pure {
-    bytes memory failMsg = new bytes(32);
-    failMsg = abi.encode(failtype, abi.encode(arg0, arg1));
-    bytes32 revData;
-    assembly {
-      revData := mload(add(failMsg, 32))
-    }
-    tradeRevertWithData(revData);
-  }
-
-  function failTrade(
-    Fail failtype,
-    uint96 arg
-  ) internal pure {
-    bytes memory failMsg = new bytes(32);
-    failMsg = abi.encode(failtype, abi.encode(arg));
-    bytes32 revData;
-    assembly {
-      revData := mload(add(failMsg, 32))
-    }
-    tradeRevertWithData(revData);
-  }
-
-
-  function getMakerFailData(bytes32 data32)
-    internal
-    pure
-    returns (Fail failtype, uint[] memory args)
-  {
-    bytes memory data = new bytes(32);
-    assembly {
-      mstore(add(data, 32), data32)
-    }
-    bytes memory _data;
-    (failtype, _data) = abi.decode(data, (Fail, bytes));
-
-    if (failtype == Fail.Liquidity) {
-      args = new uint[](1);
-      args[0] = abi.decode(_data,(uint96));
-    } else { // failtype == Fail.Slippage
-      args = new uint[](2);
-      (uint arg0, uint arg1) = abi.decode(_data,(uint96,uint96));
-      args[0] = uint(arg0);
-      args[1] = uint(arg1);
-    }
+  // override this function in order to refill bounty provision automatically when reposting offers.
+  function __autoRefill__(uint amount) internal pure virtual {
+    require(amount == 0, "Insufficient provision");
   }
 }
