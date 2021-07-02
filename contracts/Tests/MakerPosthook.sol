@@ -493,6 +493,28 @@ contract MakerPosthook_Test is IMaker {
     TestEvents.check(success, "Snipe should succeed");
   }
 
+  function check_offer_in_posthook(
+    MgvLib.SingleOrder calldata order,
+    MgvLib.OrderResult calldata
+  ) external {
+    called = true;
+    (, , uint __gives, uint __wants, uint __gasprice) = MgvPack.offer_unpack(order.offer);
+    (address __maker, uint __gasreq, , ) = MgvPack.offerDetail_unpack(order.offerDetail);
+    TestEvents.eq(__wants, 1 ether, "Incorrect wants for offer in posthook");
+    TestEvents.eq(__gives, 2 ether, "Incorrect gives for offer in posthook");
+    TestEvents.eq(__gasprice, 500, "Incorrect gasprice for offer in posthook");
+    TestEvents.eq(__maker, address(this), "Incorrect maker address");
+    TestEvents.eq(__gasreq, gasreq, "Incorrect gasreq");
+  }
+
+  function check_offer_in_posthook_test() public {
+    ofr = mgv.newOffer(base, quote, 1 ether, 2 ether, gasreq, 500, 0);
+    posthook_bytes = this.check_offer_in_posthook.selector;
+    bool success = tkr.take(ofr, 2 ether);
+    TestEvents.check(called, "PostHook not called");
+    TestEvents.check(success, "Snipe should succeed");
+  }
+
   function check_lastId_in_posthook(
     MgvLib.SingleOrder calldata order,
     MgvLib.OrderResult calldata
