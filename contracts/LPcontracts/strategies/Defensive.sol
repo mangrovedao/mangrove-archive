@@ -35,7 +35,6 @@ contract Defensive is MangroveOffer, OpenOracleView {
 
   function __lastLook__(MgvLib.SingleOrder calldata order)
     internal
-    view
     virtual
     override
   {
@@ -63,48 +62,32 @@ contract Defensive is MangroveOffer, OpenOracleView {
       oracleWantsTimesOfferGives
     ) {
       //revert if price is beyond slippage
-      endTrade({drop:true, fail_switch:Fail.Price, arg0:uint96(oracle_wants), arg1: uint96(oracle_gives)}); //passing fail data to __finalize__
+      finalize({drop:true, postHook_switch:PostHook.Price, arg0:uint96(oracle_wants), arg1: uint96(oracle_gives)}); //passing fail data to __finalize__
     }
     else { //oportunistic adjustment to price
-      endTrade({drop:false, fail_switch:Fail.Price, arg0:uint96(oracle_wants), arg1: uint96(oracle_gives)});
+      finalize({drop:false, postHook_switch:PostHook.Price, arg0:uint96(oracle_wants), arg1: uint96(oracle_gives)});
     }
   }
 
-  function __finalize__(
-    MgvLib.SingleOrder calldata order,
-    Fail failtype,
-    uint[] calldata args
-  ) internal virtual override {
-    if (failtype == Fail.None) {
-      return; // order was correctly processed nothing to be done
-    }
-    if (failtype == Fail.Get) {
-      emit MissingLiquidity(order.base, args[0], order.offerId);
-      return; // offer was not provisioned enough, not reposting
-    }
-    if (failtype == Fail.Price) {
-      (, , uint gasreq, uint gasprice) = unpackFromOrder(order);
-      update( // assumes there is enough provision for offer bounty (gasprice may have changed)
+  function __postHookPriceSlippage__(
+    uint usd_maker_wants, 
+    uint usd_maker_gives, 
+    MgvLib.SingleOrder calldata order
+    ) internal virtual override {
+      (uint old_maker_gives, uint old_maker_wants, uint old_gasreq, uint old_gasprice) = unpackOfferFromOrder(order);
+      uint new_wants = div_(
+        mul_(usd_maker_wants, old_maker_gives),
+        usd_maker_gives
+      );
+      repost( // since Mangrove's gasprice may have changed, one can also override __autoRefill__ to explain how this contract should refill provisions
         order.base,
         order.quote,
-        args[0],
-        args[1],
-        gasreq,
-        gasprice,
+        new_wants,
+        old_maker_gives,
+        old_gasreq,
+        old_gasprice,
         0,
         order.offerId
       );
-      return;
-    }
-    if (failtype == Fail.Receive) {
-      // contract was not able to receive taker's money
-      emit ReceiveFailure(order.quote, order.gives, order.offerId);
-      return;
-    }
-    if (failtype == Fail.Transfer) {
-      // Mangrove was not able to transfer maker's asset
-      emit TransferFailure(order.base, order.wants, order.offerId);
-      return;
-    }
   }
 }

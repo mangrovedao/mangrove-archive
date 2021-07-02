@@ -68,18 +68,14 @@ contract CompoundTrader is CompoundLender {
     internal
     virtual
     override
-    returns (uint)
   {
     //optim
-    if (amount == 0) {
-      return 0;
-    }
-    if (!compoundPutFlag[quote]) {
-      return amount;
+    if (amount == 0 || !compoundPutFlag[quote]) {
+      return;
     }
     IcERC20 cQuote = IcERC20(overlyings[quote]);
     if (address(cQuote) == address(0)) {
-      return amount;
+      return;
     }
 
     uint toRepay = min(cQuote.borrowBalanceCurrent(msg.sender), amount); //accrues interests
@@ -91,6 +87,6 @@ contract CompoundTrader is CompoundLender {
     } else {
       toMint = amount - toRepay;
     }
-    return compoundMint(cQuote, toMint);
+    compoundMint(cQuote, toMint);
   }
 }

@@ -202,20 +202,16 @@ contract CompoundLender is MangroveOffer {
     internal
     virtual
     override
-    returns (uint)
   {
     //optim
-    if (amount == 0) {
-      return 0;
-    }
-    if (!compoundPutFlag[quote]) {
-      return amount;
+    if (amount == 0 || !compoundPutFlag[quote]) {
+      return;
     }
     IcERC20 cToken = IcERC20(overlyings[quote]);
     if (address(cToken) != address(0)) {
-      return compoundMint(cToken, amount);
+      compoundMint(cToken, amount);
     } else {
-      return amount;
+      return;
     }
   }
 
@@ -225,17 +221,13 @@ contract CompoundLender is MangroveOffer {
   /// @notice user need to approve cToken in order to mint
   function compoundMint(IcERC20 cToken, uint amount)
     internal
-    returns (uint missing)
   {
     // Approve transfer on the ERC20 contract (not needed if cERC20 is already approved for `this`)
     // IERC20(cToken.underlying()).approve(cToken, amount);
     uint errCode = cToken.mint(amount); // accrues interest
     // Mint cTokens
-    if (errCode == 0) {
-      return 0;
-    } else {
+    if (errCode != 0) {
       emit ErrorOnMint(address(cToken), amount, errCode);
-      return amount;
     }
   }
 }

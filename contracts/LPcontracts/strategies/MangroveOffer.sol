@@ -31,7 +31,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   }
 
   /// @notice extracts old offer from the order that is received from the Mangrove
-  function unpackFromOrder(MgvLib.SingleOrder calldata order)
+  function unpackOfferFromOrder(MgvLib.SingleOrder calldata order)
     internal
     pure
     returns (
@@ -108,7 +108,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
 
   // updates an existing offer on the Mangrove. `update` will throw if offer density is no longer compatible with Mangrove's parameters
   // `update` will also throw if user provision no longer covers for the offer's bounty. `__autoRefill__` function may be use to provide a method to refill automatically.
-  function update(
+  function repost(
     address base_erc20,
     address quote_erc20,
     uint wants,
@@ -154,12 +154,12 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     returns (bytes32 returnData)
   {
     __lastLook__(order); // might revert or let the trade proceed
-    returnData = makerExecuteInternal(
-      order.base,
-      order.quote,
-      order.wants,
-      order.gives
-    );
+    __put__(order.quote, order.gives); // specifies what to do with the received funds
+    uint missingGet = __get__(order.base, order.wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
+    if (missingGet > 0) {
+      return finalize({drop:true, postHook_switch:PostHook.Get, arg:uint96(missingGet)});
+    }
+    return finalize({drop:false, postHook_switch:PostHook.None});
   }
 
   // not a virtual function to make sure it is only MGV callable
@@ -167,81 +167,72 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     MgvLib.SingleOrder calldata order,
     MgvLib.OrderResult calldata result
   ) external override onlyCaller(address(MGV)) {
-    postHookInternal(order, result);
-  }
-
-  function postHookInternal(
-    MgvLib.SingleOrder calldata order,
-    MgvLib.OrderResult calldata result
-  ) internal {
-    Fail failtype; 
+    PostHook postHook_switch; 
     uint[] memory args;
     if ( result.statusCode == "mgv/tradeSuccess" || result.statusCode == "mgv/makerRevert") {
-        // if trade was a success or dropped by maker, retrieving makerData 
-        (failtype, args) = getMakerData(result.makerData);
-    } else {
-        failtype = failOfStatus(result.statusCode);
+        // if trade was a success or dropped by maker, `makerData` determines the posthook switch
+        (postHook_switch, args) = getMakerData(result.makerData);
+    } else { // if `mgv` rejected trade, `statusCode` should determine the posthook switch
+        postHook_switch = switchOfStatus(result.statusCode);
     }
-    __finalize__(order, failtype, args); // NB failtype == Fail.None and args = uint[](0) if trade was a success
-  }
-
-  /// @notice Core strategy to fetch liquidity
-  function makerExecuteInternal(
-    address base,
-    address quote,
-    uint order_wants,
-    uint order_gives
-  ) internal returns (bytes32) {
-    uint missingPut = __put__(quote, order_gives); // specifies what to do with the received funds
-    uint missingGet = __get__(base, order_wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
-    if (missingGet > 0) {
-      endTrade({drop:true, fail_switch:Fail.Get, arg:uint96(missingGet)});
+    // posthook selector based on maker's information
+    if (postHook_switch == PostHook.None) {
+      __postHookNoFailure__(order);
     }
-    if (missingPut > 0) { // NB: Failing to put the totality of received quotes might not be considered a reason to drop trade. We assume here it is.
-      endTrade({drop:true, fail_switch:Fail.Put, arg:uint96(missingPut)}); 
+    if (postHook_switch == PostHook.Get) {
+      emit GetFailure(order.base, order.quote, order.offerId, args[0]);
+      __postHookGetFailure__(args[0],order);
     }
-    endTrade({drop:false, fail_switch:Fail.None});
+    if (postHook_switch == PostHook.Price) {
+      emit PriceSlippage(order.base, order.quote, order.offerId, args[0], args[1]);
+      __postHookPriceSlippage__(args[0], args[1], order);
+    }
+    // Posthook based on Mangrove's information
+    if (postHook_switch == PostHook.Receive) {
+      __postHookReceiveFailure__(order);
+    }
+    if (postHook_switch == PostHook.Transfer) {
+      __postHookTransferFailure__(order);
+    }
   }
 
   ////// Virtual functions to customize trading strategies
 
-  /// @notice these functions correspond to default strategy. Contracts that inherit MangroveOffer to define their own deposit/withdraw strategies should define their own version (and eventually call these ones as backup)
-  /// @notice default strategy is to not deposit payment in another contract
-  /// @param quote is the address of the ERC20 managing the payment token
-  /// @param amount is the amount of quote token that has been flashloaned to `this`
-  /// @return remainsToBePut is the sub amount that could not be deposited
   function __put__(address quote, uint amount)
     internal
     virtual
-    returns (uint remainsToBePut)
   {
     /// @notice receive payment is just stored at this address
     quote;
     amount;
-    return 0;
   }
-
-  /// @notice default withdraw is to let the Mangrove fetch base token associated to `this`
-  /// @param base is the address of the ERC20 managing the token promised by the offer
-  /// @param amount is the amount of base token that has to be available in the balance of `this` by the end of makerExecute
-  /// @return remainsToBeFetched is the amount of Base token that is yet to be fetched after calling this function.
   function __get__(address base, uint amount) internal virtual returns (uint) {
     uint balance = IERC20(base).balanceOf(address(this));
     return (balance > amount ? 0 : amount - balance);
   }
-
-  /// @notice default strategy is to accept order at offer price.
-  function __lastLook__(MgvLib.SingleOrder calldata) internal virtual {}
-
-  /// @notice default strategy is to not repost a taken offer and let user do this
-  function __finalize__(
-    MgvLib.SingleOrder calldata,
-    Fail,
-    uint[] memory
-  ) internal virtual {}
-
-  // override this function in order to refill bounty provision automatically when reposting offers.
-  function __autoRefill__(uint amount) internal pure virtual {
+  function __lastLook__(MgvLib.SingleOrder calldata order) internal virtual {
+    order; //shh
+  }
+  function __autoRefill__(uint amount) internal virtual {
     require(amount == 0, "Insufficient provision");
+  }
+  function __postHookNoFailure__(MgvLib.SingleOrder calldata order) internal virtual {
+    order; //shh
+  }
+  function __postHookGetFailure__(uint missingGet, MgvLib.SingleOrder calldata order) internal virtual {
+    missingGet; //shh
+    order; //shh
+  }
+  function __postHookPriceSlippage__(uint usd_maker_gives, uint usd_maker_wants, MgvLib.SingleOrder calldata order)
+  internal virtual {
+    usd_maker_gives; //shh
+    usd_maker_wants; //shh
+    order; //shh
+  }
+  function __postHookReceiveFailure__(MgvLib.SingleOrder calldata order) internal virtual {
+    order;
+  }
+  function __postHookTransferFailure__(MgvLib.SingleOrder calldata order) internal virtual {
+    order;
   }
 }
