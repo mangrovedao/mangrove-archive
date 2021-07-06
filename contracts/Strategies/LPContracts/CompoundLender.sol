@@ -210,9 +210,7 @@ contract CompoundLender is MangroveOffer {
     IcERC20 cToken = IcERC20(overlyings[quote]);
     if (address(cToken) != address(0)) {
       compoundMint(cToken, amount);
-    } else {
-      return;
-    }
+    } 
   }
 
   // adapted from https://medium.com/compound-finance/supplying-assets-to-the-compound-protocol-ec2cf5df5aa#afff

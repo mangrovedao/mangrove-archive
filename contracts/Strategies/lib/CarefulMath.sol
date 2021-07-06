@@ -93,4 +93,7 @@ contract CarefulMath {
         return (a > b ? a : b);
     }
 
+    uint constant MAXUINT = uint(-1);
+    uint constant MAXUINT96 = uint96(-1);
+    uint constant MAXUINT24 = uint24(-1);
 }

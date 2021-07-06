@@ -2,9 +2,14 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 // SPDX-License-Identifier: MIT
 
+import "../../MgvPack.sol";
+import "../../Mangrove.sol";
+import "../../MgvLib.sol";
+
+
 contract TradeHandler {
   enum PostHook {
-    None, // Trade was a success. NB: Do not move this field as it should be the default value
+    Success, // Trade was a success. NB: Do not move this field as it should be the default value
     Get, // Trade was dropped by maker due to a lack of liquidity
     Price, // Trade was dropped because of price slippage
     Receive, // Mangrove dropped failade when ERC20 (quote) rejected maker address as receiver
@@ -14,7 +19,44 @@ contract TradeHandler {
   event GetFailure(address base, address quote, uint offerId, uint missingGet);
   event PriceSlippage(address base, address quote, uint offerId, uint usd_makerWants, uint usd_makerGives);
 
-  function switchOfStatus(bytes32 statusCode) internal pure returns (PostHook postHook_switch) {
+/// @notice extracts old offer from the order that is received from the Mangrove
+  function unpackOfferFromOrder(MgvLib.SingleOrder calldata order)
+    internal
+    pure
+    returns (
+      uint offer_gives,
+      uint offer_wants,
+      uint gasreq,
+      uint gasprice
+    )
+  {
+    gasreq = MgvPack.offerDetail_unpack_gasreq(order.offerDetail);
+    (, , offer_gives, offer_wants, gasprice) = MgvPack.offer_unpack(
+      order.offer
+    );
+  }
+  function getProvision(
+    address base,
+    address quote,
+    Mangrove mgv,
+    uint gasreq,
+    uint gasprice
+  ) internal returns (uint) {
+    ML.Config memory config = mgv.getConfig(base, quote);
+    uint _gp;
+    if (config.global.gasprice > gasprice) {
+      _gp = uint(config.global.gasprice);
+    } else {
+      _gp = gasprice;
+    }
+    return ((gasreq +
+      config.local.overhead_gasbase +
+      config.local.offer_gasbase) *
+      _gp *
+      10**9);
+  }
+
+  function switchOfStatusCode(bytes32 statusCode) internal pure returns (PostHook postHook_switch) {
     if (statusCode == "mgv/makerTransferFail") {
       postHook_switch = PostHook.Transfer;
     } else {
@@ -58,7 +100,7 @@ contract TradeHandler {
   }
 
   // failing a failade with either 1 or 2 arguments.
-  function finalize(bool drop, PostHook postHook_switch)
+  function returnData(bool drop, PostHook postHook_switch)
     internal
     pure
     returns (bytes32 w)
@@ -71,7 +113,7 @@ contract TradeHandler {
       w = wordOfBytes(data);
     }
   }
-  function finalize(bool drop, PostHook postHook_switch, uint96 arg)
+  function returnData(bool drop, PostHook postHook_switch, uint96 arg)
     internal
     pure
     returns (bytes32 w)
@@ -84,7 +126,7 @@ contract TradeHandler {
       w = wordOfBytes(data);
     }
   }
-  function finalize(bool drop, PostHook postHook_switch, uint96 arg0, uint96 arg1)
+  function returnData(bool drop, PostHook postHook_switch, uint96 arg0, uint96 arg1)
     internal
     pure
     returns (bytes32 w)

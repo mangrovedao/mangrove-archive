@@ -3,9 +3,6 @@ pragma abicoder v2;
 import "../lib/AccessControlled.sol";
 import "../lib/Exponential.sol";
 import "../lib/TradeHandler.sol";
-import "../../Mangrove.sol";
-import "../../MgvLib.sol";
-import "../../MgvPack.sol";
 
 // SPDX-License-Identifier: MIT
 
@@ -16,6 +13,9 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   Mangrove immutable MGV;
 
   receive() external payable {}
+  // default values
+  uint GASREQ = 500_000;
+  uint GASPRICE = 500; 
 
   constructor(address payable _MGV) {
     MGV = Mangrove(_MGV);
@@ -30,22 +30,13 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     success = IERC20(token).transfer(recipient, amount);
   }
 
-  /// @notice extracts old offer from the order that is received from the Mangrove
-  function unpackOfferFromOrder(MgvLib.SingleOrder calldata order)
-    internal
-    pure
-    returns (
-      uint offer_gives,
-      uint offer_wants,
-      uint gasreq,
-      uint gasprice
-    )
-  {
-    gasreq = MgvPack.offerDetail_unpack_gasreq(order.offerDetail);
-    (, , offer_gives, offer_wants, gasprice) = MgvPack.offer_unpack(
-      order.offer
-    );
+  function setGasPrice(uint gasprice) external onlyAdmin {
+    GASPRICE = gasprice;
   }
+  function setGasReq(uint gasreq) external onlyAdmin {
+    GASREQ = gasreq;
+  }
+  
 
   /// @title Mangrove basic interactions (logging is done by the Mangrove)
 
@@ -66,44 +57,38 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     (noRevert, ) = receiver.call{value: amount}("");
   }
 
-  function post(
-    address _base,
-    address _quote,
-    uint promised_base,
-    uint quote_for_promised_base,
-    uint _gasreq,
-    uint _gasprice,
-    uint _pivotId
-  ) public onlyAdmin returns (uint offerId) {
-    offerId = MGV.newOffer({
-      base: _quote,
-      quote: _base,
-      gives: promised_base,
-      wants: quote_for_promised_base,
-      gasreq: _gasreq,
-      gasprice: _gasprice,
-      pivotId: _pivotId
-    });
-  }
+  function fillOptionalArgs(uint gasreq, uint gasprice, uint pivotId) private view returns (uint, uint, uint) {
+    if (gasreq == MAXUINT) {
+      gasreq = GASREQ;
+    }
+    if (gasprice == MAXUINT){
+      gasprice = GASPRICE;
+    }
+    if (pivotId == MAXUINT){
+      pivotId = 0;
+    }
+    return (gasreq,gasprice,pivotId);
+  } 
 
-  function getProvision(
+  function post(
     address base,
     address quote,
-    uint gasreq,
-    uint gasprice
-  ) internal returns (uint) {
-    ML.Config memory config = MGV.getConfig(base, quote);
-    uint _gp;
-    if (config.global.gasprice > gasprice) {
-      _gp = uint(config.global.gasprice);
-    } else {
-      _gp = gasprice;
-    }
-    return ((gasreq +
-      config.local.overhead_gasbase +
-      config.local.offer_gasbase) *
-      _gp *
-      10**9);
+    uint promised_base,
+    uint quote_for_promised_base,
+    uint OPTgasreq,
+    uint OPTgasprice,
+    uint OPTpivotId
+  ) public onlyAdmin returns (uint offerId) {
+    (OPTgasreq, OPTgasprice, OPTpivotId) = fillOptionalArgs(OPTgasreq, OPTgasprice, OPTpivotId);
+    offerId = MGV.newOffer({
+      base: base,
+      quote: quote,
+      gives: promised_base,
+      wants: quote_for_promised_base,
+      gasreq: OPTgasreq,
+      gasprice: OPTgasprice,
+      pivotId: OPTpivotId
+    });
   }
 
   // updates an existing offer on the Mangrove. `update` will throw if offer density is no longer compatible with Mangrove's parameters
@@ -113,12 +98,13 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     address quote_erc20,
     uint wants,
     uint gives,
-    uint gasreq,
-    uint gasprice,
-    uint pivotId,
+    uint OPTgasreq,
+    uint OPTgasprice,
+    uint OPTpivotId,
     uint offerId
   ) public onlyAdmin {
-    uint bounty = getProvision(base_erc20, quote_erc20, gasreq, gasprice);
+    (OPTgasreq, OPTgasprice, OPTpivotId) = fillOptionalArgs(OPTgasreq, OPTgasprice, OPTpivotId);
+    uint bounty = getProvision(base_erc20, quote_erc20, MGV, OPTgasreq, OPTgasprice);
     uint provision = MGV.balanceOf(address(this));
     if (bounty > provision) {
       __autoRefill__(bounty - provision);
@@ -128,9 +114,9 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
       quote_erc20,
       wants,
       gives,
-      gasreq,
-      gasprice,
-      pivotId,
+      OPTgasreq,
+      OPTgasprice,
+      OPTpivotId,
       offerId
     );
   }
@@ -151,15 +137,15 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     external
     override
     onlyCaller(address(MGV))
-    returns (bytes32 returnData)
+    returns (bytes32)
   {
     __lastLook__(order); // might revert or let the trade proceed
     __put__(order.quote, order.gives); // specifies what to do with the received funds
     uint missingGet = __get__(order.base, order.wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
     if (missingGet > 0) {
-      return finalize({drop:true, postHook_switch:PostHook.Get, arg:uint96(missingGet)});
+      return returnData({drop:true, postHook_switch:PostHook.Get, arg:uint96(missingGet)});
     }
-    return finalize({drop:false, postHook_switch:PostHook.None});
+    return returnData({drop:false, postHook_switch:PostHook.Success});
   }
 
   // not a virtual function to make sure it is only MGV callable
@@ -173,10 +159,10 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
         // if trade was a success or dropped by maker, `makerData` determines the posthook switch
         (postHook_switch, args) = getMakerData(result.makerData);
     } else { // if `mgv` rejected trade, `statusCode` should determine the posthook switch
-        postHook_switch = switchOfStatus(result.statusCode);
+        postHook_switch = switchOfStatusCode(result.statusCode);
     }
     // posthook selector based on maker's information
-    if (postHook_switch == PostHook.None) {
+    if (postHook_switch == PostHook.Success) {
       __postHookNoFailure__(order);
     }
     if (postHook_switch == PostHook.Get) {

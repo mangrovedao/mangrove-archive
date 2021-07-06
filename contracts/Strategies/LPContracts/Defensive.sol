@@ -62,10 +62,10 @@ contract Defensive is MangroveOffer, OpenOracleView {
       oracleWantsTimesOfferGives
     ) {
       //revert if price is beyond slippage
-      finalize({drop:true, postHook_switch:PostHook.Price, arg0:uint96(oracle_wants), arg1: uint96(oracle_gives)}); //passing fail data to __finalize__
+      returnData({drop:true, postHook_switch:PostHook.Price, arg0:uint96(oracle_wants), arg1: uint96(oracle_gives)}); //passing fail data to __finalize__
     }
-    else { //oportunistic adjustment to price
-      finalize({drop:false, postHook_switch:PostHook.Price, arg0:uint96(oracle_wants), arg1: uint96(oracle_gives)});
+    else { //oportunistic adjustment to price. Slippage is not enough to drop trade, but price should be updated at repost
+      returnData({drop:false, postHook_switch:PostHook.Price, arg0:uint96(oracle_wants), arg1: uint96(oracle_gives)});
     }
   }
 
@@ -74,12 +74,12 @@ contract Defensive is MangroveOffer, OpenOracleView {
     uint usd_maker_gives, 
     MgvLib.SingleOrder calldata order
     ) internal virtual override {
-      (uint old_maker_gives, uint old_maker_wants, uint old_gasreq, uint old_gasprice) = unpackOfferFromOrder(order);
+      (uint old_maker_gives,, uint old_gasreq, uint old_gasprice) = unpackOfferFromOrder(order);
       uint new_wants = div_(
         mul_(usd_maker_wants, old_maker_gives),
         usd_maker_gives
       );
-      repost( // since Mangrove's gasprice may have changed, one can also override __autoRefill__ to explain how this contract should refill provisions
+      repost( // since Mangrove's gasprice may have changed, one can also override __autoRefill__ to declare this contract should refill provisions if needed
         order.base,
         order.quote,
         new_wants,
