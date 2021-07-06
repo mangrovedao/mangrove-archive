@@ -6,22 +6,27 @@ import "../lib/TradeHandler.sol";
 
 // SPDX-License-Identifier: MIT
 
-/// @title Basic structure of an offer to be posted on the Mangrove
-/// @author Giry
-
+/// MangroveOffer is the basic building block to implement a reactive offer that interfaces with the Mangrove
 contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   Mangrove immutable MGV;
+  uint immutable MGV_GASMAX;
 
   receive() external payable {}
   // default values
-  uint GASREQ = 500_000;
-  uint GASPRICE = 500; 
+  uint OFR_GASREQ = 500_000;
+  uint OFR_GASPRICE; 
 
+  // Offer constructor (caller will be admin)
   constructor(address payable _MGV) {
+    bytes32 global_pack = Mangrove(_MGV).global();
+    (, , , uint __gasprice, uint __gasmax, uint __dead) = MgvPack.global_unpack(global_pack);
+    require(__dead == 0, "Mangrove contract is permanently disabled"); //sanity check
     MGV = Mangrove(_MGV);
+    MGV_GASMAX = __gasmax;
+    OFR_GASPRICE = __gasprice;
   }
 
-  /// @notice transfers token stored in `this` contract to some recipient address
+  /// transfers token stored in `this` contract to some recipient address
   function transferToken(
     address token,
     address recipient,
@@ -30,17 +35,26 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     success = IERC20(token).transfer(recipient, amount);
   }
 
-  function setGasPrice(uint gasprice) external onlyAdmin {
-    GASPRICE = gasprice;
+  //queries the mangrove to get current gasprice (considered to compute bounty)
+  function getCurrentGasPrice() public {
+    bytes32 global_pack = Mangrove(MGV).global();
+    (, , , uint __gasprice,,) = MgvPack.global_unpack(global_pack);
+    return __gasprice;
   }
-  function setGasReq(uint gasreq) external onlyAdmin {
-    GASREQ = gasreq;
+
+  // updates state variables
+  function udpateGasPrice(uint gasprice) external onlyAdmin {
+    OFR_GASPRICE = gasprice;
+  }
+  function udpateGasPrice() external onlyAdmin {
+    OFR_GASPRICE = getCurrentGasPrice();
+  }
+  function updateGasReq(uint gasreq) external onlyAdmin {
+    OFR_GASREQ = gasreq;
   }
   
 
-  /// @title Mangrove basic interactions (logging is done by the Mangrove)
-
-  /// @notice trader needs to approve the Mangrove to perform base token transfer at the end of the `makerExecute` function
+  /// trader needs to approve the Mangrove to perform base token transfer at the end of the `makerExecute` function
   function approveMangrove(address base_erc20, uint amount) external onlyAdmin {
     require(IERC20(base_erc20).approve(address(MGV), amount));
   }
@@ -59,10 +73,10 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
 
   function fillOptionalArgs(uint gasreq, uint gasprice, uint pivotId) private view returns (uint, uint, uint) {
     if (gasreq == MAXUINT) {
-      gasreq = GASREQ;
+      gasreq = OFR_GASREQ;
     }
     if (gasprice == MAXUINT){
-      gasprice = GASPRICE;
+      gasprice = OFR_GASPRICE;
     }
     if (pivotId == MAXUINT){
       pivotId = 0;
