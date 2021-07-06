@@ -36,7 +36,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   }
 
   //queries the mangrove to get current gasprice (considered to compute bounty)
-  function getCurrentGasPrice() public {
+  function getCurrentGasPrice() public view returns (uint) {
     bytes32 global_pack = Mangrove(MGV).global();
     (, , , uint __gasprice,,) = MgvPack.global_unpack(global_pack);
     return __gasprice;
