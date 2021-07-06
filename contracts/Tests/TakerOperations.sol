@@ -123,6 +123,188 @@ contract TakerOperations_Test {
     }
   }
 
+  function snipe_fails_if_price_has_changed_test() public {
+    uint weiBalanceBefore = mgv.balanceOf(address(this));
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
+    quoteT.approve(address(mgv), 1 ether);
+    try mgv.snipe(base, quote, ofr, 1 ether, 0.5 ether, 100_000, false) returns (bool success, uint got, uint gave) {
+      TestEvents.check(success == false, "Snipe should fail");
+      TestEvents.eq(
+        weiBalanceBefore,
+        mgv.balanceOf(address(this)),
+        "Taker should not take bounty"
+      );
+      TestEvents.check(
+        (got == gave && gave == 0),
+        "Taker should not give or take anything"
+      );
+    } catch {
+      TestEvents.fail("Transaction should not revert");
+      }
+  }
+
+  function snipe_fillWants_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
+    quoteT.approve(address(mgv), 1 ether);
+    try mgv.snipe(base, quote, ofr, 0.5 ether, 1 ether, 100_000, true) returns (bool success, uint got, uint gave) {
+      TestEvents.check(success == true, "Snipe should not fail");
+      TestEvents.eq(
+        got,
+        0.5 ether,
+        "Taker did not get enough"
+      );
+      TestEvents.eq(
+        gave,
+        0.5 ether,
+        "Taker did not give enough"
+      );
+    } catch {
+      TestEvents.fail("Transaction should not revert");
+      }
+  }
+
+  function snipe_fillWants_zero_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    TestEvents.check(TestUtils.hasOffer(mgv,base,quote,ofr),"Offer should be in the book");
+    mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
+    quoteT.approve(address(mgv), 1 ether);
+    try mgv.snipe(base, quote, ofr, 0, 0, 100_000, true) returns (bool success, uint got, uint gave) {
+      TestEvents.check(success == true, "Snipe should not fail");
+      TestEvents.eq(
+        got,
+        0 ether,
+        "Taker had too much"
+      );
+      TestEvents.eq(
+        gave,
+        0 ether,
+        "Taker gave too much"
+      );
+      TestEvents.check(!TestUtils.hasOffer(mgv,base,quote,ofr),"Offer should not be in the book");
+    } catch {
+      TestEvents.fail("Transaction should not revert");
+      }
+  }
+
+  function snipe_fillGives_zero_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    TestEvents.check(TestUtils.hasOffer(mgv,base,quote,ofr),"Offer should be in the book");
+    mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
+    quoteT.approve(address(mgv), 1 ether);
+    try mgv.snipe(base, quote, ofr, 0, 0, 100_000, false) returns (bool success, uint got, uint gave) {
+      TestEvents.check(success == true, "Snipe should not fail");
+      TestEvents.eq(
+        got,
+        0 ether,
+        "Taker had too much"
+      );
+      TestEvents.eq(
+        gave,
+        0 ether,
+        "Taker gave too much"
+      );
+      TestEvents.check(!TestUtils.hasOffer(mgv,base,quote,ofr),"Offer should not be in the book");
+    } catch {
+      TestEvents.fail("Transaction should not revert");
+      }
+  }
+
+  function snipe_fillGives_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
+    quoteT.approve(address(mgv), 1 ether);
+    try mgv.snipe(base, quote, ofr, 0.5 ether, 1 ether, 100_000, false) returns (bool success, uint got, uint gave) {
+      TestEvents.check(success == true, "Snipe should not fail");
+      TestEvents.eq(
+        got,
+        1 ether,
+        "Taker did not get enough"
+      );
+      TestEvents.eq(
+        gave,
+        1 ether,
+        "Taker did not get enough"
+      );
+    } catch {
+      TestEvents.fail("Transaction should not revert");
+      }
+  }
+  function mo_fillWants_test() public {
+    mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
+    quoteT.approve(address(mgv), 2 ether);
+    try mgv.marketOrder(base, quote, 1.1 ether, 2 ether, true) returns (uint got, uint gave) {
+      TestEvents.eq(
+        got,
+        1.1 ether,
+        "Taker did not get enough"
+      );
+      TestEvents.eq(
+        gave,
+        1.1 ether,
+        "Taker did not get enough"
+      );
+    } catch {
+      TestEvents.fail("Transaction should not revert");
+      }
+  }
+  function mo_fillGives_test() public {
+    mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
+    quoteT.approve(address(mgv), 2 ether);
+    try mgv.marketOrder(base, quote, 1.1 ether, 2 ether, false) returns (uint got, uint gave) {
+      TestEvents.eq(
+        got,
+        2 ether,
+        "Taker did not get enough"
+      );
+      TestEvents.eq(
+        gave,
+        2 ether,
+        "Taker did not get enough"
+      );
+    } catch {
+      TestEvents.fail("Transaction should not revert");
+      }
+  }
+
+  function mo_fillGivesAll_no_approved_fails_test() public {
+    mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
+    quoteT.approve(address(mgv), 2 ether);
+    try mgv.marketOrder(base, quote, 0 ether, 3 ether, false){
+    } catch Error(string memory errorMsg){
+      TestEvents.eq(errorMsg, "mgv/takerTransferFail" , "Invalid revert message");
+      }
+  }
+  function mo_fillGivesAll_succeeds_test() public {
+    mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
+    quoteT.approve(address(mgv), 3 ether);
+    try mgv.marketOrder(base, quote, 0 ether, 3 ether, false) returns (uint got, uint gave) {
+      TestEvents.eq(
+        got,
+        3 ether,
+        "Taker did not get enough"
+      );
+      TestEvents.eq(
+        gave,
+        3 ether,
+        "Taker did not get enough"
+      );
+    } catch {
+      TestEvents.fail("Transaction should not revert");
+      }
+  }
+
   function taker_reimbursed_if_maker_doesnt_pay_test() public {
     uint mkr_provision = TestUtils.getProvision(mgv, base, quote, 100_000);
     quoteT.approve(address(mgv), 1 ether);
@@ -131,7 +313,7 @@ contract TakerOperations_Test {
     uint beforeQuote = quoteT.balanceOf(address(this));
     uint beforeWei = address(this).balance;
     (bool success, uint takerGot, uint takerGave) =
-      mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000, true);
+      mgv.snipe(base, quote, ofr, 1, 1, 100_000, true);
     uint penalty = address(this).balance - beforeWei;
     TestEvents.check(penalty > 0, "Taker should have been compensated");
     TestEvents.check(!success, "Snipe should fail");
@@ -248,7 +430,7 @@ contract TakerOperations_Test {
     uint ofr = failmkr.newOffer(1 ether, 1 ether, 50_000, 0);
     uint beforeWei = address(this).balance;
     (bool success, uint takerGot, uint takerGave) =
-      mgv.snipe(base, quote, ofr, 0 ether, 1 ether, 100_000, true);
+      mgv.snipe(base, quote, ofr, 0, 0, 100_000, true);
     TestEvents.check(!success, "Snipe should fail");
     TestEvents.check(
       takerGot == takerGave && takerGave == 0,
