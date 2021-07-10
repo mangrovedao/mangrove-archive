@@ -676,11 +676,6 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       gasused +
       makerPosthook(sor, gasreq - gasused, makerData, statusCode);
 
-    /* Once again, the gas used may exceed `gasreq`. Since penalties extracted depend on `gasused` and the maker has at most provisioned for `gasreq` being used, we prevent fund leaks by bounding `gasused` once more. */
-    if (gasused > gasreq) {
-      gasused = gasreq;
-    }
-
     if (statusCode != "mgv/tradeSuccess") {
       mor.totalPenalty += applyPenalty(sor, gasused, mor.failCount);
     }
