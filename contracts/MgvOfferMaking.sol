@@ -162,9 +162,9 @@ contract MgvOfferMaking is MgvHasOffers {
       if (oldLocal != local) {
         locals[base][quote] = local;
       }
-      /* Set `gives` to 0. Moreover, the last argument depends on whether the user wishes to get their provision back. */
-      dirtyDeleteOffer(base, quote, offerId, offer, deprovision);
     }
+    /* Set `gives` to 0. Moreover, the last argument depends on whether the user wishes to get their provision back. */
+    dirtyDeleteOffer(base, quote, offerId, offer, deprovision);
 
     /* If the user wants to get their provision back, we compute its provision from the offer's `gasprice`, `*_gasbase` and `gasreq`. */
     if (deprovision) {
