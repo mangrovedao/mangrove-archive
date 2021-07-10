@@ -182,7 +182,7 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
     uint amount
   ) internal {
     uint allowed = allowances[base][quote][owner][msg.sender];
-    require(allowed > amount, "mgv/lowAllowance");
+    require(allowed >= amount, "mgv/lowAllowance");
     allowances[base][quote][owner][msg.sender] = allowed - amount;
   }
 }
