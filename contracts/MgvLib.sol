@@ -116,6 +116,8 @@ library MgvEvents {
     uint takerWants,
     uint takerGives
   );
+
+  /* Log information when a trade execution reverts */
   event MakerFail(
     address base,
     address quote,
@@ -126,6 +128,14 @@ library MgvEvents {
     uint takerGives,
     // `statusCode` may only be `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"`
     bytes32 statusCode,
+    bytes32 makerData
+  );
+
+  /* Log information when a posthook reverts */
+  event PosthookFail(
+    address base,
+    address quote,
+    uint offerId,
     bytes32 makerData
   );
 

@@ -191,6 +191,17 @@ contract MakerOperations_Test is IMaker {
     }
   }
 
+  function posthook_fail_message_test() public {
+    mkr.provisionMgv(1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 50000, 0);
+
+    mkr.setShouldFailHook(true);
+    tkr.take(ofr, 0.1 ether); // fails but we don't care
+
+    TestEvents.expectFrom(address(mgv));
+    emit MgvEvents.PosthookFail(_base,_quote,ofr,"posthookFail");
+  }
+
   function delete_restores_balance_test() public {
     mkr.provisionMgv(1 ether);
     uint bal = mkr.freeWei();

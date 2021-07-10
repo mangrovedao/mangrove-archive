@@ -104,11 +104,23 @@ contract TestMaker is IMaker, Passthrough {
     }
   }
 
+  bool _shouldFailHook;
+  function setShouldFailHook(bool should) external {
+    _shouldFailHook = should;
+  }
+
   function makerPosthook(
     ML.SingleOrder calldata order,
     ML.OrderResult calldata result
   ) external virtual override {
     order; //shh
+    if (_shouldFailHook) {
+      bytes32[1] memory refuse_msg = [bytes32("posthookFail")];
+      assembly {
+        revert(refuse_msg, 32)
+      }
+    }
+
     if (_expectedStatus != bytes32("")) {
       TestEvents.eq(
         result.statusCode,

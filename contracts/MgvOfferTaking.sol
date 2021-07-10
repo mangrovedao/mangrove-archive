@@ -602,12 +602,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   {
     bytes memory cd = abi.encodeWithSelector(IMaker.makerExecute.selector, sor);
 
-    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + overhead_gasbase/n + offer_gasbase` where `n` is the number of failing offers. This yul call only retrieves the first 32 bytes of the maker's `returndata`. */
     uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
     address maker = $$(offerDetail_maker("sor.offerDetail"));
-    bytes memory retdata = new bytes(32);
-    bool callSuccess;
-    bytes32 makerData;
     uint oldGas = gasleft();
     /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of `CALL`) is $h$, the maker will receive at worst $\textrm{gasreq} - \frac{63h}{64}$ gas. */
     /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether `63/64(gasleft-overhead_gasbase-offer_gasbase) > gasreq`. If no, we could stop and know by induction that there is enough gas left to apply fees, stitch offers, etc for the offers already executed. */
@@ -615,18 +611,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       innerRevert([bytes32("mgv/notEnoughGasForMakerTrade"), "", ""]);
     }
 
-    assembly {
-      callSuccess := call(
-        gasreq,
-        maker,
-        0,
-        add(cd, 32),
-        mload(cd),
-        add(retdata, 32),
-        32
-      )
-      makerData := mload(add(retdata, 32))
-    }
+    (bool callSuccess, bytes32 makerData) = restrictedCall(maker,gasreq,cd);
+
     gasused = oldGas - gasleft();
 
     if (!callSuccess) {
@@ -701,9 +687,6 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         ML.OrderResult({makerData: makerData, statusCode: statusCode})
       );
 
-    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq`. This yul call only retrieves the first 32 bytes of the maker's `returndata`. */
-    bytes memory retdata = new bytes(32);
-
     address maker = $$(offerDetail_maker("sor.offerDetail"));
 
     uint oldGas = gasleft();
@@ -712,18 +695,34 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       revert("mgv/notEnoughGasForMakerPosthook");
     }
 
+    (bool callSuccess, bytes32 postHookData) = restrictedCall(maker,gasLeft,cd);
+
+    gasused = oldGas - gasleft();
+
+    if (!callSuccess) {
+      emit MgvEvents.PosthookFail(sor.base,sor.quote,sor.offerId,postHookData);
+    }
+  }
+
+  /* ## `restrictedCall` */
+  /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + overhead_gasbase/n + offer_gasbase` where `n` is the number of failing offers. This yul call only retrieves the first 32 bytes of the maker's `returndata`. */
+  function restrictedCall(address callee, uint gasreq, bytes memory cd) internal returns (bool success, bytes32 data) {
+
+    bytes32[1] memory retdata;
+
     assembly {
-      let success2 := call(
-        gasLeft,
-        maker,
+      success := call(
+        gasreq,
+        callee,
         0,
         add(cd, 32),
         mload(cd),
-        add(retdata, 32),
+        retdata,
         32
       )
     }
-    gasused = oldGas - gasleft();
+
+    data = retdata[0];
   }
 
   /* # Penalties */
