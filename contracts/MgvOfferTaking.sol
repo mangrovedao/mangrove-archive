@@ -752,16 +752,19 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     uint gasused,
     uint failCount
   ) internal returns (uint) {
+
+    uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
+
     uint provision =
       10**9 *
         $$(offer_gasprice("sor.offer")) *
-        ($$(offerDetail_gasreq("sor.offerDetail")) +
+        (gasreq +
           $$(offerDetail_overhead_gasbase("sor.offerDetail")) +
           $$(offerDetail_offer_gasbase("sor.offerDetail")));
 
     /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible e.g. with `gasreq = 0` (all calls consume nonzero gas). */
-    if ($$(offerDetail_gasreq("sor.offerDetail")) < gasused) {
-      gasused = $$(offerDetail_gasreq("sor.offerDetail"));
+    if (gasused > gasreq) {
+      gasused = gasreq;
     }
 
     /* As an invariant, `applyPenalty` is only called when `statusCode` is not in `["mgv/notExecuted","mgv/tradeSuccess"]`, and thus when `failCount > 0`. */
