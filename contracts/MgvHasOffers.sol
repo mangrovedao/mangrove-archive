@@ -97,29 +97,29 @@ contract MgvHasOffers is MgvRoot {
 
   /* ## Stitching the orderbook */
 
-  /* Connect the offers `worseId` and `betterId` through their `next`/`prev` pointers. For more on the book structure, see [`structs.js`](#structs.js). Used after executing an offer (or a segment of offers), after removing an offer, or moving an offer.
+  /* Connect the offers `betterId` and `worseId` through their `next`/`prev` pointers. For more on the book structure, see [`structs.js`](#structs.js). Used after executing an offer (or a segment of offers), after removing an offer, or moving an offer.
 
-  **Warning**: calling with `worseId = 0` will set `betterId` as the best. So with `worseId = 0` and `betterId = 0`, it sets the book to empty and loses track of existing offers.
+  **Warning**: calling with `betterId = 0` will set `worseId` as the best. So with `betterId = 0` and `worseId = 0`, it sets the book to empty and loses track of existing offers.
 
   **Warning**: may make memory copy of `local.best` stale. Returns new `local`. */
   function stitchOffers(
     address base,
     address quote,
-    uint worseId,
     uint betterId,
+    uint worseId,
     bytes32 local
   ) internal returns (bytes32) {
-    if (worseId != 0) {
-      offers[base][quote][worseId] = $$(
-        set_offer("offers[base][quote][worseId]", [["next", "betterId"]])
-      );
-    } else {
-      local = $$(set_local("local", [["best", "betterId"]]));
-    }
-
     if (betterId != 0) {
       offers[base][quote][betterId] = $$(
-        set_offer("offers[base][quote][betterId]", [["prev", "worseId"]])
+        set_offer("offers[base][quote][betterId]", [["next", "worseId"]])
+      );
+    } else {
+      local = $$(set_local("local", [["best", "worseId"]]));
+    }
+
+    if (worseId != 0) {
+      offers[base][quote][worseId] = $$(
+        set_offer("offers[base][quote][worseId]", [["prev", "betterId"]])
       );
     }
 
