@@ -216,11 +216,16 @@ contract MgvOfferMaking is MgvHasOffers {
   /* ## Write Offer */
 
   function writeOffer(OfferPack memory ofp, bool update) internal {
-    /* We check all values before packing. Otherwise, for values with a lower bound (such as `gasprice`), a check could erroneously succeed on the raw value but fail on the truncated value. */
+    /* `gasprice`'s floor is Mangrove's own gasprice estimate, `ofp.global.gasprice`. We first check that gasprice fits in 16 bits. Otherwise it could be that `uint16(gasprice) < global_gasprice < gasprice`, and the actual value we store is `uint16(gasprice)`. */
     require(
       uint16(ofp.gasprice) == ofp.gasprice,
       "mgv/writeOffer/gasprice/16bits"
     );
+
+    if (ofp.gasprice < $$(global_gasprice("ofp.global"))) {
+      ofp.gasprice = $$(global_gasprice("ofp.global"));
+    }
+
     /* * Check `gasreq` below limit. Implies `gasreq` at most 24 bits wide, which ensures no overflow in computation of `provision` (see below). */
     require(
       ofp.gasreq <= $$(global_gasmax("ofp.global")),
@@ -239,11 +244,6 @@ contract MgvOfferMaking is MgvHasOffers {
     /* The following checks are for the maker's convenience only. */
     require(uint96(ofp.gives) == ofp.gives, "mgv/writeOffer/gives/96bits");
     require(uint96(ofp.wants) == ofp.wants, "mgv/writeOffer/wants/96bits");
-
-    /* `gasprice` given by maker will be bounded below by internal gasprice estimate at offer write time. With a large enough overapproximation of the gasprice, the maker can regularly update their offer without paying for writes to their `balanceOf`.  */
-    if (ofp.gasprice < $$(global_gasprice("ofp.global"))) {
-      ofp.gasprice = $$(global_gasprice("ofp.global"));
-    }
 
     /* Log the write offer event. */
     emit MgvEvents.WriteOffer(
