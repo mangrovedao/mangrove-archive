@@ -203,7 +203,7 @@ interface IMgvMonitor {
   function notifyFail(MgvLib.SingleOrder calldata sor, address taker) external;
 
   function read(address base, address quote)
-    external
+    external view
     returns (uint gasprice, uint density);
 }
 
