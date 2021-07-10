@@ -207,6 +207,40 @@ contract MakerOperations_Test is IMaker {
     emit MgvEvents.RetractOffer(_base, _quote, ofr);
   }
 
+  function retract_retracted_does_not_drain_test() public {
+    mkr.provisionMgv(1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
+
+    mkr.retractOffer(ofr);
+
+    uint bal1 = mgv.balanceOf(address(mkr));
+    mkr.retractOfferWithDeprovision(ofr);
+    uint bal2 = mgv.balanceOf(address(mkr));
+    TestEvents.less(bal1, bal2, "Balance should have increased");
+
+    mkr.retractOfferWithDeprovision(ofr);
+    uint bal3 = mgv.balanceOf(address(mkr));
+    TestEvents.eq(bal3, bal2, "Balance should not have increased");
+  }
+
+  function retract_taken_does_not_drain_test() public {
+    mkr.provisionMgv(1 ether);
+    base.mint(address(mkr), 1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+
+    bool success = tkr.take(ofr, 0.1 ether);
+    TestEvents.eq(success,true,"Snipe should succeed");
+
+    uint bal1 = mgv.balanceOf(address(mkr));
+    mkr.retractOfferWithDeprovision(ofr);
+    uint bal2 = mgv.balanceOf(address(mkr));
+    TestEvents.less(bal1, bal2, "Balance should have increased");
+
+    mkr.retractOfferWithDeprovision(ofr);
+    uint bal3 = mgv.balanceOf(address(mkr));
+    TestEvents.eq(bal3, bal2, "Balance should not have increased");
+  }
+
   function retract_offer_log_test() public {
     mkr.provisionMgv(1 ether);
     uint ofr = mkr.newOffer(0.9 ether, 1 ether, 2300, 100);
