@@ -575,15 +575,13 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     }
 
     /* Delete the offer. The last argument indicates whether the offer should be stripped of its provision (yes if execution failed, no otherwise). We delete offers whether the amount remaining on offer is > density or not for the sake of uniformity (code is much simpler). We also expect prices to move often enough that the maker will want to update their price anyway. To simulate leaving the remaining volume in the offer, the maker can program their `makerPosthook` to `updateOffer` and put the remaining volume back in. */
-    if (statusCode != "mgv/notExecuted") {
-      dirtyDeleteOffer(
-        sor.base,
-        sor.quote,
-        sor.offerId,
-        sor.offer,
-        statusCode != "mgv/tradeSuccess"
-      );
-    }
+    dirtyDeleteOffer(
+      sor.base,
+      sor.quote,
+      sor.offerId,
+      sor.offer,
+      statusCode != "mgv/tradeSuccess"
+    );
   }
 
   /* ## flashloan (abstract) */
