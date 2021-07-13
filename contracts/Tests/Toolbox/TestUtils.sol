@@ -63,7 +63,7 @@ library TestUtils {
     address base,
     address quote,
     uint price
-  ) internal returns (uint) {
+  ) internal view returns (uint) {
     return ((price * mgv.getConfig(base, quote).local.fee) / 10000);
   }
 
@@ -72,7 +72,7 @@ library TestUtils {
     address base,
     address quote,
     uint gasreq
-  ) internal returns (uint) {
+  ) internal view returns (uint) {
     ML.Config memory config = mgv.getConfig(base, quote);
     return ((gasreq +
       config.local.overhead_gasbase +
@@ -87,7 +87,7 @@ library TestUtils {
     address quote,
     uint gasreq,
     uint gasprice
-  ) internal returns (uint) {
+  ) internal view returns (uint) {
     ML.Config memory config = mgv.getConfig(base, quote);
     uint _gp;
     if (config.global.gasprice > gasprice) {

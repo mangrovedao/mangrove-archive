@@ -493,7 +493,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
           sor.gives = (offerWants * takerWants) / offerGives;
           /* If `fillWants` is false, we take `takerGives` from the taker and adjust how much they get based on the offer's price. Note that we round down how much the taker will get.*/
         } else {
-          /* **Note**: We know statically by outer `else` branch that `offeWants > 0`. */
+          /* **Note**: We know statically by outer `else` branch that `offerWants > 0`. */
           sor.wants = (offerGives * takerGives) / offerWants;
         }
       }
@@ -575,15 +575,13 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     }
 
     /* Delete the offer. The last argument indicates whether the offer should be stripped of its provision (yes if execution failed, no otherwise). We delete offers whether the amount remaining on offer is > density or not for the sake of uniformity (code is much simpler). We also expect prices to move often enough that the maker will want to update their price anyway. To simulate leaving the remaining volume in the offer, the maker can program their `makerPosthook` to `updateOffer` and put the remaining volume back in. */
-    if (statusCode != "mgv/notExecuted") {
-      dirtyDeleteOffer(
-        sor.base,
-        sor.quote,
-        sor.offerId,
-        sor.offer,
-        statusCode != "mgv/tradeSuccess"
-      );
-    }
+    dirtyDeleteOffer(
+      sor.base,
+      sor.quote,
+      sor.offerId,
+      sor.offer,
+      statusCode != "mgv/tradeSuccess"
+    );
   }
 
   /* ## flashloan (abstract) */
@@ -604,31 +602,17 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   {
     bytes memory cd = abi.encodeWithSelector(IMaker.makerExecute.selector, sor);
 
-    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + overhead_gasbase/n + offer_gasbase` where `n` is the number of failing offers. This yul call only retrieves the first 32 bytes of the maker's `returndata`. */
     uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
     address maker = $$(offerDetail_maker("sor.offerDetail"));
-    bytes memory retdata = new bytes(32);
-    bool callSuccess;
-    bytes32 makerData;
     uint oldGas = gasleft();
-    /* We let the maker pay for the overhead of checking remaining gas and making the call. So the `require` below is just an approximation: if the overhead of (`require` + cost of `CALL`) is $h$, the maker will receive at worst $\textrm{gasreq} - \frac{63h}{64}$ gas. */
+    /* We let the maker pay for the overhead of checking remaining gas and making the call, as well as handling the return data (constant gas since only the first 32 bytes of return data are read). So the `require` below is just an approximation: if the overhead of (`require` + cost of `CALL`) is $h$, the maker will receive at worst $\textrm{gasreq} - \frac{63h}{64}$ gas. */
     /* Note : as a possible future feature, we could stop an order when there's not enough gas left to continue processing offers. This could be done safely by checking, as soon as we start processing an offer, whether `63/64(gasleft-overhead_gasbase-offer_gasbase) > gasreq`. If no, we could stop and know by induction that there is enough gas left to apply fees, stitch offers, etc for the offers already executed. */
     if (!(oldGas - oldGas / 64 >= gasreq)) {
       innerRevert([bytes32("mgv/notEnoughGasForMakerTrade"), "", ""]);
     }
 
-    assembly {
-      callSuccess := call(
-        gasreq,
-        maker,
-        0,
-        add(cd, 32),
-        mload(cd),
-        add(retdata, 32),
-        32
-      )
-      makerData := mload(add(retdata, 32))
-    }
+    (bool callSuccess, bytes32 makerData) = restrictedCall(maker, gasreq, cd);
+
     gasused = oldGas - gasleft();
 
     if (!callSuccess) {
@@ -678,11 +662,6 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       gasused +
       makerPosthook(sor, gasreq - gasused, makerData, statusCode);
 
-    /* Once again, the gas used may exceed `gasreq`. Since penalties extracted depend on `gasused` and the maker has at most provisioned for `gasreq` being used, we prevent fund leaks by bounding `gasused` once more. */
-    if (gasused > gasreq) {
-      gasused = gasreq;
-    }
-
     if (statusCode != "mgv/tradeSuccess") {
       mor.totalPenalty += applyPenalty(sor, gasused, mor.failCount);
     }
@@ -708,9 +687,6 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         ML.OrderResult({makerData: makerData, statusCode: statusCode})
       );
 
-    /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq`. This yul call only retrieves the first 32 bytes of the maker's `returndata`. */
-    bytes memory retdata = new bytes(32);
-
     address maker = $$(offerDetail_maker("sor.offerDetail"));
 
     uint oldGas = gasleft();
@@ -719,18 +695,35 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       revert("mgv/notEnoughGasForMakerPosthook");
     }
 
-    assembly {
-      let success2 := call(
-        gasLeft,
-        maker,
-        0,
-        add(cd, 32),
-        mload(cd),
-        add(retdata, 32),
-        32
-      )
-    }
+    (bool callSuccess, bytes32 postHookData) =
+      restrictedCall(maker, gasLeft, cd);
+
     gasused = oldGas - gasleft();
+
+    if (!callSuccess) {
+      emit MgvEvents.PosthookFail(
+        sor.base,
+        sor.quote,
+        sor.offerId,
+        postHookData
+      );
+    }
+  }
+
+  /* ## `restrictedCall` */
+  /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + overhead_gasbase/n + offer_gasbase` where `n` is the number of failing offers. This yul call only retrieves the first 32 bytes of the maker's `returndata`. */
+  function restrictedCall(
+    address callee,
+    uint gasreq,
+    bytes memory cd
+  ) internal returns (bool success, bytes32 data) {
+    bytes32[1] memory retdata;
+
+    assembly {
+      success := call(gasreq, callee, 0, add(cd, 32), mload(cd), retdata, 32)
+    }
+
+    data = retdata[0];
   }
 
   /* # Penalties */
@@ -759,16 +752,18 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     uint gasused,
     uint failCount
   ) internal returns (uint) {
+    uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
+
     uint provision =
       10**9 *
         $$(offer_gasprice("sor.offer")) *
-        ($$(offerDetail_gasreq("sor.offerDetail")) +
+        (gasreq +
           $$(offerDetail_overhead_gasbase("sor.offerDetail")) +
           $$(offerDetail_offer_gasbase("sor.offerDetail")));
 
     /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible e.g. with `gasreq = 0` (all calls consume nonzero gas). */
-    if ($$(offerDetail_gasreq("sor.offerDetail")) < gasused) {
-      gasused = $$(offerDetail_gasreq("sor.offerDetail"));
+    if (gasused > gasreq) {
+      gasused = gasreq;
     }
 
     /* As an invariant, `applyPenalty` is only called when `statusCode` is not in `["mgv/notExecuted","mgv/tradeSuccess"]`, and thus when `failCount > 0`. */

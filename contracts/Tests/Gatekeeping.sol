@@ -499,6 +499,8 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function cannot_snipeFor_for_without_allowance_test() public {
+    TestToken(base).mint(address(mkr), 1 ether);
+    mkr.approveMgv(TestToken(base), 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     try
       mgv.snipeFor(
@@ -552,6 +554,8 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function cannot_snipesFor_for_without_allowance_test() public {
+    TestToken(base).mint(address(mkr), 1 ether);
+    mkr.approveMgv(TestToken(base), 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     uint[4][] memory targets = new uint[4][](1);
     targets[0] = [ofr, type(uint96).max, type(uint96).max, type(uint).max];
@@ -580,6 +584,8 @@ contract Gatekeeping_Test is IMaker {
   }
 
   function cannot_marketOrderFor_for_without_allowance_test() public {
+    TestToken(base).mint(address(mkr), 1 ether);
+    mkr.approveMgv(TestToken(base), 1 ether);
     mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     try mgv.marketOrderFor(base, quote, 1 ether, 1 ether, true, address(tkr)) {
       TestEvents.fail("marketOrderfor should fail without allowance");

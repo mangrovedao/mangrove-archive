@@ -84,16 +84,16 @@ library MgvEvents {
 
   /* Mangrove adds or removes wei from `maker`'s account */
   /* * Credit event occurs when an offer is removed from the Mangrove or when the `fund` function is called*/
-  event Credit(address maker, uint amount);
+  event Credit(address indexed maker, uint amount);
   /* * Debit event occurs when an offer is posted or when the `withdraw` function is called */
-  event Debit(address maker, uint amount);
+  event Debit(address indexed maker, uint amount);
 
   /* * Mangrove reconfiguration */
-  event SetActive(address base, address quote, bool value);
-  event SetFee(address base, address quote, uint value);
+  event SetActive(address indexed base, address indexed quote, bool value);
+  event SetFee(address indexed base, address indexed quote, uint value);
   event SetGasbase(
-    address base,
-    address quote,
+    address indexed base,
+    address indexed quote,
     uint overhead_gasbase,
     uint offer_gasbase
   );
@@ -103,22 +103,24 @@ library MgvEvents {
   event SetUseOracle(bool value);
   event SetNotify(bool value);
   event SetGasmax(uint value);
-  event SetDensity(address base, address quote, uint value);
+  event SetDensity(address indexed base, address indexed quote, uint value);
   event SetGasprice(uint value);
 
   /* * Offer execution */
   event Success(
-    address base,
-    address quote,
+    address indexed base,
+    address indexed quote,
     uint offerId,
     // maker's address is not logged because it can be retrieved from `WriteOffer` event using `offerId`.
     address taker,
     uint takerWants,
     uint takerGives
   );
+
+  /* Log information when a trade execution reverts */
   event MakerFail(
-    address base,
-    address quote,
+    address indexed base,
+    address indexed quote,
     uint offerId,
     // maker's address is not logged because it can be retrieved from `WriteOffer` event using `offerId`.
     address taker,
@@ -129,10 +131,18 @@ library MgvEvents {
     bytes32 makerData
   );
 
+  /* Log information when a posthook reverts */
+  event PosthookFail(
+    address indexed base,
+    address indexed quote,
+    uint offerId,
+    bytes32 makerData
+  );
+
   /* * After `permit` and `approve` */
   event Approval(
-    address base,
-    address quote,
+    address indexed base,
+    address indexed quote,
     address owner,
     address spender,
     uint value
@@ -143,8 +153,8 @@ library MgvEvents {
 
   /* * An offer was created or updated. */
   event WriteOffer(
-    address base,
-    address quote,
+    address indexed base,
+    address indexed quote,
     address maker,
     uint makerWants,
     uint makerGives,
@@ -154,7 +164,7 @@ library MgvEvents {
   );
 
   /* * `offerId` was present and is now removed from the book. */
-  event RetractOffer(address base, address quote, uint offerId);
+  event RetractOffer(address indexed base, address indexed quote, uint offerId);
 }
 
 /* # IMaker interface */
@@ -204,6 +214,7 @@ interface IMgvMonitor {
 
   function read(address base, address quote)
     external
+    view
     returns (uint gasprice, uint density);
 }
 
