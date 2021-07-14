@@ -126,7 +126,7 @@ They have the following fields: */
     { name: "useOracle", bits: 8, type: "uint" },
     /* * If `notify` is true, the dex will notify the monitor address after every offer execution. */
     { name: "notify", bits: 8, type: "uint" },
-    /* * The `gasprice` is the amount of penalty paid by failed offers, in wei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
+    /* * The `gasprice` is the amount of penalty paid by failed offers, in gwei per gas used. `gasprice` should approximate the average gas price and will be subject to regular updates. */
     fields.gasprice,
     /* * `gasmax` specifies how much gas an offer may ask for at execution time. An offer which asks for more gas than the block limit would live forever on the book. Nobody could take it or remove it, except its creator (who could cancel it). In practice, we will set this parameter to a reasonable limit taking into account both practical transaction sizes and the complexity of maker contracts.
      */
