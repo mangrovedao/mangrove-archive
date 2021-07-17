@@ -39,7 +39,11 @@ interface IComptroller {
     );
 
   function claimComp(address holder) external;
-  function checkMembership(address account, IcERC20 cToken) external view returns (bool);
+
+  function checkMembership(address account, IcERC20 cToken)
+    external
+    view
+    returns (bool);
 }
 
 interface IcERC20 is IERC20 {
@@ -48,11 +52,19 @@ interface IcERC20 is IERC20 {
 
   function borrow(uint borrowAmount) external returns (uint);
 
+  // for non cETH only
   function repayBorrow(uint repayAmount) external returns (uint);
 
+  // for cETH only
+  function repayBorrow() external payable;
+
+  // for non cETH only
   function repayBorrowBehalf(address borrower, uint repayAmount)
     external
     returns (uint);
+
+  // for cETH only
+  function repayBorrowBehalf(address borrower) external payable;
 
   function balanceOfUnderlying(address owner) external returns (uint);
 
@@ -94,5 +106,11 @@ interface IcERC20 is IERC20 {
 
   function mint(uint mintAmount) external returns (uint);
 
-  function underlying() external returns (address); // access to public variable containing the address of the underlying ERC20
+  // only in cETH
+  function mint() external payable;
+
+  // non cETH only
+  function underlying() external view returns (address); // access to public variable containing the address of the underlying ERC20
+
+  function isCToken() external view returns (bool); // public constant froim CTokenInterfaces.sol
 }
