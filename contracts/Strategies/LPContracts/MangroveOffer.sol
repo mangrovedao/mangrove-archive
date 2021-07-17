@@ -4,6 +4,8 @@ import "../lib/AccessControlled.sol";
 import "../lib/Exponential.sol";
 import "../lib/TradeHandler.sol";
 
+//import "hardhat/console.sol";
+
 // SPDX-License-Identifier: MIT
 
 /// MangroveOffer is the basic building block to implement a reactive offer that interfaces with the Mangrove
@@ -11,19 +13,24 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   Mangrove immutable MGV;
   uint immutable MGV_GASMAX;
 
+  event NewMakerContract(address mgv);
+
   receive() external payable {}
+
   // default values
-  uint OFR_GASREQ = 500_000;
-  uint OFR_GASPRICE; 
+  uint OFR_GASREQ = 1_000_000;
+  uint OFR_GASPRICE;
 
   // Offer constructor (caller will be admin)
-  constructor(address payable _MGV) {
-    bytes32 global_pack = Mangrove(_MGV).global();
-    (, , , uint __gasprice, uint __gasmax, uint __dead) = MgvPack.global_unpack(global_pack);
+  constructor(address _MGV) {
+    bytes32 global_pack = Mangrove(payable(_MGV)).global();
+    (, , , uint __gasprice, uint __gasmax, uint __dead) =
+      MgvPack.global_unpack(global_pack);
     require(__dead == 0, "Mangrove contract is permanently disabled"); //sanity check
-    MGV = Mangrove(_MGV);
+    MGV = Mangrove(payable(_MGV));
     MGV_GASMAX = __gasmax;
     OFR_GASPRICE = __gasprice;
+    emit NewMakerContract(_MGV);
   }
 
   /// transfers token stored in `this` contract to some recipient address
@@ -38,7 +45,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   //queries the mangrove to get current gasprice (considered to compute bounty)
   function getCurrentGasPrice() public view returns (uint) {
     bytes32 global_pack = Mangrove(MGV).global();
-    (, , , uint __gasprice,,) = MgvPack.global_unpack(global_pack);
+    (, , , uint __gasprice, , ) = MgvPack.global_unpack(global_pack);
     return __gasprice;
   }
 
@@ -46,13 +53,14 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   function udpateGasPrice(uint gasprice) external onlyAdmin {
     OFR_GASPRICE = gasprice;
   }
+
   function udpateGasPrice() external onlyAdmin {
     OFR_GASPRICE = getCurrentGasPrice();
   }
+
   function updateGasReq(uint gasreq) external onlyAdmin {
     OFR_GASREQ = gasreq;
   }
-  
 
   /// trader needs to approve the Mangrove to perform base token transfer at the end of the `makerExecute` function
   function approveMangrove(address base_erc20, uint amount) external onlyAdmin {
@@ -71,20 +79,32 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     (noRevert, ) = receiver.call{value: amount}("");
   }
 
-  function fillOptionalArgs(uint gasreq, uint gasprice, uint pivotId) private view returns (uint, uint, uint) {
+  function fillOptionalArgs(
+    uint gasreq,
+    uint gasprice,
+    uint pivotId
+  )
+    private
+    view
+    returns (
+      uint,
+      uint,
+      uint
+    )
+  {
     if (gasreq == MAXUINT) {
       gasreq = OFR_GASREQ;
     }
-    if (gasprice == MAXUINT){
+    if (gasprice == MAXUINT) {
       gasprice = OFR_GASPRICE;
     }
-    if (pivotId == MAXUINT){
+    if (pivotId == MAXUINT) {
       pivotId = 0;
     }
-    return (gasreq,gasprice,pivotId);
-  } 
+    return (gasreq, gasprice, pivotId);
+  }
 
-  function post(
+  function newOffer(
     address base,
     address quote,
     uint promised_base,
@@ -93,7 +113,11 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint OPTgasprice,
     uint OPTpivotId
   ) public onlyAdmin returns (uint offerId) {
-    (OPTgasreq, OPTgasprice, OPTpivotId) = fillOptionalArgs(OPTgasreq, OPTgasprice, OPTpivotId);
+    (OPTgasreq, OPTgasprice, OPTpivotId) = fillOptionalArgs(
+      OPTgasreq,
+      OPTgasprice,
+      OPTpivotId
+    );
     offerId = MGV.newOffer({
       base: base,
       quote: quote,
@@ -107,7 +131,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
 
   // updates an existing offer on the Mangrove. `update` will throw if offer density is no longer compatible with Mangrove's parameters
   // `update` will also throw if user provision no longer covers for the offer's bounty. `__autoRefill__` function may be use to provide a method to refill automatically.
-  function repost(
+  function updateOffer(
     address base_erc20,
     address quote_erc20,
     uint wants,
@@ -117,8 +141,13 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint OPTpivotId,
     uint offerId
   ) public onlyAdmin {
-    (OPTgasreq, OPTgasprice, OPTpivotId) = fillOptionalArgs(OPTgasreq, OPTgasprice, OPTpivotId);
-    uint bounty = getProvision(base_erc20, quote_erc20, MGV, OPTgasreq, OPTgasprice);
+    (OPTgasreq, OPTgasprice, OPTpivotId) = fillOptionalArgs(
+      OPTgasreq,
+      OPTgasprice,
+      OPTpivotId
+    );
+    uint bounty =
+      getProvision(base_erc20, quote_erc20, MGV, OPTgasreq, OPTgasprice);
     uint provision = MGV.balanceOf(address(this));
     if (bounty > provision) {
       __autoRefill__(bounty - provision);
@@ -154,12 +183,17 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     returns (bytes32)
   {
     __lastLook__(order); // might revert or let the trade proceed
-    __put__(order.quote, order.gives); // specifies what to do with the received funds
-    uint missingGet = __get__(order.base, order.wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
+    __put__(IERC20(order.quote), order.gives); // specifies what to do with the received funds
+    uint missingGet = __get__(IERC20(order.base), order.wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
     if (missingGet > 0) {
-      return returnData({drop:true, postHook_switch:PostHook.Get, arg:uint96(missingGet)});
+      return
+        returnData({
+          drop: true,
+          postHook_switch: PostHook.Get,
+          arg: uint96(missingGet)
+        });
     }
-    return returnData({drop:false, postHook_switch:PostHook.Success});
+    return returnData({drop: false, postHook_switch: PostHook.Success});
   }
 
   // not a virtual function to make sure it is only MGV callable
@@ -167,13 +201,17 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     MgvLib.SingleOrder calldata order,
     MgvLib.OrderResult calldata result
   ) external override onlyCaller(address(MGV)) {
-    PostHook postHook_switch; 
+    PostHook postHook_switch;
     uint[] memory args;
-    if ( result.statusCode == "mgv/tradeSuccess" || result.statusCode == "mgv/makerRevert") {
-        // if trade was a success or dropped by maker, `makerData` determines the posthook switch
-        (postHook_switch, args) = getMakerData(result.makerData);
-    } else { // if `mgv` rejected trade, `statusCode` should determine the posthook switch
-        postHook_switch = switchOfStatusCode(result.statusCode);
+    if (
+      result.statusCode == "mgv/tradeSuccess" ||
+      result.statusCode == "mgv/makerRevert"
+    ) {
+      // if trade was a success or dropped by maker, `makerData` determines the posthook switch
+      (postHook_switch, args) = getMakerData(result.makerData);
+    } else {
+      // if `mgv` rejected trade, `statusCode` should determine the posthook switch
+      postHook_switch = switchOfStatusCode(result.statusCode);
     }
     // posthook selector based on maker's information
     if (postHook_switch == PostHook.Success) {
@@ -181,10 +219,16 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     }
     if (postHook_switch == PostHook.Get) {
       emit GetFailure(order.base, order.quote, order.offerId, args[0]);
-      __postHookGetFailure__(args[0],order);
+      __postHookGetFailure__(args[0], order);
     }
     if (postHook_switch == PostHook.Price) {
-      emit PriceSlippage(order.base, order.quote, order.offerId, args[0], args[1]);
+      emit PriceSlippage(
+        order.base,
+        order.quote,
+        order.offerId,
+        args[0],
+        args[1]
+      );
       __postHookPriceSlippage__(args[0], args[1], order);
     }
     // Posthook based on Mangrove's information
@@ -198,41 +242,61 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
 
   ////// Virtual functions to customize trading strategies
 
-  function __put__(address quote, uint amount)
-    internal
-    virtual
-  {
+  function __put__(IERC20 quote, uint amount) internal virtual {
     /// @notice receive payment is just stored at this address
     quote;
     amount;
   }
-  function __get__(address base, uint amount) internal virtual returns (uint) {
-    uint balance = IERC20(base).balanceOf(address(this));
+
+  function __get__(IERC20 base, uint amount) internal virtual returns (uint) {
+    uint balance = base.balanceOf(address(this));
     return (balance > amount ? 0 : amount - balance);
   }
+
   function __lastLook__(MgvLib.SingleOrder calldata order) internal virtual {
     order; //shh
   }
+
   function __autoRefill__(uint amount) internal virtual {
     require(amount == 0, "Insufficient provision");
   }
-  function __postHookNoFailure__(MgvLib.SingleOrder calldata order) internal virtual {
+
+  function __postHookNoFailure__(MgvLib.SingleOrder calldata order)
+    internal
+    virtual
+  {
     order; //shh
   }
-  function __postHookGetFailure__(uint missingGet, MgvLib.SingleOrder calldata order) internal virtual {
+
+  function __postHookGetFailure__(
+    uint missingGet,
+    MgvLib.SingleOrder calldata order
+  ) internal virtual {
     missingGet; //shh
     order; //shh
   }
-  function __postHookPriceSlippage__(uint usd_maker_gives, uint usd_maker_wants, MgvLib.SingleOrder calldata order)
-  internal virtual {
+
+  function __postHookPriceSlippage__(
+    uint usd_maker_gives,
+    uint usd_maker_wants,
+    MgvLib.SingleOrder calldata order
+  ) internal virtual {
     usd_maker_gives; //shh
     usd_maker_wants; //shh
     order; //shh
   }
-  function __postHookReceiveFailure__(MgvLib.SingleOrder calldata order) internal virtual {
+
+  function __postHookReceiveFailure__(MgvLib.SingleOrder calldata order)
+    internal
+    virtual
+  {
     order;
   }
-  function __postHookTransferFailure__(MgvLib.SingleOrder calldata order) internal virtual {
+
+  function __postHookTransferFailure__(MgvLib.SingleOrder calldata order)
+    internal
+    virtual
+  {
     order;
   }
 }

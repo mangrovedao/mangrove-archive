@@ -147,7 +147,7 @@ contract ERC20BL is Context, IERC20 {
    * no way affects any of the arithmetic of the contract, including
    * {IERC20-balanceOf} and {IERC20-transfer}.
    */
-  function decimals() public view returns (uint8) {
+  function decimals() public view override returns (uint8) {
     return _decimals;
   }
 
@@ -438,4 +438,8 @@ contract ERC20BL is Context, IERC20 {
     address to,
     uint amount
   ) internal virtual {}
+
+  function deposit() external payable override {}
+
+  function withdraw(uint) external override {}
 }
