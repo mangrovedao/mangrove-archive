@@ -45,10 +45,17 @@ task(
     );
   });
 
+const myKey = require("./myKey.json").key;
 module.exports = {
   defaultNetwork: "hardhat",
   networks: {
     hardhat: {
+      forking: {
+        url: "https://eth-mainnet.alchemyapi.io/v2/" + myKey, // ethereum node
+        blockNumber: 12786390, // block mined 8/07/2021
+      },
+      gasPrice: 8000000000,
+      gasMultiplier: 1,
       blockGasLimit: 7000000000,
       allowUnlimitedContractSize: true,
     },
