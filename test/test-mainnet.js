@@ -202,9 +202,23 @@ function assertAlmost(bignum_expected, bignum_obs, decimal, msg) {
 }
 
 async function logCompoundStatus(contract, symbols) {
+  function logPosition(s, x, y, z) {
+    console.log(
+      s,
+      ":",
+      " (\x1b[32m",
+      x,
+      "\x1b[0m|\x1b[31m",
+      y,
+      "\x1b[0m) + \x1b[34m",
+      z,
+      "\x1b[0m"
+    );
+  }
   [, liquidity] = await comp.getAccountLiquidity(contract.address);
+  console.log();
   console.log(
-    "**** Account liquidity (USD): \x1b[35m",
+    "**** Account borrow power (USD): \x1b[35m",
     formatToken(liquidity, 18),
     "\x1b[0m ****"
   );
@@ -214,25 +228,29 @@ async function logCompoundStatus(contract, symbols) {
         [, redeemableDai] = await contract.maxGettableUnderlying(cDaiAddress);
         [, , borrowBalance] = await cDai.getAccountSnapshot(contract.address);
         daiBalance = await dai.balanceOf(contract.address);
-        console.log("-- Local DAIs:", formatToken(daiBalance, "DAI"));
-        console.log("-- Borrowed DAIs: ", formatToken(borrowBalance, "DAI"));
-        console.log("-- Remdeemable DAIs: ", formatToken(redeemableDai, "DAI"));
+        logPosition(
+          "DAI",
+          formatToken(redeemableDai, "DAI"),
+          formatToken(borrowBalance, "DAI"),
+          formatToken(daiBalance, "DAI")
+        );
         break;
       case "WETH":
         [, redeemableWeth] = await contract.maxGettableUnderlying(cEthAddress);
         [, , borrowBalance] = await cEth.getAccountSnapshot(contract.address);
         wethBalance = await weth.balanceOf(contract.address);
-        console.log("-- Local WETHs:", formatToken(wethBalance, "WETH"));
-        console.log("-- Borrowed WETHs: ", formatToken(borrowBalance, "WETH"));
-        console.log(
-          "-- Remdeemable WETHs: ",
-          formatToken(redeemableWeth, "WETH")
+        logPosition(
+          "WETH",
+          formatToken(redeemableWeth, "DAI"),
+          formatToken(borrowBalance, "DAI"),
+          formatToken(wethBalance, "DAI")
         );
         break;
       default:
         console.log("Unimplemented");
     }
   }
+  console.log();
 }
 
 async function newOffer(contract, base_sym, quote_sym, wants, gives) {
