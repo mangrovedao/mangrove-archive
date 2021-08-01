@@ -45,19 +45,24 @@ task(
     );
   });
 
-const myKey = require("./myKey.json").key;
+urls = require("./myKey.json"); //default
+
 module.exports = {
   defaultNetwork: "hardhat",
   networks: {
     hardhat: {
-      forking: {
-        url: "https://eth-mainnet.alchemyapi.io/v2/" + myKey, // ethereum node
-        blockNumber: 12786390, // block mined 8/07/2021
-      },
       gasPrice: 8000000000,
       gasMultiplier: 1,
       blockGasLimit: 7000000000,
       allowUnlimitedContractSize: true,
+    },
+    ethereum: {
+      url: urls.ethmain, // ethereum node
+      // blockNumber: 12901866,
+    },
+    polygon: {
+      url: urls.polygonmain,
+      // blockNumber: 17284000, // block mined 26/07/2021
     },
     localhost: {
       url: "http://127.0.0.1:8545",

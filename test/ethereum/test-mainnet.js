@@ -1,7 +1,6 @@
 const { assert } = require("chai");
 //const { parseToken } = require("ethers/lib/utils");
 const { ethers } = require("hardhat");
-const { networks } = require("../hardhat.config");
 
 // Address of Join (has auth) https://changelog.makerdao.com/ -> releases -> contract addresses -> MCD_JOIN_DAI
 const daiAddress = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
@@ -275,7 +274,7 @@ async function newOffer(contract, base_sym, quote_sym, wants, gives) {
   );
   await offerTx.wait();
   console.log(
-    "\t \x1b[44m OFFER \x1b[0m[\x1b[32m" +
+    "\t \x1b[44m\x1b[37m OFFER \x1b[0m[\x1b[32m" +
       formatToken(wants, base_sym) +
       base_sym +
       "\x1b[0m | \x1b[31m" +
@@ -310,7 +309,7 @@ async function snipe(mgv, base_sym, quote_sym, offerId, wants, gives) {
   //    console.log(receipt.gasUsed.toString());
 
   console.log(
-    "\t \x1b[44m TAKE \x1b[0m[\x1b[32m" +
+    "\t \x1b[44m\x1b[37m TAKE \x1b[0m[\x1b[32m" +
       formatToken(wants, base_sym) +
       base_sym +
       "\x1b[0m | \x1b[31m" +
@@ -348,6 +347,18 @@ describe("Deploy strategies", function () {
   mgv = null;
 
   before(async function () {
+    urlEth = require("../../myKey.json").ethmain;
+    await network.provider.request({
+      method: "hardhat_reset",
+      params: [
+        {
+          forking: {
+            jsonRpcUrl: urlEth,
+            blockNumber: 12901866,
+          },
+        },
+      ],
+    });
     // 1. mint (1000 dai, 1000 eth, 1000 weth) for owner
     // 2. activates (dai,weth) market
     [testSigner] = await ethers.getSigners();
