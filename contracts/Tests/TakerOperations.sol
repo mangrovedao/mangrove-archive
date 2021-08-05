@@ -313,7 +313,7 @@ contract TakerOperations_Test {
     uint beforeQuote = quoteT.balanceOf(address(this));
     uint beforeWei = address(this).balance;
     (bool success, uint takerGot, uint takerGave) =
-      mgv.snipe(base, quote, ofr, 1, 1, 100_000, true);
+      mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000, true);
     uint penalty = address(this).balance - beforeWei;
     TestEvents.check(penalty > 0, "Taker should have been compensated");
     TestEvents.check(!success, "Snipe should fail");
