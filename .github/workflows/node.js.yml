@@ -20,7 +20,18 @@ jobs:
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v2
+      # Workaround for https://github.com/npm/cli/issues/2610
+      with:
+        persist-credentials: false
+
+    # Workaround for https://github.com/npm/cli/issues/2610
+    - name: Reconfigure git to use HTTP authentication
+      run: >
+        git config --global url."https://github.com/".insteadOf
+        ssh://git@github.com/
+
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v2
       with:
