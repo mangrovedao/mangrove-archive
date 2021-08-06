@@ -1,3 +1,4 @@
+require("dotenv-flow").config(); // Reads local environment variables from .env*.local files
 const { assert } = require("chai");
 //const { parseToken } = require("ethers/lib/utils");
 const { ethers } = require("hardhat");
@@ -27,6 +28,9 @@ const comp = new ethers.Contract(unitrollerAddress, compAbi, provider);
 
 const daiAdmin = "0x9759A6Ac90977b93B58547b4A71c78317f391A28"; // to mint fresh DAIs
 const compoundWhale = "0x6c6d03a20613867fefe4df04bd103fa544e3f1df";
+
+const ethereumNodeUrl = process.env.ETHEREUM_NODE_URL;
+
 const decimals = new Map();
 
 function assertEqualBN(value1, value2, msg) {
@@ -347,13 +351,13 @@ describe("Deploy strategies", function () {
   mgv = null;
 
   before(async function () {
-    urlEth = require("../../myKey.json").ethmain;
+    this.timeout(100_000); // Deployment is slow so timeout is increased
     await network.provider.request({
       method: "hardhat_reset",
       params: [
         {
           forking: {
-            jsonRpcUrl: urlEth,
+            jsonRpcUrl: ethereumNodeUrl,
             blockNumber: 12901866,
           },
         },
