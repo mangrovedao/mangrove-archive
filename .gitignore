@@ -9,6 +9,5 @@ deployments
 doc/MgvDoc.html
 doc/specs.txt
 .DS_Store
-myKey.json
-
 .vscode/settings.json
+/.env*
