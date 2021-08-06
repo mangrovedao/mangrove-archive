@@ -11,3 +11,4 @@ doc/specs.txt
 .DS_Store
 myKey.json
 
+.vscode/settings.json
