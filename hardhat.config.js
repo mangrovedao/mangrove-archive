@@ -10,6 +10,7 @@ task(
   "test-solidity",
   "[Giry] Run tests of Solidity contracts with suffix _Test"
 )
+  .addFlag("noCompile", "Don't compile before running this task")
   .addFlag("showEvents", "Show all non-test events during tests")
   .addFlag("showTestEvents", "Show all test events during tests")
   .addFlag(
@@ -34,6 +35,7 @@ task(
   .setAction(async (params, hre) => {
     await test_solidity(
       {
+        noCompile: params.noCompile,
         argTestContractNames: params.contracts || [],
         details: params.details,
         showGas: params.showGas,
