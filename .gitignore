@@ -12,4 +12,3 @@ doc/specs.txt
 .vscode/settings.json
 .env.local
 .env.*.local
-/mocha-test-report.json
