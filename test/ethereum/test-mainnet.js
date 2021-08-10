@@ -1,13 +1,14 @@
+require("custom-env").env("test-ethereum-mainnet", "environments/ethereum");
 const { assert } = require("chai");
 //const { parseToken } = require("ethers/lib/utils");
 const { ethers } = require("hardhat");
 
 // Address of Join (has auth) https://changelog.makerdao.com/ -> releases -> contract addresses -> MCD_JOIN_DAI
-const daiAddress = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
-const cDaiAddress = "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643";
-const wethAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-const cEthAddress = "0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5";
-const unitrollerAddress = "0x3d9819210a31b4961b30ef54be2aed79b9c9cd3b";
+const daiAddress = process.env.ETHEREUM_DAI_ADDRESS;
+const cDaiAddress = process.env.ETHEREUM_CDAI_ADDRESS;
+const wethAddress = process.env.ETHEREUM_WETH_ADDRESS;
+const cEthAddress = process.env.ETHEREUM_CETH_ADDRESS;
+const unitrollerAddress = process.env.ETHEREUM_UNITROLLER_ADDRESS;
 
 const daiAbi = require("./abis/dai-abi.json");
 const wethAbi = require("./abis/weth-abi.json");
@@ -22,11 +23,13 @@ const dai = new ethers.Contract(daiAddress, daiAbi, provider);
 const cDai = new ethers.Contract(cDaiAddress, cErc20Abi, provider);
 const weth = new ethers.Contract(wethAddress, wethAbi, provider);
 const cEth = new ethers.Contract(cEthAddress, cEthAbi, provider);
-
 const comp = new ethers.Contract(unitrollerAddress, compAbi, provider);
 
-const daiAdmin = "0x9759A6Ac90977b93B58547b4A71c78317f391A28"; // to mint fresh DAIs
-const compoundWhale = "0x6c6d03a20613867fefe4df04bd103fa544e3f1df";
+const daiAdmin = process.env.ETHEREUM_DAI_ADMIN; // to mint fresh DAIs
+const compoundWhale = process.env.ETHEREUM_CDAI_ADDRESS;
+
+const ethereumNodeUrl = process.env.ETHEREUM_NODE_URL;
+
 const decimals = new Map();
 
 function assertEqualBN(value1, value2, msg) {
@@ -347,13 +350,13 @@ describe("Deploy strategies", function () {
   mgv = null;
 
   before(async function () {
-    urlEth = require("../../myKey.json").ethmain;
+    this.timeout(100_000); // Deployment is slow so timeout is increased
     await network.provider.request({
       method: "hardhat_reset",
       params: [
         {
           forking: {
-            jsonRpcUrl: urlEth,
+            jsonRpcUrl: ethereumNodeUrl,
             blockNumber: 12901866,
           },
         },
