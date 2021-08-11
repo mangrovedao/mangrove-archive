@@ -1,20 +1,31 @@
 require("dotenv-flow").config(); // Reads local environment variables from .env*.local files
+const config = require("config"); // Reads configuration files from /config/
 const { assert } = require("chai");
 //const { parseToken } = require("ethers/lib/utils");
 const { ethers } = require("hardhat");
 
-// Address of Join (has auth) https://changelog.makerdao.com/ -> releases -> contract addresses -> MCD_JOIN_DAI
-const daiAddress = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
-const cDaiAddress = "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643";
-const wethAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-const cEthAddress = "0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5";
-const unitrollerAddress = "0x3d9819210a31b4961b30ef54be2aed79b9c9cd3b";
+// TODO Find better way of doing this...
+function requireFromProjectRoot(pathFromProjectRoot) {
+  return require("./../../" + pathFromProjectRoot);
+}
 
-const daiAbi = require("./abis/dai-abi.json");
-const wethAbi = require("./abis/weth-abi.json");
-const compAbi = require("./abis/comp-abi.json");
-const cErc20Abi = require("./abis/CErc20.json");
-const cEthAbi = require("./abis/CEth.json");
+// Address of Join (has auth) https://changelog.makerdao.com/ -> releases -> contract addresses -> MCD_JOIN_DAI
+const daiAddress = config.get("ethereum.tokens.dai.address");
+const cDaiAddress = config.get("ethereum.tokens.cDai.address");
+const wethAddress = config.get("ethereum.tokens.wEth.address");
+const cEthAddress = config.get("ethereum.tokens.cEth.address");
+const unitrollerAddress = config.get("ethereum.compound.unitrollerAddress");
+
+const daiAbi = requireFromProjectRoot(config.get("ethereum.tokens.dai.abi"));
+const wethAbi = requireFromProjectRoot(config.get("ethereum.tokens.wEth.abi"));
+const cErc20Abi = requireFromProjectRoot(
+  config.get("ethereum.tokens.cDai.abi")
+);
+const cEthAbi = requireFromProjectRoot(config.get("ethereum.tokens.cEth.abi"));
+
+const compAbi = requireFromProjectRoot(
+  config.get("ethereum.compound.unitrollerAbi")
+);
 
 const provider = hre.ethers.provider;
 const logger = new ethers.utils.Logger();
@@ -23,11 +34,10 @@ const dai = new ethers.Contract(daiAddress, daiAbi, provider);
 const cDai = new ethers.Contract(cDaiAddress, cErc20Abi, provider);
 const weth = new ethers.Contract(wethAddress, wethAbi, provider);
 const cEth = new ethers.Contract(cEthAddress, cEthAbi, provider);
-
 const comp = new ethers.Contract(unitrollerAddress, compAbi, provider);
 
-const daiAdmin = "0x9759A6Ac90977b93B58547b4A71c78317f391A28"; // to mint fresh DAIs
-const compoundWhale = "0x6c6d03a20613867fefe4df04bd103fa544e3f1df";
+const daiAdmin = config.get("ethereum.tokens.dai.admin"); // to mint fresh DAIs
+const compoundWhale = config.get("ethereum.compound.whale");
 
 const ethereumNodeUrl = process.env.ETHEREUM_NODE_URL;
 
