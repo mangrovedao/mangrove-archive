@@ -19,7 +19,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [12.x, 14.x, 16.x]
+        node-version: [16.x]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
@@ -41,8 +41,32 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
     - run: npm ci
-    - run: npm run build --if-present
-    - run: npm run test
+
+    - name: Solidity Compile
+      run: npx hardhat compile
+
+    - name: Solidity Tests
+      run: npm run test:solidity
+    - name: Solidity Test Report
+      uses: dorny/test-reporter@v1
+      if: success() || failure()              # run this step even if previous step failed
+      with:
+        name: Solidity Tests                  # Name of the check run which will be created
+        path: solidity-mocha-test-report.json # Path to test results
+        reporter: mocha-json                  # Format of test results
+
+    - name: Ethereum mainnet Tests
+      run: npm run test:ethereum-mainnet
+      env:
+        ETHEREUM_NODE_URL: ${{ secrets.ETHEREUM_NODE_URL }}
+    - name: Ethereum mainnet Test Report
+      uses: dorny/test-reporter@v1
+      if: success() || failure()              # run this step even if previous step failed
+      with:
+        name: Ethereum mainnet Tests          # Name of the check run which will be created
+        path: ethereum-mainnet-mocha-test-report.json # Path to test results
+        reporter: mocha-json                  # Format of test results
+
     - run: npm run doc
 
     - name: Archive documentation

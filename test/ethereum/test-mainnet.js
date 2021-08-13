@@ -39,8 +39,6 @@ const comp = new ethers.Contract(unitrollerAddress, compAbi, provider);
 const daiAdmin = config.get("ethereum.tokens.dai.admin"); // to mint fresh DAIs
 const compoundWhale = config.get("ethereum.compound.whale");
 
-const ethereumNodeUrl = process.env.ETHEREUM_NODE_URL;
-
 const decimals = new Map();
 
 function assertEqualBN(value1, value2, msg) {
@@ -362,17 +360,6 @@ describe("Deploy strategies", function () {
 
   before(async function () {
     this.timeout(100_000); // Deployment is slow so timeout is increased
-    await network.provider.request({
-      method: "hardhat_reset",
-      params: [
-        {
-          forking: {
-            jsonRpcUrl: ethereumNodeUrl,
-            blockNumber: 12901866,
-          },
-        },
-      ],
-    });
     // 1. mint (1000 dai, 1000 eth, 1000 weth) for owner
     // 2. activates (dai,weth) market
     [testSigner] = await ethers.getSigners();
