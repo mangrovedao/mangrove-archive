@@ -1,6 +1,8 @@
 // Config file with defaults
 var config = {};
 
+var defer = require("config/defer").deferConfig;
+
 // TODO Find better way of doing this...
 function requireFromProjectRoot(pathFromProjectRoot) {
   return require("./../" + pathFromProjectRoot);
@@ -57,6 +59,10 @@ config.hardhat = {
   solpp: {
     defs: requireFromProjectRoot("./structs.js"),
   },
+  mocha: defer(function () {
+    // Use same configuration when running Mocha via Hardhat
+    return this.mocha;
+  }),
 };
 
 module.exports = config;
