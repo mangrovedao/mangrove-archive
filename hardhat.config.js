@@ -1,4 +1,5 @@
 //usePlugin("@nomiclabs/buidler-truffle5");
+require("dotenv-flow").config(); // Reads local environment variables from .env*.local files
 require("hardhat-deploy");
 require("hardhat-deploy-ethers");
 require("adhusson-hardhat-solpp");
@@ -45,29 +46,35 @@ task(
     );
   });
 
-urls = require("./myKey.json"); //default
+const networks = {
+  hardhat: {
+    gasPrice: 8000000000,
+    gasMultiplier: 1,
+    blockGasLimit: 7000000000,
+    allowUnlimitedContractSize: true,
+  },
+  localhost: {
+    url: "http://127.0.0.1:8545",
+  },
+};
+
+if (process.env.ETHEREUM_NODE_URL) {
+  networks.ethereum = {
+    url: process.env.ETHEREUM_NODE_URL, // ethereum node
+    // blockNumber: 12901866,
+  };
+}
+
+if (process.env.POLYGON_NODE_URL) {
+  networks.polygon = {
+    url: process.env.POLYGON_NODE_URL,
+    // blockNumber: 17284000, // block mined 26/07/2021
+  };
+}
 
 module.exports = {
   defaultNetwork: "hardhat",
-  networks: {
-    hardhat: {
-      gasPrice: 8000000000,
-      gasMultiplier: 1,
-      blockGasLimit: 7000000000,
-      allowUnlimitedContractSize: true,
-    },
-    ethereum: {
-      url: urls.ethmain, // ethereum node
-      // blockNumber: 12901866,
-    },
-    polygon: {
-      url: urls.polygonmain,
-      // blockNumber: 17284000, // block mined 26/07/2021
-    },
-    localhost: {
-      url: "http://127.0.0.1:8545",
-    },
-  },
+  networks: networks,
   solidity: {
     version: "0.7.6",
     settings: {
