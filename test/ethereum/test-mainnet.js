@@ -9,6 +9,8 @@ function requireFromProjectRoot(pathFromProjectRoot) {
   return require("./../../" + pathFromProjectRoot);
 }
 
+// FIXME Nået hertil - tag Ethereum env i brug
+
 // Address of Join (has auth) https://changelog.makerdao.com/ -> releases -> contract addresses -> MCD_JOIN_DAI
 const daiAddress = config.get("ethereum.tokens.dai.address");
 const cDaiAddress = config.get("ethereum.tokens.cDai.address");
