@@ -1,4 +1,4 @@
-// Config file for Solidity tests in test environment
+// Config file for Ethereum mainnet tests in test environment
 // NB: We are abusing the NODE_APP_INSTANCE env var to make test suite specific configurations.
 var config = {};
 

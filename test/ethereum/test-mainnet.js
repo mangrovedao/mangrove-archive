@@ -1,45 +1,26 @@
 require("dotenv-flow").config(); // Reads local environment variables from .env*.local files
-const config = require("config"); // Reads configuration files from /config/
 const { assert } = require("chai");
 //const { parseToken } = require("ethers/lib/utils");
-const { ethers } = require("hardhat");
+const { ethers, env, mangrove, network } = require("hardhat");
 
 // TODO Find better way of doing this...
 function requireFromProjectRoot(pathFromProjectRoot) {
   return require("./../../" + pathFromProjectRoot);
 }
 
-// FIXME Nået hertil - tag Ethereum env i brug
-
 // Address of Join (has auth) https://changelog.makerdao.com/ -> releases -> contract addresses -> MCD_JOIN_DAI
-const daiAddress = config.get("ethereum.tokens.dai.address");
-const cDaiAddress = config.get("ethereum.tokens.cDai.address");
-const wethAddress = config.get("ethereum.tokens.wEth.address");
-const cEthAddress = config.get("ethereum.tokens.cEth.address");
-const unitrollerAddress = config.get("ethereum.compound.unitrollerAddress");
 
-const daiAbi = requireFromProjectRoot(config.get("ethereum.tokens.dai.abi"));
-const wethAbi = requireFromProjectRoot(config.get("ethereum.tokens.wEth.abi"));
-const cErc20Abi = requireFromProjectRoot(
-  config.get("ethereum.tokens.cDai.abi")
-);
-const cEthAbi = requireFromProjectRoot(config.get("ethereum.tokens.cEth.abi"));
-
-const compAbi = requireFromProjectRoot(
-  config.get("ethereum.compound.unitrollerAbi")
-);
-
-const provider = hre.ethers.provider;
+const provider = ethers.provider;
 const logger = new ethers.utils.Logger();
 
-const dai = new ethers.Contract(daiAddress, daiAbi, provider);
-const cDai = new ethers.Contract(cDaiAddress, cErc20Abi, provider);
-const weth = new ethers.Contract(wethAddress, wethAbi, provider);
-const cEth = new ethers.Contract(cEthAddress, cEthAbi, provider);
-const comp = new ethers.Contract(unitrollerAddress, compAbi, provider);
+const dai = env.ethereum.tokens.dai.contract;
+const cDai = env.ethereum.tokens.cDai.contract;
+const wEth = env.ethereum.tokens.wEth.contract;
+const cEth = env.ethereum.tokens.cEth.contract;
+const comp = env.ethereum.compound.contract;
 
-const daiAdmin = config.get("ethereum.tokens.dai.admin"); // to mint fresh DAIs
-const compoundWhale = config.get("ethereum.compound.whale");
+const daiAdmin = env.ethereum.tokens.dai.adminAddress; // to mint fresh DAIs
+const compoundWhale = env.ethereum.compound.whale;
 
 const decimals = new Map();
 
@@ -79,7 +60,7 @@ function netOf(bn, fee) {
 
 async function fund(funding_tuples) {
   async function mintEth(recipient, amount) {
-    await hre.network.provider.send("hardhat_setBalance", [
+    await network.provider.send("hardhat_setBalance", [
       recipient,
       ethers.utils.hexValue(amount),
     ]);
@@ -95,7 +76,7 @@ async function fund(funding_tuples) {
       case "DAI": {
         let decimals = await dai.decimals();
         amount = parseToken(amount, decimals);
-        await hre.network.provider.request({
+        await network.provider.request({
           method: "hardhat_impersonateAccount",
           params: [daiAdmin],
         });
@@ -105,7 +86,7 @@ async function fund(funding_tuples) {
         }
         let mintTx = await dai.connect(admin_signer).mint(recipient, amount);
         await mintTx.wait();
-        await hre.network.provider.request({
+        await network.provider.request({
           method: "hardhat_stopImpersonatingAccount",
           params: [daiAdmin],
         });
@@ -114,7 +95,7 @@ async function fund(funding_tuples) {
       case "WETH": {
         amount = parseToken(amount);
         if (recipient != owner.address) {
-          await hre.network.provider.request({
+          await network.provider.request({
             method: "hardhat_impersonateAccount",
             params: [recipient],
           });
@@ -124,10 +105,10 @@ async function fund(funding_tuples) {
         if (bal.lt(amount)) {
           await mintEth(recipient, amount);
         }
-        let mintTx = await weth.connect(signer).deposit({ value: amount });
+        let mintTx = await wEth.connect(signer).deposit({ value: amount });
         await mintTx.wait();
         if (recipient != owner.address) {
-          await hre.network.provider.request({
+          await network.provider.request({
             method: "hardhat_stopImpersonateAccount",
             params: [recipient],
           });
@@ -144,47 +125,6 @@ async function fund(funding_tuples) {
       }
     }
   }
-}
-
-async function deployMangrove() {
-  const Mangrove = await ethers.getContractFactory("Mangrove");
-  mgv_gasprice = 500;
-  let gasmax = 2000000;
-  mgv = await Mangrove.deploy(mgv_gasprice, gasmax);
-  await mgv.deployed();
-  receipt = await mgv.deployTransaction.wait(0);
-  // console.log("GasUsed during deploy: ", receipt.gasUsed.toString());
-
-  //activating (dai,weth) market
-  fee = 30; // setting fees to 0.03%
-  density = 10000;
-  overhead_gasbase = 20000;
-  offer_gasbase = 20000;
-  activateTx = await mgv.activate(
-    daiAddress,
-    wethAddress,
-    fee,
-    density,
-    overhead_gasbase,
-    offer_gasbase
-  );
-  await activateTx.wait();
-
-  //activating (weth,dai) market
-  fee = 30; // setting fees to 0.03%
-  density = 10000;
-  overhead_gasbase = 20000;
-  offer_gasbase = 20000;
-  activateTx = await mgv.activate(
-    wethAddress,
-    daiAddress,
-    fee,
-    density,
-    overhead_gasbase,
-    offer_gasbase
-  );
-  await activateTx.wait();
-  return mgv;
 }
 
 function assertAlmost(bignum_expected, bignum_obs, decimal, msg) {
@@ -238,7 +178,7 @@ async function logCompoundStatus(contract, symbols) {
   for (const symbol of symbols) {
     switch (symbol) {
       case "DAI":
-        [, redeemableDai] = await contract.maxGettableUnderlying(cDaiAddress);
+        [, redeemableDai] = await contract.maxGettableUnderlying(cDai.address);
         [, , borrowBalance] = await cDai.getAccountSnapshot(contract.address);
         daiBalance = await dai.balanceOf(contract.address);
         logPosition(
@@ -249,9 +189,9 @@ async function logCompoundStatus(contract, symbols) {
         );
         break;
       case "WETH":
-        [, redeemableWeth] = await contract.maxGettableUnderlying(cEthAddress);
+        [, redeemableWeth] = await contract.maxGettableUnderlying(cEth.address);
         [, , borrowBalance] = await cEth.getAccountSnapshot(contract.address);
-        wethBalance = await weth.balanceOf(contract.address);
+        wethBalance = await wEth.balanceOf(contract.address);
         logPosition(
           "WETH",
           formatToken(redeemableWeth, "DAI"),
@@ -270,9 +210,9 @@ async function newOffer(contract, base_sym, quote_sym, wants, gives) {
   function getAddress(sym) {
     switch (sym) {
       case "WETH":
-        return wethAddress;
+        return wEth.address;
       default:
-        return daiAddress;
+        return dai.address;
     }
   }
   base = getAddress(base_sym);
@@ -302,9 +242,9 @@ async function snipe(mgv, base_sym, quote_sym, offerId, wants, gives) {
   function getAddress(sym) {
     switch (sym) {
       case "WETH":
-        return wethAddress;
+        return wEth.address;
       default:
-        return daiAddress;
+        return dai.address;
     }
   }
   base = getAddress(base_sym);
@@ -343,7 +283,7 @@ async function snipe(mgv, base_sym, quote_sym, offerId, wants, gives) {
 async function setDecimals() {
   decimals.set("DAI", await dai.decimals());
   decimals.set("ETH", 18);
-  decimals.set("WETH", await weth.decimals());
+  decimals.set("WETH", await wEth.decimals());
   decimals.set("cETH", await cEth.decimals());
   decimals.set("cDAI", await cDai.decimals());
 }
@@ -359,7 +299,6 @@ describe("Deploy strategies", function () {
   this.timeout(100_000); // Deployment is slow so timeout is increased
   testSigner = null;
   testRunner = null;
-  mgv = null;
 
   before(async function () {
     // 1. mint (1000 dai, 1000 eth, 1000 weth) for owner
@@ -377,13 +316,18 @@ describe("Deploy strategies", function () {
     ]);
 
     let daiBal = await dai.balanceOf(testRunner);
-    let wethBal = await weth.balanceOf(testRunner);
+    let wethBal = await wEth.balanceOf(testRunner);
 
     assertEqualBN(daiBal, parseToken("10000.0", "DAI"));
     assertEqualBN(wethBal, parseToken("5.0", "WETH"), "Minting WETH failed");
 
-    mgv = await deployMangrove();
-    let cfg = await mgv.callStatic.getConfig(daiAddress, wethAddress);
+    await mangrove.deployIfMissingOnEthereum();
+    await mangrove.activateMarketOnEthereum(dai.address, wEth.address);
+    await mangrove.activateMarketOnEthereum(wEth.address, dai.address);
+    let cfg = await env.ethereum.mgv.contract.callStatic.getConfig(
+      dai.address,
+      wEth.address
+    );
     assert(cfg.local.active, "Market is inactive");
   });
 
@@ -404,7 +348,7 @@ describe("Deploy strategies", function () {
   //     );
 
   //     // cheat to retrieve next assigned offer ID for the next newOffer
-  //     offerId = await nextOfferId(daiAddress,wethAddress,makerContract);
+  //     offerId = await nextOfferId(dai.address,weth.address,makerContract);
 
   //     // posting new offer on Mngrove via the MakerContract `post` method
   //     await newOffer(
@@ -416,7 +360,7 @@ describe("Deploy strategies", function () {
   //     );
   //     //await postTx.wait();
 
-  //     [offer, ] = await mgv.offerInfo(daiAddress, wethAddress, offerId);
+  //     [offer, ] = await mgv.offerInfo(dai.address, weth.address, offerId);
   //     assertEqualBN(
   //         offer.gives,
   //         parseToken("1000.0", 'DAI'),
@@ -425,11 +369,12 @@ describe("Deploy strategies", function () {
   // });
 
   it("Pure lender strat", async function () {
+    const mgv = env.ethereum.mgv.contract;
     const SimpleRetail = await ethers.getContractFactory("SimpleRetail");
     const makerContract = await SimpleRetail.deploy(
       comp.address,
       mgv.address,
-      wethAddress
+      wEth.address
     );
     await makerContract.deployed();
 
@@ -446,12 +391,12 @@ describe("Deploy strategies", function () {
     /*********************** TAKER SIDE PREMICES **************************/
 
     // owner approves Mangrove for WETH before trying to take offer
-    tkrTx = await weth
+    tkrTx = await wEth
       .connect(owner)
       .approve(mgv.address, ethers.constants.MaxUint256);
     await tkrTx.wait();
 
-    allowed = await weth.allowance(owner.address, mgv.address);
+    allowed = await wEth.allowance(owner.address, mgv.address);
     assertEqualBN(allowed, ethers.constants.MaxUint256, "Approve failed");
 
     /***********************************************************************/
@@ -462,11 +407,11 @@ describe("Deploy strategies", function () {
     // offer should get/put base/quote tokens on compound (OK since `owner` is MakerContract admin)
     mkrTxs[i++] = await makerContract
       .connect(owner)
-      .enterMarkets([cEthAddress, cDaiAddress]);
+      .enterMarkets([cEth.address, cDai.address]);
     // owner asks MakerContract to approve Mangrove for base (DAI)
     mkrTxs[i++] = await makerContract
       .connect(owner)
-      .approveMangrove(daiAddress, ethers.constants.MaxUint256);
+      .approveMangrove(dai.address, ethers.constants.MaxUint256);
     // One sends 1000 DAI to MakerContract
     mkrTxs[i++] = await dai
       .connect(owner)
@@ -489,7 +434,7 @@ describe("Deploy strategies", function () {
 
     await logCompoundStatus(makerContract, ["WETH", "DAI"]);
     // cheat to retrieve next assigned offer ID for the next newOffer
-    offerId = await nextOfferId(daiAddress, wethAddress, makerContract);
+    offerId = await nextOfferId(dai.address, wEth.address, makerContract);
 
     // // posting new offer on Mangrove via the MakerContract `post` method
     await newOffer(
@@ -500,7 +445,7 @@ describe("Deploy strategies", function () {
       parseToken("0.5", "WETH") // required WETH
     );
 
-    [offer] = await mgv.offerInfo(daiAddress, wethAddress, offerId);
+    [offer] = await mgv.offerInfo(dai.address, wEth.address, offerId);
     assertEqualBN(
       offer.gives,
       parseToken("1000.0", "DAI"),
@@ -509,8 +454,8 @@ describe("Deploy strategies", function () {
 
     // dry running snipe buy order first
     [success, takerGot, takerGave] = await mgv.callStatic.snipe(
-      daiAddress, // maker base
-      wethAddress, // maker quote
+      dai.address, // maker base
+      wEth.address, // maker quote
       offerId,
       parseToken("800.0", "DAI"), // taker wants 800 DAI (takes 0.1 from contract and 0.7 from compound)
       parseToken("0.5", "WETH"), // taker is ready to give up-to 0.5 WETH will give 0.4 WETH
@@ -562,11 +507,12 @@ describe("Deploy strategies", function () {
   });
 
   it("Lender/borrower strat", async function () {
+    const mgv = env.ethereum.mgv.contract;
     const AdvancedRetail = await ethers.getContractFactory("AdvancedRetail");
     const makerContract = await AdvancedRetail.deploy(
       comp.address,
       mgv.address,
-      wethAddress
+      wEth.address
     );
     await makerContract.deployed();
 
@@ -579,11 +525,11 @@ describe("Deploy strategies", function () {
     let i = 0;
     mkrTxs[i++] = await makerContract
       .connect(owner)
-      .enterMarkets([cEthAddress, cDaiAddress]);
+      .enterMarkets([cEth.address, cDai.address]);
     // owner asks MakerContract to approve Mangrove for base (DAI)
     mkrTxs[i++] = await makerContract
       .connect(owner)
-      .approveMangrove(daiAddress, ethers.constants.MaxUint256);
+      .approveMangrove(dai.address, ethers.constants.MaxUint256);
     // owner provisions MakerContract with DAI
     mkrTxs[i++] = await dai
       .connect(owner)
@@ -606,7 +552,7 @@ describe("Deploy strategies", function () {
 
     await logCompoundStatus(makerContract, ["WETH", "DAI"]);
     // cheat to retrieve next assigned offer ID for the next newOffer
-    offerId = await nextOfferId(daiAddress, wethAddress, makerContract);
+    offerId = await nextOfferId(dai.address, wEth.address, makerContract);
 
     // // posting new offer on Mangrove via the MakerContract `post` method
     await newOffer(
@@ -617,7 +563,7 @@ describe("Deploy strategies", function () {
       parseToken("0.15", "WETH") // required WETH
     );
 
-    [offer] = await mgv.offerInfo(daiAddress, wethAddress, offerId);
+    [offer] = await mgv.offerInfo(dai.address, wEth.address, offerId);
     assertEqualBN(
       offer.gives,
       parseToken("300.0", "DAI"),
@@ -626,8 +572,8 @@ describe("Deploy strategies", function () {
 
     // dry running snipe buy order first
     [success, takerGot, takerGave] = await mgv.callStatic.snipe(
-      daiAddress, // maker base
-      wethAddress, // maker quote
+      dai.address, // maker base
+      wEth.address, // maker quote
       offerId,
       parseToken("300", "DAI"),
       parseToken("0.15", "WETH"),
@@ -682,12 +628,12 @@ describe("Deploy strategies", function () {
     receipt = await accrueTx.wait(0);
 
     await logCompoundStatus(makerContract, ["WETH", "DAI"]);
-    offerId = await nextOfferId(wethAddress, daiAddress, makerContract);
+    offerId = await nextOfferId(wEth.address, dai.address, makerContract);
 
     // owner asks MakerContract to approve Mangrove for base (weth)
     mkrTx2 = await makerContract
       .connect(owner)
-      .approveMangrove(wethAddress, ethers.constants.MaxUint256);
+      .approveMangrove(wEth.address, ethers.constants.MaxUint256);
     await mkrTx2.wait();
 
     await newOffer(
