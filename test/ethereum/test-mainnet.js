@@ -356,12 +356,12 @@ function formatToken(amount, symbol) {
 }
 
 describe("Deploy strategies", function () {
+  this.timeout(100_000); // Deployment is slow so timeout is increased
   testSigner = null;
   testRunner = null;
   mgv = null;
 
   before(async function () {
-    this.timeout(100_000); // Deployment is slow so timeout is increased
     // 1. mint (1000 dai, 1000 eth, 1000 weth) for owner
     // 2. activates (dai,weth) market
     [testSigner] = await ethers.getSigners();
