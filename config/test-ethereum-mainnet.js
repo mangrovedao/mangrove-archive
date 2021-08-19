@@ -17,6 +17,9 @@ config.mocha = {
 
 ///////////////////////////
 // Hardhat configuration //
+if (!process.env.ETHEREUM_NODE_URL) {
+  throw new Error("ETHEREUM_NODE_URL must be set to test Ethereum mainnet");
+}
 config.hardhat = {
   networks: {
     hardhat: {
