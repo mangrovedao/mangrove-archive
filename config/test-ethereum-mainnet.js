@@ -5,9 +5,13 @@ var config = {};
 /////////////////////////
 // Mocha configuration //
 config.mocha = {
-  reporter: "@espendk/json-file-reporter",
+  // Use multiple reporters to output to both stdout and a json file
+  reporter: "mocha-multi-reporters",
   reporterOptions: {
-    output: "ethereum-mainnet-mocha-test-report.json",
+    reporterEnabled: "spec, @espendk/json-file-reporter",
+    espendkJsonFileReporterReporterOptions: {
+      output: "ethereum-mainnet-mocha-test-report.json",
+    },
   },
 };
 
