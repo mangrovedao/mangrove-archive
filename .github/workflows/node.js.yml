@@ -1,7 +1,7 @@
 # This workflow will do a clean install of node dependencies, cache/restore them, build the source code and run tests across different versions of node
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
 
-name: Node.js CI
+name: CI
 
 on:
   push:
@@ -23,24 +23,40 @@ jobs:
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
+
+    # == Git checkout ==
     - name: Checkout
       uses: actions/checkout@v2
       # Workaround for https://github.com/npm/cli/issues/2610
       with:
         persist-credentials: false
 
-    # Workaround for https://github.com/npm/cli/issues/2610
     - name: Reconfigure git to use HTTP authentication
+      # Workaround for https://github.com/npm/cli/issues/2610    
       run: >
         git config --global url."https://github.com/".insteadOf
         ssh://git@github.com/
 
-    - name: Use Node.js ${{ matrix.node-version }}
+    # == npm setup ==
+    - name: Use Node.js ${{ matrix.node-version }} (caching npm)
+      # Ensure use configured Node.js version
+      # - refactored into the two following mutually exclusive steps,
+      #   to workaround https://github.com/nektos/act/issues/329
+      if: ${{ !env.ACT }}
       uses: actions/setup-node@v2
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
+
+    - name: Use Node.js ${{ matrix.node-version }} (no cache)
+      if: ${{ env.ACT }}
+      uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node-version }}
+        
     - run: npm ci
+
+    # == Solidity compile and run test suite solidity ==
 
     - name: Solidity Compile
       run: npx hardhat compile
@@ -55,6 +71,8 @@ jobs:
         path: solidity-mocha-test-report.json # Path to test results
         reporter: mocha-json                  # Format of test results
 
+    # == Run test suite Ethereum mainnet ==
+
     - name: Ethereum mainnet Tests
       run: npm run test:ethereum-mainnet
       env:
@@ -66,6 +84,9 @@ jobs:
         name: Ethereum mainnet Tests          # Name of the check run which will be created
         path: ethereum-mainnet-mocha-test-report.json # Path to test results
         reporter: mocha-json                  # Format of test results
+
+
+    # == Documentation == 
 
     - run: npm run doc
 
