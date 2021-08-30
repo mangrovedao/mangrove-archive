@@ -31,6 +31,7 @@ jobs:
       with:
         persist-credentials: false
 
+
     - name: Reconfigure git to use HTTP authentication
       # Workaround for https://github.com/npm/cli/issues/2610    
       run: >
@@ -85,6 +86,21 @@ jobs:
       with:
         name: Ethereum mainnet Tests          # Name of the check run which will be created
         path: ethereum-mainnet-mocha-test-report.json # Path to test results
+        reporter: mocha-json                  # Format of test results
+
+
+    # == Run test suite Polygon mainnet == 
+
+    - name: Polygon mainnet Tests
+      run: npm run test:polygon-mainnet
+      env:
+        POLYGON_NODE_URL: ${{ secrets.POLYGON_NODE_URL }}
+    - name: Polygon mainnet Test Report
+      uses: dorny/test-reporter@v1
+      if: ${{ !env.ACT }} && (success() || failure())              # run this step even if previous step failed
+      with:
+        name: Polygon mainnet Tests           # Name of the check run which will be created
+        path: polygon-mainnet-mocha-test-report.json # Path to test results
         reporter: mocha-json                  # Format of test results
 
 
