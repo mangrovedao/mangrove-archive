@@ -2,15 +2,11 @@
 //const { parseToken } = require("ethers/lib/utils");
 const { ethers } = require("hardhat");
 
-// Address of Join (has auth) https://changelog.makerdao.com/ -> releases -> contract addresses -> MCD_JOIN_DAI
-const ChildChainManager = "0xA6FA4fB5f76172d178d61B04b0ecd319C5d1C0aa"; // has depositor role in ChildERc20 contracts
-const ChildChain = "0xD9c7C4ED4B66858301D0cb28Cc88bf655Fe34861";
-
-const chld_daiAddress = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
-const chld_cDaiAddress = "0x6fe9C1631b37a2b438CFD3d67409E15503Ddd535";
-const chld_wethAddress = "0xAe740d42E4ff0C5086b2b5b5d149eB2F9e1A754F";
-const chld_cWethAddress = "0x7ef18d0a9C3Fb1A716FF6c3ED0Edf52a2427F716";
-const unitrollerAddress = "0x20CA53E2395FA571798623F1cFBD11Fe2C114c24";
+const chld_daiAddress = env.polygon.tokens.dai.address;
+const chld_wethAddress = env.polygon.tokens.wEth.address;
+const unitrollerAddress = env.polygon.compound.address;
+const crDaiAddress = env.polygon.tokens.crDai.address;
+const crWethAddress = env.polygon.tokens.crWethAddress;
 
 const erc20Abi = require("./abis/UChild-abi.json");
 const cErc20Abi = require("./abis/CErc20-delegator-abi.json");
@@ -19,9 +15,9 @@ const compAbi = require("./abis/comptroller-abi.json");
 const provider = hre.ethers.provider;
 
 const dai = new ethers.Contract(chld_daiAddress, erc20Abi, provider);
-const crDai = new ethers.Contract(chld_cDaiAddress, cErc20Abi, provider);
+const crDai = new ethers.Contract(crDaiAddress, cErc20Abi, provider);
 const weth = new ethers.Contract(chld_wethAddress, erc20Abi, provider);
-const crWeth = new ethers.Contract(chld_cWethAddress, cErc20Abi, provider);
+const crWeth = new ethers.Contract(crWethAddress, cErc20Abi, provider);
 const comp = new ethers.Contract(unitrollerAddress, compAbi, provider);
 
 const decimals = new Map();
@@ -29,8 +25,8 @@ async function setDecimals() {
   decimals.set("DAI", await dai.decimals());
   decimals.set("ETH", 18);
   decimals.set("WETH", await weth.decimals());
-  decimals.set("cETH", await crWeth.decimals());
-  decimals.set("cDAI", await crDai.decimals());
+  decimals.set("crWETH", await crWeth.decimals());
+  decimals.set("crDAI", await crDai.decimals());
 }
 
 function parseToken(amount, symbol) {
