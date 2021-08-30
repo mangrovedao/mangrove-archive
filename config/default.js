@@ -9,6 +9,7 @@ function requireFromProjectRoot(pathFromProjectRoot) {
 }
 
 config.ethereum = require("./ethereum/ethereum-mainnet.json");
+config.polygon = require("./polygon/polygon-mainnet.json");
 
 ///////////////////////////
 // Hardhat configuration //

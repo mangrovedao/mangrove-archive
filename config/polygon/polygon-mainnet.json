@@ -1,0 +1,30 @@
+{
+    "chain": "Polygon",
+    "network": "mainnet",
+
+    "tokens": {
+        "dai": {
+            "address": "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063",
+            "abi": "test/polygon/abis/UChild-abi.json"
+        },
+        "wEth": {
+            "address": "0xAe740d42E4ff0C5086b2b5b5d149eB2F9e1A754F",
+            "abi": "test/polygon/abis/UChild-abi.json"
+        },
+        "crDai": {
+            "address" : "0x4eceddf62277ed78623f9a94995c680f8fd6c00e",
+            "abi": "test/polygon/abis/CErc20-delegator-abi.json"
+        },
+        "crWeth": {
+            "address" : "0x7ef18d0a9c3fb1a716ff6c3ed0edf52a2427f716",
+            "abi": "test/polygon/abis/CErc20-delegator-abi.json"
+        }
+    },
+    "compound": {
+        "unitrollerAddress": "0x20CA53E2395FA571798623F1cFBD11Fe2C114c24",
+        "unitrollerAbi": "test/polygon/abis/comptroller-abi.json"
+    },
+    "admin": {
+        "ChildChainManager" : "0xA6FA4fB5f76172d178d61B04b0ecd319C5d1C0aa"
+    }
+}
