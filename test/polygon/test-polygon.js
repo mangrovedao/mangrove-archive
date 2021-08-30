@@ -2,23 +2,13 @@
 //const { parseToken } = require("ethers/lib/utils");
 const { ethers, env, mangrove, network } = require("hardhat");
 
-const chld_daiAddress = env.polygon.tokens.dai.address;
-const chld_wethAddress = env.polygon.tokens.wEth.address;
-const unitrollerAddress = env.polygon.compound.address;
-const crDaiAddress = env.polygon.tokens.crDai.address;
-const crWethAddress = env.polygon.tokens.crWethAddress;
-
-const erc20Abi = require("./abis/UChild-abi.json");
-const cErc20Abi = require("./abis/CErc20-delegator-abi.json");
-const compAbi = require("./abis/comptroller-abi.json");
-
 const provider = hre.ethers.provider;
 
-const dai = new ethers.Contract(chld_daiAddress, erc20Abi, provider);
-const crDai = new ethers.Contract(crDaiAddress, cErc20Abi, provider);
-const weth = new ethers.Contract(chld_wethAddress, erc20Abi, provider);
-const crWeth = new ethers.Contract(crWethAddress, cErc20Abi, provider);
-const comp = new ethers.Contract(unitrollerAddress, compAbi, provider);
+const dai = env.polygon.tokens.dai.contract;
+const crDai = env.polygon.tokens.crDai.contract;
+const weth = env.polygon.tokens.wEth.contract;
+const crWeth = env.polygon.tokens.crWeth.contract;
+const comp = env.polygon.compound.contract;
 
 const decimals = new Map();
 async function setDecimals() {
@@ -50,11 +40,13 @@ it("should call basic contracts on polygon", async function () {
 
   await hre.network.provider.request({
     method: "hardhat_impersonateAccount",
-    params: [ChildChainManager],
+    params: [env.polygon.admin.childChainManager],
   });
-  const admin_signer = await provider.getSigner(ChildChainManager);
+  const admin_signer = await provider.getSigner(
+    env.polygon.admin.childChainManager
+  );
   await hre.network.provider.send("hardhat_setBalance", [
-    ChildChainManager,
+    env.polygon.admin.childChainManager,
     ethers.utils.hexValue(parseToken("10", "ETH")),
   ]);
   //  const admin_role = await dai.DEFAULT_ADMIN_ROLE();
@@ -63,7 +55,7 @@ it("should call basic contracts on polygon", async function () {
     "manager ETH",
     formatToken(await admin_signer.getBalance(), "ETH")
   );
-  //  console.log("manager DAI", formatToken(await dai.balanceOf(ChildChainManager),'DAI'));
+  //  console.log("manager DAI", formatToken(await dai.balanceOf(env.polygon.admin.childChainManager),'DAI'));
   const amount = ethers.utils.hexZeroPad(parseToken("1000", "DAI"), 32);
   console.log(amount);
   await dai.connect(admin_signer).deposit(testSigner.address, amount);
