@@ -1,6 +1,10 @@
-// Config file for Ethereum mainnet tests in test environment
+// Config file for Polygon mainnet tests in test environment
 // NB: We are abusing the NODE_APP_INSTANCE env var to make test suite specific configurations.
 var config = {};
+
+///////////////////////////
+// Polygon configuration //
+config.polygon = require("./polygon/polygon-mainnet.json");
 
 /////////////////////////
 // Mocha configuration //

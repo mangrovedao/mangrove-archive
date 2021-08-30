@@ -21,7 +21,7 @@
     "test": "npm-run-all test:*",
     "test:solidity": "cross-env NODE_ENV=test NODE_APP_INSTANCE=solidity hardhat test-solidity",
     "test:ethereum-mainnet": "cross-env NODE_ENV=test NODE_APP_INSTANCE=ethereum-mainnet hardhat test test/ethereum/test-mainnet.js",
-    "test:polygon-mainnet":"cross-env NODE_ENV=test NODE_APP_INSTANCE=polygon-mainnet hardhat test test/polygon/test-polygon-mainnet.js"
+    "test:polygon-mainnet":"cross-env NODE_ENV=test NODE_APP_INSTANCE=polygon-mainnet hardhat test test/polygon/test-polygon.js"
   },
   "devDependencies": {
     "@espendk/json-file-reporter": "^1.4.1",

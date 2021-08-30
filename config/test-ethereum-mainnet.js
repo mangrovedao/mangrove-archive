@@ -2,6 +2,10 @@
 // NB: We are abusing the NODE_APP_INSTANCE env var to make test suite specific configurations.
 var config = {};
 
+////////////////////////////
+// Ethereum configuration //
+config.ethereum = require("./ethereum/ethereum-mainnet.json");
+
 /////////////////////////
 // Mocha configuration //
 config.mocha = {
