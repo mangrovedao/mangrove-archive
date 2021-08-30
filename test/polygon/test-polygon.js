@@ -1,6 +1,19 @@
 // const { assert } = require("chai");
 //const { parseToken } = require("ethers/lib/utils");
-const { ethers, env, mangrove, network } = require("hardhat");
+const { ethers } = require("hardhat");
+const config = require("config");
+
+const chld_daiAddress = config.polygon.tokens.dai.address;
+const chld_wethAddress = config.polygon.tokens.wEth.address;
+const unitrollerAddress = config.polygon.compound.unitrollerAddress;
+const crDaiAddress = config.polygon.tokens.crDai.address;
+const crWethAddress = config.polygon.tokens.crWeth.address;
+const ChildChainManager = config.polygon.admin.ChildChainManager;
+
+
+const erc20Abi = require("./abis/UChild-abi.json");
+const cErc20Abi = require("./abis/CErc20-delegator-abi.json");
+const compAbi = require("./abis/comptroller-abi.json");
 
 const provider = hre.ethers.provider;
 
