@@ -8,55 +8,11 @@ function requireFromProjectRoot(pathFromProjectRoot) {
   return require("./../../" + pathFromProjectRoot);
 }
 
-// Address of Join (has auth) https://changelog.makerdao.com/ -> releases -> contract addresses -> MCD_JOIN_DAI
-
 const provider = ethers.provider;
 const logger = new ethers.utils.Logger();
+const lc = require("../libcommon");
 
-const dai = env.ethereum.tokens.dai.contract;
-const cDai = env.ethereum.tokens.cDai.contract;
-const wEth = env.ethereum.tokens.wEth.contract;
-const cEth = env.ethereum.tokens.cEth.contract;
-const comp = env.ethereum.compound.contract;
-
-const daiAdmin = env.ethereum.tokens.dai.adminAddress; // to mint fresh DAIs
-const compoundWhale = env.ethereum.compound.whale;
-
-const decimals = new Map();
-
-function assertEqualBN(value1, value2, msg) {
-  errorMsg =
-    msg +
-    ("(Received: " +
-      value1.toString() +
-      ", Expected: " +
-      value2.toString() +
-      ")");
-  assert(value1.eq(value2), errorMsg);
-}
-
-async function nextOfferId(base, quote, ctr) {
-  offerId = await ctr.callStatic.newOffer(
-    base,
-    quote,
-    parseToken("1.0"),
-    0,
-    0,
-    0,
-    0
-  );
-  return offerId;
-}
-
-async function synch(promises) {
-  for (let i = 0; i < promises.length; i++) {
-    await promises[i].wait();
-  }
-}
-
-function netOf(bn, fee) {
-  return bn.sub(bn.mul(fee).div(10000));
-}
+const daiAdmin = env.ethereum.tokens.dai.adminAddress;
 
 async function fund(funding_tuples) {
   async function mintEth(recipient, amount) {
@@ -74,17 +30,18 @@ async function fund(funding_tuples) {
 
     switch (token_symbol) {
       case "DAI": {
-        let decimals = await dai.decimals();
-        amount = parseToken(amount, decimals);
+        let decimals = await lc.dai.decimals();
+
+        amount = lc.parseToken(amount, decimals);
         await network.provider.request({
           method: "hardhat_impersonateAccount",
           params: [daiAdmin],
         });
-        admin_signer = await provider.getSigner(daiAdmin);
+        admin_signer = provider.getSigner(daiAdmin);
         if ((await admin_signer.getBalance()).eq(0)) {
-          await mintEth(daiAdmin, parseToken("1.0"));
+          await mintEth(daiAdmin, lc.parseToken("1.0"));
         }
-        let mintTx = await dai.connect(admin_signer).mint(recipient, amount);
+        let mintTx = await lc.dai.connect(admin_signer).mint(recipient, amount);
         await mintTx.wait();
         await network.provider.request({
           method: "hardhat_stopImpersonatingAccount",
@@ -93,19 +50,19 @@ async function fund(funding_tuples) {
         break;
       }
       case "WETH": {
-        amount = parseToken(amount);
+        amount = lc.parseToken(amount);
         if (recipient != owner.address) {
           await network.provider.request({
             method: "hardhat_impersonateAccount",
             params: [recipient],
           });
-          signer = await provider.getSigner(recipient);
+          signer = provider.getSigner(recipient);
         }
         let bal = await signer.getBalance();
         if (bal.lt(amount)) {
           await mintEth(recipient, amount);
         }
-        let mintTx = await wEth.connect(signer).deposit({ value: amount });
+        let mintTx = await lc.wEth.connect(signer).deposit({ value: amount });
         await mintTx.wait();
         if (recipient != owner.address) {
           await network.provider.request({
@@ -116,7 +73,7 @@ async function fund(funding_tuples) {
         break;
       }
       case "ETH": {
-        amount = parseToken(amount);
+        amount = lc.parseToken(amount);
         await mintEth(recipient, amount);
         break;
       }
@@ -127,186 +84,19 @@ async function fund(funding_tuples) {
   }
 }
 
-function assertAlmost(bignum_expected, bignum_obs, decimal, msg) {
-  error = bignum_expected.div(ethers.utils.parseUnits("1.0", decimal));
-  if (bignum_expected.lte(bignum_obs)) {
-    assert(
-      bignum_obs.sub(bignum_expected).lte(error),
-      msg +
-        ":\n " +
-        "\x1b[32mExpected: " +
-        formatToken(bignum_expected, 18) +
-        "\n\x1b[31mGiven: " +
-        formatToken(bignum_obs, 18) +
-        "\x1b[0m\n"
-    );
-  } else {
-    assert(
-      bignum_expected.sub(bignum_obs).lte(error),
-      msg +
-        ":\n" +
-        "\x1b[32mExpected: " +
-        formatToken(bignum_expected, 18) +
-        "\n\x1b[31mGiven: " +
-        formatToken(bignum_obs, 18) +
-        "\x1b[0m\n"
-    );
-  }
-}
-
-async function logCompoundStatus(contract, symbols) {
-  function logPosition(s, x, y, z) {
-    console.log(
-      s,
-      ":",
-      " (\x1b[32m",
-      x,
-      "\x1b[0m|\x1b[31m",
-      y,
-      "\x1b[0m) + \x1b[34m",
-      z,
-      "\x1b[0m"
-    );
-  }
-  [, liquidity] = await comp.getAccountLiquidity(contract.address);
-  console.log();
-  console.log(
-    "**** Account borrow power (USD): \x1b[35m",
-    formatToken(liquidity, 18),
-    "\x1b[0m ****"
-  );
-  for (const symbol of symbols) {
-    switch (symbol) {
-      case "DAI":
-        [, redeemableDai] = await contract.maxGettableUnderlying(cDai.address);
-        [, , borrowBalance] = await cDai.getAccountSnapshot(contract.address);
-        daiBalance = await dai.balanceOf(contract.address);
-        logPosition(
-          "DAI",
-          formatToken(redeemableDai, "DAI"),
-          formatToken(borrowBalance, "DAI"),
-          formatToken(daiBalance, "DAI")
-        );
-        break;
-      case "WETH":
-        [, redeemableWeth] = await contract.maxGettableUnderlying(cEth.address);
-        [, , borrowBalance] = await cEth.getAccountSnapshot(contract.address);
-        wethBalance = await wEth.balanceOf(contract.address);
-        logPosition(
-          "WETH",
-          formatToken(redeemableWeth, "DAI"),
-          formatToken(borrowBalance, "DAI"),
-          formatToken(wethBalance, "DAI")
-        );
-        break;
-      default:
-        console.log("Unimplemented");
-    }
-  }
-  console.log();
-}
-
-async function newOffer(contract, base_sym, quote_sym, wants, gives) {
-  function getAddress(sym) {
-    switch (sym) {
-      case "WETH":
-        return wEth.address;
-      default:
-        return dai.address;
-    }
-  }
-  base = getAddress(base_sym);
-  quote = getAddress(quote_sym);
-  offerTx = await contract.newOffer(
-    base,
-    quote,
-    wants,
-    gives,
-    ethers.constants.MaxUint256,
-    ethers.constants.MaxUint256,
-    ethers.constants.MaxUint256
-  );
-  await offerTx.wait();
-  console.log(
-    "\t \x1b[44m\x1b[37m OFFER \x1b[0m[\x1b[32m" +
-      formatToken(wants, base_sym) +
-      base_sym +
-      "\x1b[0m | \x1b[31m" +
-      formatToken(gives, quote_sym) +
-      quote_sym +
-      "\x1b[0m]"
-  );
-}
-
-async function snipe(mgv, base_sym, quote_sym, offerId, wants, gives) {
-  function getAddress(sym) {
-    switch (sym) {
-      case "WETH":
-        return wEth.address;
-      default:
-        return dai.address;
-    }
-  }
-  base = getAddress(base_sym);
-  quote = getAddress(quote_sym);
-
-  snipeTx = await mgv.snipe(
-    base,
-    quote,
-    offerId,
-    wants,
-    gives,
-    ethers.constants.MaxUint256, // max gas
-    true //fillWants
-  );
-  receipt = await snipeTx.wait(0);
-  //    console.log(receipt.gasUsed.toString());
-
-  console.log(
-    "\t \x1b[44m\x1b[37m TAKE \x1b[0m[\x1b[32m" +
-      formatToken(wants, base_sym) +
-      base_sym +
-      "\x1b[0m | \x1b[31m" +
-      formatToken(gives, quote_sym) +
-      quote_sym +
-      "\x1b[0m]"
-  );
-}
-
-// describe("Access to compound", function() {
-//     it("Should access comptroller implementation", async function () {
-//         let oracle = await comp.oracle();
-//         assert(oracle != ethers.constants.AddressZero, "Could not access oracle implementaion");
-//     })
-// });
-
-async function setDecimals() {
-  decimals.set("DAI", await dai.decimals());
-  decimals.set("ETH", 18);
-  decimals.set("WETH", await wEth.decimals());
-  decimals.set("cETH", await cEth.decimals());
-  decimals.set("cDAI", await cDai.decimals());
-}
-
-function parseToken(amount, symbol) {
-  return ethers.utils.parseUnits(amount, decimals.get(symbol));
-}
-function formatToken(amount, symbol) {
-  return ethers.utils.formatUnits(amount, decimals.get(symbol));
-}
-
 describe("Deploy strategies", function () {
   this.timeout(100_000); // Deployment is slow so timeout is increased
   testSigner = null;
   testRunner = null;
+  mgv = null;
 
   before(async function () {
-    // 1. mint (1000 dai, 1000 eth, 1000 weth) for owner
+    // 1. mint (1000 lc.dai, 1000 eth, 1000 weth) for owner
     // 2. activates (dai,weth) market
     [testSigner] = await ethers.getSigners();
     testRunner = testSigner.address;
     bal = await testSigner.getBalance();
-    await setDecimals();
+    await lc.setDecimals();
 
     await fund([
       ["ETH", "1.0", daiAdmin],
@@ -315,19 +105,23 @@ describe("Deploy strategies", function () {
       ["DAI", "10000.0", testRunner],
     ]);
 
-    let daiBal = await dai.balanceOf(testRunner);
-    let wethBal = await wEth.balanceOf(testRunner);
+    let daiBal = await lc.dai.balanceOf(testRunner);
+    let wethBal = await lc.wEth.balanceOf(testRunner);
 
-    assertEqualBN(daiBal, parseToken("10000.0", "DAI"));
-    assertEqualBN(wethBal, parseToken("5.0", "WETH"), "Minting WETH failed");
+    lc.assertEqualBN(daiBal, lc.parseToken("10000.0", "DAI"));
+    lc.assertEqualBN(
+      wethBal,
+      lc.parseToken("5.0", "WETH"),
+      "Minting WETH failed"
+    );
 
     await mangrove.deployIfMissingOnEthereum();
-    await mangrove.activateMarketOnEthereum(dai.address, wEth.address);
-    await mangrove.activateMarketOnEthereum(wEth.address, dai.address);
-    let cfg = await env.ethereum.mgv.contract.callStatic.getConfig(
-      dai.address,
-      wEth.address
-    );
+    // TODO: no reason to be ethereum specific in market activation
+    await mangrove.activateMarketOnEthereum(lc.dai.address, lc.wEth.address);
+    await mangrove.activateMarketOnEthereum(lc.wEth.address, lc.dai.address);
+    mgv = env.ethereum.mgv.contract;
+
+    let cfg = await mgv.callStatic.getConfig(lc.dai.address, lc.wEth.address);
     assert(cfg.local.active, "Market is inactive");
   });
 
@@ -369,35 +163,34 @@ describe("Deploy strategies", function () {
   // });
 
   it("Pure lender strat", async function () {
-    const mgv = env.ethereum.mgv.contract;
     const SimpleRetail = await ethers.getContractFactory("SimpleRetail");
     const makerContract = await SimpleRetail.deploy(
-      comp.address,
+      lc.comp.address,
       mgv.address,
-      wEth.address
+      lc.wEth.address
     );
     await makerContract.deployed();
 
-    let overrides = { value: parseToken("1.0", "ETH") };
+    let overrides = { value: lc.parseToken("1.0", "ETH") };
     tx = await mgv["fund(address)"](makerContract.address, overrides);
     await tx.wait();
 
-    assertEqualBN(
+    lc.assertEqualBN(
       await mgv.balanceOf(makerContract.address),
-      parseToken("1.0", "ETH"),
+      lc.parseToken("1.0", "ETH"),
       "Failed to fund the Mangrove"
     );
 
     /*********************** TAKER SIDE PREMICES **************************/
 
     // owner approves Mangrove for WETH before trying to take offer
-    tkrTx = await wEth
+    tkrTx = await lc.wEth
       .connect(owner)
       .approve(mgv.address, ethers.constants.MaxUint256);
     await tkrTx.wait();
 
-    allowed = await wEth.allowance(owner.address, mgv.address);
-    assertEqualBN(allowed, ethers.constants.MaxUint256, "Approve failed");
+    allowed = await lc.wEth.allowance(owner.address, mgv.address);
+    lc.assertEqualBN(allowed, ethers.constants.MaxUint256, "Approve failed");
 
     /***********************************************************************/
 
@@ -407,116 +200,129 @@ describe("Deploy strategies", function () {
     // offer should get/put base/quote tokens on compound (OK since `owner` is MakerContract admin)
     mkrTxs[i++] = await makerContract
       .connect(owner)
-      .enterMarkets([cEth.address, cDai.address]);
+      .enterMarkets([lc.cwEth.address, lc.cDai.address]);
     // owner asks MakerContract to approve Mangrove for base (DAI)
     mkrTxs[i++] = await makerContract
       .connect(owner)
-      .approveMangrove(dai.address, ethers.constants.MaxUint256);
+      .approveMangrove(lc.dai.address, ethers.constants.MaxUint256);
     // One sends 1000 DAI to MakerContract
-    mkrTxs[i++] = await dai
+    mkrTxs[i++] = await lc.dai
       .connect(owner)
-      .transfer(makerContract.address, parseToken("1000.0", "DAI"));
+      .transfer(makerContract.address, lc.parseToken("1000.0", "DAI"));
     // owner asks makerContract to approve cDai to be able to mint cDAI
     mkrTxs[i++] = await makerContract
       .connect(owner)
-      .approveCToken(cDai.address, ethers.constants.MaxUint256);
+      .approveCToken(lc.cDai.address, ethers.constants.MaxUint256);
     // makerContract deposits some DAI on Compound (remains 100 DAIs on the contract)
     mkrTxs[i++] = await makerContract
       .connect(owner)
-      .mintCToken(cDai.address, parseToken("900.0", "DAI"));
+      .mintCToken(lc.cDai.address, lc.parseToken("900.0", "DAI"));
 
-    await synch(mkrTxs);
+    await lc.synch(mkrTxs);
     /***********************************************************************/
     //console.log("here 1");
 
-    accrueTx = await cDai.connect(owner).accrueInterest();
+    accrueTx = await lc.cDai.connect(owner).accrueInterest();
     receipt = await accrueTx.wait(0);
 
-    await logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
     // cheat to retrieve next assigned offer ID for the next newOffer
-    offerId = await nextOfferId(dai.address, wEth.address, makerContract);
+    offerId = await lc.nextOfferId(
+      lc.dai.address,
+      lc.wEth.address,
+      makerContract
+    );
 
     // // posting new offer on Mangrove via the MakerContract `post` method
-    await newOffer(
+    await lc.newOffer(
       makerContract,
       "DAI",
       "WETH",
-      parseToken("1000.0", "DAI"), // promised DAI
-      parseToken("0.5", "WETH") // required WETH
+      lc.parseToken("1000.0", "DAI"), // promised DAI
+      lc.parseToken("0.5", "WETH") // required WETH
     );
 
-    [offer] = await mgv.offerInfo(dai.address, wEth.address, offerId);
-    assertEqualBN(
+    [offer] = await mgv.offerInfo(lc.dai.address, lc.wEth.address, offerId);
+    lc.assertEqualBN(
       offer.gives,
-      parseToken("1000.0", "DAI"),
+      lc.parseToken("1000.0", "DAI"),
       "Offer not correctly inserted"
     );
 
     // dry running snipe buy order first
     [success, takerGot, takerGave] = await mgv.callStatic.snipe(
-      dai.address, // maker base
-      wEth.address, // maker quote
+      lc.dai.address, // maker base
+      lc.wEth.address, // maker quote
       offerId,
-      parseToken("800.0", "DAI"), // taker wants 800 DAI (takes 0.1 from contract and 0.7 from compound)
-      parseToken("0.5", "WETH"), // taker is ready to give up-to 0.5 WETH will give 0.4 WETH
+      lc.parseToken("800.0", "DAI"), // taker wants 800 DAI (takes 0.1 from contract and 0.7 from compound)
+      lc.parseToken("0.5", "WETH"), // taker is ready to give up-to 0.5 WETH will give 0.4 WETH
       ethers.constants.MaxUint256, // max gas
       true //fillWants
     );
 
     assert(success, "Snipe failed");
-    assertEqualBN(
+    lc.assertEqualBN(
       takerGot,
-      netOf(parseToken("800.0", "DAI"), fee),
+      lc.netOf(lc.parseToken("800.0", "DAI"), fee),
       "Incorrect received amount"
     );
-    assertEqualBN(
+    lc.assertEqualBN(
       takerGave,
-      parseToken("0.4", "WETH"),
+      lc.parseToken("0.4", "WETH"),
       "Incorrect given amount"
     );
 
-    await snipe(
+    await lc.snipe(
       mgv,
       "DAI", // maker base
       "WETH", // maker quote
       offerId,
-      parseToken("800.0", "DAI"), // taker wants 0.8 DAI
-      parseToken("0.5", "WETH") // taker is ready to give up-to 0.5 WETH
+      lc.parseToken("800.0", "DAI"), // taker wants 0.8 DAI
+      lc.parseToken("0.5", "WETH") // taker is ready to give up-to 0.5 WETH
     );
 
     /// testing status of makerContract's compound pools.
-    balEthComp = await cEth
+    balEthComp = await lc.cwEth
       .connect(owner)
       .callStatic.balanceOfUnderlying(makerContract.address);
-    balDaiComp = await cDai
+    balDaiComp = await lc.cDai
       .connect(owner)
       .callStatic.balanceOfUnderlying(makerContract.address);
 
     // checking that MakerContract did put received WETH on compound (as cETH) --allowing 5 gwei of rounding error
-    assertAlmost(takerGave, balEthComp, 9, "Incorrect Eth amount on Compound");
+    lc.assertAlmost(
+      takerGave,
+      balEthComp,
+      9,
+      "Incorrect Eth amount on Compound"
+    );
     // checking that MakerContract did get 0.7 ethers of DAI from compound (= 0.8 - 0.1 from contract provision)
     // maker gave 800, taking 100 directly from MakerContract and 700 from compound
     // remaining balance on compound should be ~ 200
-    expected = parseToken("200", "DAI");
-    assertAlmost(expected, balDaiComp, 4, "Incorrect Dai amount on Compound");
+    expected = lc.parseToken("200", "DAI");
+    lc.assertAlmost(
+      expected,
+      balDaiComp,
+      4,
+      "Incorrect Dai amount on Compound"
+    );
 
-    accrueTx = await cDai.connect(owner).accrueInterest();
+    accrueTx = await lc.cDai.connect(owner).accrueInterest();
     receipt = await accrueTx.wait(0);
 
-    await logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
   });
 
   it("Lender/borrower strat", async function () {
-    const mgv = env.ethereum.mgv.contract;
     const AdvancedRetail = await ethers.getContractFactory("AdvancedRetail");
     const makerContract = await AdvancedRetail.deploy(
-      comp.address,
+      lc.comp.address,
       mgv.address,
-      wEth.address
+      lc.wEth.address
     );
     await makerContract.deployed();
 
-    let overrides = { value: parseToken("10.0", "ETH") };
+    let overrides = { value: lc.parseToken("10.0", "ETH") };
     tx = await mgv["fund(address)"](makerContract.address, overrides);
     await tx.wait();
 
@@ -525,139 +331,152 @@ describe("Deploy strategies", function () {
     let i = 0;
     mkrTxs[i++] = await makerContract
       .connect(owner)
-      .enterMarkets([cEth.address, cDai.address]);
+      .enterMarkets([lc.cwEth.address, lc.cDai.address]);
     // owner asks MakerContract to approve Mangrove for base (DAI)
     mkrTxs[i++] = await makerContract
       .connect(owner)
-      .approveMangrove(dai.address, ethers.constants.MaxUint256);
+      .approveMangrove(lc.dai.address, ethers.constants.MaxUint256);
     // owner provisions MakerContract with DAI
-    mkrTxs[i++] = await dai
+    mkrTxs[i++] = await lc.dai
       .connect(owner)
-      .transfer(makerContract.address, parseToken("250.0", "DAI"));
+      .transfer(makerContract.address, lc.parseToken("250.0", "DAI"));
     // owner asks makerContract to approve cDai to be able to mint cDAI
     mkrTxs[i++] = await makerContract
       .connect(owner)
-      .approveCToken(cDai.address, ethers.constants.MaxUint256);
+      .approveCToken(lc.cDai.address, ethers.constants.MaxUint256);
     // makerContract deposits some DAI on Compound (remains 100 DAIs on the contract)
     mkrTxs[i++] = await makerContract
       .connect(owner)
-      .mintCToken(cDai.address, parseToken("200", "DAI"));
+      .mintCToken(lc.cDai.address, lc.parseToken("200", "DAI"));
 
-    await synch(mkrTxs);
+    await lc.synch(mkrTxs);
 
     /***********************************************************************/
 
-    accrueTx = await cDai.connect(owner).accrueInterest();
+    accrueTx = await lc.cDai.connect(owner).accrueInterest();
     receipt = await accrueTx.wait(0);
 
-    await logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
     // cheat to retrieve next assigned offer ID for the next newOffer
-    offerId = await nextOfferId(dai.address, wEth.address, makerContract);
+    offerId = await lc.nextOfferId(
+      lc.dai.address,
+      lc.wEth.address,
+      makerContract
+    );
 
     // // posting new offer on Mangrove via the MakerContract `post` method
-    await newOffer(
+    await lc.newOffer(
       makerContract,
       "DAI",
       "WETH",
-      parseToken("300.0", "DAI"), // promised DAI (will need to borrow)
-      parseToken("0.15", "WETH") // required WETH
+      lc.parseToken("300.0", "DAI"), // promised DAI (will need to borrow)
+      lc.parseToken("0.15", "WETH") // required WETH
     );
 
-    [offer] = await mgv.offerInfo(dai.address, wEth.address, offerId);
-    assertEqualBN(
+    [offer] = await mgv.offerInfo(lc.dai.address, lc.wEth.address, offerId);
+    lc.assertEqualBN(
       offer.gives,
-      parseToken("300.0", "DAI"),
+      lc.parseToken("300.0", "DAI"),
       "Offer not correctly inserted"
     );
 
     // dry running snipe buy order first
     [success, takerGot, takerGave] = await mgv.callStatic.snipe(
-      dai.address, // maker base
-      wEth.address, // maker quote
+      lc.dai.address, // maker base
+      lc.wEth.address, // maker quote
       offerId,
-      parseToken("300", "DAI"),
-      parseToken("0.15", "WETH"),
+      lc.parseToken("300", "DAI"),
+      lc.parseToken("0.15", "WETH"),
       ethers.constants.MaxUint256, // max gas
       true //fillWants
     );
 
     assert(success, "Snipe failed");
-    assertEqualBN(
+    lc.assertEqualBN(
       takerGot,
-      netOf(parseToken("300", "DAI"), fee),
+      lc.netOf(lc.parseToken("300", "DAI"), fee),
       "Incorrect received amount"
     );
-    assertEqualBN(
+    lc.assertEqualBN(
       takerGave,
-      parseToken("0.15", "WETH"),
+      lc.parseToken("0.15", "WETH"),
       "Incorrect given amount"
     );
 
-    await snipe(
+    await lc.snipe(
       mgv,
       "DAI", // maker base
       "WETH", // maker quote
       offerId,
-      parseToken("300", "DAI"),
-      parseToken("0.15", "WETH")
+      lc.parseToken("300", "DAI"),
+      lc.parseToken("0.15", "WETH")
     );
 
     await snipeTx.wait();
 
     /// testing status of makerContract's compound pools.
-    balEthComp = await cEth
+    balEthComp = await lc.cwEth
       .connect(owner)
       .callStatic.balanceOfUnderlying(makerContract.address);
-    balDaiComp = await cDai
+    balDaiComp = await lc.cDai
       .connect(owner)
       .callStatic.balanceOfUnderlying(makerContract.address);
 
     // checking that MakerContract did put received WETH on compound (as cETH) --allowing 5 gwei of rounding error
-    assertAlmost(takerGave, balEthComp, 8, "Incorrect Eth amount on Compound");
+    lc.assertAlmost(
+      takerGave,
+      balEthComp,
+      8,
+      "Incorrect Eth amount on Compound"
+    );
     // checking that MakerContract did get 0.7 ethers of DAI from compound (= 0.8 - 0.1 from contract provision)
     // maker gave 800, taking 100 directly from MakerContract and 700 from compound
     // remaining balance on compound should be ~ 200
-    assertAlmost(
+    lc.assertAlmost(
       balDaiComp,
       balDaiComp,
       4,
-      "Incorrect Dai amount on Compound " + formatToken(balDaiComp, "DAI")
+      "Incorrect Dai amount on Compound " + lc.formatToken(balDaiComp, "DAI")
     );
 
-    accrueTx = await cDai.connect(owner).accrueInterest();
+    accrueTx = await lc.cDai.connect(owner).accrueInterest();
     receipt = await accrueTx.wait(0);
 
-    await logCompoundStatus(makerContract, ["WETH", "DAI"]);
-    offerId = await nextOfferId(wEth.address, dai.address, makerContract);
+    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    offerId = await lc.nextOfferId(
+      lc.wEth.address,
+      lc.dai.address,
+      makerContract
+    );
 
     // owner asks MakerContract to approve Mangrove for base (weth)
     mkrTx2 = await makerContract
       .connect(owner)
-      .approveMangrove(wEth.address, ethers.constants.MaxUint256);
+      .approveMangrove(lc.wEth.address, ethers.constants.MaxUint256);
     await mkrTx2.wait();
 
-    await newOffer(
+    await lc.newOffer(
       makerContract,
       "WETH",
       "DAI",
-      parseToken("0.2", "WETH"), // promised WETH
-      parseToken("380.0", "DAI") // required DAI
+      lc.parseToken("0.2", "WETH"), // promised WETH
+      lc.parseToken("380.0", "DAI") // required DAI
     );
 
     // taker approves mgv for DAI erc
-    tkrTx = await dai
+    tkrTx = await lc.dai
       .connect(owner)
       .approve(mgv.address, ethers.constants.MaxUint256);
     await tkrTx.wait();
 
-    await snipe(
+    await lc.snipe(
       mgv,
       "WETH",
       "DAI",
       offerId,
-      parseToken("0.2", "WETH"), // wanted WETH
-      parseToken("380.0", "DAI") // giving DAI
+      lc.parseToken("0.2", "WETH"), // wanted WETH
+      lc.parseToken("380.0", "DAI") // giving DAI
     );
-    await logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
   });
 });

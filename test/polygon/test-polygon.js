@@ -1,42 +1,19 @@
-// const { assert } = require("chai");
-//const { parseToken } = require("ethers/lib/utils");
-const { ethers } = require("hardhat");
-const config = require("config");
+const { ethers, env, mangrove, network } = require("hardhat");
+
+const lc = require("../libcommon");
 
 const provider = hre.ethers.provider;
 
-const dai = env.polygon.tokens.dai.contract;
-const crDai = env.polygon.tokens.crDai.contract;
-const weth = env.polygon.tokens.wEth.contract;
-const crWeth = env.polygon.tokens.crWeth.contract;
-const comp = env.polygon.compound.contract;
-
-const decimals = new Map();
-async function setDecimals() {
-  decimals.set("DAI", await dai.decimals());
-  decimals.set("ETH", 18);
-  decimals.set("WETH", await weth.decimals());
-  decimals.set("crWETH", await crWeth.decimals());
-  decimals.set("crDAI", await crDai.decimals());
-}
-
-function parseToken(amount, symbol) {
-  return ethers.utils.parseUnits(amount, decimals.get(symbol));
-}
-function formatToken(amount, symbol) {
-  return ethers.utils.formatUnits(amount, decimals.get(symbol));
-}
-
 it("should call basic contracts on polygon", async function () {
-  await setDecimals();
+  await lc.setDecimals();
   const [testSigner] = await ethers.getSigners();
   console.log(
     "testRunner ETH",
-    formatToken(await testSigner.getBalance(), "ETH")
+    lc.formatToken(await testSigner.getBalance(), "ETH")
   );
   console.log(
     "testRunner DAI",
-    formatToken(await dai.balanceOf(testSigner.address), "DAI")
+    lc.formatToken(await lc.dai.balanceOf(testSigner.address), "DAI")
   );
 
   await hre.network.provider.request({
@@ -48,20 +25,20 @@ it("should call basic contracts on polygon", async function () {
   );
   await hre.network.provider.send("hardhat_setBalance", [
     env.polygon.admin.childChainManager,
-    ethers.utils.hexValue(parseToken("10", "ETH")),
+    ethers.utils.hexValue(lc.parseToken("10", "ETH")),
   ]);
   //  const admin_role = await dai.DEFAULT_ADMIN_ROLE();
   //  console.log("admin role: ", await dai.getRoleMember("0x8f4f2da22e8ac8f11e15f9fc141cddbb5deea8800186560abb6e68c5496619a9",0));
   console.log(
     "manager ETH",
-    formatToken(await admin_signer.getBalance(), "ETH")
+    lc.formatToken(await admin_signer.getBalance(), "ETH")
   );
   //  console.log("manager DAI", formatToken(await dai.balanceOf(env.polygon.admin.childChainManager),'DAI'));
-  const amount = ethers.utils.hexZeroPad(parseToken("1000", "DAI"), 32);
+  const amount = ethers.utils.hexZeroPad(lc.parseToken("1000", "DAI"), 32);
   console.log(amount);
-  await dai.connect(admin_signer).deposit(testSigner.address, amount);
+  await lc.dai.connect(admin_signer).deposit(testSigner.address, amount);
   console.log(
     "testRunner DAIs:",
-    formatToken(await dai.balanceOf(testSigner.address), "DAI")
+    lc.formatToken(await lc.dai.balanceOf(testSigner.address), "DAI")
   );
 });
