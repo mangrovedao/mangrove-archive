@@ -16,11 +16,16 @@ contract AdvancedRetail is CompoundTrader {
     override
     returns (uint)
   {
+    // checks whether `this` contract has enough `base` token
     uint missingGet = MangroveOffer.__get__(base, amount);
+    // if not tries to fetch missing liquidity on compound using `CompoundTrader`'s strat
     return super.__get__(base, missingGet);
   }
 
   function __put__(IERC20 quote, uint amount) internal virtual override {
+    // should check here if `this` contract has enough funds in `quote` token
+    // TODO
+    // transfers the remainder on compound
     super.__put__(quote, amount);
   }
 }
