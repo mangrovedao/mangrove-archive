@@ -1,4 +1,5 @@
 //usePlugin("@nomiclabs/buidler-truffle5");
+process.env["NODE_CONFIG_DIR"] = __dirname + "/config/";
 require("dotenv-flow").config(); // Reads local environment variables from .env*.local files
 const config = require("config"); // Reads configuration files from /config/
 require("hardhat-deploy");

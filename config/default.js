@@ -5,7 +5,7 @@ var defer = require("config/defer").deferConfig;
 
 // TODO Find better way of doing this...
 function requireFromProjectRoot(pathFromProjectRoot) {
-  return require("./../" + pathFromProjectRoot);
+  return require(__dirname + "/../" + pathFromProjectRoot);
 }
 
 ///////////////////////////
