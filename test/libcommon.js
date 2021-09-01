@@ -4,7 +4,7 @@ const { assert } = require("chai");
 
 const decimals = new Map();
 
-let { dai, cDai, wEth, cwEth, comp, mgv } = {};
+let { dai, cDai, wEth, cwEth, comp } = {};
 if (config.has("polygon")) {
   dai = env.polygon.tokens.dai.contract;
   cDai = env.polygon.tokens.crDai.contract;
@@ -202,9 +202,48 @@ async function snipe(mgv, base_sym, quote_sym, offerId, wants, gives) {
   );
 }
 
+async function deployMangrove() {
+  const Mangrove = await ethers.getContractFactory("Mangrove");
+  const mgv_gasprice = 500;
+  let gasmax = 2000000;
+  const mgv = await Mangrove.deploy(mgv_gasprice, gasmax);
+  await mgv.deployed();
+  const receipt = await mgv.deployTransaction.wait(0);
+  console.log(
+    "Mangrove deployed (" + receipt.gasUsed.toString() + " gas used)"
+  );
+  return mgv;
+}
+
+async function activateMarket(mgv, aTokenAddress, bTokenAddress) {
+  fee = 30; // setting fees to 0.03%
+  density = 10000;
+  overhead_gasbase = 20000;
+  offer_gasbase = 20000;
+  activateTx = await mgv.activate(
+    aTokenAddress,
+    bTokenAddress,
+    fee,
+    density,
+    overhead_gasbase,
+    offer_gasbase
+  );
+  await activateTx.wait();
+  activateTx = await mgv.activate(
+    bTokenAddress,
+    aTokenAddress,
+    fee,
+    density,
+    overhead_gasbase,
+    offer_gasbase
+  );
+  await activateTx.wait();
+}
+
 async function setDecimals() {
   decimals.set("DAI", await dai.decimals());
   decimals.set("ETH", 18);
+  decimals.set("MATIC", 18);
   decimals.set("WETH", await wEth.decimals());
   decimals.set("cETH", await cwEth.decimals());
   decimals.set("cDAI", await cDai.decimals());
@@ -229,6 +268,8 @@ exports.snipe = snipe;
 exports.newOffer = newOffer;
 exports.nextOfferId = nextOfferId;
 exports.netOf = netOf;
+exports.deployMangrove = deployMangrove;
+exports.activateMarket = activateMarket;
 
 exports.dai = dai;
 exports.cDai = cDai;
