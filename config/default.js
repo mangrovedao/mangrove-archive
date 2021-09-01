@@ -41,6 +41,12 @@ config.hardhat = {
   solpp: {
     defs: requireFromProjectRoot("./structs.js"),
   },
+  // see github.com/wighawag/hardhat-deploy#1-namedaccounts-ability-to-name-addresses
+  namedAccounts: {
+    deployer: {
+      default: 0, // take first account as deployer
+    },
+  },
   mocha: defer(function () {
     // Use same configuration when running Mocha via Hardhat
     return this.mocha;
