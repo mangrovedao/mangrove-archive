@@ -11,7 +11,7 @@
     "chai-events": "^0.0.3",
     "config": "^3.3.6",
     "dotenv-flow": "^3.2.0",
-    "ethers": "^5.3.1",
+    "ethers": "^5.4.6",
     "hardhat": "^2.4.1",
     "hardhat-deploy": "^0.9.0",
     "hardhat-deploy-ethers": "^0.3.0-beta.10",
@@ -23,7 +23,7 @@
     "test": "npm-run-all test:*",
     "test:solidity": "cross-env NODE_ENV=test NODE_APP_INSTANCE=solidity hardhat test-solidity",
     "test:ethereum-mainnet": "cross-env NODE_ENV=test NODE_APP_INSTANCE=ethereum-mainnet hardhat test test/ethereum/test-mainnet.js",
-    "test:polygon-mainnet":"cross-env NODE_ENV=test NODE_APP_INSTANCE=polygon-mainnet hardhat test test/polygon/test-polygon.js"
+    "test:polygon-mainnet": "cross-env NODE_ENV=test NODE_APP_INSTANCE=polygon-mainnet hardhat test test/polygon/test-polygon.js"
   },
   "devDependencies": {
     "@espendk/json-file-reporter": "^1.4.1",
@@ -36,11 +36,6 @@
     "npm-run-all": "^4.1.5",
     "prettier": "^2.2.0",
     "prettier-plugin-solidity": "^1.0.0-beta.3"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
   },
   "lint-staged": {
     "*.{js,css,md,sol}": "prettier --write"
