@@ -960,7 +960,7 @@ contract Gatekeeping_Test is IMaker {
     if (success) {
       TestEvents.fail("receive() should fail on closed market");
     } else {
-      string memory r = string(retdata);
+      string memory r = TestUtils.getReason(retdata);
       TestEvents.revertEq(r, "mgv/dead");
     }
   }
