@@ -67,7 +67,7 @@ jobs:
 
     - name: Solidity Test Report
       uses: dorny/test-reporter@v1
-      if: ${{ !env.ACT }} && (success() || failure())              # run this step even if previous step failed
+      if: ${{ !env.ACT && (success() || failure()) }}
       with:
         name: Solidity Tests                  # Name of the check run which will be created
         path: solidity-mocha-test-report.json # Path to test results
@@ -82,7 +82,7 @@ jobs:
 
     - name: Ethereum mainnet Test Report
       uses: dorny/test-reporter@v1
-      if: ${{ !env.ACT }} && (success() || failure())              # run this step even if previous step failed
+      if: ${{ !env.ACT && (success() || failure()) }}
       with:
         name: Ethereum mainnet Tests          # Name of the check run which will be created
         path: ethereum-mainnet-mocha-test-report.json # Path to test results
@@ -95,9 +95,10 @@ jobs:
       run: npm run test:polygon-mainnet
       env:
         POLYGON_NODE_URL: ${{ secrets.POLYGON_NODE_URL }}
+
     - name: Polygon mainnet Test Report
       uses: dorny/test-reporter@v1
-      if: ${{ !env.ACT }} && (success() || failure())              # run this step even if previous step failed
+      if: ${{ !env.ACT && (success() || failure()) }}
       with:
         name: Polygon mainnet Tests           # Name of the check run which will be created
         path: polygon-mainnet-mocha-test-report.json # Path to test results
