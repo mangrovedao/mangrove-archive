@@ -399,7 +399,7 @@ describe("Deploy strategies", function () {
     );
     lc.assertEqualBN(
       takerGave,
-      lc.parseToken("0.15", "WETH"),
+      lc.parseToken("1.15", "WETH"),
       "Incorrect given amount"
     );
 
@@ -409,7 +409,7 @@ describe("Deploy strategies", function () {
       "WETH", // maker quote
       offerId,
       lc.parseToken("300", "DAI"),
-      lc.parseToken("1.15", "WETH")
+      lc.parseToken("0.15", "WETH")
     );
 
     await snipeTx.wait();
