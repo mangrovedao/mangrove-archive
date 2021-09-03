@@ -1,4 +1,5 @@
 const { ethers, env, network } = require("hardhat");
+
 const { assert } = require("chai");
 
 const lc = require("../libcommon");
@@ -159,6 +160,8 @@ describe("Deploy strategies", function () {
   // });
 
   it("Pure lender strat", async function () {
+    await logBalances();
+
     const SimpleRetail = await ethers.getContractFactory("SimpleRetail");
     const makerContract = await SimpleRetail.deploy(
       lc.comp.address,
@@ -167,13 +170,13 @@ describe("Deploy strategies", function () {
     );
     await makerContract.deployed();
 
-    let overrides = { value: lc.parseToken("1.0", "ETH") };
+    let overrides = { value: lc.parseToken("1.0", "MATIC") };
     tx = await mgv["fund(address)"](makerContract.address, overrides);
     await tx.wait();
 
     lc.assertEqualBN(
       await mgv.balanceOf(makerContract.address),
-      lc.parseToken("1.0", "ETH"),
+      lc.parseToken("1.0", "MATIC"),
       "Failed to fund the Mangrove"
     );
 
@@ -209,6 +212,10 @@ describe("Deploy strategies", function () {
     mkrTxs[i++] = await makerContract
       .connect(testSigner)
       .approveCToken(lc.cDai.address, ethers.constants.MaxUint256);
+    // testSigner asks makerContract to approve cwEth to be able to mint cwEth
+    mkrTxs[i++] = await makerContract
+      .connect(testSigner)
+      .approveCToken(lc.cwEth.address, ethers.constants.MaxUint256);
     // makerContract deposits some DAI on Compound (remains 100 DAIs on the contract)
     mkrTxs[i++] = await makerContract
       .connect(testSigner)
@@ -246,6 +253,7 @@ describe("Deploy strategies", function () {
     );
 
     // dry running snipe buy order first
+    console.log("Sniping with an offer of 0.5 WETH for 800 DAI...");
     [success, takerGot, takerGave] = await mgv.callStatic.snipe(
       lc.dai.address, // maker base
       lc.wEth.address, // maker quote
@@ -340,6 +348,10 @@ describe("Deploy strategies", function () {
     mkrTxs[i++] = await makerContract
       .connect(testSigner)
       .approveCToken(lc.cDai.address, ethers.constants.MaxUint256);
+    // testSigner asks makerContract to approve cwEth to be able to mint cwEth
+    mkrTxs[i++] = await makerContract
+      .connect(testSigner)
+      .approveCToken(lc.cwEth.address, ethers.constants.MaxUint256);
     // makerContract deposits some DAI on Compound (remains 100 DAIs on the contract)
     mkrTxs[i++] = await makerContract
       .connect(testSigner)
