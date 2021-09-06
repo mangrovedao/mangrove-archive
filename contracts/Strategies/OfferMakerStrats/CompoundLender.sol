@@ -1,7 +1,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./MangroveOffer.sol";
-import "../interfaces/ICompound.sol";
+import "../interfaces/compound/ICompound.sol";
 
 import "hardhat/console.sol";
 
