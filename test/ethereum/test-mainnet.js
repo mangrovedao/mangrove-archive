@@ -82,6 +82,139 @@ async function fund(funding_tuples) {
   }
 }
 
+async function deployStrat(strategy, mgv) {
+  const Strat = await ethers.getContractFactory(strategy);
+  let makerContract = null;
+  let market = [null,null]; // market pair for lender
+  switch (strategy) {
+    case "SimpleCompoundRetail":
+    case "AdvancedCompoundRetail":
+      makerContract = await Strat.deploy(
+        lc.comp.address,
+        mgv.address,
+        lc.wEth.address
+      );
+      market = [lc.cwEth.address,lc.cDai.address]; 
+      break;
+    case "SimpleAaveLender":
+      makerContract = await Strat.deploy(
+        lc.addressProvider.address,
+        mgv.address,
+        0 // aave referral code
+      );
+      market = [lc.wEth.address,lc.dai.address]; 
+      break;
+    default:
+      console.warn ("Undefined strategy "+strategy);
+  }
+  await makerContract.deployed();
+  console.log(`Maker contract deployed [${strategy}]`);
+
+  // provisioning Mangrove on behalf of MakerContract
+  let overrides = { value: lc.parseToken("2.0", "ETH") };
+  tx = await mgv["fund(address)"](makerContract.address, overrides);
+  await tx.wait();
+
+  lc.assertEqualBN(
+    await mgv.balanceOf(makerContract.address),
+    lc.parseToken("2.0", "ETH"),
+    "Failed to fund the Mangrove"
+  );
+  console.log("Mangrove is provisioned");
+
+  // testSigner approves Mangrove for WETH before trying to take offer
+  tkrTx = await lc.wEth
+    .connect(testSigner)
+    .approve(mgv.address, ethers.constants.MaxUint256);
+  await tkrTx.wait();
+
+  allowed = await lc.wEth.allowance(testSigner.address, mgv.address);
+  lc.assertEqualBN(allowed, ethers.constants.MaxUint256, "Approve failed");
+  console.log("Test signer has approved quote for payment");
+
+  /*********************** MAKER SIDE PREMICES **************************/
+  let mkrTxs = [];
+  let i = 0;
+  // offer should get/put base/quote tokens on lender contract (OK since `testSigner` is MakerContract admin)
+  mkrTxs[i++] = await makerContract
+    .connect(testSigner)
+    .enterMarkets(market);
+  
+  // testSigner asks MakerContract to approve Mangrove for base (DAI)
+  mkrTxs[i++] = await makerContract
+    .connect(testSigner)
+    .approveMangrove(lc.dai.address, ethers.constants.MaxUint256);
+  // One sends 1000 DAI to MakerContract
+  mkrTxs[i++] = await lc.dai
+    .connect(testSigner)
+    .transfer(makerContract.address, lc.parseToken("1000.0", "DAI"));
+  // testSigner asks makerContract to approve lender to be able to mint [x]Token
+  mkrTxs[i++] = await makerContract
+    .connect(testSigner)
+    .approve(market[0], ethers.constants.MaxUint256);
+  // NB in the special case of cEth this is not necessary
+  mkrTxs[i++] = await makerContract
+    .connect(testSigner)
+    .approve(market[1], ethers.constants.MaxUint256);
+  
+  // makerContract deposits some DAI on Lender (remains 100 DAIs on the contract)
+  mkrTxs[i++] = await makerContract
+    .connect(testSigner)
+    .mint(market[1], lc.parseToken("900.0", "DAI"));
+  
+  await lc.synch(mkrTxs);
+  console.log("Maker contract is ready");
+  /***********************************************************************/
+  return makerContract;
+}
+
+async function logLenderStatus(makerContract, lenderName, tokens) {
+  switch(lenderName){
+    case "compound" :
+      lc.logCompoundStatus(makerContract, tokens);  
+      break; 
+    case "aave":
+      lc.logAaveStatus(makerContract, tokens);
+      break;
+  }
+}
+
+async function expectAmountOnLender(makerContract, lenderName, expectDai, expectWeth) {
+  let balwEth = 0;
+  let balDai = 0;
+  switch(lenderName) {
+    case "compound" :
+      balwEth = await lc.cwEth
+      .connect(testSigner)
+      .callStatic.balanceOfUnderlying(makerContract.address);
+      balDai = await lc.cDai
+      .connect(testSigner)
+      .callStatic.balanceOfUnderlying(makerContract.address);
+      break;
+    case "aave":
+      balwEth = await lc.awEth
+      .connect(testSigner)
+      .callStatic.balanceOf(makerContract.address);
+      balDai = await lc.aDai
+      .connect(testSigner)
+      .callStatic.balanceOfUnderlying(makerContract.address);
+      break;
+  }
+    // checking that MakerContract did put received WETH on compound (as cETH) --allowing 5 gwei of rounding error
+  lc.assertAlmost(
+    expectWeth,
+    balwEth,
+    9,
+    "Incorrect Eth amount on Lender"
+  );
+  lc.assertAlmost(
+    expectDai,
+    balDai,
+    4,
+    "Incorrect Dai amount on Lender"
+  );
+}
+
 describe("Deploy strategies", function () {
   this.timeout(100_000); // Deployment is slow so timeout is increased
   testSigner = null;
@@ -103,8 +236,8 @@ describe("Deploy strategies", function () {
       ["DAI", "10000.0", testRunner],
     ]);
 
-    let daiBal = await lc.dai.balanceOf(testRunner);
-    let wethBal = await lc.wEth.balanceOf(testRunner);
+    const daiBal = await lc.dai.balanceOf(testRunner);
+    const wethBal = await lc.wEth.balanceOf(testRunner);
 
     lc.assertEqualBN(daiBal, lc.parseToken("10000.0", "DAI"));
     lc.assertEqualBN(
@@ -120,109 +253,15 @@ describe("Deploy strategies", function () {
     assert(cfg.local.active, "Market is inactive");
   });
 
-  // it("should deploy simple strategy", async function () {
+  it("Pure lender strat on compound", async function () {
+    const makerContract = await deployStrat("SimpleCompoundRetail", mgv);
+    let accrueTx = await lc.cDai.connect(testSigner).accrueInterest();
+    let receipt = await accrueTx.wait(0);
 
-  //     const MangroveOffer = await ethers.getContractFactory("MangroveOffer");
-  //     const makerContract = await MangroveOffer.deploy(mgv.address);
-  //     await makerContract.deployed();
-
-  //     let overrides = {value:parseToken("1.0", 'ETH')};
-
-  //     // testRunner provisions Mangrove for makerContract's bounty
-  //     await mgv["fund(address)"](makerContract.address,overrides);
-  //     assertEqualBN(
-  //         await mgv.balanceOf(makerContract.address),
-  //         parseToken("1.0",'ETH'),
-  //         "Failed to fund the Mangrove"
-  //     );
-
-  //     // cheat to retrieve next assigned offer ID for the next newOffer
-  //     offerId = await nextOfferId(dai.address,weth.address,makerContract);
-
-  //     // posting new offer on Mngrove via the MakerContract `post` method
-  //     await newOffer(
-  //         makerContract,
-  //         'DAI',
-  //         'WETH',
-  //         parseToken("1000.0", 'DAI'),
-  //         parseToken("0.5", 'WETH'),
-  //     );
-  //     //await postTx.wait();
-
-  //     [offer, ] = await mgv.offerInfo(dai.address, weth.address, offerId);
-  //     assertEqualBN(
-  //         offer.gives,
-  //         parseToken("1000.0", 'DAI'),
-  //         "Offer not correctly inserted"
-  //     );
-  // });
-
-  it("Pure lender strat", async function () {
-    const SimpleRetail = await ethers.getContractFactory("SimpleRetail");
-    const makerContract = await SimpleRetail.deploy(
-      lc.comp.address,
-      mgv.address,
-      lc.wEth.address
-    );
-    await makerContract.deployed();
-
-    let overrides = { value: lc.parseToken("1.0", "ETH") };
-    tx = await mgv["fund(address)"](makerContract.address, overrides);
-    await tx.wait();
-
-    lc.assertEqualBN(
-      await mgv.balanceOf(makerContract.address),
-      lc.parseToken("1.0", "ETH"),
-      "Failed to fund the Mangrove"
-    );
-
-    /*********************** TAKER SIDE PREMICES **************************/
-
-    // testSigner approves Mangrove for WETH before trying to take offer
-    tkrTx = await lc.wEth
-      .connect(testSigner)
-      .approve(mgv.address, ethers.constants.MaxUint256);
-    await tkrTx.wait();
-
-    allowed = await lc.wEth.allowance(testSigner.address, mgv.address);
-    lc.assertEqualBN(allowed, ethers.constants.MaxUint256, "Approve failed");
-
-    /***********************************************************************/
-
-    /*********************** MAKER SIDE PREMICES **************************/
-    const mkrTxs = [];
-    let i = 0;
-    // offer should get/put base/quote tokens on compound (OK since `testSigner` is MakerContract admin)
-    mkrTxs[i++] = await makerContract
-      .connect(testSigner)
-      .enterMarkets([lc.cwEth.address, lc.cDai.address]);
-    // testSigner asks MakerContract to approve Mangrove for base (DAI)
-    mkrTxs[i++] = await makerContract
-      .connect(testSigner)
-      .approveMangrove(lc.dai.address, ethers.constants.MaxUint256);
-    // One sends 1000 DAI to MakerContract
-    mkrTxs[i++] = await lc.dai
-      .connect(testSigner)
-      .transfer(makerContract.address, lc.parseToken("1000.0", "DAI"));
-    // testSigner asks makerContract to approve cDai to be able to mint cDAI
-    mkrTxs[i++] = await makerContract
-      .connect(testSigner)
-      .approveCToken(lc.cDai.address, ethers.constants.MaxUint256);
-    // makerContract deposits some DAI on Compound (remains 100 DAIs on the contract)
-    mkrTxs[i++] = await makerContract
-      .connect(testSigner)
-      .mintCToken(lc.cDai.address, lc.parseToken("900.0", "DAI"));
-
-    await lc.synch(mkrTxs);
-    /***********************************************************************/
-    //console.log("here 1");
-
-    accrueTx = await lc.cDai.connect(testSigner).accrueInterest();
-    receipt = await accrueTx.wait(0);
-
-    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await logLenderStatus(makerContract, testSigner, "compound", [lc.dai, lc.wEth]);
+    
     // cheat to retrieve next assigned offer ID for the next newOffer
-    offerId = await lc.nextOfferId(
+    let offerId = await lc.nextOfferId(
       lc.dai.address,
       lc.wEth.address,
       makerContract
@@ -245,7 +284,7 @@ describe("Deploy strategies", function () {
     );
 
     // dry running snipe buy order first
-    [success, takerGot, takerGave] = await mgv.callStatic.snipe(
+    let [success, takerGot, takerGave] = await mgv.callStatic.snipe(
       lc.dai.address, // maker base
       lc.wEth.address, // maker quote
       offerId,
@@ -276,84 +315,25 @@ describe("Deploy strategies", function () {
       lc.parseToken("0.5", "WETH") // taker is ready to give up-to 0.5 WETH
     );
 
-    /// testing status of makerContract's compound pools.
-    balEthComp = await lc.cwEth
-      .connect(testSigner)
-      .callStatic.balanceOfUnderlying(makerContract.address);
-    balDaiComp = await lc.cDai
-      .connect(testSigner)
-      .callStatic.balanceOfUnderlying(makerContract.address);
-
-    // checking that MakerContract did put received WETH on compound (as cETH) --allowing 5 gwei of rounding error
-    lc.assertAlmost(
-      takerGave,
-      balEthComp,
-      9,
-      "Incorrect Eth amount on Compound"
-    );
-    // checking that MakerContract did get 0.7 ethers of DAI from compound (= 0.8 - 0.1 from contract provision)
-    // maker gave 800, taking 100 directly from MakerContract and 700 from compound
-    // remaining balance on compound should be ~ 200
-    expected = lc.parseToken("200", "DAI");
-    lc.assertAlmost(
-      expected,
-      balDaiComp,
-      4,
-      "Incorrect Dai amount on Compound"
-    );
+    // checking that MakerContract did put WETH on lender --allowing 5 gwei of rounding error
+    await expectAmountOnLender(makerContract, "compound", lc.parseToken("200", "DAI"), takerGave);
 
     accrueTx = await lc.cDai.connect(testSigner).accrueInterest();
     receipt = await accrueTx.wait(0);
 
-    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await logLenderStatus(makerContract, "compound", [lc.wEth, lc.dai]);
   });
 
   it("Lender/borrower strat", async function () {
-    const AdvancedRetail = await ethers.getContractFactory("AdvancedRetail");
-    const makerContract = await AdvancedRetail.deploy(
-      lc.comp.address,
-      mgv.address,
-      lc.wEth.address
-    );
-    await makerContract.deployed();
-
-    let overrides = { value: lc.parseToken("10.0", "ETH") };
-    tx = await mgv["fund(address)"](makerContract.address, overrides);
-    await tx.wait();
-
-    /*********************** MAKER SIDE PREMICES **************************/
-    const mkrTxs = [];
-    let i = 0;
-    mkrTxs[i++] = await makerContract
-      .connect(testSigner)
-      .enterMarkets([lc.cwEth.address, lc.cDai.address]);
-    // testSigner asks MakerContract to approve Mangrove for base (DAI)
-    mkrTxs[i++] = await makerContract
-      .connect(testSigner)
-      .approveMangrove(lc.dai.address, ethers.constants.MaxUint256);
-    // testSigner provisions MakerContract with DAI
-    mkrTxs[i++] = await lc.dai
-      .connect(testSigner)
-      .transfer(makerContract.address, lc.parseToken("250.0", "DAI"));
-    // testSigner asks makerContract to approve cDai to be able to mint cDAI
-    mkrTxs[i++] = await makerContract
-      .connect(testSigner)
-      .approveCToken(lc.cDai.address, ethers.constants.MaxUint256);
-    // makerContract deposits some DAI on Compound (remains 100 DAIs on the contract)
-    mkrTxs[i++] = await makerContract
-      .connect(testSigner)
-      .mintCToken(lc.cDai.address, lc.parseToken("200", "DAI"));
-
-    await lc.synch(mkrTxs);
-
+    const makerContract = await deployStrat("AdvancedCompoundRetail", mgv);
     /***********************************************************************/
 
-    accrueTx = await lc.cDai.connect(testSigner).accrueInterest();
-    receipt = await accrueTx.wait(0);
+    let accrueTx = await lc.cDai.connect(testSigner).accrueInterest();
+    await accrueTx.wait(0);
 
-    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await logLenderStatus(makerContract, "compound", [lc.wEth, lc.dai]);
     // cheat to retrieve next assigned offer ID for the next newOffer
-    offerId = await lc.nextOfferId(
+    let offerId = await lc.nextOfferId(
       lc.dai.address,
       lc.wEth.address,
       makerContract
@@ -368,7 +348,7 @@ describe("Deploy strategies", function () {
       lc.parseToken("0.15", "WETH") // required WETH
     );
 
-    [offer] = await mgv.offerInfo(lc.dai.address, lc.wEth.address, offerId);
+    let [offer] = await mgv.offerInfo(lc.dai.address, lc.wEth.address, offerId);
     lc.assertEqualBN(
       offer.gives,
       lc.parseToken("300.0", "DAI"),
@@ -376,7 +356,7 @@ describe("Deploy strategies", function () {
     );
 
     // dry running snipe buy order first
-    [success, takerGot, takerGave] = await mgv.callStatic.snipe(
+    let [success, takerGot, takerGave] = await mgv.callStatic.snipe(
       lc.dai.address, // maker base
       lc.wEth.address, // maker quote
       offerId,
@@ -409,11 +389,13 @@ describe("Deploy strategies", function () {
 
     await snipeTx.wait();
 
+    //await expectAmountOnLender(makerContract, "compound", lc.parseToken("200", "DAI"), takerGave);
+
     /// testing status of makerContract's compound pools.
-    balEthComp = await lc.cwEth
+    let balEthComp = await lc.cwEth
       .connect(testSigner)
       .callStatic.balanceOfUnderlying(makerContract.address);
-    balDaiComp = await lc.cDai
+    let balDaiComp = await lc.cDai
       .connect(testSigner)
       .callStatic.balanceOfUnderlying(makerContract.address);
 
@@ -425,10 +407,10 @@ describe("Deploy strategies", function () {
       "Incorrect Eth amount on Compound"
     );
     // checking that MakerContract did get 0.7 ethers of DAI from compound (= 0.8 - 0.1 from contract provision)
-    // maker gave 800, taking 100 directly from MakerContract and 700 from compound
-    // remaining balance on compound should be ~ 200
+    // maker gave 300, taking 100 directly from MakerContract and 200 from compound
+    // remaining balance on compound should be ~ 900 - 200 = 700
     lc.assertAlmost(
-      balDaiComp,
+      lc.parseToken("700", "DAI"),
       balDaiComp,
       4,
       "Incorrect Dai amount on Compound " + lc.formatToken(balDaiComp, "DAI")
@@ -437,7 +419,7 @@ describe("Deploy strategies", function () {
     accrueTx = await lc.cDai.connect(testSigner).accrueInterest();
     receipt = await accrueTx.wait(0);
 
-    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await logLenderStatus(makerContract, "compound", [lc.wEth, lc.dai]);
     offerId = await lc.nextOfferId(
       lc.wEth.address,
       lc.dai.address,
@@ -472,6 +454,6 @@ describe("Deploy strategies", function () {
       lc.parseToken("0.2", "WETH"), // wanted WETH
       lc.parseToken("380.0", "DAI") // giving DAI
     );
-    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await logLenderStatus(makerContract, "compound", [lc.wEth, lc.dai]);
   });
 });

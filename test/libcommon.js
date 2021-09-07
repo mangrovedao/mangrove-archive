@@ -6,6 +6,7 @@ const decimals = new Map();
 
 let { dai, cDai, wEth, cwEth, comp } = {};
 if (config.has("polygon")) {
+  console.log ("Polygon");
   dai = env.polygon.tokens.dai.contract;
   cDai = env.polygon.tokens.crDai.contract;
   wEth = env.polygon.tokens.wEth.contract;
@@ -13,6 +14,7 @@ if (config.has("polygon")) {
   comp = env.polygon.compound.contract;
 }
 if (config.has("ethereum")) {
+  console.log ("Ethereum");
   dai = env.ethereum.tokens.dai.contract;
   cDai = env.ethereum.tokens.cDai.contract;
   wEth = env.ethereum.tokens.wEth.contract;
@@ -21,7 +23,7 @@ if (config.has("ethereum")) {
 }
 
 function assertEqualBN(value1, value2, msg) {
-  errorMsg =
+  let errorMsg =
     msg +
     ("(Received: " +
       value1.toString() +
@@ -32,7 +34,7 @@ function assertEqualBN(value1, value2, msg) {
 }
 
 async function nextOfferId(base, quote, ctr) {
-  offerId = await ctr.callStatic.newOffer(
+  let offerId = await ctr.callStatic.newOffer(
     base,
     quote,
     parseToken("1.0"),
@@ -81,7 +83,7 @@ function assertAlmost(bignum_expected, bignum_obs, decimal, msg) {
   }
 }
 
-async function logCompoundStatus(contract, symbols) {
+async function logCompoundStatus(contract, tokens) {
   function logPosition(s, x, y, z) {
     console.log(
       s,
@@ -102,29 +104,29 @@ async function logCompoundStatus(contract, symbols) {
     formatToken(liquidity, 18),
     "\x1b[0m ****"
   );
-  for (const symbol of symbols) {
-    switch (symbol) {
+  for (const token of tokens) {
+    switch (await token.symbol()) {
       case "DAI":
-        [, redeemableDai] = await contract.maxGettableUnderlying(cDai.address);
-        [, , borrowBalance] = await cDai.getAccountSnapshot(contract.address);
-        daiBalance = await dai.balanceOf(contract.address);
+        const [, redeemableDai] = await contract.maxGettableUnderlying(cDai.address);
+        const [, , borrowDaiBalance] = await cDai.getAccountSnapshot(contract.address);
+        const daiBalance = await token.balanceOf(contract.address);
         logPosition(
           "DAI",
           formatToken(redeemableDai, "DAI"),
-          formatToken(borrowBalance, "DAI"),
+          formatToken(borrowDaiBalance, "DAI"),
           formatToken(daiBalance, "DAI")
         );
         break;
       case "WETH":
-        [, redeemableWeth] = await contract.maxGettableUnderlying(
+        const [, redeemableWeth] = await contract.maxGettableUnderlying(
           cwEth.address
         );
-        [, , borrowBalance] = await cwEth.getAccountSnapshot(contract.address);
-        wethBalance = await wEth.balanceOf(contract.address);
+        const [, , borrowWethBalance] = await cwEth.getAccountSnapshot(contract.address);
+        const wethBalance = await wEth.balanceOf(contract.address);
         logPosition(
           "WETH",
           formatToken(redeemableWeth, "DAI"),
-          formatToken(borrowBalance, "DAI"),
+          formatToken(borrowWethBalance, "DAI"),
           formatToken(wethBalance, "DAI")
         );
         break;
