@@ -2,7 +2,7 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./CompoundLender.sol";
 
-contract SimpleRetail is CompoundLender {
+contract SimpleCompoundRetail is CompoundLender {
   constructor(
     address _unitroller,
     address payable _MGV,

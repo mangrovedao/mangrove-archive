@@ -42,16 +42,16 @@ contract CompoundLender is MangroveOffer {
 
   ///@notice approval of ctoken contract by the underlying is necessary for minting and repaying borrow
   ///@notice user must use this function to do so.
-  function approveCToken(address ctoken, uint amount) external onlyAdmin {
+  function approve(address ctoken, uint amount) external onlyAdmin {
     IERC20 token = underlying(IcERC20(ctoken));
     token.approve(ctoken, amount);
   }
 
-  function mintCToken(address ctoken, uint amount) external onlyAdmin {
+  function mint(address ctoken, uint amount) external onlyAdmin {
     compoundMint(IcERC20(ctoken), amount);
   }
 
-  function redeemCToken(address ctoken, uint amount) external onlyAdmin {
+  function redeem(address ctoken, uint amount) external onlyAdmin {
     require(compoundRedeem(IcERC20(ctoken), amount) == 0);
   }
 

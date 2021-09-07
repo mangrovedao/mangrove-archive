@@ -56,8 +56,10 @@ contract AaveLender is MangroveOffer {
     lendingPool.setUserUseReserveAsCollateral(address(underlying), false);
   }
 
-  function enterMarket(IERC20 underlying) external onlyAdmin {
-    lendingPool.setUserUseReserveAsCollateral(address(underlying), true);
+  function enterMarkets(IERC20[] calldata underlyings) external onlyAdmin {
+    for (uint i = 0; i < underlyings.length; i++) {
+      lendingPool.setUserUseReserveAsCollateral(address(underlyings[i]), true);
+    }
   }
 
   function isPooled(IERC20 asset) public view returns (bool){
