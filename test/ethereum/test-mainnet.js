@@ -1,4 +1,3 @@
-require("dotenv-flow").config(); // Reads local environment variables from .env*.local files
 const { assert } = require("chai");
 //const { parseToken } = require("ethers/lib/utils");
 const { ethers, env, mangrove, network } = require("hardhat");
