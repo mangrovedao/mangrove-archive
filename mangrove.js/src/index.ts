@@ -6,7 +6,6 @@
 
 import { ethers } from 'ethers';
 import * as eth from './eth';
-import * as util from './util';
 import { decimals } from './constants';
 
 import {Mangrove} from './mangrove';
@@ -16,4 +15,4 @@ import {Mangrove} from './mangrove';
 
 
 export default Mangrove
-export {eth,util,decimals,ethers,Mangrove}
+export {eth,decimals,ethers,Mangrove}
