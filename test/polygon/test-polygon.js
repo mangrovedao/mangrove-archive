@@ -162,7 +162,7 @@ describe("Deploy strategies", function () {
   it("Pure lender strat", async function () {
     await logBalances();
 
-    const SimpleRetail = await ethers.getContractFactory("SimpleRetail");
+    const SimpleRetail = await ethers.getContractFactory("SimpleCompoundRetail");
     const makerContract = await SimpleRetail.deploy(
       lc.comp.address,
       mgv.address,
@@ -211,15 +211,15 @@ describe("Deploy strategies", function () {
     // testSigner asks makerContract to approve cDai to be able to mint cDAI
     mkrTxs[i++] = await makerContract
       .connect(testSigner)
-      .approveCToken(lc.cDai.address, ethers.constants.MaxUint256);
+      .approve(lc.cDai.address, ethers.constants.MaxUint256);
     // testSigner asks makerContract to approve cwEth to be able to mint cwEth
     mkrTxs[i++] = await makerContract
       .connect(testSigner)
-      .approveCToken(lc.cwEth.address, ethers.constants.MaxUint256);
+      .approve(lc.cwEth.address, ethers.constants.MaxUint256);
     // makerContract deposits some DAI on Compound (remains 100 DAIs on the contract)
     mkrTxs[i++] = await makerContract
       .connect(testSigner)
-      .mintCToken(lc.cDai.address, lc.parseToken("900.0", "DAI"));
+      .mint(lc.cDai.address, lc.parseToken("900.0", "DAI"));
 
     await lc.synch(mkrTxs);
     /***********************************************************************/
@@ -228,7 +228,7 @@ describe("Deploy strategies", function () {
     accrueTx = await lc.cDai.connect(testSigner).accrueInterest();
     receipt = await accrueTx.wait(0);
 
-    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await lc.logCompoundStatus(makerContract, [lc.wEth, lc.dai]);
     // cheat to retrieve next assigned offer ID for the next newOffer
     offerId = await lc.nextOfferId(
       lc.dai.address,
@@ -314,11 +314,11 @@ describe("Deploy strategies", function () {
     accrueTx = await lc.cDai.connect(testSigner).accrueInterest();
     receipt = await accrueTx.wait(0);
 
-    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await lc.logCompoundStatus(makerContract, [lc.wEth, lc.dai]);
   });
 
   it("Lender/borrower strat", async function () {
-    const AdvancedRetail = await ethers.getContractFactory("AdvancedRetail");
+    const AdvancedRetail = await ethers.getContractFactory("AdvancedCompoundRetail");
     const makerContract = await AdvancedRetail.deploy(
       lc.comp.address,
       mgv.address,
@@ -347,15 +347,15 @@ describe("Deploy strategies", function () {
     // testSigner asks makerContract to approve cDai to be able to mint cDAI
     mkrTxs[i++] = await makerContract
       .connect(testSigner)
-      .approveCToken(lc.cDai.address, ethers.constants.MaxUint256);
+      .approve(lc.cDai.address, ethers.constants.MaxUint256);
     // testSigner asks makerContract to approve cwEth to be able to mint cwEth
     mkrTxs[i++] = await makerContract
       .connect(testSigner)
-      .approveCToken(lc.cwEth.address, ethers.constants.MaxUint256);
+      .approve(lc.cwEth.address, ethers.constants.MaxUint256);
     // makerContract deposits some DAI on Compound (remains 100 DAIs on the contract)
     mkrTxs[i++] = await makerContract
       .connect(testSigner)
-      .mintCToken(lc.cDai.address, lc.parseToken("200", "DAI"));
+      .mint(lc.cDai.address, lc.parseToken("200", "DAI"));
 
     await lc.synch(mkrTxs);
 
@@ -364,7 +364,7 @@ describe("Deploy strategies", function () {
     accrueTx = await lc.cDai.connect(testSigner).accrueInterest();
     receipt = await accrueTx.wait(0);
 
-    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await lc.logCompoundStatus(makerContract, [lc.wEth, lc.dai]);
     // cheat to retrieve next assigned offer ID for the next newOffer
     offerId = await lc.nextOfferId(
       lc.dai.address,
@@ -450,7 +450,7 @@ describe("Deploy strategies", function () {
     accrueTx = await lc.cDai.connect(testSigner).accrueInterest();
     receipt = await accrueTx.wait(0);
 
-    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await lc.logCompoundStatus(makerContract, [lc.wEth, lc.dai]);
     offerId = await lc.nextOfferId(
       lc.wEth.address,
       lc.dai.address,
@@ -485,6 +485,6 @@ describe("Deploy strategies", function () {
       lc.parseToken("0.2", "WETH"), // wanted WETH
       lc.parseToken("380.0", "DAI") // giving DAI
     );
-    await lc.logCompoundStatus(makerContract, ["WETH", "DAI"]);
+    await lc.logCompoundStatus(makerContract, [lc.wEth, lc.dai]);
   });
 });
