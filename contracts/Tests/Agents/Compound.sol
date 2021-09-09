@@ -6,7 +6,6 @@ pragma abicoder v2;
 import "hardhat/console.sol";
 
 import "../Toolbox/TestUtils.sol";
-import "../Toolbox/Display.sol";
 
 import "./TestToken.sol";
 
@@ -23,8 +22,8 @@ contract Compound {
 
   function c(ERC20BL token) public returns (TestToken) {
     if (address(cTokens[token]) == address(0)) {
-      string memory cName = Display.append("c", token.name());
-      string memory cSymbol = Display.append("c", token.symbol());
+      string memory cName = TestUtils.append("c", token.name());
+      string memory cSymbol = TestUtils.append("c", token.symbol());
       cTokens[token] = new TestToken(address(this), cName, cSymbol);
     }
 

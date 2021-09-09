@@ -38,37 +38,46 @@ library TestInsert {
       gasreq: mgv.getConfig(address(base), address(quote)).global.gasmax,
       pivotId: 0
     });
-    //Display.printOfferBook(mgv);
+    //TestUtils.printOfferBook(mgv);
     //Checking makers have correctly provisoned their offers
     for (uint i = 0; i < makers.length(); i++) {
-      uint gasreq_i =
-        TestUtils.getOfferInfo(
-          mgv,
-          address(base),
-          address(quote),
-          TestUtils.Info.gasreq,
-          offerOf[i]
-        );
-      uint provision_i =
-        TestUtils.getProvision(mgv, address(base), address(quote), gasreq_i);
+      uint gasreq_i = TestUtils.getOfferInfo(
+        mgv,
+        address(base),
+        address(quote),
+        TestUtils.Info.gasreq,
+        offerOf[i]
+      );
+      uint provision_i = TestUtils.getProvision(
+        mgv,
+        address(base),
+        address(quote),
+        gasreq_i
+      );
       TestEvents.eq(
         mgv.balanceOf(address(makers.getMaker(i))),
         balances.makersBalanceWei[i] - provision_i,
-        Display.append("Incorrect wei balance for maker ", Display.uint2str(i))
+        TestUtils.append(
+          "Incorrect wei balance for maker ",
+          TestUtils.uint2str(i)
+        )
       );
     }
     //Checking offers are correctly positioned (3 > 2 > 1 > 0)
     uint offerId = mgv.best(address(base), address(quote));
     uint expected_maker = 3;
     while (offerId != 0) {
-      (ML.Offer memory offer, ML.OfferDetail memory od) =
-        mgv.offerInfo(address(base), address(quote), offerId);
+      (ML.Offer memory offer, ML.OfferDetail memory od) = mgv.offerInfo(
+        address(base),
+        address(quote),
+        offerId
+      );
       TestEvents.eq(
         od.maker,
         address(makers.getMaker(expected_maker)),
-        Display.append(
+        TestUtils.append(
           "Incorrect maker address at offer ",
-          Display.uint2str(offerId)
+          TestUtils.uint2str(offerId)
         )
       );
 

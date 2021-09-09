@@ -7,9 +7,7 @@ import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
 import "hardhat/console.sol";
 
-import "./Toolbox/TestEvents.sol";
 import "./Toolbox/TestUtils.sol";
-import "./Toolbox/Display.sol";
 
 import "./Agents/TestToken.sol";
 import "./Agents/TestMaker.sol";
@@ -55,8 +53,15 @@ contract Gas_Test is IMaker {
     Display.register(address(_tkr), "Taker");
 
     /* set lock to 1 to avoid spurious 15k gas cost */
-    uint ofr =
-      _mgv.newOffer(_base, _quote, 0.1 ether, 0.1 ether, 100_000, 0, 0);
+    uint ofr = _mgv.newOffer(
+      _base,
+      _quote,
+      0.1 ether,
+      0.1 ether,
+      100_000,
+      0,
+      0
+    );
     _tkr.take(ofr, 0.1 ether);
   }
 
@@ -150,8 +155,12 @@ contract Gas_Test is IMaker {
   }
 
   function take_offer_test() public {
-    (AbstractMangrove mgv, TestTaker tkr, address base, address quote) =
-      getStored();
+    (
+      AbstractMangrove mgv,
+      TestTaker tkr,
+      address base,
+      address quote
+    ) = getStored();
     //uint g = gasleft();
     //uint h;
     tkr.snipe(mgv, base, quote, 1, 1 ether, 1 ether, 100_000);
@@ -160,8 +169,12 @@ contract Gas_Test is IMaker {
   }
 
   function partial_take_offer_test() public {
-    (AbstractMangrove mgv, TestTaker tkr, address base, address quote) =
-      getStored();
+    (
+      AbstractMangrove mgv,
+      TestTaker tkr,
+      address base,
+      address quote
+    ) = getStored();
     //uint g = gasleft();
     //uint h;
     tkr.snipe(mgv, base, quote, 1, 0.5 ether, 0.5 ether, 100_000);
@@ -170,8 +183,12 @@ contract Gas_Test is IMaker {
   }
 
   function market_order_1_test() public {
-    (AbstractMangrove mgv, TestTaker tkr, address base, address quote) =
-      getStored();
+    (
+      AbstractMangrove mgv,
+      TestTaker tkr,
+      address base,
+      address quote
+    ) = getStored();
     //uint g = gasleft();
     //uint h;
     tkr.marketOrder(mgv, base, quote, 1 ether, 1 ether);
@@ -191,8 +208,12 @@ contract Gas_Test is IMaker {
   }
 
   function market_order_8_test() public {
-    (AbstractMangrove mgv, TestTaker tkr, address base, address quote) =
-      getStored();
+    (
+      AbstractMangrove mgv,
+      TestTaker tkr,
+      address base,
+      address quote
+    ) = getStored();
     //uint g = gasleft();
     //uint h;
     tkr.marketOrder(mgv, base, quote, 2 ether, 2 ether);

@@ -6,7 +6,7 @@
 pragma abicoder v2;
 
 pragma solidity ^0.7.4;
-import "./TestEvents.sol";
+import {Test as TestEvents} from "@giry/hardhat-test-solidity/test.sol";
 import "hardhat/console.sol";
 
 contract StorageEncoding {}
@@ -128,28 +128,41 @@ contract Abi_Test {
     w = bytes32(x);
   }
 
-  enum Arity {N,U,B,T}
-  bytes32 constant MASKHEADER =   0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
-  bytes32 constant MASKFIRSTARG = 0x00000000000000000000000000ffffffffffffffffffffffffffffffffffffff;
+  enum Arity {
+    N,
+    U,
+    B,
+    T
+  }
+  bytes32 constant MASKHEADER =
+    0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+  bytes32 constant MASKFIRSTARG =
+    0x00000000000000000000000000ffffffffffffffffffffffffffffffffffffff;
 
   function encode_decode_test() public {
-    bytes memory x = abi.encodePacked(Arity.B,uint96(1 ether), uint96(2 ether));
+    bytes memory x = abi.encodePacked(
+      Arity.B,
+      uint96(1 ether),
+      uint96(2 ether)
+    );
     bytes32 w = wordOfBytes(x);
     console.logBytes32(w);
-    console.logBytes32(w>>(31*8));
-    bytes memory header = bytesOfWord(w>>(31*8)); // header is encode in the first byte
-    Arity t = abi.decode(header,(Arity));
-    TestEvents.check(t==Arity.B,"Incorrect decoding of header");
-    bytes memory arg1 = bytesOfWord( 
-      (w & MASKHEADER) >> (19*8)
-    );
+    console.logBytes32(w >> (31 * 8));
+    bytes memory header = bytesOfWord(w >> (31 * 8)); // header is encode in the first byte
+    Arity t = abi.decode(header, (Arity));
+    TestEvents.check(t == Arity.B, "Incorrect decoding of header");
+    bytes memory arg1 = bytesOfWord((w & MASKHEADER) >> (19 * 8));
     console.logBytes(arg1);
-    TestEvents.check(uint96(1 ether)==abi.decode(arg1,(uint96)),"Incorrect decoding of arg1");
-    bytes memory arg2 = bytesOfWord( 
-      (w & MASKFIRSTARG) >> (7*8)
+    TestEvents.check(
+      uint96(1 ether) == abi.decode(arg1, (uint96)),
+      "Incorrect decoding of arg1"
     );
+    bytes memory arg2 = bytesOfWord((w & MASKFIRSTARG) >> (7 * 8));
     console.logBytes(arg2);
-    TestEvents.check(uint96(2 ether)==abi.decode(arg2,(uint96)),"Incorrect decoding of arg2");
+    TestEvents.check(
+      uint96(2 ether) == abi.decode(arg2, (uint96)),
+      "Incorrect decoding of arg2"
+    );
   }
 }
 

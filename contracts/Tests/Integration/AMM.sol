@@ -5,9 +5,7 @@ pragma abicoder v2;
 
 import "hardhat/console.sol";
 import "../../MgvPack.sol";
-import "../Toolbox/TestEvents.sol";
 import "../Toolbox/TestUtils.sol";
-import "../Toolbox/Display.sol";
 
 import "../Agents/TestToken.sol";
 import "../Agents/TestDelegateTaker.sol";
@@ -27,8 +25,8 @@ contract AMM_Test {
     tk0 = TokenSetup.setup("tk0", "$tk0");
     tk1 = TokenSetup.setup("tk1", "$tk1");
 
-    TestEvents.not0x(address(tk0));
-    TestEvents.not0x(address(tk1));
+    TestUtils.not0x(address(tk0));
+    TestUtils.not0x(address(tk1));
 
     Display.register(address(0), "NULL_ADDRESS");
     Display.register(msg.sender, "Test Runner");
@@ -40,12 +38,12 @@ contract AMM_Test {
   function b_deployMgv_beforeAll() public {
     mgv = MgvSetup.setup(tk0, tk1);
     Display.register(address(mgv), "Mgv");
-    TestEvents.not0x(address(mgv));
+    TestUtils.not0x(address(mgv));
     //mgv.setFee(address(tk0), address(tk1), 300);
 
     invMgv = MgvSetup.setup(tk0, tk1, true);
     Display.register(address(invMgv), "InvMgv");
-    TestEvents.not0x(address(invMgv));
+    TestUtils.not0x(address(invMgv));
     //invMgv.setFee(address(tk0), address(tk1), 300);
   }
 
@@ -154,51 +152,81 @@ contract AMM_Test {
   }
 
   function offer_manager_test() public {
-    (OfferManager mgr, TestDelegateTaker tkr, TestDelegateTaker _tkr) =
-      prepare_offer_manager();
+    (
+      OfferManager mgr,
+      TestDelegateTaker tkr,
+      TestDelegateTaker _tkr
+    ) = prepare_offer_manager();
     tk1.mint(address(tkr), 5 ether);
     tk0.mint(address(_tkr), 5 ether);
 
-    Display.logOfferBook(mgv, address(tk0), address(tk1), 5);
-    Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
+    TestUtils.logOfferBook(mgv, address(tk0), address(tk1), 5);
+    Display.logBalances(
+      [address(tk0), address(tk1)],
+      address(tkr),
+      address(_tkr)
+    );
 
     tkr.delegateOrder(mgr, 3 ether, 3 ether, mgv, false); // (A,B) order
 
-    Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
-    Display.logOfferBook(mgv, address(tk0), address(tk1), 5); // taker has more A
-    Display.logOfferBook(mgv, address(tk1), address(tk0), 2);
+    Display.logBalances(
+      [address(tk0), address(tk1)],
+      address(tkr),
+      address(_tkr)
+    );
+    TestUtils.logOfferBook(mgv, address(tk0), address(tk1), 5); // taker has more A
+    TestUtils.logOfferBook(mgv, address(tk1), address(tk0), 2);
     //Display.logBalances(tk0, tk1, address(taker));
 
     _tkr.delegateOrder(mgr, 1.8 ether, 1.8 ether, mgv, false); // (B,A) order
-    Display.logOfferBook(mgv, address(tk0), address(tk1), 5);
-    Display.logOfferBook(mgv, address(tk1), address(tk0), 2);
-    Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
+    TestUtils.logOfferBook(mgv, address(tk0), address(tk1), 5);
+    TestUtils.logOfferBook(mgv, address(tk1), address(tk0), 2);
+    Display.logBalances(
+      [address(tk0), address(tk1)],
+      address(tkr),
+      address(_tkr)
+    );
 
     check_logs(address(mgr), false);
   }
 
   function inverted_offer_manager_test() public {
-    (OfferManager mgr, TestDelegateTaker tkr, TestDelegateTaker _tkr) =
-      prepare_offer_manager();
+    (
+      OfferManager mgr,
+      TestDelegateTaker tkr,
+      TestDelegateTaker _tkr
+    ) = prepare_offer_manager();
 
     tk1.mint(address(tkr), 5 ether);
     //tk0.mint(address(_taker), 5 ether);
     tk0.addAdmin(address(_tkr)); // to test flashloan on the taker side
 
-    Display.logOfferBook(mgv, address(tk0), address(tk1), 5);
-    Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
+    TestUtils.logOfferBook(mgv, address(tk0), address(tk1), 5);
+    Display.logBalances(
+      [address(tk0), address(tk1)],
+      address(tkr),
+      address(_tkr)
+    );
 
     tkr.delegateOrder(mgr, 3 ether, 3 ether, mgv, true); // (A,B) order, residual posted on invertedMgv(B,A)
 
-    Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
-    Display.logOfferBook(mgv, address(tk0), address(tk1), 5); // taker has more A
-    Display.logOfferBook(invMgv, address(tk1), address(tk0), 2);
-    Display.logBalances(tk0, tk1, address(tkr));
+    Display.logBalances(
+      [address(tk0), address(tk1)],
+      address(tkr),
+      address(_tkr)
+    );
+    TestUtils.logOfferBook(mgv, address(tk0), address(tk1), 5); // taker has more A
+    TestUtils.logOfferBook(invMgv, address(tk1), address(tk0), 2);
+    Display.logBalances([address(tk0), address(tk1)], address(tkr));
 
     _tkr.delegateOrder(mgr, 1.8 ether, 1.8 ether, invMgv, false); // (B,A) FlashTaker order
-    Display.logOfferBook(mgv, address(tk0), address(tk1), 5);
-    Display.logOfferBook(invMgv, address(tk1), address(tk0), 2);
-    Display.logBalances(tk0, tk1, address(tkr), address(_tkr));
+    TestUtils.logOfferBook(mgv, address(tk0), address(tk1), 5);
+    TestUtils.logOfferBook(invMgv, address(tk1), address(tk0), 2);
+    Display.logBalances(
+      [address(tk0), address(tk1)],
+      address(tkr),
+      address(_tkr)
+    );
     check_logs(address(mgr), true);
   }
 
@@ -221,12 +249,12 @@ contract AMM_Test {
 
     amm.newMarket(address(tk0), address(tk1));
 
-    Display.logOfferBook(mgv, address(tk0), address(tk1), 1);
-    Display.logOfferBook(mgv, address(tk1), address(tk0), 1);
+    TestUtils.logOfferBook(mgv, address(tk0), address(tk1), 1);
+    TestUtils.logOfferBook(mgv, address(tk1), address(tk0), 1);
 
     mgv.marketOrder(address(tk0), address(tk1), 3 ether, 2**160 - 1, true);
 
-    Display.logOfferBook(mgv, address(tk0), address(tk1), 1);
-    Display.logOfferBook(mgv, address(tk1), address(tk0), 1);
+    TestUtils.logOfferBook(mgv, address(tk0), address(tk1), 1);
+    TestUtils.logOfferBook(mgv, address(tk1), address(tk0), 1);
   }
 }

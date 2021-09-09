@@ -8,12 +8,203 @@ import "../Agents/MakerDeployer.sol";
 import "../Agents/TestMoriartyMaker.sol";
 import "../Agents/TestToken.sol";
 
-import "./TestEvents.sol";
-import "./Display.sol";
+import {Display, Test as TestEvents} from "@giry/hardhat-test-solidity/test.sol";
 import "../../InvertedMangrove.sol";
 import "../../Mangrove.sol";
 
 library TestUtils {
+  /* Various utilities */
+
+  function uint2str(uint _i)
+    internal
+    pure
+    returns (string memory _uintAsString)
+  {
+    if (_i == 0) {
+      return "0";
+    }
+    uint j = _i;
+    uint len;
+    while (j != 0) {
+      len++;
+      j /= 10;
+    }
+    bytes memory bstr = new bytes(len);
+    uint k = len - 1;
+    while (_i != 0) {
+      bstr[k--] = bytes1(uint8(48 + (_i % 10)));
+      _i /= 10;
+    }
+    return string(bstr);
+  }
+
+  function append(string memory a, string memory b)
+    internal
+    pure
+    returns (string memory)
+  {
+    return string(abi.encodePacked(a, b));
+  }
+
+  function append(
+    string memory a,
+    string memory b,
+    string memory c
+  ) internal pure returns (string memory) {
+    return string(abi.encodePacked(a, b, c));
+  }
+
+  function append(
+    string memory a,
+    string memory b,
+    string memory c,
+    string memory d
+  ) internal pure returns (string memory) {
+    return string(abi.encodePacked(a, b, c, d));
+  }
+
+  function toEthUnits(uint w, string memory units)
+    internal
+    pure
+    returns (string memory eth)
+  {
+    string memory suffix = append(" ", units);
+
+    if (w == 0) {
+      return (append("0", suffix));
+    }
+    uint i = 0;
+    while (w % 10 == 0) {
+      w = w / 10;
+      i += 1;
+    }
+    if (i >= 18) {
+      w = w * (10**(i - 18));
+      return append(uint2str(w), suffix);
+    } else {
+      uint zeroBefore = 18 - i;
+      string memory zeros = "";
+      while (zeroBefore > 1) {
+        zeros = append(zeros, "0");
+        zeroBefore--;
+      }
+      return (append("0.", zeros, uint2str(w), suffix));
+    }
+  }
+
+  /* Log offer book */
+
+  event OBState(
+    address base,
+    address quote,
+    uint[] offerIds,
+    uint[] wants,
+    uint[] gives,
+    address[] makerAddr,
+    uint[] gasreqs
+  );
+
+  /** Two different OB logging methods.
+   *
+   *  `logOfferBook` will be well-interlaced with tests so you can easily see what's going on.
+   *
+   *  `printOfferBook` will survive reverts so you can log inside a reverting call.
+   */
+
+  /* Log OB with events and hardhat-test-solidity */
+  function logOfferBook(
+    AbstractMangrove mgv,
+    address base,
+    address quote,
+    uint size
+  ) internal {
+    uint offerId = mgv.best(base, quote);
+
+    uint[] memory wants = new uint[](size);
+    uint[] memory gives = new uint[](size);
+    address[] memory makerAddr = new address[](size);
+    uint[] memory offerIds = new uint[](size);
+    uint[] memory gasreqs = new uint[](size);
+    uint c = 0;
+    while ((offerId != 0) && (c < size)) {
+      (ML.Offer memory offer, ML.OfferDetail memory od) = mgv.offerInfo(
+        base,
+        quote,
+        offerId
+      );
+      wants[c] = offer.wants;
+      gives[c] = offer.gives;
+      makerAddr[c] = od.maker;
+      offerIds[c] = offerId;
+      gasreqs[c] = od.gasreq;
+      offerId = offer.next;
+      c++;
+    }
+    emit OBState(base, quote, offerIds, wants, gives, makerAddr, gasreqs);
+  }
+
+  /* Log OB with hardhat's console.log */
+  function printOfferBook(
+    AbstractMangrove mgv,
+    address base,
+    address quote
+  ) internal view {
+    uint offerId = mgv.best(base, quote);
+    TestToken req_tk = TestToken(quote);
+    TestToken ofr_tk = TestToken(base);
+
+    console.log("-----Best offer: %d-----", offerId);
+    while (offerId != 0) {
+      (ML.Offer memory ofr, ) = mgv.offerInfo(base, quote, offerId);
+      console.log(
+        "[offer %d] %s/%s",
+        offerId,
+        TestUtils.toEthUnits(ofr.wants, req_tk.symbol()),
+        TestUtils.toEthUnits(ofr.gives, ofr_tk.symbol())
+      );
+      // console.log(
+      //   "(%d gas, %d to finish, %d penalty)",
+      //   gasreq,
+      //   minFinishGas,
+      //   gasprice
+      // );
+      // console.log(name(makerAddr));
+      offerId = ofr.next;
+    }
+    console.log("-----------------------");
+  }
+
+  /* Additional testing functions */
+
+  function revertEq(string memory actual_reason, string memory expected_reason)
+    internal
+    returns (bool)
+  {
+    return TestEvents.eq(actual_reason, expected_reason, "wrong revert reason");
+  }
+
+  event TestNot0x(bool success, address addr);
+
+  function not0x(address actual) internal returns (bool) {
+    bool success = actual != address(0);
+    emit TestNot0x(success, actual);
+    return success;
+  }
+
+  event GasCost(string callname, uint value);
+
+  function execWithCost(
+    string memory callname,
+    address addr,
+    bytes memory data
+  ) internal returns (bytes memory) {
+    uint g0 = gasleft();
+    (bool noRevert, bytes memory retdata) = addr.delegatecall(data);
+    require(noRevert, "execWithCost should not revert");
+    emit GasCost(callname, g0 - gasleft());
+    return retdata;
+  }
+
   struct Balances {
     uint mgvBalanceWei;
     uint mgvBalanceFees;
@@ -24,7 +215,14 @@ library TestUtils {
     uint[] makersBalanceB;
     uint[] makersBalanceWei;
   }
-  enum Info {makerWants, makerGives, nextId, gasreq, gasprice}
+  enum Info {
+    makerWants,
+    makerGives,
+    nextId,
+    gasreqreceive_on,
+    gasprice,
+    gasreq
+  }
 
   function getReason(bytes memory returnData)
     internal
@@ -109,8 +307,11 @@ library TestUtils {
     Info infKey,
     uint offerId
   ) internal view returns (uint) {
-    (ML.Offer memory offer, ML.OfferDetail memory offerDetail) =
-      mgv.offerInfo(base, quote, offerId);
+    (ML.Offer memory offer, ML.OfferDetail memory offerDetail) = mgv.offerInfo(
+      base,
+      quote,
+      offerId
+    );
     if (!mgv.isLive(mgv.offers(base, quote, offerId))) {
       return 0;
     }
@@ -168,8 +369,8 @@ library MgvSetup {
     external
     returns (AbstractMangrove mgv)
   {
-    TestEvents.not0x(address(base));
-    TestEvents.not0x(address(quote));
+    TestUtils.not0x(address(base));
+    TestUtils.not0x(address(quote));
     mgv = new Mangrove({gasprice: 40, gasmax: 1_000_000});
 
     mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
@@ -183,8 +384,8 @@ library MgvSetup {
     TestToken quote,
     bool inverted
   ) external returns (AbstractMangrove mgv) {
-    TestEvents.not0x(address(base));
-    TestEvents.not0x(address(quote));
+    TestUtils.not0x(address(base));
+    TestUtils.not0x(address(quote));
     if (inverted) {
       mgv = new InvertedMangrove({gasprice: 40, gasmax: 1_000_000});
 
@@ -231,7 +432,7 @@ library MakerDeployerSetup {
     address base,
     address quote
   ) external returns (MakerDeployer) {
-    TestEvents.not0x(address(mgv));
+    TestUtils.not0x(address(mgv));
     return (new MakerDeployer(mgv, base, quote));
   }
 }
@@ -242,7 +443,7 @@ library TakerSetup {
     address base,
     address quote
   ) external returns (TestTaker) {
-    TestEvents.not0x(address(mgv));
+    TestUtils.not0x(address(mgv));
     return new TestTaker(mgv, IERC20(base), IERC20(quote));
   }
 }

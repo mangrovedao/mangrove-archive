@@ -6,10 +6,9 @@ pragma experimental ABIEncoderV2;
 import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
 import "hardhat/console.sol";
+import "@giry/hardhat-test-solidity/test.sol";
 
-import "./Toolbox/TestEvents.sol";
 import "./Toolbox/TestUtils.sol";
-import "./Toolbox/Display.sol";
 
 import "./Agents/TestToken.sol";
 import "./Agents/TestMaker.sol";
@@ -159,7 +158,7 @@ contract Gatekeeping_Test is IMaker {
     try notAdmin.setFee(base, quote, 0) {
       TestEvents.fail("nonadmin cannot set fee");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/unauthorized");
+      TestUtils.revertEq(r, "mgv/unauthorized");
     }
   }
 
@@ -168,7 +167,7 @@ contract Gatekeeping_Test is IMaker {
     try notAdmin.setDensity(base, quote, 0) {
       TestEvents.fail("nonadmin cannot set density");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/unauthorized");
+      TestUtils.revertEq(r, "mgv/unauthorized");
     }
   }
 
@@ -186,7 +185,7 @@ contract Gatekeeping_Test is IMaker {
     try notAdmin.kill() {
       TestEvents.fail("nonadmin cannot kill");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/unauthorized");
+      TestUtils.revertEq(r, "mgv/unauthorized");
     }
   }
 
@@ -219,7 +218,7 @@ contract Gatekeeping_Test is IMaker {
     try notAdmin.setVault(address(this)) {
       TestEvents.fail("nonadmin cannot set vault");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/unauthorized");
+      TestUtils.revertEq(r, "mgv/unauthorized");
     }
   }
 
@@ -228,7 +227,7 @@ contract Gatekeeping_Test is IMaker {
     try notAdmin.setMonitor(address(this)) {
       TestEvents.fail("nonadmin cannot set monitor");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/unauthorized");
+      TestUtils.revertEq(r, "mgv/unauthorized");
     }
   }
 
@@ -237,7 +236,7 @@ contract Gatekeeping_Test is IMaker {
     try notAdmin.activate(quote, base, 0, 100, 30_000, 0) {
       TestEvents.fail("nonadmin cannot set active");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/unauthorized");
+      TestUtils.revertEq(r, "mgv/unauthorized");
     }
   }
 
@@ -246,7 +245,7 @@ contract Gatekeeping_Test is IMaker {
     try notAdmin.setGasprice(0) {
       TestEvents.fail("nonadmin cannot set gasprice");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/unauthorized");
+      TestUtils.revertEq(r, "mgv/unauthorized");
     }
   }
 
@@ -255,7 +254,7 @@ contract Gatekeeping_Test is IMaker {
     try notAdmin.setGasmax(0) {
       TestEvents.fail("nonadmin cannot set gasmax");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/unauthorized");
+      TestUtils.revertEq(r, "mgv/unauthorized");
     }
   }
 
@@ -264,7 +263,7 @@ contract Gatekeeping_Test is IMaker {
     try notAdmin.setGasbase(base, quote, 0, 0) {
       TestEvents.fail("nonadmin cannot set gasbase");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/unauthorized");
+      TestUtils.revertEq(r, "mgv/unauthorized");
     }
   }
 
@@ -277,7 +276,7 @@ contract Gatekeeping_Test is IMaker {
 
   function set_fee_ceiling_test() public {
     try mgv.setFee(base, quote, 501) {} catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/config/fee/<=500");
+      TestUtils.revertEq(r, "mgv/config/fee/<=500");
     }
   }
 
@@ -285,7 +284,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.setDensity(base, quote, uint(type(uint32).max) + 1) {
       TestEvents.fail("density above ceiling should fail");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/config/density/32bits");
+      TestUtils.revertEq(r, "mgv/config/density/32bits");
     }
   }
 
@@ -293,7 +292,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.setGasprice(uint(type(uint16).max) + 1) {
       TestEvents.fail("gasprice above ceiling should fail");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/config/gasprice/16bits");
+      TestUtils.revertEq(r, "mgv/config/gasprice/16bits");
     }
   }
 
@@ -307,13 +306,13 @@ contract Gatekeeping_Test is IMaker {
     try mgv.setGasbase(base, quote, uint(type(uint24).max) + 1, 0) {
       TestEvents.fail("overhead_gasbase above ceiling should fail");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/config/overhead_gasbase/24bits");
+      TestUtils.revertEq(r, "mgv/config/overhead_gasbase/24bits");
     }
 
     try mgv.setGasbase(base, quote, 0, uint(type(uint24).max) + 1) {
       TestEvents.fail("offer_gasbase above ceiling should fail");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/config/offer_gasbase/24bits");
+      TestUtils.revertEq(r, "mgv/config/offer_gasbase/24bits");
     }
   }
 
@@ -321,7 +320,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.setGasmax(uint(type(uint24).max) + 1) {
       TestEvents.fail("gasmax above ceiling should fail");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/config/gasmax/24bits");
+      TestUtils.revertEq(r, "mgv/config/gasmax/24bits");
     }
   }
 
@@ -470,7 +469,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.snipes(base, quote, targets, true) {
       TestEvents.fail("Snipes with takerWants > 96bits should fail");
     } catch Error(string memory reason) {
-      TestEvents.revertEq(reason, "mgv/snipes/takerWants/96bits");
+      TestUtils.revertEq(reason, "mgv/snipes/takerWants/96bits");
     }
   }
 
@@ -486,7 +485,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.snipes(base, quote, targets, true) {
       TestEvents.fail("Snipes with takerGives > 96bits should fail");
     } catch Error(string memory reason) {
-      TestEvents.revertEq(reason, "mgv/snipes/takerGives/96bits");
+      TestUtils.revertEq(reason, "mgv/snipes/takerGives/96bits");
     }
   }
 
@@ -516,7 +515,7 @@ contract Gatekeeping_Test is IMaker {
     {
       TestEvents.fail("snipeFor should fail without allowance");
     } catch Error(string memory reason) {
-      TestEvents.revertEq(reason, "mgv/lowAllowance");
+      TestUtils.revertEq(reason, "mgv/lowAllowance");
     }
   }
 
@@ -525,17 +524,16 @@ contract Gatekeeping_Test is IMaker {
     mkr.approveMgv(TestToken(base), 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     tkr.approveSpender(address(this), 1.2 ether);
-    (bool success, , ) =
-      mgv.snipeFor(
-        base,
-        quote,
-        ofr,
-        1 ether,
-        1 ether,
-        300_000,
-        true,
-        address(tkr)
-      );
+    (bool success, , ) = mgv.snipeFor(
+      base,
+      quote,
+      ofr,
+      1 ether,
+      1 ether,
+      300_000,
+      true,
+      address(tkr)
+    );
     TestEvents.check(success, "snipeFor should succeed");
     TestEvents.eq(
       mgv.allowances(base, quote, address(tkr), address(this)),
@@ -562,7 +560,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.snipesFor(base, quote, targets, true, address(tkr)) {
       TestEvents.fail("snipesFor should fail without allowance");
     } catch Error(string memory reason) {
-      TestEvents.revertEq(reason, "mgv/lowAllowance");
+      TestUtils.revertEq(reason, "mgv/lowAllowance");
     }
   }
 
@@ -573,8 +571,13 @@ contract Gatekeeping_Test is IMaker {
     tkr.approveSpender(address(this), 1.2 ether);
     uint[4][] memory targets = new uint[4][](1);
     targets[0] = [ofr, type(uint96).max, type(uint96).max, type(uint).max];
-    (uint successes, , ) =
-      mgv.snipesFor(base, quote, targets, true, address(tkr));
+    (uint successes, , ) = mgv.snipesFor(
+      base,
+      quote,
+      targets,
+      true,
+      address(tkr)
+    );
     TestEvents.eq(successes, 1, "snipesFor should have 1 success");
     TestEvents.eq(
       mgv.allowances(base, quote, address(tkr), address(this)),
@@ -590,7 +593,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.marketOrderFor(base, quote, 1 ether, 1 ether, true, address(tkr)) {
       TestEvents.fail("marketOrderfor should fail without allowance");
     } catch Error(string memory reason) {
-      TestEvents.revertEq(reason, "mgv/lowAllowance");
+      TestUtils.revertEq(reason, "mgv/lowAllowance");
     }
   }
 
@@ -599,8 +602,14 @@ contract Gatekeeping_Test is IMaker {
     mkr.approveMgv(TestToken(base), 1 ether);
     mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     tkr.approveSpender(address(this), 1.2 ether);
-    (uint takerGot, ) =
-      mgv.marketOrderFor(base, quote, 1 ether, 1 ether, true, address(tkr));
+    (uint takerGot, ) = mgv.marketOrderFor(
+      base,
+      quote,
+      1 ether,
+      1 ether,
+      true,
+      address(tkr)
+    );
     console.log(takerGot);
     TestEvents.eq(
       mgv.allowances(base, quote, address(tkr), address(this)),
@@ -649,7 +658,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.newOffer(base, quote, 1 ether, 1 ether, 30_000, 0, 0) {
       TestEvents.fail("newOffer on same pair should fail");
     } catch Error(string memory reason) {
-      TestEvents.revertEq(reason, "mgv/reentrancyLocked");
+      TestUtils.revertEq(reason, "mgv/reentrancyLocked");
     }
   }
 
@@ -686,7 +695,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.updateOffer(base, quote, 1 ether, 2 ether, 35_000, 0, 0, ofr) {
       TestEvents.fail("update offer on same pair should fail");
     } catch Error(string memory reason) {
-      TestEvents.revertEq(reason, "mgv/reentrancyLocked");
+      TestUtils.revertEq(reason, "mgv/reentrancyLocked");
     }
   }
 
@@ -742,7 +751,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.retractOffer(base, quote, id, false) {
       TestEvents.fail("retractOffer on same pair should fail");
     } catch Error(string memory reason) {
-      TestEvents.revertEq(reason, "mgv/reentrancyLocked");
+      TestUtils.revertEq(reason, "mgv/reentrancyLocked");
     }
   }
 
@@ -799,7 +808,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.marketOrder(base, quote, 0.2 ether, 0.2 ether, true) {
       TestEvents.fail("marketOrder on same pair should fail");
     } catch Error(string memory reason) {
-      TestEvents.revertEq(reason, "mgv/reentrancyLocked");
+      TestUtils.revertEq(reason, "mgv/reentrancyLocked");
     }
   }
 
@@ -865,7 +874,7 @@ contract Gatekeeping_Test is IMaker {
     {
       TestEvents.fail("snipe on same pair should fail");
     } catch Error(string memory reason) {
-      TestEvents.revertEq(reason, "mgv/reentrancyLocked");
+      TestUtils.revertEq(reason, "mgv/reentrancyLocked");
     }
   }
 
@@ -926,7 +935,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.newOffer(base, quote, 1 ether, 1 ether, 0, 0, 0) {
       TestEvents.fail("newOffer should fail on closed market");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/dead");
+      TestUtils.revertEq(r, "mgv/dead");
     }
   }
 
@@ -939,7 +948,7 @@ contract Gatekeeping_Test is IMaker {
     try tkr.take(ofr, 1 ether) {
       TestEvents.fail("take offer should fail on closed market");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/dead");
+      TestUtils.revertEq(r, "mgv/dead");
     }
   }
 
@@ -948,20 +957,21 @@ contract Gatekeeping_Test is IMaker {
     try mgv.newOffer(base, quote, 1 ether, 1 ether, 0, 0, 0) {
       TestEvents.fail("newOffer should fail on closed market");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/inactive");
+      TestUtils.revertEq(r, "mgv/inactive");
     }
   }
 
   function receive_on_closed_fails_test() public {
     mgv.kill();
 
-    (bool success, bytes memory retdata) =
-      address(mgv).call{value: 10 ether}("");
+    (bool success, bytes memory retdata) = address(mgv).call{value: 10 ether}(
+      ""
+    );
     if (success) {
       TestEvents.fail("receive() should fail on closed market");
     } else {
       string memory r = TestUtils.getReason(retdata);
-      TestEvents.revertEq(r, "mgv/dead");
+      TestUtils.revertEq(r, "mgv/dead");
     }
   }
 
@@ -970,7 +980,7 @@ contract Gatekeeping_Test is IMaker {
     try tkr.marketOrder(1 ether, 1 ether) {
       TestEvents.fail("marketOrder should fail on closed market");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/dead");
+      TestUtils.revertEq(r, "mgv/dead");
     }
   }
 
@@ -979,7 +989,7 @@ contract Gatekeeping_Test is IMaker {
     try tkr.take(0, 1 ether) {
       TestEvents.fail("snipe should fail on closed market");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/dead");
+      TestUtils.revertEq(r, "mgv/dead");
     }
   }
 
@@ -1000,7 +1010,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.updateOffer(base, quote, 1 ether, 1 ether, 0, 0, 0, ofr) {
       TestEvents.fail("update offer should fail on closed market");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/dead");
+      TestUtils.revertEq(r, "mgv/dead");
     }
   }
 
@@ -1019,7 +1029,7 @@ contract Gatekeeping_Test is IMaker {
     try mgv.updateOffer(base, quote, 1 ether, 1 ether, 0, 0, 0, ofr) {
       TestEvents.fail("update offer should fail on inactive market");
     } catch Error(string memory r) {
-      TestEvents.revertEq(r, "mgv/inactive");
+      TestUtils.revertEq(r, "mgv/inactive");
       TestEvents.expectFrom(address(mgv));
       emit MgvEvents.SetActive(base, quote, false);
     }

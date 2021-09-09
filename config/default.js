@@ -38,6 +38,9 @@ config.hardhat = {
     cache: "./cache",
     artifacts: "./build",
   },
+  testSolidity: {
+    logFormatters: requireFromProjectRoot("./lib/log_formatters"),
+  },
   solpp: {
     defs: requireFromProjectRoot("./structs.js"),
   },

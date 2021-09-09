@@ -119,14 +119,6 @@ library TestEvents {
     string message
   );
 
-  event TestNot0x(bool success, address addr);
-
-  function not0x(address actual) internal returns (bool) {
-    bool success = actual != address(0);
-    emit TestNot0x(success, actual);
-    return success;
-  }
-
   function eq(
     address actual,
     address expected,

@@ -2,15 +2,9 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {
-  ITaker,
-  IMaker,
-  MgvLib as DC,
-  MgvEvents,
-  IMgvMonitor
-} from "../../MgvLib.sol";
+import {ITaker, IMaker, MgvLib as DC, MgvEvents, IMgvMonitor} from "../../MgvLib.sol";
 import "../../AbstractMangrove.sol";
-import "../Toolbox/Display.sol";
+import "../Toolbox/TestUtils.sol";
 import "hardhat/console.sol";
 
 /* TODO
@@ -117,8 +111,10 @@ contract MM1 {
 
     // average price numerator (same for buy&sell)
     // at most (96-SHF)*2+1 bits
-    uint m_n =
-      best_sell.wants * best_buy.wants + best_sell.gives * best_buy.gives;
+    uint m_n = best_sell.wants *
+      best_buy.wants +
+      best_sell.gives *
+      best_buy.gives;
     //console.log("m_n",m_n);
 
     uint d_n = 10000 + base_spread; // at most 14 bits

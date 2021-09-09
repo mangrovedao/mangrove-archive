@@ -6,9 +6,7 @@ pragma abicoder v2;
 import "../AbstractMangrove.sol";
 import "hardhat/console.sol";
 
-import "./Toolbox/TestEvents.sol";
 import "./Toolbox/TestUtils.sol";
-import "./Toolbox/Display.sol";
 
 import "./Agents/TestToken.sol";
 import "./Agents/TestMonitor.sol";
@@ -129,24 +127,30 @@ contract Monitor_Test {
     mgv.setNotify(true);
     uint ofrId = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     bytes32 offer = mgv.offers(base, quote, ofrId);
-    (bool success, , ) =
-      mgv.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000, true);
+    (bool success, , ) = mgv.snipe(
+      base,
+      quote,
+      ofrId,
+      0.04 ether,
+      0.05 ether,
+      100_000,
+      true
+    );
     TestEvents.check(success, "snipe should succeed");
     (bytes32 _global, bytes32 _local) = mgv.config(base, quote);
     _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
 
-    ML.SingleOrder memory order =
-      ML.SingleOrder({
-        base: base,
-        quote: quote,
-        offerId: ofrId,
-        offer: offer,
-        wants: 0.04 ether,
-        gives: 0.04 ether, // wants has been updated to offer price
-        offerDetail: mgv.offerDetails(base, quote, ofrId),
-        global: _global,
-        local: _local
-      });
+    ML.SingleOrder memory order = ML.SingleOrder({
+      base: base,
+      quote: quote,
+      offerId: ofrId,
+      offer: offer,
+      wants: 0.04 ether,
+      gives: 0.04 ether, // wants has been updated to offer price
+      offerDetail: mgv.offerDetails(base, quote, ofrId),
+      global: _global,
+      local: _local
+    });
 
     TestEvents.expectFrom(address(monitor));
     emit L.TradeSuccess(order, address(this));
@@ -157,26 +161,32 @@ contract Monitor_Test {
     mgv.setNotify(true);
     uint ofrId = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     bytes32 offer = mgv.offers(base, quote, ofrId);
-    (bool success, , ) =
-      mgv.snipe(base, quote, ofrId, 0.04 ether, 0.05 ether, 100_000, true);
+    (bool success, , ) = mgv.snipe(
+      base,
+      quote,
+      ofrId,
+      0.04 ether,
+      0.05 ether,
+      100_000,
+      true
+    );
     TestEvents.check(!success, "snipe should fail");
 
     (bytes32 _global, bytes32 _local) = mgv.config(base, quote);
     // config sent during maker callback has stale best and, is locked
     _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
 
-    ML.SingleOrder memory order =
-      ML.SingleOrder({
-        base: base,
-        quote: quote,
-        offerId: ofrId,
-        offer: offer,
-        wants: 0.04 ether,
-        gives: 0.04 ether, // gives has been updated to offer price
-        offerDetail: mgv.offerDetails(base, quote, ofrId),
-        global: _global,
-        local: _local
-      });
+    ML.SingleOrder memory order = ML.SingleOrder({
+      base: base,
+      quote: quote,
+      offerId: ofrId,
+      offer: offer,
+      wants: 0.04 ether,
+      gives: 0.04 ether, // gives has been updated to offer price
+      offerDetail: mgv.offerDetails(base, quote, ofrId),
+      global: _global,
+      local: _local
+    });
 
     TestEvents.expectFrom(address(monitor));
     emit L.TradeFail(order, address(this));

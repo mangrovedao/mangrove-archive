@@ -7,9 +7,7 @@ import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
 import "hardhat/console.sol";
 
-import "./Toolbox/TestEvents.sol";
 import "./Toolbox/TestUtils.sol";
-import "./Toolbox/Display.sol";
 
 import "./Agents/TestToken.sol";
 import "./Agents/TestMaker.sol";
@@ -148,8 +146,15 @@ contract MakerOperations_Test is IMaker {
     bool funded;
     (funded, ) = address(mgv).call{value: 1 ether}("");
     base.mint(address(this), 1 ether);
-    uint ofr =
-      mgv.newOffer(_base, _quote, 0.05 ether, 0.05 ether, 200_000, 0, 0);
+    uint ofr = mgv.newOffer(
+      _base,
+      _quote,
+      0.05 ether,
+      0.05 ether,
+      200_000,
+      0,
+      0
+    );
     require(tkr.take(ofr, 0.05 ether), "take must work or test is void");
   }
 
@@ -271,14 +276,13 @@ contract MakerOperations_Test is IMaker {
   function retract_middle_offer_leaves_a_valid_book_test() public {
     mkr.provisionMgv(10 ether);
     uint ofr0 = mkr.newOffer(0.9 ether, 1 ether, 2300, 100);
-    uint ofr =
-      mkr.newOffer({
-        wants: 1 ether,
-        gives: 1 ether,
-        gasreq: 2300,
-        gasprice: 100,
-        pivotId: 0
-      });
+    uint ofr = mkr.newOffer({
+      wants: 1 ether,
+      gives: 1 ether,
+      gasreq: 2300,
+      gasprice: 100,
+      pivotId: 0
+    });
     uint ofr1 = mkr.newOffer(1.1 ether, 1 ether, 2300, 100);
 
     mkr.retractOffer(ofr);
@@ -308,14 +312,13 @@ contract MakerOperations_Test is IMaker {
 
   function retract_best_offer_leaves_a_valid_book_test() public {
     mkr.provisionMgv(10 ether);
-    uint ofr =
-      mkr.newOffer({
-        wants: 1 ether,
-        gives: 1 ether,
-        gasreq: 2300,
-        gasprice: 100,
-        pivotId: 0
-      });
+    uint ofr = mkr.newOffer({
+      wants: 1 ether,
+      gives: 1 ether,
+      gasreq: 2300,
+      gasprice: 100,
+      pivotId: 0
+    });
     uint ofr1 = mkr.newOffer(1.1 ether, 1 ether, 2300, 100);
     mkr.retractOffer(ofr);
     TestEvents.check(
@@ -340,14 +343,13 @@ contract MakerOperations_Test is IMaker {
 
   function retract_worst_offer_leaves_a_valid_book_test() public {
     mkr.provisionMgv(10 ether);
-    uint ofr =
-      mkr.newOffer({
-        wants: 1 ether,
-        gives: 1 ether,
-        gasreq: 2300,
-        gasprice: 100,
-        pivotId: 0
-      });
+    uint ofr = mkr.newOffer({
+      wants: 1 ether,
+      gives: 1 ether,
+      gasreq: 2300,
+      gasprice: 100,
+      pivotId: 0
+    });
     uint ofr0 = mkr.newOffer(0.9 ether, 1 ether, 2300, 100);
     TestEvents.check(
       mgv.isLive(mgv.offers(_base, _quote, ofr)),
@@ -549,7 +551,7 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
     mkr.updateOffer(1.0 ether, 1.0 ether, 99_999, ofr1, ofr1);
     uint best = mgv.getConfig(_base, _quote).local.best;
-    Display.logOfferBook(mgv, _base, _quote, 2);
+    TestUtils.logOfferBook(mgv, _base, _quote, 2);
     TestEvents.eq(best, ofr1, "Best offer should have changed");
   }
 
@@ -572,7 +574,7 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(ofr0, cfg.local.best, "Wrong best offer");
     mkr.updateOffer(1.0 ether, 1.0 ether, 99_999, ofr0, ofr1);
     uint best = mgv.getConfig(_base, _quote).local.best;
-    Display.logOfferBook(mgv, _base, _quote, 2);
+    TestUtils.logOfferBook(mgv, _base, _quote, 2);
     TestEvents.eq(best, ofr1, "Best offer should have changed");
   }
 
@@ -701,14 +703,13 @@ contract MakerOperations_Test is IMaker {
     public
   {
     MgvLib.Config memory cfg = mgv.getConfig(_base, _quote);
-    uint provision =
-      TestUtils.getProvision(
-        mgv,
-        _base,
-        _quote,
-        100_000,
-        cfg.global.gasprice + 1
-      );
+    uint provision = TestUtils.getProvision(
+      mgv,
+      _base,
+      _quote,
+      100_000,
+      cfg.global.gasprice + 1
+    );
     mkr.provisionMgv(provision);
     uint ofr0 = mkr.newOffer(1.0 ether, 1 ether, 100_000, 0);
     mgv.setGasprice(cfg.global.gasprice + 1); //gasprice goes up

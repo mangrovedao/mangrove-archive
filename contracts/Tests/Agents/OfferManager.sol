@@ -4,16 +4,8 @@ pragma abicoder v2;
 
 import "../../AbstractMangrove.sol";
 //import "../../MgvLib.sol";
-import {
-  IMaker,
-  ITaker,
-  MgvLib as ML,
-  MgvEvents,
-  IMgvMonitor
-} from "../../MgvLib.sol";
+import {IMaker, ITaker, MgvLib as ML, MgvEvents, IMgvMonitor} from "../../MgvLib.sol";
 import "hardhat/console.sol";
-
-import "../Toolbox/Display.sol";
 
 contract OfferManager is IMaker, ITaker {
   // erc_addr -> owner_addr -> balance
@@ -56,8 +48,9 @@ contract OfferManager is IMaker, ITaker {
   ) external override {
     if (msg.sender == address(invMgv)) {
       //should have received funds by now
-      address owner =
-        owners[msg.sender][_order.base][_order.quote][_order.offerId];
+      address owner = owners[msg.sender][_order.base][_order.quote][
+        _order.offerId
+      ];
       require(owner != address(0), "Unkown owner");
       IERC20(_order.quote).transfer(owner, _order.gives);
     }
@@ -89,8 +82,9 @@ contract OfferManager is IMaker, ITaker {
     if (msg.sender == address(mgv)) {
       // if residual of offerId is < dust, offer will be removed and dust lost
       // also freeWeil[this] will increase, offerManager may chose to give it back to owner
-      address owner =
-        owners[address(mgv)][_order.base][_order.quote][_order.offerId];
+      address owner = owners[address(mgv)][_order.base][_order.quote][
+        _order.offerId
+      ];
       require(owner != address(0), "Unkown owner");
       try IERC20(_order.quote).transfer(owner, _order.gives) {
         ret = "OfferManager/transferOK";
@@ -137,16 +131,15 @@ contract OfferManager is IMaker, ITaker {
       ); //not checking overflow issues
       (bool success, ) = address(_MGV).call{value: msg.value}("");
       require(success, "provision mgv failed");
-      uint residual_ofr =
-        _MGV.newOffer(
-          quote,
-          base,
-          residual_w,
-          residual_g,
-          gas_to_execute,
-          0,
-          0
-        );
+      uint residual_ofr = _MGV.newOffer(
+        quote,
+        base,
+        residual_w,
+        residual_g,
+        gas_to_execute,
+        0,
+        0
+      );
       owners[address(_MGV)][quote][base][residual_ofr] = msg.sender;
     } catch {
       require(false, "Failed to send market order money to owner");

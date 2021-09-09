@@ -7,9 +7,7 @@ import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
 import "hardhat/console.sol";
 
-import "./Toolbox/TestEvents.sol";
 import "./Toolbox/TestUtils.sol";
-import "./Toolbox/Display.sol";
 
 import "./Agents/TestToken.sol";
 import "./Agents/TestMaker.sol";
@@ -73,22 +71,22 @@ contract MM1T_Test {
   }
 
   function ta_test() public {
-    Display.logOfferBook(mgv, base, quote, 3);
-    Display.logOfferBook(mgv, quote, base, 3);
+    TestUtils.logOfferBook(mgv, base, quote, 3);
+    TestUtils.logOfferBook(mgv, quote, base, 3);
     (MgvLib.Offer memory ofr, ) = mgv.offerInfo(base, quote, 1);
     console.log("prev", ofr.prev);
     mkr.newOffer(base, quote, 0.05 ether, 0.1 ether, 200_000, 0);
     mkr.newOffer(quote, base, 0.05 ether, 0.05 ether, 200_000, 0);
-    Display.logOfferBook(mgv, base, quote, 3);
-    Display.logOfferBook(mgv, quote, base, 3);
+    TestUtils.logOfferBook(mgv, base, quote, 3);
+    TestUtils.logOfferBook(mgv, quote, base, 3);
 
     tkr.marketOrder(0.01 ether, 0.01 ether);
-    Display.logOfferBook(mgv, base, quote, 3);
-    Display.logOfferBook(mgv, quote, base, 3);
+    TestUtils.logOfferBook(mgv, base, quote, 3);
+    TestUtils.logOfferBook(mgv, quote, base, 3);
 
     mkr.newOffer(base, quote, 0.05 ether, 0.1 ether, 200_000, 0);
     mm1.refresh();
-    Display.logOfferBook(mgv, base, quote, 3);
-    Display.logOfferBook(mgv, quote, base, 3);
+    TestUtils.logOfferBook(mgv, base, quote, 3);
+    TestUtils.logOfferBook(mgv, quote, base, 3);
   }
 }

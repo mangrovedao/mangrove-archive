@@ -7,9 +7,7 @@ import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
 import "hardhat/console.sol";
 
-import "./Toolbox/TestEvents.sol";
 import "./Toolbox/TestUtils.sol";
-import "./Toolbox/Display.sol";
 
 import "./Agents/TestToken.sol";
 import "./Agents/TestMaker.sol";
@@ -50,8 +48,12 @@ contract Pedagogical_Test {
     });
 
     //logBook
-    Display.logOfferBook(mgv, address(bat), address(dai), 3);
-    Display.logBalances(bat, dai, address(mkr), address(tkr));
+    TestUtils.logOfferBook(mgv, address(bat), address(dai), 3);
+    Display.logBalances(
+      [address(bat), address(dai)],
+      address(mkr),
+      address(tkr)
+    );
   }
 
   function example_2_markerOrder_test() public {
@@ -60,37 +62,40 @@ contract Pedagogical_Test {
     Display.log(
       "Market order. Taker wants 2.7 exaunits and gives 3.5 exaunits."
     );
-    (uint got, uint gave) =
-      tkr.marketOrder({wants: 2.7 ether, gives: 3.5 ether});
+    (uint got, uint gave) = tkr.marketOrder({
+      wants: 2.7 ether,
+      gives: 3.5 ether
+    });
     Display.log("Market order ended. Got / gave", got, gave);
 
-    Display.logOfferBook(mgv, address(bat), address(dai), 1);
-    Display.logBalances(bat, dai, address(mkr), address(tkr));
+    TestUtils.logOfferBook(mgv, address(bat), address(dai), 1);
+    Display.logBalances(
+      [address(bat), address(dai)],
+      address(mkr),
+      address(tkr)
+    );
   }
 
   function example_3_redeem_test() public {
     setupMakerCompound();
 
     Display.log("Maker posts an offer for 1 exaunit");
-    uint ofr =
-      mkr.newOffer({
-        wants: 1 ether,
-        gives: 1 ether,
-        gasreq: 600_000,
-        pivotId: 0
-      });
+    uint ofr = mkr.newOffer({
+      wants: 1 ether,
+      gives: 1 ether,
+      gasreq: 600_000,
+      pivotId: 0
+    });
 
-    Display.logOfferBook(mgv, address(bat), address(dai), 1);
+    TestUtils.logOfferBook(mgv, address(bat), address(dai), 1);
     Display.logBalances(
-      bat,
-      dai,
+      [address(bat), address(dai)],
       address(mkr),
       address(tkr),
       address(compound)
     );
     Display.logBalances(
-      ERC20BL(compound.c(bat)),
-      ERC20BL(compound.c(dai)),
+      [address(compound.c(bat)), address(compound.c(dai))],
       address(mkr)
     );
 
@@ -102,10 +107,9 @@ contract Pedagogical_Test {
       Display.log("Take failed");
     }
 
-    Display.logOfferBook(mgv, address(bat), address(dai), 1);
+    TestUtils.logOfferBook(mgv, address(bat), address(dai), 1);
     Display.logBalances(
-      bat,
-      dai,
+      [address(bat), address(dai)],
       address(mkr),
       address(tkr),
       address(compound)
@@ -118,8 +122,12 @@ contract Pedagogical_Test {
     Display.log("Maker posts 1 offer");
     mkr.newOffer({wants: 1 ether, gives: 1 ether, gasreq: 400_000, pivotId: 0});
 
-    Display.logOfferBook(mgv, address(bat), address(dai), 1);
-    Display.logBalances(bat, dai, address(mkr), address(tkr));
+    TestUtils.logOfferBook(mgv, address(bat), address(dai), 1);
+    Display.logBalances(
+      [address(bat), address(dai)],
+      address(mkr),
+      address(tkr)
+    );
 
     Display.log(
       "Market order begins. Maker will be called back and reinsert its offer"
@@ -127,8 +135,12 @@ contract Pedagogical_Test {
     (uint got, uint gave) = tkr.marketOrder({wants: 1 ether, gives: 1 ether});
     Display.log("Market order complete. got / gave:", got, gave);
 
-    Display.logOfferBook(mgv, address(bat), address(dai), 1);
-    Display.logBalances(bat, dai, address(mkr), address(tkr));
+    TestUtils.logOfferBook(mgv, address(bat), address(dai), 1);
+    Display.logBalances(
+      [address(bat), address(dai)],
+      address(mkr),
+      address(tkr)
+    );
   }
 
   function _beforeAll() public {
@@ -184,8 +196,12 @@ contract Pedagogical_Test {
     Display.register(address(compound.c(bat)), "cBAT");
     Display.register(address(compound.c(dai)), "cDAI");
 
-    Maker_compound _mkr =
-      new Maker_compound({mgv: mgv, base: bat, quote: dai, compound: compound});
+    Maker_compound _mkr = new Maker_compound({
+      mgv: mgv,
+      base: bat,
+      quote: dai,
+      compound: compound
+    });
 
     mkr = _mkr;
 

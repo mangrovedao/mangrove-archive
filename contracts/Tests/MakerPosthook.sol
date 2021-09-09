@@ -6,9 +6,7 @@ import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
 import "hardhat/console.sol";
 
-import "./Toolbox/TestEvents.sol";
 import "./Toolbox/TestUtils.sol";
-import "./Toolbox/Display.sol";
 
 import "./Agents/TestToken.sol";
 
@@ -189,8 +187,13 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function renew_offer_after_partial_fill_test() public {
-    uint mkr_provision =
-      TestUtils.getProvision(mgv, base, quote, gasreq, _gasprice);
+    uint mkr_provision = TestUtils.getProvision(
+      mgv,
+      base,
+      quote,
+      gasreq,
+      _gasprice
+    );
     posthook_bytes = this.renew_offer_at_posthook.selector;
 
     ofr = mgv.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
@@ -228,8 +231,13 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function renew_offer_after_complete_fill_test() public {
-    uint mkr_provision =
-      TestUtils.getProvision(mgv, base, quote, gasreq, _gasprice);
+    uint mkr_provision = TestUtils.getProvision(
+      mgv,
+      base,
+      quote,
+      gasreq,
+      _gasprice
+    );
     posthook_bytes = this.renew_offer_at_posthook.selector;
 
     ofr = mgv.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
@@ -337,8 +345,13 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function update_offer_with_more_gasprice_test() public {
-    uint mkr_provision =
-      TestUtils.getProvision(mgv, base, quote, gasreq, _gasprice);
+    uint mkr_provision = TestUtils.getProvision(
+      mgv,
+      base,
+      quote,
+      gasreq,
+      _gasprice
+    );
     uint standard_provision = TestUtils.getProvision(mgv, base, quote, gasreq);
     posthook_bytes = this.update_gas_offer_at_posthook.selector;
     // provision for mgv.global.gasprice
@@ -384,8 +397,15 @@ contract MakerPosthook_Test is IMaker {
 
     ofr = mgv.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
 
-    bool success =
-      tkr.snipe(mgv, base, quote, ofr, 1 ether, 1 ether, gasreq - 1);
+    bool success = tkr.snipe(
+      mgv,
+      base,
+      quote,
+      ofr,
+      1 ether,
+      1 ether,
+      gasreq - 1
+    );
     TestEvents.check(!called, "PostHook was called");
     TestEvents.check(!success, "Snipe should fail");
   }
@@ -401,8 +421,13 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function retract_offer_in_posthook_test() public {
-    uint mkr_provision =
-      TestUtils.getProvision(mgv, base, quote, gasreq, _gasprice);
+    uint mkr_provision = TestUtils.getProvision(
+      mgv,
+      base,
+      quote,
+      gasreq,
+      _gasprice
+    );
     posthook_bytes = this.retractOffer_posthook.selector;
     ofr = mgv.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
     TestEvents.eq(
@@ -426,8 +451,13 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function balance_after_fail_and_retract_test() public {
-    uint mkr_provision =
-      TestUtils.getProvision(mgv, base, quote, gasreq, _gasprice);
+    uint mkr_provision = TestUtils.getProvision(
+      mgv,
+      base,
+      quote,
+      gasreq,
+      _gasprice
+    );
     uint tkr_weis = address(tkr).balance;
     posthook_bytes = this.retractOffer_posthook.selector;
     ofr = mgv.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
@@ -485,8 +515,15 @@ contract MakerPosthook_Test is IMaker {
   function best_in_posthook_is_correct_test() public {
     mgv.newOffer(base, quote, 2 ether, 1 ether, gasreq, _gasprice, 0);
     ofr = mgv.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
-    uint best =
-      mgv.newOffer(base, quote, 0.5 ether, 1 ether, gasreq, _gasprice, 0);
+    uint best = mgv.newOffer(
+      base,
+      quote,
+      0.5 ether,
+      1 ether,
+      gasreq,
+      _gasprice,
+      0
+    );
     posthook_bytes = this.check_best_in_posthook.selector;
     bool success = tkr.take(best, 1 ether);
     TestEvents.check(called, "PostHook not called");
@@ -498,8 +535,12 @@ contract MakerPosthook_Test is IMaker {
     MgvLib.OrderResult calldata
   ) external {
     called = true;
-    (, , uint __gives, uint __wants, uint __gasprice) = MgvPack.offer_unpack(order.offer);
-    (address __maker, uint __gasreq, , ) = MgvPack.offerDetail_unpack(order.offerDetail);
+    (, , uint __gives, uint __wants, uint __gasprice) = MgvPack.offer_unpack(
+      order.offer
+    );
+    (address __maker, uint __gasreq, , ) = MgvPack.offerDetail_unpack(
+      order.offerDetail
+    );
     TestEvents.eq(__wants, 1 ether, "Incorrect wants for offer in posthook");
     TestEvents.eq(__gives, 2 ether, "Incorrect gives for offer in posthook");
     TestEvents.eq(__gasprice, 500, "Incorrect gasprice for offer in posthook");
@@ -534,8 +575,13 @@ contract MakerPosthook_Test is IMaker {
   }
 
   function retract_offer_after_fail_in_posthook_test() public {
-    uint mkr_provision =
-      TestUtils.getProvision(mgv, base, quote, gasreq, _gasprice);
+    uint mkr_provision = TestUtils.getProvision(
+      mgv,
+      base,
+      quote,
+      gasreq,
+      _gasprice
+    );
     posthook_bytes = this.retractOffer_posthook.selector;
     ofr = mgv.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
     TestEvents.eq(

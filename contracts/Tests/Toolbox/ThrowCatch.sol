@@ -4,7 +4,7 @@
 pragma abicoder v2;
 
 pragma solidity ^0.7.4;
-import "./TestEvents.sol";
+import {Test as T} from "@giry/hardhat-test-solidity/test.sol";
 import "hardhat/console.sol";
 
 contract Throw_Test {
@@ -20,17 +20,17 @@ contract Throw_Test {
 
   function not_enough_gas_to_call_test() public {
     try this.throws{gas: 100}() {
-      TestEvents.fail("Function should have failed");
+      T.fail("Function should have failed");
     } catch {
-      TestEvents.check(!called, "Function should not have been called");
+      T.check(!called, "Function should not have been called");
     }
   }
 
   function enough_gas_to_call_test() public {
     try this.throws{gas: 1000}() {
-      TestEvents.fail("Function should have failed");
+      T.fail("Function should have failed");
     } catch {
-      TestEvents.check(!called, "Function should have run out of gas");
+      T.check(!called, "Function should have run out of gas");
     }
   }
 }

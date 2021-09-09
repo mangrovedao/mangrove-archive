@@ -23,20 +23,25 @@ library TestMarketOrder {
       TestEvents.eq(
         base.balanceOf(address(makers.getMaker(i))),
         balances.makersBalanceA[i] - offers[i][TestUtils.Info.makerGives],
-        Display.append("Incorrect A balance for maker ", Display.uint2str(i))
+        TestUtils.append(
+          "Incorrect A balance for maker ",
+          TestUtils.uint2str(i)
+        )
       );
       TestEvents.eq(
         quote.balanceOf(address(makers.getMaker(i))),
         balances.makersBalanceB[i] + offers[i][TestUtils.Info.makerWants],
-        Display.append("Incorrect B balance for maker ", Display.uint2str(i))
+        TestUtils.append(
+          "Incorrect B balance for maker ",
+          TestUtils.uint2str(i)
+        )
       );
     }
     uint leftMkrWants;
     {
-      uint leftTkrWants =
-        takerWants -
-          (offers[2][TestUtils.Info.makerGives] +
-            offers[3][TestUtils.Info.makerGives]);
+      uint leftTkrWants = takerWants -
+        (offers[2][TestUtils.Info.makerGives] +
+          offers[3][TestUtils.Info.makerGives]);
 
       leftMkrWants =
         (offers[1][TestUtils.Info.makerWants] * leftTkrWants) /
@@ -71,10 +76,9 @@ library TestMarketOrder {
       "Incorrect declared takerGot"
     );
 
-    uint shouldGive =
-      (offers[3][TestUtils.Info.makerWants] +
-        offers[2][TestUtils.Info.makerWants] +
-        leftMkrWants);
+    uint shouldGive = (offers[3][TestUtils.Info.makerWants] +
+      offers[2][TestUtils.Info.makerWants] +
+      leftMkrWants);
     TestEvents.eq(
       quote.balanceOf(address(taker)), // actual
       balances.takerBalanceB - shouldGive, // expected

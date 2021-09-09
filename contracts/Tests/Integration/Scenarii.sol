@@ -7,9 +7,8 @@ pragma abicoder v2;
 //import "../MgvLib.sol";
 import "hardhat/console.sol";
 
-import "../Toolbox/TestEvents.sol";
 import "../Toolbox/TestUtils.sol";
-import "../Toolbox/Display.sol";
+// import "../Toolbox/Display.sol";
 
 import "../Agents/TestToken.sol";
 import "../Agents/TestMaker.sol";
@@ -46,8 +45,8 @@ contract Scenarii_Test {
   function saveOffers() internal {
     uint offerId = mgv.best(address(base), address(quote));
     while (offerId != 0) {
-      (ML.Offer memory offer, ML.OfferDetail memory offerDetail) =
-        mgv.offerInfo(address(base), address(quote), offerId);
+      (ML.Offer memory offer, ML.OfferDetail memory offerDetail) = mgv
+        .offerInfo(address(base), address(quote), offerId);
       offers[offerId][TestUtils.Info.makerWants] = offer.wants;
       offers[offerId][TestUtils.Info.makerGives] = offer.gives;
       offers[offerId][TestUtils.Info.gasreq] = offerDetail.gasreq;
@@ -81,8 +80,8 @@ contract Scenarii_Test {
     base = TokenSetup.setup("A", "$A");
     quote = TokenSetup.setup("B", "$B");
 
-    TestEvents.not0x(address(base));
-    TestEvents.not0x(address(quote));
+    TestUtils.not0x(address(base));
+    TestUtils.not0x(address(quote));
 
     Display.register(address(0), "NULL_ADDRESS");
     Display.register(msg.sender, "Test Runner");
@@ -94,7 +93,7 @@ contract Scenarii_Test {
   function b_deployMgv_beforeAll() public {
     mgv = MgvSetup.setup(base, quote);
     Display.register(address(mgv), "Mgv");
-    TestEvents.not0x(address(mgv));
+    TestUtils.not0x(address(mgv));
     mgv.setFee(address(base), address(quote), 300);
   }
 
@@ -104,7 +103,7 @@ contract Scenarii_Test {
     for (uint i = 1; i < makers.length(); i++) {
       Display.register(
         address(makers.getMaker(i)),
-        Display.append("maker-", Display.uint2str(i))
+        TestUtils.append("maker-", TestUtils.uint2str(i))
       );
     }
     Display.register(address(makers.getMaker(0)), "failer");
@@ -114,8 +113,9 @@ contract Scenarii_Test {
 
   function d_provisionAll_beforeAll() public {
     // low level tranfer because makers needs gas to transfer to each maker
-    (bool success, ) =
-      address(makers).call{gas: gasleft(), value: 80 ether}(""); // msg.value is distributed evenly amongst makers
+    (bool success, ) = address(makers).call{gas: gasleft(), value: 80 ether}(
+      ""
+    ); // msg.value is distributed evenly amongst makers
     require(success, "maker transfer");
 
     for (uint i = 0; i < makers.length(); i++) {
@@ -131,16 +131,15 @@ contract Scenarii_Test {
   }
 
   function snipe_insert_and_fail_test() public {
-    //TestEvents.logString("=== Insert test ===", 0);
     offerOf = TestInsert.run(balances, mgv, makers, taker, base, quote);
-    //Display.printOfferBook(mgv);
-    Display.logOfferBook(mgv, address(base), address(quote), 4);
+    //TestUtils.printOfferBook(mgv);
+    TestUtils.logOfferBook(mgv, address(base), address(quote), 4);
 
     //TestEvents.logString("=== Snipe test ===", 0);
     saveBalances();
     saveOffers();
     TestSnipe.run(balances, offers, mgv, makers, taker, base, quote);
-    Display.logOfferBook(mgv, address(base), address(quote), 4);
+    TestUtils.logOfferBook(mgv, address(base), address(quote), 4);
 
     // restore offer that was deleted after partial fill, minus taken amount
     makers.getMaker(2).updateOffer(
@@ -151,13 +150,13 @@ contract Scenarii_Test {
       2
     );
 
-    Display.logOfferBook(mgv, address(base), address(quote), 4);
+    TestUtils.logOfferBook(mgv, address(base), address(quote), 4);
 
     //TestEvents.logString("=== Market order test ===", 0);
     saveBalances();
     saveOffers();
     TestMarketOrder.run(balances, offers, mgv, makers, taker, base, quote);
-    Display.logOfferBook(mgv, address(base), address(quote), 4);
+    TestUtils.logOfferBook(mgv, address(base), address(quote), 4);
 
     //TestEvents.logString("=== Failling offer test ===", 0);
     saveBalances();
@@ -172,7 +171,7 @@ contract Scenarii_Test {
       base,
       quote
     );
-    Display.logOfferBook(mgv, address(base), address(quote), 4);
+    TestUtils.logOfferBook(mgv, address(base), address(quote), 4);
     saveBalances();
     saveOffers();
   }

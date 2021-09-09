@@ -7,9 +7,7 @@ import "../AbstractMangrove.sol";
 import {IMaker as IM, MgvLib} from "../MgvLib.sol";
 import "hardhat/console.sol";
 
-import "./Toolbox/TestEvents.sol";
 import "./Toolbox/TestUtils.sol";
-import "./Toolbox/Display.sol";
 
 import "./Agents/TestToken.sol";
 import "./Agents/TestMaker.sol";
@@ -88,10 +86,9 @@ contract InvertedTakerOperations_Test is ITaker {
         "totalGot should be sum of maker flashloans"
       );
     }
-    (bool success, ) =
-      address(this).call(
-        abi.encodeWithSelector(takerTrade_bytes, _base, _quote, totalGives)
-      );
+    (bool success, ) = address(this).call(
+      abi.encodeWithSelector(takerTrade_bytes, _base, _quote, totalGives)
+    );
     require(success, "TradeFail");
   }
 
@@ -175,8 +172,15 @@ contract InvertedTakerOperations_Test is ITaker {
     address vault = address(1);
     mgv.setVault(vault);
     uint vaultBal = quoteT.balanceOf(vault);
-    (bool success, , ) =
-      mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000, true);
+    (bool success, , ) = mgv.snipe(
+      base,
+      quote,
+      ofr,
+      1 ether,
+      1 ether,
+      50_000,
+      true
+    );
     TestEvents.check(success, "Trade should succeed");
     TestEvents.eq(
       quoteT.balanceOf(vault) - vaultBal,
@@ -198,8 +202,15 @@ contract InvertedTakerOperations_Test is ITaker {
   ) external {
     takerTrade_bytes = this.noop.selector;
     skipCheck = true;
-    (bool success, uint totalGot, uint totalGave) =
-      mgv.snipe(_base, _quote, 2, 0.1 ether, 0.1 ether, 100_000, true);
+    (bool success, uint totalGot, uint totalGave) = mgv.snipe(
+      _base,
+      _quote,
+      2,
+      0.1 ether,
+      0.1 ether,
+      100_000,
+      true
+    );
     TestEvents.check(success, "Snipe on reentrancy should succeed");
     TestEvents.eq(totalGot, 0.1 ether, "Incorrect totalGot");
     TestEvents.eq(totalGave, 0.1 ether, "Incorrect totalGave");
@@ -209,8 +220,13 @@ contract InvertedTakerOperations_Test is ITaker {
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     takerTrade_bytes = this.reenter.selector;
-    (uint got, uint gave) =
-      mgv.marketOrder(base, quote, 0.1 ether, 0.1 ether, true);
+    (uint got, uint gave) = mgv.marketOrder(
+      base,
+      quote,
+      0.1 ether,
+      0.1 ether,
+      true
+    );
     TestEvents.eq(
       quoteBalance - gave - 0.1 ether,
       quoteT.balanceOf(address(this)),

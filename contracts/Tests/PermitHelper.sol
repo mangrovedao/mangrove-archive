@@ -7,9 +7,7 @@ import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
 import "hardhat/console.sol";
 
-import "./Toolbox/TestEvents.sol";
 import "./Toolbox/TestUtils.sol";
-import "./Toolbox/Display.sol";
 
 import "./Agents/TestToken.sol";
 import "./Agents/TestMaker.sol";
@@ -170,8 +168,16 @@ contract PermitHelper is IMaker {
       revert("Allowance not set");
     }
 
-    (bool success, uint takerGot, uint takerGave) =
-      mgv.snipeFor(base, quote, 1, 1 ether, 1 ether, 300_000, true, msg.sender);
+    (bool success, uint takerGot, uint takerGave) = mgv.snipeFor(
+      base,
+      quote,
+      1,
+      1 ether,
+      1 ether,
+      300_000,
+      true,
+      msg.sender
+    );
     if (!success) {
       revert("Snipe should succeed");
     }
