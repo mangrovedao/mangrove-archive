@@ -35,7 +35,7 @@ library TestInsert {
     offerOf[0] = makers.getMaker(0).newOffer({ //failer offer 4
       wants: 20 ether,
       gives: 10 ether,
-      gasreq: mgv.getConfig(address(base), address(quote)).global.gasmax,
+      gasreq: mgv.config(address(base), address(quote)).global.gasmax,
       pivotId: 0
     });
     //TestUtils.printOfferBook(mgv);

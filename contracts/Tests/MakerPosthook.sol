@@ -508,7 +508,7 @@ contract MakerPosthook_Test is IMaker {
     MgvLib.OrderResult calldata
   ) external {
     called = true;
-    MgvLib.Config memory cfg = mgv.getConfig(order.base, order.quote);
+    MgvLib.Config memory cfg = mgv.config(order.base, order.quote);
     TestEvents.eq(cfg.local.best, ofr, "Incorrect best offer id in posthook");
   }
 
@@ -561,7 +561,7 @@ contract MakerPosthook_Test is IMaker {
     MgvLib.OrderResult calldata
   ) external {
     called = true;
-    MgvLib.Config memory cfg = mgv.getConfig(order.base, order.quote);
+    MgvLib.Config memory cfg = mgv.config(order.base, order.quote);
     TestEvents.eq(cfg.local.last, ofr, "Incorrect last offer id in posthook");
   }
 

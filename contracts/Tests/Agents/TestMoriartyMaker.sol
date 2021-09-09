@@ -54,8 +54,8 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     mgv.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
     mgv.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
     mgv.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
-    uint density = mgv.getConfig(base, quote).local.density;
-    uint offer_gasbase = mgv.getConfig(base, quote).local.offer_gasbase;
+    uint density = mgv.config(base, quote).local.density;
+    uint offer_gasbase = mgv.config(base, quote).local.offer_gasbase;
     dummy = mgv.newOffer({
       base: base,
       quote: quote,

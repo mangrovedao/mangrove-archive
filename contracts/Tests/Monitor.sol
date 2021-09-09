@@ -51,7 +51,7 @@ contract Monitor_Test {
   }
 
   function initial_monitor_values_test() public {
-    ML.Config memory config = mgv.getConfig(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     TestEvents.check(
       !config.global.useOracle,
       "initial useOracle should be false"
@@ -63,7 +63,7 @@ contract Monitor_Test {
     mgv.setMonitor(address(monitor));
     mgv.setUseOracle(true);
     mgv.setNotify(true);
-    ML.Config memory config = mgv.getConfig(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     TestEvents.eq(
       config.global.monitor,
       address(monitor),
@@ -78,7 +78,7 @@ contract Monitor_Test {
     mgv.setUseOracle(true);
     mgv.setDensity(base, quote, 898);
     monitor.setDensity(base, quote, 899);
-    ML.Config memory config = mgv.getConfig(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     TestEvents.eq(config.local.density, 899, "density should be set oracle");
   }
 
@@ -86,7 +86,7 @@ contract Monitor_Test {
     mgv.setMonitor(address(monitor));
     mgv.setDensity(base, quote, 898);
     monitor.setDensity(base, quote, 899);
-    ML.Config memory config = mgv.getConfig(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     TestEvents.eq(config.local.density, 898, "density should be set by mgv");
   }
 
@@ -95,7 +95,7 @@ contract Monitor_Test {
     mgv.setUseOracle(true);
     mgv.setGasprice(900);
     monitor.setGasprice(901);
-    ML.Config memory config = mgv.getConfig(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     TestEvents.eq(
       config.global.gasprice,
       901,
@@ -107,14 +107,14 @@ contract Monitor_Test {
     mgv.setMonitor(address(monitor));
     mgv.setGasprice(900);
     monitor.setGasprice(901);
-    ML.Config memory config = mgv.getConfig(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     TestEvents.eq(config.global.gasprice, 900, "gasprice should be set by mgv");
   }
 
   function invalid_oracle_address_throws_test() public {
     mgv.setMonitor(address(42));
     mgv.setUseOracle(true);
-    try mgv.getConfig(base, quote) {
+    try mgv.config(base, quote) {
       TestEvents.fail("Call to invalid oracle address should throw");
     } catch {
       TestEvents.succeed();
@@ -137,7 +137,7 @@ contract Monitor_Test {
       true
     );
     TestEvents.check(success, "snipe should succeed");
-    (bytes32 _global, bytes32 _local) = mgv.config(base, quote);
+    (bytes32 _global, bytes32 _local) = mgv._config(base, quote);
     _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
 
     ML.SingleOrder memory order = ML.SingleOrder({
@@ -172,7 +172,7 @@ contract Monitor_Test {
     );
     TestEvents.check(!success, "snipe should fail");
 
-    (bytes32 _global, bytes32 _local) = mgv.config(base, quote);
+    (bytes32 _global, bytes32 _local) = mgv._config(base, quote);
     // config sent during maker callback has stale best and, is locked
     _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
 

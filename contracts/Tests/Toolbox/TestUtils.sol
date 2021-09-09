@@ -262,7 +262,7 @@ library TestUtils {
     address quote,
     uint price
   ) internal view returns (uint) {
-    return ((price * mgv.getConfig(base, quote).local.fee) / 10000);
+    return ((price * mgv.config(base, quote).local.fee) / 10000);
   }
 
   function getProvision(
@@ -271,7 +271,7 @@ library TestUtils {
     address quote,
     uint gasreq
   ) internal view returns (uint) {
-    ML.Config memory config = mgv.getConfig(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     return ((gasreq +
       config.local.overhead_gasbase +
       config.local.offer_gasbase) *
@@ -286,7 +286,7 @@ library TestUtils {
     uint gasreq,
     uint gasprice
   ) internal view returns (uint) {
-    ML.Config memory config = mgv.getConfig(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     uint _gp;
     if (config.global.gasprice > gasprice) {
       _gp = uint(config.global.gasprice);

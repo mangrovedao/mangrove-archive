@@ -125,7 +125,7 @@ contract AMM_Test {
       mgr,
       1.2 ether,
       1.2 ether,
-      MGV.getConfig(address(0), address(0)).global.gasprice,
+      MGV.config(address(0), address(0)).global.gasprice,
       100_000,
       1
     );
@@ -145,7 +145,7 @@ contract AMM_Test {
       mgr,
       0.6 ether,
       0.6 ether,
-      mgv.getConfig(address(0), address(0)).global.gasprice,
+      mgv.config(address(0), address(0)).global.gasprice,
       100_000,
       4
     );

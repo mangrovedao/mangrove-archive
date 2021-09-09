@@ -36,7 +36,7 @@ contract MgvRoot {
   /* # Configuration Reads */
 
   /* Reading the configuration for a pair involves reading the config global to all pairs and the local one. In addition, a global parameter (`gasprice`) and a local one (`density`) may be read from the oracle. */
-  function config(address base, address quote)
+  function _config(address base, address quote)
     public
     view
     returns (bytes32 _global, bytes32 _local)
@@ -52,12 +52,12 @@ contract MgvRoot {
   }
 
   /* Returns the configuration in an ABI-compatible struct. Should not be called internally, would be a huge memory copying waste. Use `config` instead. */
-  function getConfig(address base, address quote)
+  function config(address base, address quote)
     external
     view
     returns (ML.Config memory ret)
   {
-    (bytes32 _global, bytes32 _local) = config(base, quote);
+    (bytes32 _global, bytes32 _local) = _config(base, quote);
     ret.global = ML.Global({
       monitor: $$(global_monitor("_global")),
       useOracle: $$(global_useOracle("_global")) > 0,

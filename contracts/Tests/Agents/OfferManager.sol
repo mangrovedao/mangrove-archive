@@ -124,7 +124,7 @@ contract OfferManager is IMaker, ITaker {
       } else {
         _MGV = mgv;
       }
-      ML.Config memory config = _MGV.getConfig(base, quote);
+      ML.Config memory config = _MGV.config(base, quote);
       require(
         msg.value >= gas_to_execute * uint(config.global.gasprice) * 10**9,
         "Insufficent funds to delegate order"

@@ -6,7 +6,6 @@ import "../../MgvPack.sol";
 import "../../Mangrove.sol";
 import "../../MgvLib.sol";
 
-
 contract TradeHandler {
   enum PostHook {
     Success, // Trade was a success. NB: Do not move this field as it should be the default value
@@ -17,9 +16,15 @@ contract TradeHandler {
   }
 
   event GetFailure(address base, address quote, uint offerId, uint missingGet);
-  event PriceSlippage(address base, address quote, uint offerId, uint usd_makerWants, uint usd_makerGives);
+  event PriceSlippage(
+    address base,
+    address quote,
+    uint offerId,
+    uint usd_makerWants,
+    uint usd_makerGives
+  );
 
-/// @notice extracts old offer from the order that is received from the Mangrove
+  /// @notice extracts old offer from the order that is received from the Mangrove
   function unpackOfferFromOrder(MgvLib.SingleOrder calldata order)
     internal
     pure
@@ -35,6 +40,7 @@ contract TradeHandler {
       order.offer
     );
   }
+
   function getProvision(
     address base,
     address quote,
@@ -42,7 +48,7 @@ contract TradeHandler {
     uint gasreq,
     uint gasprice
   ) internal returns (uint) {
-    ML.Config memory config = mgv.getConfig(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     uint _gp;
     if (config.global.gasprice > gasprice) {
       _gp = uint(config.global.gasprice);
@@ -56,7 +62,11 @@ contract TradeHandler {
       10**9);
   }
 
-  function switchOfStatusCode(bytes32 statusCode) internal pure returns (PostHook postHook_switch) {
+  function switchOfStatusCode(bytes32 statusCode)
+    internal
+    pure
+    returns (PostHook postHook_switch)
+  {
     if (statusCode == "mgv/makerTransferFail") {
       postHook_switch = PostHook.Transfer;
     } else {
@@ -72,8 +82,7 @@ contract TradeHandler {
     }
     if (postHook_switch == PostHook.Price) {
       return 2;
-    }
-    else {
+    } else {
       return 0;
     }
   }
@@ -83,12 +92,14 @@ contract TradeHandler {
       w := mload(add(data, 32))
     }
   }
+
   function bytesOfWord(bytes32 w) private pure returns (bytes memory data) {
     data = new bytes(32);
     assembly {
       mstore(add(data, 32), w)
     }
   }
+
   function wordOfUint(uint x) private pure returns (bytes32 w) {
     w = bytes32(x);
   }
@@ -106,42 +117,44 @@ contract TradeHandler {
     returns (bytes32 w)
   {
     bytes memory data = abi.encodePacked(postHook_switch);
-    if (drop){
+    if (drop) {
       tradeRevertWithBytes(data);
-    }
-    else {
-      w = wordOfBytes(data);
-    }
-  }
-  function returnData(bool drop, PostHook postHook_switch, uint96 arg)
-    internal
-    pure
-    returns (bytes32 w)
-  {
-    bytes memory data = abi.encodePacked(postHook_switch, arg);
-    if (drop){
-      tradeRevertWithBytes(data);
-    }
-    else {
-      w = wordOfBytes(data);
-    }
-  }
-  function returnData(bool drop, PostHook postHook_switch, uint96 arg0, uint96 arg1)
-    internal
-    pure
-    returns (bytes32 w)
-  {
-    bytes memory data = abi.encodePacked(postHook_switch, arg0,arg1);
-    if (drop){
-      tradeRevertWithBytes(data);
-    }
-    else {
+    } else {
       w = wordOfBytes(data);
     }
   }
 
-  bytes32 constant MASKSWITCH =   0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
-  bytes32 constant MASKFIRSTARG = 0x00000000000000000000000000ffffffffffffffffffffffffffffffffffffff;
+  function returnData(
+    bool drop,
+    PostHook postHook_switch,
+    uint96 arg
+  ) internal pure returns (bytes32 w) {
+    bytes memory data = abi.encodePacked(postHook_switch, arg);
+    if (drop) {
+      tradeRevertWithBytes(data);
+    } else {
+      w = wordOfBytes(data);
+    }
+  }
+
+  function returnData(
+    bool drop,
+    PostHook postHook_switch,
+    uint96 arg0,
+    uint96 arg1
+  ) internal pure returns (bytes32 w) {
+    bytes memory data = abi.encodePacked(postHook_switch, arg0, arg1);
+    if (drop) {
+      tradeRevertWithBytes(data);
+    } else {
+      w = wordOfBytes(data);
+    }
+  }
+
+  bytes32 constant MASKSWITCH =
+    0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+  bytes32 constant MASKFIRSTARG =
+    0x00000000000000000000000000ffffffffffffffffffffffffffffffffffffff;
 
   function getMakerData(bytes32 w)
     internal
@@ -152,17 +165,21 @@ contract TradeHandler {
     uint N = arity(postHook_switch);
     args = new uint[](N);
     if (N > 0) {
-      bytes32 arg0 = (w & MASKSWITCH) >> 19*8; // ([postHook_switch:1])[arg0:12][arg1 + padding:19]
-      args[0] = abi.decode(bytesOfWord(arg0),(uint96));
+      bytes32 arg0 = (w & MASKSWITCH) >> (19 * 8); // ([postHook_switch:1])[arg0:12][arg1 + padding:19]
+      args[0] = abi.decode(bytesOfWord(arg0), (uint96));
       if (N == 2) {
-        bytes32 arg1 = (w & MASKFIRSTARG) >> 7*8; // ([postHook_switch:1][arg0:12])[arg1:12][padding:7]
-        args[1] = abi.decode(bytesOfWord(arg1),(uint96));
+        bytes32 arg1 = (w & MASKFIRSTARG) >> (7 * 8); // ([postHook_switch:1][arg0:12])[arg1:12][padding:7]
+        args[1] = abi.decode(bytesOfWord(arg1), (uint96));
       }
     }
   }
 
-  function decodeSwitch(bytes32 w) private pure returns (PostHook postHook_switch){
-    bytes memory switch_data = bytesOfWord(w>>(31*8)); // PostHook enum is encoded in the first byte
-    postHook_switch = abi.decode(switch_data,(PostHook));
+  function decodeSwitch(bytes32 w)
+    private
+    pure
+    returns (PostHook postHook_switch)
+  {
+    bytes memory switch_data = bytesOfWord(w >> (31 * 8)); // PostHook enum is encoded in the first byte
+    postHook_switch = abi.decode(switch_data, (PostHook));
   }
 }

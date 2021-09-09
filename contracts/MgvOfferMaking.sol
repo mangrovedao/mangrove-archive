@@ -57,7 +57,7 @@ contract MgvOfferMaking is MgvHasOffers {
   ) external returns (uint) {
     /* In preparation for calling `writeOffer`, we read the `base`,`quote` pair configuration, check for reentrancy and market liveness, fill the `OfferPack` struct and increment the `base`,`quote` pair's `last`. */
     OfferPack memory ofp;
-    (ofp.global, ofp.local) = config(base, quote);
+    (ofp.global, ofp.local) = _config(base, quote);
     unlockedMarketOnly(ofp.local);
     activeMarketOnly(ofp.global, ofp.local);
 
@@ -107,7 +107,7 @@ contract MgvOfferMaking is MgvHasOffers {
     uint offerId
   ) external returns (uint) {
     OfferPack memory ofp;
-    (ofp.global, ofp.local) = config(base, quote);
+    (ofp.global, ofp.local) = _config(base, quote);
     unlockedMarketOnly(ofp.local);
     activeMarketOnly(ofp.global, ofp.local);
     ofp.base = base;
@@ -139,7 +139,7 @@ contract MgvOfferMaking is MgvHasOffers {
     uint offerId,
     bool deprovision
   ) external {
-    (, bytes32 local) = config(base, quote);
+    (, bytes32 local) = _config(base, quote);
     unlockedMarketOnly(local);
     bytes32 offer = offers[base][quote][offerId];
     bytes32 offerDetail = offerDetails[base][quote][offerId];
@@ -168,12 +168,11 @@ contract MgvOfferMaking is MgvHasOffers {
 
     /* If the user wants to get their provision back, we compute its provision from the offer's `gasprice`, `*_gasbase` and `gasreq`. */
     if (deprovision) {
-      uint provision =
-        10**9 *
-          $$(offer_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
-          ($$(offerDetail_gasreq("offerDetail")) +
-            $$(offerDetail_overhead_gasbase("offerDetail")) +
-            $$(offerDetail_offer_gasbase("offerDetail")));
+      uint provision = 10**9 *
+        $$(offer_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
+        ($$(offerDetail_gasreq("offerDetail")) +
+          $$(offerDetail_overhead_gasbase("offerDetail")) +
+          $$(offerDetail_offer_gasbase("offerDetail")));
       // credit `balanceOf` and log transfer
       creditWei(msg.sender, provision);
     }
@@ -190,7 +189,7 @@ contract MgvOfferMaking is MgvHasOffers {
 
   /* Fund should be called with a nonzero value (hence the `payable` modifier). The provision will be given to `maker`, not `msg.sender`. */
   function fund(address maker) public payable {
-    (bytes32 _global, ) = config(address(0), address(0));
+    (bytes32 _global, ) = _config(address(0), address(0));
     liveMgvOnly(_global);
     creditWei(maker, msg.value);
   }
@@ -307,12 +306,11 @@ contract MgvOfferMaking is MgvHasOffers {
 
     /* With every change to an offer, a maker may deduct provisions from its `balanceOf` balance. It may also get provisions back if the updated offer requires fewer provisions than before. */
     {
-      uint provision =
-        (ofp.gasreq +
-          $$(local_offer_gasbase("ofp.local")) +
-          $$(local_overhead_gasbase("ofp.local"))) *
-          ofp.gasprice *
-          10**9;
+      uint provision = (ofp.gasreq +
+        $$(local_offer_gasbase("ofp.local")) +
+        $$(local_overhead_gasbase("ofp.local"))) *
+        ofp.gasprice *
+        10**9;
       if (provision > oldProvision) {
         debitWei(msg.sender, provision - oldProvision);
       } else if (provision < oldProvision) {
@@ -354,18 +352,17 @@ contract MgvOfferMaking is MgvHasOffers {
     }
 
     /* With the `prev`/`next` in hand, we finally store the offer in the `offers` map. */
-    bytes32 ofr =
-      $$(
-        make_offer(
-          [
-            ["prev", "prev"],
-            ["next", "next"],
-            ["wants", "ofp.wants"],
-            ["gives", "ofp.gives"],
-            ["gasprice", "ofp.gasprice"]
-          ]
-        )
-      );
+    bytes32 ofr = $$(
+      make_offer(
+        [
+          ["prev", "prev"],
+          ["next", "next"],
+          ["wants", "ofp.wants"],
+          ["gives", "ofp.gives"],
+          ["gasprice", "ofp.gasprice"]
+        ]
+      )
+    );
     offers[ofp.base][ofp.quote][ofp.id] = ofr;
   }
 
@@ -382,8 +379,9 @@ contract MgvOfferMaking is MgvHasOffers {
     uint nextId;
     uint pivotId = ofp.pivotId;
     /* Get `pivot`, optimizing for the case where pivot info is already known */
-    bytes32 pivot =
-      pivotId == ofp.id ? ofp.oldOffer : offers[ofp.base][ofp.quote][pivotId];
+    bytes32 pivot = pivotId == ofp.id
+      ? ofp.oldOffer
+      : offers[ofp.base][ofp.quote][pivotId];
 
     /* In case pivotId is not an active offer, it is unusable (since it is out of the book). We default to the current best offer. If the book is empty pivot will be 0. That is handled through a test in the `better` comparison function. */
     if (!isLive(pivot)) {
@@ -451,8 +449,9 @@ contract MgvOfferMaking is MgvHasOffers {
     uint weight1 = wants1 * gives2;
     uint weight2 = wants2 * gives1;
     if (weight1 == weight2) {
-      uint gasreq1 =
-        $$(offerDetail_gasreq("offerDetails[ofp.base][ofp.quote][offerId1]"));
+      uint gasreq1 = $$(
+        offerDetail_gasreq("offerDetails[ofp.base][ofp.quote][offerId1]")
+      );
       uint gasreq2 = ofp.gasreq;
       return (gives1 * gasreq2 >= gives2 * gasreq1);
     } else {

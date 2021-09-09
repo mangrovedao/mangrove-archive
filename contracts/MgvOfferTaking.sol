@@ -2,13 +2,7 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {
-  IERC20,
-  MgvEvents,
-  IMaker,
-  IMgvMonitor,
-  MgvLib as ML
-} from "./MgvLib.sol";
+import {IERC20, MgvEvents, IMaker, IMgvMonitor, MgvLib as ML} from "./MgvLib.sol";
 import {MgvHasOffers} from "./MgvHasOffers.sol";
 
 abstract contract MgvOfferTaking is MgvHasOffers {
@@ -76,7 +70,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     ML.SingleOrder memory sor;
     sor.base = base;
     sor.quote = quote;
-    (sor.global, sor.local) = config(base, quote);
+    (sor.global, sor.local) = _config(base, quote);
     /* Throughout the execution of the market order, the `sor`'s offer id and other parameters will change. We start with the current best offer id (0 if the book is empty). */
     sor.offerId = $$(local_best("sor.local"));
     sor.offer = offers[base][quote][sor.offerId];
@@ -292,8 +286,13 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   {
     uint[4][] memory targets = new uint[4][](1);
     targets[0] = [offerId, takerWants, takerGives, gasreq];
-    (uint successes, uint takerGot, uint takerGave) =
-      generalSnipes(base, quote, targets, fillWants, taker);
+    (uint successes, uint takerGot, uint takerGave) = generalSnipes(
+      base,
+      quote,
+      targets,
+      fillWants,
+      taker
+    );
     return (successes == 1, takerGot, takerGave);
   }
 
@@ -316,7 +315,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     ML.SingleOrder memory sor;
     sor.base = base;
     sor.quote = quote;
-    (sor.global, sor.local) = config(base, quote);
+    (sor.global, sor.local) = _config(base, quote);
 
     MultiOrder memory mor;
     mor.taker = taker;
@@ -502,10 +501,9 @@ abstract contract MgvOfferTaking is MgvHasOffers {
      * `msg.sender` is the Mangrove itself in those calls -- all operations related to the actual caller should be done outside of this call.
      * any spurious exception due to an error in Mangrove code will be falsely blamed on the Maker, and its provision for the offer will be unfairly taken away.
      */
-    (bool success, bytes memory retdata) =
-      address(this).call(
-        abi.encodeWithSelector(this.flashloan.selector, sor, mor.taker)
-      );
+    (bool success, bytes memory retdata) = address(this).call(
+      abi.encodeWithSelector(this.flashloan.selector, sor, mor.taker)
+    );
 
     /* `success` is true: trade is complete */
     if (success) {
@@ -619,8 +617,12 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       innerRevert([bytes32("mgv/makerRevert"), bytes32(gasused), makerData]);
     }
 
-    bool transferSuccess =
-      transferTokenFrom(sor.base, maker, address(this), sor.wants);
+    bool transferSuccess = transferTokenFrom(
+      sor.base,
+      maker,
+      address(this),
+      sor.wants
+    );
 
     if (!transferSuccess) {
       innerRevert(
@@ -680,12 +682,11 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     bytes32 statusCode
   ) internal returns (uint gasused) {
     /* At this point, statusCode can only be `"mgv/tradeSuccess"`, `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"` */
-    bytes memory cd =
-      abi.encodeWithSelector(
-        IMaker.makerPosthook.selector,
-        sor,
-        ML.OrderResult({makerData: makerData, statusCode: statusCode})
-      );
+    bytes memory cd = abi.encodeWithSelector(
+      IMaker.makerPosthook.selector,
+      sor,
+      ML.OrderResult({makerData: makerData, statusCode: statusCode})
+    );
 
     address maker = $$(offerDetail_maker("sor.offerDetail"));
 
@@ -695,8 +696,11 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       revert("mgv/notEnoughGasForMakerPosthook");
     }
 
-    (bool callSuccess, bytes32 postHookData) =
-      restrictedCall(maker, gasLeft, cd);
+    (bool callSuccess, bytes32 postHookData) = restrictedCall(
+      maker,
+      gasLeft,
+      cd
+    );
 
     gasused = oldGas - gasleft();
 
@@ -754,12 +758,11 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   ) internal returns (uint) {
     uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
 
-    uint provision =
-      10**9 *
-        $$(offer_gasprice("sor.offer")) *
-        (gasreq +
-          $$(offerDetail_overhead_gasbase("sor.offerDetail")) +
-          $$(offerDetail_offer_gasbase("sor.offerDetail")));
+    uint provision = 10**9 *
+      $$(offer_gasprice("sor.offer")) *
+      (gasreq +
+        $$(offerDetail_overhead_gasbase("sor.offerDetail")) +
+        $$(offerDetail_offer_gasbase("sor.offerDetail")));
 
     /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible e.g. with `gasreq = 0` (all calls consume nonzero gas). */
     if (gasused > gasreq) {
@@ -767,13 +770,12 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     }
 
     /* As an invariant, `applyPenalty` is only called when `statusCode` is not in `["mgv/notExecuted","mgv/tradeSuccess"]`, and thus when `failCount > 0`. */
-    uint penalty =
-      10**9 *
-        $$(global_gasprice("sor.global")) *
-        (gasused +
-          $$(local_overhead_gasbase("sor.local")) /
-          failCount +
-          $$(local_offer_gasbase("sor.local")));
+    uint penalty = 10**9 *
+      $$(global_gasprice("sor.global")) *
+      (gasused +
+        $$(local_overhead_gasbase("sor.local")) /
+        failCount +
+        $$(local_offer_gasbase("sor.local")));
 
     if (penalty > provision) {
       penalty = provision;
@@ -852,8 +854,12 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     address to,
     uint value
   ) internal returns (bool) {
-    bytes memory cd =
-      abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, value);
+    bytes memory cd = abi.encodeWithSelector(
+      IERC20.transferFrom.selector,
+      from,
+      to,
+      value
+    );
     (bool noRevert, bytes memory data) = tokenAddress.call(cd);
     return (noRevert && (data.length == 0 || abi.decode(data, (bool))));
   }
@@ -863,8 +869,11 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     address to,
     uint value
   ) internal returns (bool) {
-    bytes memory cd =
-      abi.encodeWithSelector(IERC20.transfer.selector, to, value);
+    bytes memory cd = abi.encodeWithSelector(
+      IERC20.transfer.selector,
+      to,
+      value
+    );
     (bool noRevert, bytes memory data) = tokenAddress.call(cd);
     return (noRevert && (data.length == 0 || abi.decode(data, (bool))));
   }
