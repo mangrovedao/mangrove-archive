@@ -14,8 +14,7 @@ import type {Big} from 'big.js';
 
 // simplify type notation to access returned values from reader contract
 
-import {MgvReader} from './typechain/mgvreader';
-import { Mangrove } from './typechain/mangrove/Mangrove';
+import {MgvReader,Mangrove} from './typechain';
 
 type _bookReturns = Awaited<ReturnType<MgvReader["functions"]["book"]>>
 export type bookReturns = { indices: _bookReturns[0], offers: _bookReturns[1], details: _bookReturns[2]}

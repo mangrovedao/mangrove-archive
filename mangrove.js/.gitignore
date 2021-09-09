@@ -5,3 +5,5 @@ scripts/out.md
 .nyc_output/
 coverage/
 cache/
+src/types/typechain/*
+!src/types/typechain/README

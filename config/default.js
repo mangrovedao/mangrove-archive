@@ -38,6 +38,14 @@ config.hardhat = {
     cache: "./cache",
     artifacts: "./build",
   },
+  abiExporter: {
+    path: "./mangrove.js/src/abis",
+    clear: true,
+    flat: false,
+    only: [":MgvReader$", ":Mangrove$", ":MgvEvents$", ":IERC20$"],
+    spacing: 2,
+    pretty: false,
+  },
   testSolidity: {
     logFormatters: requireFromProjectRoot("./lib/log_formatters"),
   },

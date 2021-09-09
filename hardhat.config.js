@@ -4,6 +4,7 @@ require("dotenv-flow").config(); // Reads local environment variables from .env*
 const config = require("config"); // Reads configuration files from /config/
 require("hardhat-deploy");
 require("hardhat-deploy-ethers");
+require("hardhat-abi-exporter");
 require("adhusson-hardhat-solpp");
 const test_solidity = require("./lib/test_solidity.js");
 

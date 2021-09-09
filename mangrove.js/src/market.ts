@@ -41,7 +41,6 @@ export class Market {
 
   #mapConfig(ba:"bids"|"asks",cfg:internalConfig) : localConfig {
     const bq = ba === "asks"? "base": "quote";
-    cfg.local
     return {
       active: cfg.local.active,
       fee: cfg.local.fee.toNumber(),
@@ -67,8 +66,8 @@ export class Market {
     const base_a = this.mgv.getAddress(this.base);
     const quote_a = this.mgv.getAddress(this.quote);
     return {
-      asks: this.#mapConfig("asks",await this.mgv.contract.getConfig(base_a, quote_a)),
-      bids: this.#mapConfig("bids",await this.mgv.contract.getConfig(quote_a, base_a)),
+      asks: this.#mapConfig("asks",await this.mgv.contract.config(base_a, quote_a)),
+      bids: this.#mapConfig("bids",await this.mgv.contract.config(quote_a, base_a)),
     };
   }
 

@@ -2,9 +2,7 @@ import { addresses, decimals } from './constants';
 import * as eth from './eth';
 import { Market } from './market';
 import { ConnectOptions, Provider, ProviderNetwork, Bigish } from "./types";
-import { IERC20__factory } from './types/typechain/ierc20';
-import { Mangrove as MangroveContract, Mangrove__factory } from './types/typechain/mangrove';
-import { MgvReader as MgvReaderContract, MgvReader__factory } from './types/typechain/mgvreader';
+import { IERC20__factory, Mangrove as MangroveContract, Mangrove__factory, MgvReader as MgvReaderContract, MgvReader__factory, MgvEvents__factory, MgvEvents as MgvEventsContract } from './types/typechain';
 
 import Big from 'big.js';
 Big.prototype[Symbol.for('nodejs.util.inspect.custom')] = Big.prototype.toString;
@@ -151,7 +149,7 @@ export class Mangrove {
    */
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   async config() {
-    const config = await this.contract.getConfig("", "");
+    const config = await this.contract.config("", "");
     return config.global;
   }
 

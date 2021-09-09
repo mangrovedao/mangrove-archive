@@ -18,11 +18,13 @@
     "publish_minor": "npm version minor && npm publish --access public",
     "publish_major": "npm version major && npm publish --access public",
     "rollup": "rollup -c rollup.config.ts",
-    "test": "nyc --reporter=lcov mocha -r ts-node/register ./test/index.js  --timeout 60000"
+    "test": "nyc --reporter=lcov mocha -r ts-node/register ./test/index.js  --timeout 60000",
+    "typechain": "rm -rf src/types/typechain/* && npx typechain --target=ethers-v5 'src/abis/**/*.json' --out-dir=src/types/typechain",
+    "postinstall": "npm run typechain"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/compound-finance/compound-js.git"
+    "url": "https://github.com/giry-dev/mangrove.git"
   },
   "keywords": [
     "mangrove",
