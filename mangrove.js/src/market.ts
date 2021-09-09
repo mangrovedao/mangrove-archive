@@ -1,5 +1,5 @@
 import { BigNumber, BigNumberish, ContractTransaction } from "ethers";
-import { TradeParams, bookReturns,Bigish } from "./types";
+import { TradeParams, bookReturns,Bigish, internalConfig, localConfig } from "./types";
 import type { Mangrove } from './mangrove';
 
 /* Note on big.js:
@@ -9,6 +9,7 @@ for more on big.js vs decimals.js vs. bignumber.js (which is *not* ethers's BigN
   github.com/MikeMcl/big.js/issues/45#issuecomment-104211175
 */
 import Big from 'big.js';
+import { config } from "process";
 Big.DP = 20; // precision when dividing
 Big.RM = Big.roundHalfUp; // round to nearest
 
@@ -38,13 +39,37 @@ export class Market {
     this.quote = params.quote;
   }
 
+  #mapConfig(ba:"bids"|"asks",cfg:internalConfig) : localConfig {
+    const bq = ba === "asks"? "base": "quote";
+    cfg.local
+    return {
+      active: cfg.local.active,
+      fee: cfg.local.fee.toNumber(),
+      density: this.fromUnits(bq,cfg.local.density.toString()).toNumber(),
+      overhead_gasbase: cfg.local.overhead_gasbase.toNumber(),
+      offer_gasbase: cfg.local.offer_gasbase.toNumber(),
+      lock: cfg.local.lock,
+      best: cfg.local.best.toNumber(),
+      last: cfg.local.last.toNumber()
+    };
+  }
+
   /** 
    * Return config local to a market.
+   * Returned object is of the form
+   * {bids,asks} where bids and asks are of type `localConfig`
+   * Notes:
+   * Amounts are converted to plain numbers.
+   * density is converted to public token units per gas used
+   * fee *remains* in basis points of the token being bought
    */
-  // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-  async config() {
-    const config = await this.mgv.contract.getConfig(this.mgv.getAddress(this.base), this.mgv.getAddress(this.quote));
-    return config.local;
+  async config() : Promise<{asks:localConfig,bids:localConfig}> {
+    const base_a = this.mgv.getAddress(this.base);
+    const quote_a = this.mgv.getAddress(this.quote);
+    return {
+      asks: this.#mapConfig("asks",await this.mgv.contract.getConfig(base_a, quote_a)),
+      bids: this.#mapConfig("bids",await this.mgv.contract.getConfig(quote_a, base_a)),
+    };
   }
 
   /**
