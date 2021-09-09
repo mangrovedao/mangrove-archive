@@ -76,7 +76,7 @@ async function fund(funding_tuples) {
         break;
       }
       default: {
-        console.log("Not implemented ERC funding method: ", token_symbol);
+        console.warn("Not implemented ERC funding method: ", token_symbol);
       }
     }
   }
@@ -108,7 +108,6 @@ async function deployStrat(strategy, mgv) {
       console.warn ("Undefined strategy "+strategy);
   }
   await makerContract.deployed();
-  console.log(`Maker contract deployed [${strategy}]`);
 
   // provisioning Mangrove on behalf of MakerContract
   let overrides = { value: lc.parseToken("2.0", "ETH") };
@@ -120,7 +119,6 @@ async function deployStrat(strategy, mgv) {
     lc.parseToken("2.0", "ETH"),
     "Failed to fund the Mangrove"
   );
-  console.log("Mangrove is provisioned");
 
   // testSigner approves Mangrove for WETH before trying to take offer
   tkrTx = await lc.wEth
@@ -130,7 +128,6 @@ async function deployStrat(strategy, mgv) {
 
   allowed = await lc.wEth.allowance(testSigner.address, mgv.address);
   lc.assertEqualBN(allowed, ethers.constants.MaxUint256, "Approve failed");
-  console.log("Test signer has approved quote for payment");
 
   /*********************** MAKER SIDE PREMICES **************************/
   let mkrTxs = [];
@@ -163,19 +160,20 @@ async function deployStrat(strategy, mgv) {
     .mint(market[1], lc.parseToken("900.0", "DAI"));
   
   await lc.synch(mkrTxs);
-  console.log("Maker contract is ready");
   /***********************************************************************/
   return makerContract;
 }
 
-async function logLenderStatus(makerContract, lenderName, tokens) {
+async function logLenderStatus(makerContract, lenderName, tokens) {  
   switch(lenderName){
     case "compound" :
-      lc.logCompoundStatus(makerContract, tokens);  
+      await lc.logCompoundStatus(makerContract, tokens);  
       break; 
     case "aave":
-      lc.logAaveStatus(makerContract, tokens);
+      await lc.logAaveStatus(makerContract, tokens);
       break;
+    default :
+      console.warn("Lender not recognized: ", lenderName);
   }
 }
 
@@ -255,10 +253,11 @@ describe("Deploy strategies", function () {
 
   it("Pure lender strat on compound", async function () {
     const makerContract = await deployStrat("SimpleCompoundRetail", mgv);
+    
     let accrueTx = await lc.cDai.connect(testSigner).accrueInterest();
     let receipt = await accrueTx.wait(0);
 
-    await logLenderStatus(makerContract, testSigner, "compound", [lc.dai, lc.wEth]);
+    await logLenderStatus(makerContract, "compound", [lc.dai, lc.wEth]);
     
     // cheat to retrieve next assigned offer ID for the next newOffer
     let offerId = await lc.nextOfferId(
