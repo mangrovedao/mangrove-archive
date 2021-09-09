@@ -55,10 +55,10 @@ contract MgvRoot {
   function getConfig(address base, address quote)
     external
     view
-    returns (ML.Global memory global, ML.Local memory local)
+    returns (ML.Config memory ret)
   {
     (bytes32 _global, bytes32 _local) = config(base, quote);
-    global = ML.Global({
+    ret.global = ML.Global({
       monitor: $$(global_monitor("_global")),
       useOracle: $$(global_useOracle("_global")) > 0,
       notify: $$(global_notify("_global")) > 0,
@@ -66,7 +66,7 @@ contract MgvRoot {
       gasmax: $$(global_gasmax("_global")),
       dead: $$(global_dead("_global")) > 0
     });
-    local = ML.Local({
+    ret.local = ML.Local({
       active: $$(local_active("_local")) > 0,
       overhead_gasbase: $$(local_overhead_gasbase("_local")),
       offer_gasbase: $$(local_offer_gasbase("_local")),
