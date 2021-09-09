@@ -4,7 +4,7 @@ pragma abicoder v2;
 
 import "../../AbstractMangrove.sol";
 //import "../../MgvLib.sol";
-import {IMaker, ITaker, MgvLib as ML, MgvEvents, IMgvMonitor} from "../../MgvLib.sol";
+import {IERC20, IMaker, ITaker, MgvLib as ML, MgvEvents, IMgvMonitor} from "../../MgvLib.sol";
 import "hardhat/console.sol";
 
 contract OfferManager is IMaker, ITaker {
