@@ -19,11 +19,11 @@
             "address" : "0x4eceddf62277ed78623f9a94995c680f8fd6c00e",
             "abi": "test/polygon/abis/CErc20-delegator-abi.json"
         },
-        "crWeth": {
+        "crwEth": {
             "address" : "0x7ef18d0a9C3Fb1A716FF6c3ED0Edf52a2427F716",
             "abi": "test/polygon/abis/CErc20-delegator-abi.json"
         },
-        "crMATIC":{
+        "crwMATIC":{
             "address" : "0x3FaE5e5722C51cdb5B0afD8c7082e8a6AF336Ee8",
             "abi": "test/polygon/abis/CErc20-delegator-abi.json"
         }

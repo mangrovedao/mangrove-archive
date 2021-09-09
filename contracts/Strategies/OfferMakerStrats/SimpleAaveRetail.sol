@@ -2,7 +2,7 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./AaveLender.sol";
 
-contract SimpleAaveLender is AaveLender {
+contract SimpleAaveRetail is AaveLender {
   constructor(
     address _addressesProvider,
     address payable _MGV,

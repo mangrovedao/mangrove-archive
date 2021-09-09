@@ -3,23 +3,159 @@ const config = require("config");
 const { assert } = require("chai");
 
 const decimals = new Map();
+const provider = ethers.provider;
 
-let { dai, cDai, wEth, cwEth, comp } = {};
-if (config.has("polygon")) {
-  console.log ("Polygon");
-  dai = env.polygon.tokens.dai.contract;
-  cDai = env.polygon.tokens.crDai.contract;
-  wEth = env.polygon.tokens.wEth.contract;
-  cwEth = env.polygon.tokens.crWeth.contract;
-  comp = env.polygon.compound.contract;
+
+async function fund(funding_tuples) {
+
+  async function mintNative(recipient, amount) {
+    console.log("recipient:", recipient);
+    await network.provider.send("hardhat_setBalance", [
+      recipient,
+      ethers.utils.hexValue(amount),
+    ]);
+  }
+
+  async function mintPolygonChildErc(contract, recipient, amount) {
+    let chainMgr = env.polygon.admin.childChainManager;
+    let amount_bytes = ethers.utils.hexZeroPad(amount, 32);
+    let admin_signer = provider.getSigner(chainMgr);
+    await network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [chainMgr],
+    });
+    if ((await admin_signer.getBalance()).eq(0)) {
+      await mintNative(chainMgr, parseToken("1.0"));
+    }
+    let mintTx = await contract
+      .connect(admin_signer)
+      .deposit(recipient, amount_bytes);
+    await mintTx.wait();
+    await network.provider.request({
+      method: "hardhat_stopImpersonatingAccount",
+      params: [chainMgr],
+    });
+  }
+
+  for (const tuple of funding_tuples) {
+    let token_symbol = tuple[0];
+    let amount = tuple[1];
+    let recipient = tuple[2];
+    let [signer] = await ethers.getSigners();
+
+    switch (token_symbol) {
+      case "DAI": {
+        let dai = getContract("DAI");
+        let decimals = await dai.decimals();
+        console.log("Minting dai's...");
+        amount = parseToken(amount, decimals);
+        if (config.has("ethereum")) {
+          let daiAdmin = env.ethereum.tokens.dai.admin;
+          await network.provider.request({
+            method: "hardhat_impersonateAccount",
+            params: [daiAdmin],
+          });
+          let admin_signer = provider.getSigner(daiAdmin);
+          if ((await admin_signer.getBalance()).eq(0)) {
+            await mintNative(daiAdmin, parseToken("1.0"));
+          }
+          let mintTx = await dai.connect(admin_signer).mint(recipient, amount);
+          await mintTx.wait();
+          await network.provider.request({
+            method: "hardhat_stopImpersonatingAccount",
+            params: [daiAdmin],
+          });
+          break;
+        }
+        if (config.has("polygon")) {
+          await mintPolygonChildErc(dai, recipient, amount);
+          break;
+        }
+        else {
+          console.warn ("Unknown network");
+        }
+      }
+      case "WETH": {
+        console.log("Minting wEths...");
+
+        amount = parseToken(amount);
+        let wEth = getContract("WETH");
+        if (config.has("ethereum")) {
+          if (recipient != signer.address) {
+            await network.provider.request({
+              method: "hardhat_impersonateAccount",
+              params: [recipient],
+            });
+            signer = provider.getSigner(recipient);
+          }
+          let bal = await signer.getBalance();
+          if (bal.lt(amount)) {
+            await mintNative(recipient, amount);
+          }
+          let mintTx = await wEth.connect(signer).deposit({ value: amount });
+          await mintTx.wait();
+          if (recipient != signer.address) {
+            await network.provider.request({
+              method: "hardhat_stopImpersonateAccount",
+              params: [recipient],
+            });
+          }
+          break;
+        }
+        if (config.has("polygon")){
+          await mintPolygonChildErc(wEth, recipient, amount);
+          break;
+        }
+        else {
+          console.warn ("Unknown network");
+        }
+      }
+      case "ETH": 
+      case "MATIC": {
+        console.log("Minting gas tokens...");
+
+        amount = parseToken(amount);
+        await mintNative(recipient, amount);
+        break;
+      }
+      default: {
+        console.warn("Not implemented ERC funding method: ", token_symbol);
+      }
+    }
+  }
 }
-if (config.has("ethereum")) {
-  console.log ("Ethereum");
-  dai = env.ethereum.tokens.dai.contract;
-  cDai = env.ethereum.tokens.cDai.contract;
-  wEth = env.ethereum.tokens.wEth.contract;
-  cwEth = env.ethereum.tokens.cEth.contract;
-  comp = env.ethereum.compound.contract;
+
+function getContract(symbol) {
+  let net = null; 
+  if (config.has("polygon")) {
+    net = env.polygon;
+  } else {
+    if (config.has("ethereum")) {
+      net = env.ethereum;
+    }
+  }
+  switch(symbol) {
+    case "DAI" :
+      return net.tokens.dai.contract;
+    case "CDAI" :
+      return net.tokens.cDai.contract;
+    case "WETH" :
+      return net.tokens.wEth.contract;
+    case "CWETH" :
+      return net.tokens.cwEth.contract;
+    case "AWETH" :
+      return net.tokens.awEth.contract;
+    case "ADAI" :
+      return net.tokens.aDai.contract;
+    case "WETH" :
+      return net.tokens.wEth.contract;
+    case "AAVE" :
+      return net.aave.contract;
+    case "COMP" :
+      return net.compound.contract;
+    default:
+      console.warn ("Unhandled contract symbol: ", symbol);
+  }
 }
 
 function assertEqualBN(value1, value2, msg) {
@@ -97,6 +233,12 @@ async function logCompoundStatus(contract, tokens) {
       "\x1b[0m"
     );
   }
+  const comp = getContract("COMP");
+  const cDai = getContract("CDAI");
+  const cwEth = getContract("CWETH");
+  const wEth = getContract("WETH");
+  const dai = getContract("DAI");
+
   [, liquidity] = await comp.getAccountLiquidity(contract.address);
   console.log();
   console.log(
@@ -104,12 +246,12 @@ async function logCompoundStatus(contract, tokens) {
     formatToken(liquidity, 18),
     "\x1b[0m ****"
   );
-  for (const token of tokens) {
-    switch (await token.symbol()) {
+  for (const symbol of tokens) {
+    switch (symbol) {
       case "DAI":
         const [, redeemableDai] = await contract.maxGettableUnderlying(cDai.address);
         const [, , borrowDaiBalance] = await cDai.getAccountSnapshot(contract.address);
-        const daiBalance = await token.balanceOf(contract.address);
+        const daiBalance = await dai.balanceOf(contract.address);
         logPosition(
           "DAI",
           formatToken(redeemableDai, "DAI"),
@@ -138,16 +280,9 @@ async function logCompoundStatus(contract, tokens) {
 }
 
 async function newOffer(contract, base_sym, quote_sym, wants, gives) {
-  function getAddress(sym) {
-    switch (sym) {
-      case "WETH":
-        return wEth.address;
-      default:
-        return dai.address;
-    }
-  }
-  base = getAddress(base_sym);
-  quote = getAddress(quote_sym);
+  
+  base = getContract(base_sym).address;
+  quote = getContract(quote_sym).address;
   offerTx = await contract.newOffer(
     base,
     quote,
@@ -170,16 +305,8 @@ async function newOffer(contract, base_sym, quote_sym, wants, gives) {
 }
 
 async function snipe(mgv, base_sym, quote_sym, offerId, wants, gives) {
-  function getAddress(sym) {
-    switch (sym) {
-      case "WETH":
-        return wEth.address;
-      default:
-        return dai.address;
-    }
-  }
-  base = getAddress(base_sym);
-  quote = getAddress(quote_sym);
+  base = getContract(base_sym).address;
+  quote = getContract(quote_sym).address;
 
   snipeTx = await mgv.snipe(
     base,
@@ -243,12 +370,11 @@ async function activateMarket(mgv, aTokenAddress, bTokenAddress) {
 }
 
 async function setDecimals() {
-  decimals.set("DAI", await dai.decimals());
+  for (sym of ["DAI", "WETH", "CWETH", "CDAI"]) {
+    decimals.set(sym, await getContract(sym).decimals());
+  }
   decimals.set("ETH", 18);
   decimals.set("MATIC", 18);
-  decimals.set("WETH", await wEth.decimals());
-  decimals.set("cETH", await cwEth.decimals());
-  decimals.set("cDAI", await cDai.decimals());
 }
 
 function parseToken(amount, symbol) {
@@ -272,9 +398,5 @@ exports.nextOfferId = nextOfferId;
 exports.netOf = netOf;
 exports.deployMangrove = deployMangrove;
 exports.activateMarket = activateMarket;
-
-exports.dai = dai;
-exports.cDai = cDai;
-exports.wEth = wEth;
-exports.cwEth = cwEth;
-exports.comp = comp;
+exports.getContract = getContract;
+exports.fund = fund;
