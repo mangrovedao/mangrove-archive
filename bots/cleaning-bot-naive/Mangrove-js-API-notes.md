@@ -1,3 +1,5 @@
+
+
 # Adding the Mangrove.js library as a dependency
 I had to turn the following TypeScript compilation flags off in order for `ts-node` to not complain about mangrove.js:
 
@@ -31,6 +33,8 @@ Turns out 'unknown' at the end refers to an internal name Mangrove.js assigns to
 I realized that I need to set up addresses for network I'm connecting to. As far as I can tell, this must happen in `constants.ts`, which is part of the Mangrove.js package.
 
 > ⚠️ We should probably provide an API and a configuration option for providing those addresses.
+
+> ⚠️ We should document the required and supported addresses.
 
 The minimal addresses I had to add to `constants.ts` were:
 
@@ -70,7 +74,7 @@ Error: network does not support ENS (operation="ENS", network="unknown", code=UN
 
 My guess it that `ethers` is trying to resolve some string. Maybe the empty string, as `config()` attempts to call `MangroveContract` with empty strings for `base` and `quote` ?
 
-> ⚠️ Maybe the `config()` method without parameters should only return the global parameters?
+> ⚠️ Maybe the `config()` method without parameters should only read and return the global parameters?
 
 I tried changing the implementation to do just that:
 
@@ -84,3 +88,57 @@ but that gave me the compressed representation:
 ```
 '0x00000000000000000000000000000000000000000000000107a1200000000000'
 ```
+
+
+# Reading the Mangrove
+
+## Reading Markets
+I couldn't find a way to get a list of the existing markets?
+
+> ⚠️ Maybe we should add a method for getting a list of existing markets/pairs?
+
+
+# Market
+
+I was a bit surprised that I could create a market for a non-configure/non-existant pair without error:
+
+```TypeScript
+  const market = await mgv.market({base: "Foo", quote: "Bar"});
+```
+
+The method is `async` so would expect it to actually read from the network.
+
+> ⚠️ Maybe `market()` should not be `async` or it should actually give an error, if the market doesn't exist.
+
+After adding addresses for `TokenA` and `TokenB` I can read the config of that market:
+
+```TypeScript
+  const market = await mgv.market({base: "TokenA", quote: "TokenB"});
+  const marketConfig = await market.config();
+  console.dir(marketConfig);
+```
+
+However, the structure has some obscure contents:
+
+```Javascript
+[
+  false,
+  BigNumber { _hex: '0x00', _isBigNumber: true },
+  BigNumber { _hex: '0x00', _isBigNumber: true },
+  BigNumber { _hex: '0x00', _isBigNumber: true },
+  BigNumber { _hex: '0x00', _isBigNumber: true },
+  false,
+  BigNumber { _hex: '0x00', _isBigNumber: true },
+  BigNumber { _hex: '0x00', _isBigNumber: true },
+  active: false,
+  fee: BigNumber { _hex: '0x00', _isBigNumber: true },
+  density: BigNumber { _hex: '0x00', _isBigNumber: true },
+  overhead_gasbase: BigNumber { _hex: '0x00', _isBigNumber: true },
+  offer_gasbase: BigNumber { _hex: '0x00', _isBigNumber: true },
+  lock: false,
+  best: BigNumber { _hex: '0x00', _isBigNumber: true },
+  last: BigNumber { _hex: '0x00', _isBigNumber: true }
+]
+```
+
+> ⚠️ Could we give all elements in the config meaningful names?

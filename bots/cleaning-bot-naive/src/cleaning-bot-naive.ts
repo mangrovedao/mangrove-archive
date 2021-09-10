@@ -10,8 +10,13 @@ import Mangrove from "../../../mangrove.js/src/index";
 const main = async () => {
   const mgv = await Mangrove.connect("http://127.0.0.1:8545");
 
-  const cfg = await mgv.config();
-  console.dir(cfg);
+  //FIXME Currenlyt doesn't work
+  //const cfg = await mgv.config();
+
+  const market = await mgv.market({base: "TokenA", quote: "TokenB"});
+
+  const marketConfig = await market.config();
+  console.dir(marketConfig);
 }
 
 main();
