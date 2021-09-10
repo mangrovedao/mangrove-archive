@@ -9,6 +9,9 @@ import Mangrove from "../../../mangrove.js/src/index";
 
 const main = async () => {
   const mgv = await Mangrove.connect("http://127.0.0.1:8545");
+
+  const cfg = await mgv.config();
+  console.dir(cfg);
 }
 
 main();

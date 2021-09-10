@@ -4,6 +4,7 @@ import { Market } from './market';
 import { ConnectOptions, Provider, ProviderNetwork, Bigish } from "./types";
 import { IERC20__factory, Mangrove as MangroveContract, Mangrove__factory, MgvReader as MgvReaderContract, MgvReader__factory, MgvEvents__factory, MgvEvents as MgvEventsContract } from './types/typechain';
 
+
 import Big from 'big.js';
 Big.prototype[Symbol.for('nodejs.util.inspect.custom')] = Big.prototype.toString;
 
@@ -149,8 +150,8 @@ export class Mangrove {
    */
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   async config() {
-    const config = await this.contract.config("", "");
-    return config.global;
+    const globalConfig = await this.contract.global();
+    return globalConfig;
   }
 
   /* Static */

@@ -1,3 +1,14 @@
+# Adding the Mangrove.js library as a dependency
+I had to turn the following TypeScript compilation flags off in order for `ts-node` to not complain about mangrove.js:
+
+```
+    //"strict": true,
+    //"suppressImplicitAnyIndexErrors": true,
+```
+
+> ⚠️ Wouldn't we want these compiler options to be on in mangrove.js?
+
+
 # Connecting to Mangrove
 I tried to connect to a local Hardhat node started in a separate terminal with `npx hardhat node`.
 
@@ -11,11 +22,15 @@ The error message I got confused me a bit:
 Error: No addresses for network unknown.
 ```
 
-Turns out 'unknown' at the end refers to an internal name Mangrove.js assigns to the URL i provided to `connect()`. Perhaps the error message instead could refer to the provided URL, i.e. `http://127.0.0.1:8545`?
+Turns out 'unknown' at the end refers to an internal name Mangrove.js assigns to the URL i provided to `connect()`.
+
+> ⚠️ Perhaps the error message instead could refer to the provided URL, i.e. `http://127.0.0.1:8545`?
 
 
 ## Addresses
-I realized that I need to set up addresses for network I'm connecting to. As far as I can tell, this must happen in `constants.ts`. However, this is part of the Mangrove.js package, so we should probably provide an API and a configuration option for providing those addresses.
+I realized that I need to set up addresses for network I'm connecting to. As far as I can tell, this must happen in `constants.ts`, which is part of the Mangrove.js package.
+
+> ⚠️ We should probably provide an API and a configuration option for providing those addresses.
 
 The minimal addresses I had to add to `constants.ts` were:
 
@@ -24,4 +39,48 @@ The minimal addresses I had to add to `constants.ts` were:
     "Mangrove": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
     "MgvReader": "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9"
   }
+```
+
+
+# Reading the configuration
+First attempt:
+
+```TypeScript
+  const cfg = await mgv.config();
+  console.dir(cfg);
+```
+
+resulted in the following error:
+
+```
+Error: network does not support ENS (operation="ENS", network="unknown", code=UNSUPPORTED_OPERATION, version=providers/5.3.0)
+    at Logger.makeError (/Users/espen/dev/mangrove/mangrove.js/node_modules/@ethersproject/logger/src.ts/index.ts:213:28)
+    at Logger.throwError (/Users/espen/dev/mangrove/mangrove.js/node_modules/@ethersproject/logger/src.ts/index.ts:225:20)
+    at JsonRpcProvider.<anonymous> (/Users/espen/dev/mangrove/mangrove.js/node_modules/@ethersproject/providers/src.ts/base-provider.ts:1513:20)
+    at step (/Users/espen/dev/mangrove/mangrove.js/node_modules/@ethersproject/providers/lib/base-provider.js:48:23)
+    at Object.next (/Users/espen/dev/mangrove/mangrove.js/node_modules/@ethersproject/providers/lib/base-provider.js:29:53)
+    at fulfilled (/Users/espen/dev/mangrove/mangrove.js/node_modules/@ethersproject/providers/lib/base-provider.js:20:58)
+    at processTicksAndRejections (node:internal/process/task_queues:96:5) {
+  reason: 'network does not support ENS',
+  code: 'UNSUPPORTED_OPERATION',
+  operation: 'ENS',
+  network: 'unknown'
+}
+```
+
+My guess it that `ethers` is trying to resolve some string. Maybe the empty string, as `config()` attempts to call `MangroveContract` with empty strings for `base` and `quote` ?
+
+> ⚠️ Maybe the `config()` method without parameters should only return the global parameters?
+
+I tried changing the implementation to do just that:
+
+```TypeScript
+    const globalConfig = await this.contract.global();
+    return globalConfig;
+```
+
+but that gave me the compressed representation:
+
+```
+'0x00000000000000000000000000000000000000000000000107a1200000000000'
 ```
