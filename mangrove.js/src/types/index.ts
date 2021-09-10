@@ -18,7 +18,7 @@ import {MgvReader,Mangrove} from './typechain';
 
 type _bookReturns = Awaited<ReturnType<MgvReader["functions"]["book"]>>
 export type bookReturns = { indices: _bookReturns[0], offers: _bookReturns[1], details: _bookReturns[2]}
-export type internalConfig = Awaited<ReturnType<Mangrove["functions"]["getConfig"]>>["ret"];
+export type internalConfig = Awaited<ReturnType<Mangrove["functions"]["config"]>>["ret"];
 export type localConfig = {
   active: boolean,
   fee: number,
