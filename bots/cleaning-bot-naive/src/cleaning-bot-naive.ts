@@ -19,7 +19,6 @@ const main = async () => {
   const market = await mgv.market({base: baseTokenName, quote: quoteTokenName});
   const marketConfig = await market.config();
 
-  // TODO This bot should not activate markets, but we do this for now just to get started
   if (!marketConfig.active) {
     throw new Error(`Market is not active so exiting - market: base = ${baseTokenName}, quote = ${quoteTokenName}`);
   }

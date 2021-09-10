@@ -48,6 +48,10 @@ The minimal addresses I had to add to `constants.ts` were:
   }
 ```
 
+## Provider
+Since mangrove.js constructs a Provider, I think it should be possible to get and use that Provider, such that it can be used for other purposes, e.g. connecting to contracts not controlled my mangrove.js.
+
+> ⚠️ Perhaps expose `Mangrove._provider`.
 
 # Reading the configuration
 First attempt:
