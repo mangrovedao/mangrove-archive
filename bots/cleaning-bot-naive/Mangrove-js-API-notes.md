@@ -10,6 +10,9 @@ I had to turn the following TypeScript compilation flags off in order for `ts-no
 
 > ⚠️ Wouldn't we want these compiler options to be on in mangrove.js?
 
+## Mangrove.js dist
+I had to add `"module": "CommonJS"` in mangrove.js's `tconfig.json` to be able to use `require("../../../mangrove.js/dist/nodejs/mangrove")` from a JS file.
+
 
 # Connecting to Mangrove
 I tried to connect to a local Hardhat node started in a separate terminal with `npx hardhat node`.
@@ -143,6 +146,16 @@ However, the structure has some obscure contents:
 
 > ⚠️ Could we give all elements in the config meaningful names?
 
+
+## Activating markets
+The cleaning bot should obviously not activate markets, but it requires an active market to operate on. So I'm adding some temporary code to do just that.
+
+I couldn't find any API for activating markets?
+
+> ⚠️ Should Mangrove.js have API's for the administrative stuff, like activating markets?
+
+
+
 ## Contract API 
 
 For the auto-generated API (via typechain), currently mappings that gives rise to Market.contract.offers() (in generated Mangrove.d.ts) get unhelpful parameter names:
@@ -157,4 +170,3 @@ For the auto-generated API (via typechain), currently mappings that gives rise t
 ```
 
 Since this stems from Solidity and goes through an auto-generation phase to generate the TypeScript bindings, I understand there may be other considerations here. But in a public API it would be very nice to have all method by fairly self-documenting.
-

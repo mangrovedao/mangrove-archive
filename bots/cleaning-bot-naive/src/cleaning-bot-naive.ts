@@ -8,15 +8,21 @@ import config from "config";
 import Mangrove from "../../../mangrove.js/src/index";
 
 const main = async () => {
-  const mgv = await Mangrove.connect("http://127.0.0.1:8545");
+  const mgv = await Mangrove.connect("http://127.0.0.1:8545"); // TODO move connection string / network name to configuration
 
-  //FIXME Currenlyt doesn't work
+  //FIXME Currently doesn't work
   //const cfg = await mgv.config();
 
-  const market = await mgv.market({base: "TokenA", quote: "TokenB"});
+  const baseTokenName = "TokenA";
+  const quoteTokenName = "TokenB";
 
+  const market = await mgv.market({base: baseTokenName, quote: quoteTokenName});
   const marketConfig = await market.config();
-  console.dir(marketConfig);
+
+  // TODO This bot should not activate markets, but we do this for now just to get started
+  if (!marketConfig.active) {
+    throw new Error(`Market is not active so exiting - market: base = ${baseTokenName}, quote = ${quoteTokenName}`);
+  }
 }
 
 main();
