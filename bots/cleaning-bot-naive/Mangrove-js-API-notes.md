@@ -142,3 +142,19 @@ However, the structure has some obscure contents:
 ```
 
 > ⚠️ Could we give all elements in the config meaningful names?
+
+## Contract API 
+
+For the auto-generated API (via typechain), currently mappings that gives rise to Market.contract.offers() (in generated Mangrove.d.ts) get unhelpful parameter names:
+
+```TypeScript
+    offers(
+      arg0: string,
+      arg1: string,
+      arg2: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<[string]>;
+```
+
+Since this stems from Solidity and goes through an auto-generation phase to generate the TypeScript bindings, I understand there may be other considerations here. But in a public API it would be very nice to have all method by fairly self-documenting.
+
