@@ -178,7 +178,7 @@ describe("Deploy strategies", function () {
     mgv = await lc.deployMangrove();
     await lc.activateMarket(mgv, dai.address, wEth.address);
 
-    let cfg = await mgv.callStatic.getConfig(dai.address, wEth.address);
+    let cfg = await mgv.callStatic.config(dai.address, wEth.address);
     assert(cfg.local.active, "Market is inactive");
   });
 
