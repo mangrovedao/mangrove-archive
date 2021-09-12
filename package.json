@@ -5,7 +5,6 @@
   "author": "Adrien Husson <pangel.neu@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@giry/hardhat-test-solidity": ">=0.0.2",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@typechain/ethers-v5": "^7.0.1",
     "adhusson-hardhat-solpp": "^2.0.2",
@@ -30,6 +29,7 @@
   },
   "devDependencies": {
     "@espendk/json-file-reporter": "^1.4.1",
+    "@giry/hardhat-test-solidity": "^0.0.7",
     "chai": "^4.3.4",
     "cross-env": "^7.0.3",
     "husky": "^4.3.0",
