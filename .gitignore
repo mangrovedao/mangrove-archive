@@ -12,3 +12,4 @@ doc/specs.txt
 .env.local
 .env.*.local
 *mocha-test-report.json
+*.code-workspace

@@ -8,7 +8,7 @@ const lc = require("../lib/libcommon.js");
 const dai = lc.getContract("DAI");
 const wEth = lc.getContract("WETH");
 const comp = lc.getContract("COMP");
-//const aave = lc.getContract("AAVE");
+const aave = lc.getContract("AAVE"); //returns addressesProvider
 const cwEth = lc.getContract("CWETH");
 const cDai = lc.getContract("CDAI");
 //const awEth = lc.getContract("AWETH");
@@ -18,6 +18,7 @@ async function deployStrat(strategy, mgv) {
   const Strat = await ethers.getContractFactory(strategy);
   let makerContract = null;
   let market = [null, null]; // market pair for lender
+  let enterMarkets = true;
   switch (strategy) {
     case "SimpleCompoundRetail":
     case "AdvancedCompoundRetail":
@@ -30,16 +31,20 @@ async function deployStrat(strategy, mgv) {
       break;
     case "SimpleAaveRetail":
       makerContract = await Strat.deploy(
-        aave.addressesProvider.address,
+        aave.address,
         mgv.address,
         0 // aave referral code
       );
       market = [wEth.address, dai.address];
+
+      // aave rejects market entering if underlying balance is 0 (will self enter at first deposit)
+      enterMarkets = false;
       break;
     default:
       console.warn("Undefined strategy " + strategy);
   }
   await makerContract.deployed();
+  console.log("Maker contract was deployed!");
 
   // provisioning Mangrove on behalf of MakerContract
   let overrides = { value: lc.parseToken("2.0", "ETH") };
@@ -65,10 +70,11 @@ async function deployStrat(strategy, mgv) {
   let mkrTxs = [];
   let i = 0;
   // offer should get/put base/quote tokens on lender contract (OK since `testSigner` is MakerContract admin)
-  mkrTxs[i++] = await makerContract
-    .connect(testSigner)
-    .enterMarkets(market);
-
+  if (enterMarkets) {
+    mkrTxs[i++] = await makerContract
+      .connect(testSigner)
+      .enterMarkets(market);
+  }
   // testSigner asks MakerContract to approve Mangrove for base (DAI)
   mkrTxs[i++] = await makerContract
     .connect(testSigner)
@@ -80,11 +86,11 @@ async function deployStrat(strategy, mgv) {
   // testSigner asks makerContract to approve lender to be able to mint [c/a]Token
   mkrTxs[i++] = await makerContract
     .connect(testSigner)
-    .approve(market[0], ethers.constants.MaxUint256);
+    .approveLender(market[0], ethers.constants.MaxUint256);
   // NB in the special case of cEth this is not necessary
   mkrTxs[i++] = await makerContract
     .connect(testSigner)
-    .approve(market[1], ethers.constants.MaxUint256);
+    .approveLender(market[1], ethers.constants.MaxUint256);
 
   // makerContract deposits some DAI on Lender (remains 100 DAIs on the contract)
   mkrTxs[i++] = await makerContract
@@ -247,8 +253,7 @@ describe("Deploy strategies", function () {
 
     mgv = await lc.deployMangrove();
     await lc.activateMarket(mgv, dai.address, wEth.address);
-    console.log(mgv);
-    let cfg = await mgv.getConfig(dai.address, wEth.address);
+    let cfg = await mgv.config(dai.address, wEth.address);
     assert(cfg.local.active, "Market is inactive");
   });
 
@@ -388,6 +393,11 @@ describe("Deploy strategies", function () {
       lc.parseToken("380.0", "DAI") // giving DAI
     );
     await logLenderStatus(makerContract, "compound", ["WETH", "DAI"]);
+  });
+
+  it("Pure lender strat on aave", async function () {
+    const makerContract = await deployStrat("SimpleAaveRetail", mgv);
+    await execLenderStrat(makerContract, mgv, "aave");
   });
 
 });
