@@ -38,5 +38,10 @@
         "lendingPoolAddress": "0x8dff5e27ea6b7ac08ebfdf9eb090f32ee9a30fcf",
         "lendingPoolAbi": "config/polygon/abis/lendingPool-abi.json"
     },
-    "ChildChainManager" : "0xA6FA4fB5f76172d178d61B04b0ecd319C5d1C0aa"
+    "ChildChainManager" : "0xA6FA4fB5f76172d178d61B04b0ecd319C5d1C0aa",
+    "ExtraAbis" : {
+        "stableDebtToken": "config/polygon/abis/stableDebtToken-abi.json",
+        "variableDebtToken": "config/polygon/abis/variableDebtToken-abi.json",
+        "aToken": "config/polygon/abis/aToken-abi.json"
+    }
 }

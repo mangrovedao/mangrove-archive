@@ -44,7 +44,6 @@ async function deployStrat(strategy, mgv) {
       console.warn("Undefined strategy " + strategy);
   }
   await makerContract.deployed();
-  console.log("Maker contract was deployed!");
 
   // provisioning Mangrove on behalf of MakerContract
   let overrides = { value: lc.parseToken("2.0", "ETH") };
@@ -105,11 +104,10 @@ async function deployStrat(strategy, mgv) {
 async function logLenderStatus(makerContract, lenderName, tokens) {
   switch (lenderName) {
     case "compound":
-      await cDai.connect(testSigner).accrueInterest();
-      await lc.logCompoundStatus(makerContract, tokens);
+      await lc.logLenderStatus(makerContract, "compound", tokens);
       break;
     case "aave":
-      await lc.logAaveStatus(makerContract, tokens);
+      await lc.logLenderStatus(makerContract, "aave", tokens);
       break;
     default:
       console.warn("Lender not recognized: ", lenderName);

@@ -32,5 +32,10 @@
         "addressesProviderAbi": "config/ethereum/abis/addressesProvider-abi.json",
         "lendingPoolAddress":"0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
         "lendingPoolAbi": "config/ethereum/abis/lendingPool-abi.json"
+    },
+    "extraAbis" : {
+        "stableDebtToken": "config/polygon/abis/stableDebtToken-abi.json",
+        "variableDebtToken": "config/polygon/abis/variableDebtToken-abi.json",
+        "aToken": "config/polygon/abis/aToken-abi.json"
     }
 }
