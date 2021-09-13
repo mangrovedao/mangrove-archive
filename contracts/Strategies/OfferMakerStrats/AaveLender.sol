@@ -23,7 +23,7 @@ contract AaveLender is MangroveOffer {
     address payable _MGV,
     uint _referralCode
   ) MangroveOffer(_MGV) {
-    require(uint16(_referralCode) != _referralCode);
+    require(uint16(_referralCode) == _referralCode,"Referral code should be uint16");
     referralCode = uint16(referralCode); // for aave reference, put 0 for tests
     address _lendingPool = ILendingPoolAddressesProvider(_addressesProvider).getLendingPool();
     address _priceOracle = ILendingPoolAddressesProvider(_addressesProvider).getPriceOracle();
@@ -39,7 +39,7 @@ contract AaveLender is MangroveOffer {
 
   ///@notice approval of ctoken contract by the underlying is necessary for minting and repaying borrow
   ///@notice user must use this function to do so.
-  function approveLendingPool(IERC20 token, uint amount) external onlyAdmin {
+  function approveLender(IERC20 token, uint amount) external onlyAdmin {
     token.approve(address(lendingPool), amount);
   }
 
@@ -58,6 +58,8 @@ contract AaveLender is MangroveOffer {
 
   function enterMarkets(IERC20[] calldata underlyings) external onlyAdmin {
     for (uint i = 0; i < underlyings.length; i++) {
+      console.log("Entering market:");
+      console.log(address(underlyings[i]));
       lendingPool.setUserUseReserveAsCollateral(address(underlyings[i]), true);
     }
   }
@@ -87,8 +89,8 @@ contract AaveLender is MangroveOffer {
     uint balanceOfUnderlying;
   }
 
-  /// @notice Computes maximal borrow capacity of the account and maximal redeem capacity
-  /// return (maxRedeemableUnderlying, maxBorrowableUnderlying|maxRedeemed)
+  /// @notice Computes maximal maximal redeem capacity ($R) and max borrow capacity ($B|R$) after $R$ has been redeemed
+  /// returns $(R, B|R)$
 
   function maxGettableUnderlying(IERC20 asset)
     public
