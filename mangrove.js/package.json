@@ -19,7 +19,8 @@
     "publish_major": "npm version major && npm publish --access public",
     "rollup": "rollup -c rollup.config.ts",
     "test": "nyc --reporter=lcov mocha -r ts-node/register ./test/index.js  --timeout 60000",
-    "typechain": "rm -rf src/types/typechain/* && npx typechain --target=ethers-v5 'src/abis/**/*.json' --out-dir=src/types/typechain",
+    "clean-typechain": "rimraf src/types/typechain/*.ts",
+    "typechain": "npm run clean-typechain && npx typechain --target=ethers-v5 \"src/abis/**/*.json\" --out-dir=src/types/typechain",
     "postinstall": "npm run typechain"
   },
   "repository": {
