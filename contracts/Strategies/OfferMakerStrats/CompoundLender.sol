@@ -118,8 +118,8 @@ contract CompoundLender is MangroveOffer {
     return (heap.errCode != 0 || heap.mErr != MathError.NO_ERROR);
   }
 
-  /// @notice Computes maximal maximal redeem capacity ($R) and max borrow capacity ($B|R$) after $R$ has been redeemed
-  /// returns $(R, B|R)$
+  /// @notice Computes maximal maximal redeem capacity (R) and max borrow capacity (B|R) after R has been redeemed
+  /// returns (R, B|R)
   function maxGettableUnderlying(address _ctoken)
     public
     view
@@ -182,13 +182,13 @@ contract CompoundLender is MangroveOffer {
       return (0, 0);
     }
     heap.maxRedeemable = min(heap.maxRedeemable, heap.balanceOfUnderlying);
-    // $B|R = B - R*CF$
+    // B|R = B - R*CF
     return (
       heap.maxRedeemable,
       sub_(
-        heap.underlyingLiquidity, 
-        mulScalarTruncate(
-          Exp(mantissa: heap.collateralFactorMantissa),
+        heap.underlyingLiquidity, //borrow power
+        mul_ScalarTruncate(
+          Exp({mantissa: heap.collateralFactorMantissa}),
           heap.maxRedeemable
         )
       )    

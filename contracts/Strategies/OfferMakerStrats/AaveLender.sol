@@ -89,8 +89,8 @@ contract AaveLender is MangroveOffer {
     uint balanceOfUnderlying;
   }
 
-  /// @notice Computes maximal maximal redeem capacity ($R) and max borrow capacity ($B|R$) after $R$ has been redeemed
-  /// returns $(R, B|R)$
+  /// @notice Computes maximal maximal redeem capacity (R) and max borrow capacity (B|R) after R has been redeemed
+  /// returns (R, B|R)
 
   function maxGettableUnderlying(IERC20 asset)
     public
