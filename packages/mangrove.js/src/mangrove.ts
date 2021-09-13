@@ -150,7 +150,7 @@ export class Mangrove {
    */
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   async config() {
-    const config = await this.contract.getConfig("", "");
+    const config = await this.contract.config("", "");
     return config.global;
   }
 
