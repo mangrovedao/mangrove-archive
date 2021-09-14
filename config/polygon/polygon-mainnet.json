@@ -39,7 +39,7 @@
         "lendingPoolAbi": "config/polygon/abis/lendingPool-abi.json"
     },
     "ChildChainManager" : "0xA6FA4fB5f76172d178d61B04b0ecd319C5d1C0aa",
-    "ExtraAbis" : {
+    "extraAbis" : {
         "stableDebtToken": "config/polygon/abis/stableDebtToken-abi.json",
         "variableDebtToken": "config/polygon/abis/variableDebtToken-abi.json",
         "aToken": "config/polygon/abis/aToken-abi.json"

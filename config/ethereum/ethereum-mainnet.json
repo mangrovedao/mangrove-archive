@@ -34,8 +34,8 @@
         "lendingPoolAbi": "config/ethereum/abis/lendingPool-abi.json"
     },
     "extraAbis" : {
-        "stableDebtToken": "config/polygon/abis/stableDebtToken-abi.json",
-        "variableDebtToken": "config/polygon/abis/variableDebtToken-abi.json",
-        "aToken": "config/polygon/abis/aToken-abi.json"
+        "stableDebtToken": "config/ethereum/abis/stableDebtToken-abi.json",
+        "variableDebtToken": "config/ethereum/abis/variableDebtToken-abi.json",
+        "aToken": "config/ethereum/abis/aToken-abi.json"
     }
 }
