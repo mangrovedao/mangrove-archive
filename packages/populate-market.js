@@ -2,7 +2,7 @@ const hre = require("hardhat");
 const ethers = hre.ethers;
 
 // const { Mangrove } = require("../../../mangrove.js/src/index.ts");
-const { Mangrove } = require("../../../mangrove.js/dist/nodejs/mangrove");
+const { Mangrove } = require("../mangrove.js/dist/nodejs/mangrove");
 
 const mnemonic = hre.network.config.accounts.mnemonic;
 const addresses = [];
@@ -30,7 +30,7 @@ const main = async () => {
         }    
         );
 
-    const tokenAbi = require("../../../build/cache/solpp-generated-contracts/Tests/Agents/TestToken.sol/TestToken.json").abi;
+    const tokenAbi = require("../build/cache/solpp-generated-contracts/Tests/Agents/TestToken.sol/TestToken.json").abi;
     const TokenA = new hre.ethers.Contract(mgv.getAddress("TokenA"), tokenAbi, mgv._provider);
     const TokenB = new hre.ethers.Contract(mgv.getAddress("TokenB"), tokenAbi, mgv._provider);
       

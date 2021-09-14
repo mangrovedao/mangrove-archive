@@ -56,6 +56,7 @@ async function printOrderBook(market: Market){
   console.log(`...Attempting to get mgv book for market ${market}:`);
   const book = await market.book();
   console.dir(book);
+  console.log();  
 }
 
 async function printMarketConfig(market: Market){
@@ -90,9 +91,8 @@ const main = async () => {
 
   await printOrderBook(A_B_market);
 
-  console.log();
-
   console.log("...Attempting to post new offer on A B market");
+  console.log();  
 
   await mgv.contract.newOffer(
     addrA, 
