@@ -5,9 +5,6 @@ const ethers = hre.ethers;
 
 import dotenvFlow from "dotenv-flow";
 
-//const BigNumber = ethers.BigNumber;
-//const { Big } = require("big.js");
-
 dotenvFlow.config();
 if (!process.env["NODE_CONFIG_DIR"]) {
   process.env["NODE_CONFIG_DIR"] = __dirname + "/config/";
@@ -15,6 +12,7 @@ if (!process.env["NODE_CONFIG_DIR"]) {
 import config from "config";
 
 import Mangrove from "../../../mangrove.js/src/index";
+import { Market } from "../../../mangrove.js/src/market";
 
 /*
 * Task:
@@ -52,6 +50,22 @@ for (let i = 0; i < 20; i++) {
 
 /* --- */
 
+const toWei = (v, u = "ether") => ethers.utils.parseUnits(v.toString(), u);
+
+async function printOrderBook(market: Market){
+  console.log(`...Attempting to get mgv book for market ${market}:`);
+  const book = await market.book();
+  console.dir(book);
+}
+
+async function printMarketConfig(market: Market){
+  console.log(`...Attempting to get mgv config for market ${market.config.name}:`);
+
+  const marketConfig = await market.config();
+  console.dir(marketConfig);
+  console.log();  
+}
+
 const main = async () => {
   const mgv = await Mangrove.connect(
     "http://127.0.0.1:8545"
@@ -72,29 +86,24 @@ const main = async () => {
 
   const A_B_market = await mgv.market({base: baseTokenName, quote: quoteTokenName});
 
-  const marketConfig = await A_B_market.config();
-  
-  console.dir(marketConfig);
-  
-  console.log();
-  console.log("...Attempting to get mgv book for A B market:");
+  await printMarketConfig(A_B_market);
 
-  const book = await A_B_market.book();
-
-  console.dir(book);
+  await printOrderBook(A_B_market);
 
   console.log();
 
   console.log("...Attempting to post new offer on A B market");
 
-  mgv.contract.newOffer(
+  await mgv.contract.newOffer(
     addrA, 
     addrB, 
-    10, //toWei(Big("1")), 
-    10, //toWei(Big("1")), 
+    toWei(1),
+    toWei(1), 
     10_000, 
     1, 
-    0 );  
+    0 );
+
+  await printOrderBook(A_B_market);    
 }
 
 main();
