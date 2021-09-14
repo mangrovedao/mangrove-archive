@@ -33,10 +33,9 @@ async function deployStrat(strategy, mgv) {
         0 // aave referral code
       );
       market = [wEth.address, dai.address];
-
       // aave rejects market entering if underlying balance is 0 (will self enter at first deposit)
       enterMarkets = false;
-      break;
+      break; 
     default:
       console.warn("Undefined strategy " + strategy);
   }
