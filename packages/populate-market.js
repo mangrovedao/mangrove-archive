@@ -1,6 +1,17 @@
 const hre = require("hardhat");
 const ethers = hre.ethers;
 
+const lc = require("../../../test/libcommon");
+
+/* This script sets up a simple Mangrove market:
+ *
+ * - Funds a MM account:
+ *   - Adds ETH to the account
+ *   - Mints tokens of type TokenA and TokenB
+ * - Activates market (TokenA, TokenB)
+ * - Posts offer
+ */
+
 // const { Mangrove } = require("../../../mangrove.js/src/index.ts");
 const { Mangrove } = require("../mangrove.js/dist/nodejs/mangrove");
 
