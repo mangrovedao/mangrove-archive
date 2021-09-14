@@ -18,12 +18,13 @@ contract AaveLender is MangroveOffer {
   ILendingPool public immutable lendingPool;
   IPriceOracleGetter public immutable priceOracle;
   uint16 referralCode;
+
   constructor(
     address _addressesProvider,
     address payable _MGV,
     uint _referralCode
   ) MangroveOffer(_MGV) {
-    require(uint16(_referralCode) != _referralCode);
+    require(uint16(_referralCode) == _referralCode,"Referral code should be uint16");
     referralCode = uint16(referralCode); // for aave reference, put 0 for tests
     address _lendingPool = ILendingPoolAddressesProvider(_addressesProvider).getLendingPool();
     address _priceOracle = ILendingPoolAddressesProvider(_addressesProvider).getPriceOracle();
@@ -39,7 +40,7 @@ contract AaveLender is MangroveOffer {
 
   ///@notice approval of ctoken contract by the underlying is necessary for minting and repaying borrow
   ///@notice user must use this function to do so.
-  function approveLendingPool(IERC20 token, uint amount) external onlyAdmin {
+  function approveLender(IERC20 token, uint amount) external onlyAdmin {
     token.approve(address(lendingPool), amount);
   }
 
@@ -62,12 +63,6 @@ contract AaveLender is MangroveOffer {
     }
   }
 
-  function isPooled(IERC20 asset) public view returns (bool){
-    DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(address(asset));
-    DataTypes.UserConfigurationMap memory cfg = lendingPool.getUserConfiguration(address(this));
-    return DataTypes.isUsingAsCollateral(cfg,reserveData.id);
-  }
-
   // structs to avoir stack too deep in maxGettableUnderlying
   struct Underlying {
     uint ltv;
@@ -87,8 +82,8 @@ contract AaveLender is MangroveOffer {
     uint balanceOfUnderlying;
   }
 
-  /// @notice Computes maximal borrow capacity of the account and maximal redeem capacity
-  /// return (maxRedeemableUnderlying, maxBorrowableUnderlying|maxRedeemed)
+  /// @notice Computes maximal maximal redeem capacity (R) and max borrow capacity (B|R) after R has been redeemed
+  /// returns (R, B|R)
 
   function maxGettableUnderlying(IERC20 asset)
     public
@@ -114,10 +109,9 @@ contract AaveLender is MangroveOffer {
         /*reserveFactor*/
       ) = DataTypes.getParams(reserveData.configuration);
       account.balanceOfUnderlying = IERC20(reserveData.aTokenAddress).balanceOf(address(this));
-      underlying.price = div_(
-        IPriceOracleGetter(priceOracle).getAssetPrice(address(asset)),
-        10**underlying.decimals
-      );
+
+      
+      underlying.price =  IPriceOracleGetter(priceOracle).getAssetPrice(address(asset)); // divided by 10**underlying.decimals
 
       // account.redeemPower = account.liquidationThreshold * account.collateral - account.debt
       account.redeemPower = sub_(
@@ -128,10 +122,11 @@ contract AaveLender is MangroveOffer {
         account.debt
       );
       // max redeem capacity = account.redeemPower/ underlying.liquidationThreshold * underlying.price
-      // unless account doesn't have enough collateral in asset token
+      // unless account doesn't have enough collateral in asset token (hence the min())
+      
       uint maxRedeemableUnderlying = min(
         div_(
-          account.redeemPower,
+          mul_(account.redeemPower,10**underlying.decimals),
           mul_(
             underlying.liquidationThreshold,
             underlying.price
@@ -141,14 +136,21 @@ contract AaveLender is MangroveOffer {
       );
       // computing max borrow capacity on the premisses that maxRedeemableUnderlying has been redeemed.
       // max borrow capacity = (account.borrowPower - (ltv*redeemed)) / underlying.ltv * underlying.price
+      uint borrowPowerImpactOfRedeem = maxRedeemableUnderlying * underlying.ltv;
+      if (borrowPowerImpactOfRedeem > account.borrowPower) { // no more borrowPower left after max redeem operation
+        return (maxRedeemableUnderlying,0);
+      }
       uint maxBorrowAfterRedeem = div_(
         sub_(
           account.borrowPower,
           maxRedeemableUnderlying * underlying.ltv
         ),
-        mul_(
-          underlying.ltv,
-          underlying.price
+        div_(
+          mul_(
+            underlying.ltv,
+            underlying.price
+          ),
+          10**underlying.decimals
         )
       );
       return (maxRedeemableUnderlying, maxBorrowAfterRedeem);
@@ -163,10 +165,6 @@ contract AaveLender is MangroveOffer {
     override
     returns (uint)
   {
-    if (!isPooled(base)) {
-      // if flag says not to fetch liquidity on compound
-      return amount;
-    }
     (uint redeemable, /*maxBorrowAfterRedeem*/) = maxGettableUnderlying(base);
 
     uint redeemAmount = min(redeemable, amount);
@@ -200,7 +198,7 @@ contract AaveLender is MangroveOffer {
 
   function __put__(IERC20 quote, uint amount) internal virtual override {
     //optim
-    if (amount == 0 || !isPooled(quote)) {
+    if (amount == 0) {
       return;
     }
     aaveMint(quote, amount);

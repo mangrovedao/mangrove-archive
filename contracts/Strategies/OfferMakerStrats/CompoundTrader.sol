@@ -35,7 +35,7 @@ contract CompoundTrader is CompoundLender {
     }
 
     // 1. Computing total borrow and redeem capacities of underlying asset
-    (uint liquidity, uint redeemable) =
+    (uint redeemable, uint liquidity_after_redeem) =
       maxGettableUnderlying(address(base_cErc20));
 
     // 2. trying to redeem liquidity from Compound
@@ -49,13 +49,7 @@ contract CompoundTrader is CompoundLender {
       return amount;
     }
     amount = sub_(amount, toRedeem);
-    uint toBorrow;
-    if (comptroller.checkMembership(address(this), base_cErc20)) {
-      //base_cErc20 participates to liquidity
-      toBorrow = min(sub_(liquidity, toRedeem), amount); // we know liquidity > toRedeem
-    } else {
-      toBorrow = min(liquidity, amount); // redeemed token do not decrease liquidity
-    }
+    uint toBorrow= min(liquidity_after_redeem, amount); 
     if (toBorrow == 0) {
       return amount;
     }

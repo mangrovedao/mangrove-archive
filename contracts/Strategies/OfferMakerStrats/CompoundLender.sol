@@ -42,7 +42,7 @@ contract CompoundLender is MangroveOffer {
 
   ///@notice approval of ctoken contract by the underlying is necessary for minting and repaying borrow
   ///@notice user must use this function to do so.
-  function approve(address ctoken, uint amount) external onlyAdmin {
+  function approveLender(address ctoken, uint amount) external onlyAdmin {
     IERC20 token = underlying(IcERC20(ctoken));
     token.approve(ctoken, amount);
   }
@@ -118,10 +118,8 @@ contract CompoundLender is MangroveOffer {
     return (heap.errCode != 0 || heap.mErr != MathError.NO_ERROR);
   }
 
-  /// @notice Computes maximal borrow capacity of the account and maximal redeem capacity
-  /// @notice The returned value is underestimated unless accrueInterest is called in the transaction
-  /// @notice Putting liquidity on Compound (either through minting or borrowing) will accrue interests
-  /// return (underlyingLiquidity, maxRedeemableUnderlying)
+  /// @notice Computes maximal maximal redeem capacity (R) and max borrow capacity (B|R) after R has been redeemed
+  /// returns (R, B|R)
   function maxGettableUnderlying(address _ctoken)
     public
     view
@@ -163,13 +161,13 @@ contract CompoundLender is MangroveOffer {
     }
     (, heap.collateralFactorMantissa, ) = comptroller.markets(address(ctoken));
 
-    // if collateral factor is 0 then any token can be redeemed from the pool
+    // if collateral factor is 0 then any token can be redeemed from the pool w/o impacting borrow power
     // also true if market is not entered
     if (
       heap.collateralFactorMantissa == 0 ||
       !comptroller.checkMembership(address(this), ctoken)
     ) {
-      return (heap.underlyingLiquidity, heap.balanceOfUnderlying);
+      return (heap.balanceOfUnderlying, heap.underlyingLiquidity);
     }
 
     // maxRedeem:[underlying] = liquidity:[USD / 18 decimals ] / (price(Base):[USD.underlying^-1 / 18 decimals] * collateralFactor(Base): [0-1] 18 decimals)
@@ -183,9 +181,17 @@ contract CompoundLender is MangroveOffer {
     if (heapError(heap)) {
       return (0, 0);
     }
+    heap.maxRedeemable = min(heap.maxRedeemable, heap.balanceOfUnderlying);
+    // B|R = B - R*CF
     return (
-      heap.underlyingLiquidity,
-      min(heap.maxRedeemable, heap.balanceOfUnderlying)
+      heap.maxRedeemable,
+      sub_(
+        heap.underlyingLiquidity, //borrow power
+        mul_ScalarTruncate(
+          Exp({mantissa: heap.collateralFactorMantissa}),
+          heap.maxRedeemable
+        )
+      )    
     );
   }
 
@@ -208,7 +214,7 @@ contract CompoundLender is MangroveOffer {
       return amount;
     }
     base_cErc20.accrueInterest();
-    (, uint redeemable) = maxGettableUnderlying(address(base_cErc20));
+    (uint redeemable,) = maxGettableUnderlying(address(base_cErc20));
 
     uint redeemAmount = min(redeemable, amount);
 
