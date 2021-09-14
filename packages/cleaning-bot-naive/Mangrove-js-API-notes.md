@@ -54,6 +54,7 @@ Since mangrove.js constructs a Provider, I think it should be possible to get an
 > ⚠️ Perhaps expose `Mangrove._provider`.
 
 # Reading the configuration
+## OUTDATED the API was changed after this was written
 First attempt:
 
 ```TypeScript
@@ -117,14 +118,36 @@ The method is `async` so would expect it to actually read from the network.
 
 > ⚠️ Maybe `market()` should not be `async` or it should actually give an error, if the market doesn't exist.
 
-After adding addresses for `TokenA` and `TokenB` I can read the config of that market:
+After adding addresses for `TokenA` and `TokenB` I can (almost) read the config of that market:
 
 ```TypeScript
-  const market = await mgv.market({base: "TokenA", quote: "TokenB"});
+  const baseTokenName = "TokenA";
+  const quoteTokenName = "TokenB";
+
+  const market = await mgv.market({base: baseTokenName, quote: quoteTokenName});
   const marketConfig = await market.config();
-  console.dir(marketConfig);
 ```
 
+I get the following cryptic error message:
+
+```
+Error: No decimals on record for token TokenA
+    at Function.getDecimals (/Users/espen/dev/mangrove/mangrove.js/src/mangrove.ts:191:13)
+    at Mangrove.getDecimals (/Users/espen/dev/mangrove/mangrove.js/src/mangrove.ts:109:21)
+    at Mangrove.fromUnits (/Users/espen/dev/mangrove/mangrove.js/src/mangrove.ts:145:45)
+    at Market.fromUnits (/Users/espen/dev/mangrove/mangrove.js/src/market.ts:105:21)
+    at Market._Market_mapConfig (/Users/espen/dev/mangrove/mangrove.js/src/market.ts:47:21)
+    at Market.config (/Users/espen/dev/mangrove/mangrove.js/src/market.ts:69:28)
+    at processTicksAndRejections (node:internal/process/task_queues:96:5)
+    at async main (/Users/espen/dev/mangrove/packages/cleaning-bot-naive/src/cleaning-bot-naive.ts:20:24)
+```
+
+Turns out I need to call `cacheDecimals()` for each of the tokens.
+
+> ⚠️ Could Mangrove.js call `cacheDecimals()` automatically when needed?
+
+
+## OUTDATED The API was changed
 However, the structure has some obscure contents:
 
 ```Javascript

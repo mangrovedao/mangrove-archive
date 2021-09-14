@@ -17,9 +17,11 @@ const main = async () => {
   const quoteTokenName = "TokenB";
 
   const market = await mgv.market({base: baseTokenName, quote: quoteTokenName});
+  await mgv.cacheDecimals(baseTokenName);
+  await mgv.cacheDecimals(quoteTokenName);
   const marketConfig = await market.config();
 
-  if (!marketConfig.active) {
+  if (!marketConfig.asks.active) {
     throw new Error(`Market is not active so exiting - market: base = ${baseTokenName}, quote = ${quoteTokenName}`);
   }
 }
