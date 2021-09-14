@@ -1,5 +1,10 @@
+/* TODO: Use hardhat temporarily to get signer */
+const hre = require("hardhat");
+const ethers = hre.ethers;
+/* --- */
+
 import dotenvFlow from "dotenv-flow";
-//import ethers from "ethers";
+
 //const BigNumber = ethers.BigNumber;
 //const { Big } = require("big.js");
 
@@ -30,10 +35,8 @@ import Mangrove from "../../../mangrove.js/src/index";
   *
 */
 
-/* --- hacky stuff to get a signer --- */
-
-const hre = require("hardhat");
-const ethers = hre.ethers;
+/* --- TODO temp using hardhat to get a signer 
+   ---      should get signer externally */
 
 const mnemonic = hre.network.config.accounts.mnemonic;
 const addresses = [];
@@ -47,46 +50,27 @@ for (let i = 0; i < 20; i++) {
   privateKeys.push(wallet._signingKey().privateKey);
 }
 
-/* --- --- */
-
-  //FIXME Currenlyt doesn't work
-  //const cfg = await mgv.config();
-
-
-const toWei = (v, u = "ether") => ethers.utils.parseUnits(v.toString(), u);
+/* --- */
 
 const main = async () => {
   const mgv = await Mangrove.connect(
-    "http://127.0.0.1:8545",
+    "http://127.0.0.1:8545"
+    ,
     {
       privateKey: privateKeys[0],
     }    
     );
 
-  const addrA = mgv.getAddress("TokenA");
-  const addrB = mgv.getAddress("TokenB");
+  const baseTokenName = "TokenA";
+  const quoteTokenName = "TokenB";
 
-  console.log("...Attempting to activate mgv contract");
+  const addrA = mgv.getAddress(baseTokenName);
+  const addrB = mgv.getAddress(quoteTokenName);
 
-  await mgv.contract.activate(
-    addrA,
-    addrB,
-    0,
-    10,
-    80000,
-    20000
-  );
+  await mgv.cacheDecimals(baseTokenName);
+  await mgv.cacheDecimals(quoteTokenName);
 
-  // await mgvContract.activate(
-  //   TokenB.address,
-  //   TokenA.address,
-  //   0,
-  //   10,
-  //   80000,
-  //   20000
-  // );
-
-  const A_B_market = await mgv.market({base: "TokenA", quote: "TokenB"});
+  const A_B_market = await mgv.market({base: baseTokenName, quote: quoteTokenName});
 
   const marketConfig = await A_B_market.config();
   
