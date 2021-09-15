@@ -36,10 +36,10 @@ config.hardhat = {
     sources: "./contracts",
     tests: "./test",
     cache: "./cache",
-    artifacts: "./build",
+    artifacts: "./build/cache/solpp-generated-contracts", // NB This path is a bit weird - can we remove the cache part?
   },
   abiExporter: {
-    path: "./mangrove.js/src/abis",
+    path: "./build/exported-abis", // NB I changed this, as we were generating files in one package into a different package
     clear: true,
     flat: false,
     only: [":MgvReader$", ":Mangrove$", ":MgvEvents$", ":IERC20$"],
