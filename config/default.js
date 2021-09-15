@@ -39,7 +39,7 @@ config.hardhat = {
     artifacts: "./build",
   },
   abiExporter: {
-    path: "./mangrove.js/src/abis",
+    path: "./packages/mangrove.js/src/abis",
     clear: true,
     flat: false,
     only: [":MgvReader$", ":Mangrove$", ":MgvEvents$", ":IERC20$"],
