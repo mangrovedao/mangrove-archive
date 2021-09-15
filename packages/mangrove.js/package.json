@@ -20,7 +20,7 @@
     "rollup": "rollup -c rollup.config.ts",
     "test": "nyc --reporter=lcov mocha -r ts-node/register ./test/index.js  --timeout 60000",
     "clean-typechain": "rimraf src/types/typechain/*.ts",
-    "typechain": "npm run clean-typechain && npx typechain --target=ethers-v5 --out-dir=src/types/typechain \"src/abis/**/*.json\"",
+    "typechain": "npm run clean-typechain && npx typechain --target=ethers-v5 --out-dir=src/types/typechain \"../mangrove-solidity/build/exported-abis/**/*.json\"",
     "postinstall": "npm run typechain"
   },
   "repository": {

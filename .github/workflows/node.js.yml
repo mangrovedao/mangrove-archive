@@ -16,6 +16,11 @@ jobs:
 
     env:
       NODE_ENV: test
+      working-directory: packages/mangrove-solidity # For easy and consistently setting CWD for steps in this job 
+
+    defaults:
+      run:
+        working-directory: ${{env.working-directory}} # CWD for all _run_ steps in this job 
 
     strategy:
       matrix:
@@ -70,7 +75,7 @@ jobs:
       if: ${{ !env.ACT && (success() || failure()) }}
       with:
         name: Solidity Tests                  # Name of the check run which will be created
-        path: solidity-mocha-test-report.json # Path to test results
+        path: ${{env.working-directory}}/solidity-mocha-test-report.json # Path to test results
         reporter: mocha-json                  # Format of test results
 
     # == Run test suite Ethereum mainnet ==
@@ -85,7 +90,7 @@ jobs:
       if: ${{ !env.ACT && (success() || failure()) }}
       with:
         name: Ethereum mainnet Tests          # Name of the check run which will be created
-        path: ethereum-mainnet-mocha-test-report.json # Path to test results
+        path: ${{env.working-directory}}/ethereum-mainnet-mocha-test-report.json # Path to test results
         reporter: mocha-json                  # Format of test results
 
 
@@ -101,7 +106,7 @@ jobs:
       if: ${{ !env.ACT && (success() || failure()) }}
       with:
         name: Polygon mainnet Tests           # Name of the check run which will be created
-        path: polygon-mainnet-mocha-test-report.json # Path to test results
+        path: ${{env.working-directory}}/polygon-mainnet-mocha-test-report.json # Path to test results
         reporter: mocha-json                  # Format of test results
 
 
@@ -113,4 +118,4 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: documentation
-        path: doc/
+        path: ${{env.working-directory}}/doc/
