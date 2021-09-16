@@ -1,6 +1,4 @@
-import { ethers } from 'ethers';
-
-import { getSigner } from "../getsigner"
+import { getSigner } from "./getsigner"
 
 import dotenvFlow from "dotenv-flow";
 
@@ -10,7 +8,7 @@ if (!process.env["NODE_CONFIG_DIR"]) {
 }
 import config from "config";
 
-import Mangrove from "../../../mangrove.js/src/index";
+import { Mangrove, ethers } from "../../../mangrove.js/src/index";
 import { Market } from "../../../mangrove.js/src/market";
 
 /*
@@ -76,6 +74,27 @@ const main = async () => {
   console.log("...Attempting to post new offer on A B market");
   console.log();  
 
+  /*
+  *  TODO: 
+  * The following newOffer call works and excercises the API, so
+  * it's an ok v0.
+  * 
+  * But it doesn't really make sense from a semantic perspective.
+  * The offer is posted on behalf of the signer indicated by the privateKey used to sign the connection - an EOA.
+  * Marketmakers will seldomly, if ever, be EOA. They will be contracts. 
+  * 
+  * Instead, in a v1, to make a more sensible marketmaker, I'd probably like to deploy the TestMaker contract
+  * fund it
+  * ensure that we can manage it
+  * do TestMakerContract.newOffer in javascript (which will make the contract call mangrove's newOffer function)
+  * 
+  * Either that, or 
+  * * use some libcommon.js stuff (Jean's), or
+  * * or use some coming mangrove.js features to manage an already deployed maker contract
+  * * ...
+  * 
+  * Other options: Look at arbitrage or bounty hunting bots.
+  */
   await mgv.contract.newOffer(
     addrA, 
     addrB, 
