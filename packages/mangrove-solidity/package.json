@@ -4,19 +4,6 @@
   "main": "index.js",
   "author": "Adrien Husson <pangel.neu@gmail.com>",
   "license": "MIT",
-  "dependencies": {
-    "@nomiclabs/hardhat-ethers": "^2.0.2",
-    "adhusson-hardhat-solpp": "^2.0.2",
-    "chai-events": "^0.0.3",
-    "config": "^3.3.6",
-    "dotenv-flow": "^3.2.0",
-    "ethers": "^5.4.6",
-    "hardhat": "^2.4.1",
-    "hardhat-abi-exporter": "^2.3.0",
-    "hardhat-deploy": "^0.9.0",
-    "hardhat-deploy-ethers": "^0.3.0-beta.10",
-    "solcco": ">=1.0.11"
-  },
   "scripts": {
     "precommit": "lint-staged",
     "prepare": "npx hardhat compile",
@@ -27,18 +14,28 @@
     "test:polygon-mainnet": "cross-env NODE_ENV=test NODE_APP_INSTANCE=polygon-mainnet hardhat test test/test-mainnet.js"
   },
   "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@espendk/json-file-reporter": "^1.4.1",
     "@giry/hardhat-test-solidity": "^0.0.7",
+    "adhusson-hardhat-solpp": "^2.0.2",
     "chai": "^4.3.4",
+    "chai-events": "^0.0.3",
+    "config": "^3.3.6",
     "cross-env": "^7.0.3",
-    "husky": "^4.3.0",
+    "dotenv-flow": "^3.2.0",
+    "ethers": "^5.4.6",
+    "hardhat": "^2.4.1",
+    "hardhat-abi-exporter": "^2.3.0",
+    "hardhat-deploy": "^0.9.0",
+    "hardhat-deploy-ethers": "^0.3.0-beta.10",
     "lint-staged": "^10.5.1",
     "mocha": "^7.2.0",
     "mocha-multi-reporters": "^1.5.1",
     "npm-run-all": "^4.1.5",
     "prettier": "^2.2.0",
     "prettier-plugin-solidity": "^1.0.0-beta.3",
-    "rimraf": "^3.0.2"
+    "rimraf": "^3.0.2",
+    "solcco": ">=1.0.11"
   },
   "lint-staged": {
     "*.{js,css,md,sol}": "prettier --write"
