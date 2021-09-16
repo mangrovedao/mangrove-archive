@@ -61,6 +61,7 @@ jobs:
         node-version: ${{ matrix.node-version }}
         
     - run: npm ci
+      working-directory: . # NPM CI must run in root to ensure monorepo setup
 
     # == Solidity compile and run test suite solidity ==
 
@@ -107,6 +108,21 @@ jobs:
       with:
         name: Polygon mainnet Tests           # Name of the check run which will be created
         path: ${{env.working-directory}}/polygon-mainnet-mocha-test-report.json # Path to test results
+        reporter: mocha-json                  # Format of test results
+
+
+    # == Run test suite Mangrove.js == 
+
+    - name: Mangrove.js Tests
+      run: npm run test
+      working-directory: packages/mangrove.js # TODO These tests are in a different package than the previous - we should find a better way to handle working directories
+
+    - name: Mangrove.js Test Report
+      uses: dorny/test-reporter@v1
+      if: ${{ !env.ACT && (success() || failure()) }}
+      with:
+        name: Mangrove.js Tests               # Name of the check run which will be created
+        path: packages/mangrove.js/mangrovejs-mocha-test-report.json # Path to test results
         reporter: mocha-json                  # Format of test results
 
 
