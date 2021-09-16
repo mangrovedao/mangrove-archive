@@ -1,7 +1,6 @@
-/* TODO: Use hardhat temporarily to get signer */
-const hre = require("hardhat");
-const ethers = hre.ethers;
-/* --- */
+import { ethers } from 'ethers';
+
+import { getSigner } from "../getsigner"
 
 import dotenvFlow from "dotenv-flow";
 
@@ -33,24 +32,7 @@ import { Market } from "../../../mangrove.js/src/market";
   *
 */
 
-/* --- TODO temp using hardhat to get a signer 
-   ---      should get signer externally */
-
-const mnemonic = hre.network.config.accounts.mnemonic;
-const addresses = [];
-const privateKeys = [];
-for (let i = 0; i < 20; i++) {
-  const wallet = new ethers.Wallet.fromMnemonic(
-    mnemonic,
-    `m/44'/60'/0'/0/${i}`
-  );
-  addresses.push(wallet.address);
-  privateKeys.push(wallet._signingKey().privateKey);
-}
-
-/* --- */
-
-const toWei = (v, u = "ether") => ethers.utils.parseUnits(v.toString(), u);
+const toWei = (v : number, u = "ether") => ethers.utils.parseUnits(v.toString(), u);
 
 async function printOrderBook(market: Market){
   console.log(`...Attempting to get mgv book for market ${market}:`);
@@ -72,7 +54,7 @@ const main = async () => {
     "http://127.0.0.1:8545"
     ,
     {
-      privateKey: privateKeys[0],
+      privateKey: getSigner(),
     }    
     );
 
