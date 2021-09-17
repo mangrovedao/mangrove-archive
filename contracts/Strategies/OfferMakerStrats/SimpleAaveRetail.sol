@@ -5,9 +5,8 @@ import "./AaveLender.sol";
 contract SimpleAaveRetail is AaveLender {
   constructor(
     address _addressesProvider,
-    address payable _MGV,
-    uint _referralCode
-  ) AaveLender(_addressesProvider, _MGV, _referralCode) {}
+    address payable _MGV
+  ) AaveLender(_addressesProvider, _MGV, 0) {}
 
   // Tries to take base directly from `this` balance. Fetches the remainder on Aave.
   function __get__(IERC20 base, uint amount)
