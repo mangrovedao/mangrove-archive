@@ -115,45 +115,50 @@ contract AaveLender is MangroveOffer {
 
       // account.redeemPower = account.liquidationThreshold * account.collateral - account.debt
       account.redeemPower = sub_(
-        mul_(
-          account.liquidationThreshold,
-          account.collateral
-        ),
+        div_(
+          mul_(
+            account.liquidationThreshold,
+            account.collateral
+          ),
+          10**4
+        ), 
         account.debt
       );
       // max redeem capacity = account.redeemPower/ underlying.liquidationThreshold * underlying.price
       // unless account doesn't have enough collateral in asset token (hence the min())
-      
-      uint maxRedeemableUnderlying = min(
-        div_(
-          mul_(account.redeemPower,10**underlying.decimals),
+
+      uint maxRedeemableUnderlying = // in 10**underlying.decimals
+      div_(
+          account.redeemPower * 10**(underlying.decimals) * 10**4,
           mul_(
             underlying.liquidationThreshold,
             underlying.price
           )
-        ),
-        account.balanceOfUnderlying
       );
+      
+      maxRedeemableUnderlying = min (maxRedeemableUnderlying, account.balanceOfUnderlying);
       // computing max borrow capacity on the premisses that maxRedeemableUnderlying has been redeemed.
       // max borrow capacity = (account.borrowPower - (ltv*redeemed)) / underlying.ltv * underlying.price
-      uint borrowPowerImpactOfRedeem = maxRedeemableUnderlying * underlying.ltv;
-      if (borrowPowerImpactOfRedeem > account.borrowPower) { // no more borrowPower left after max redeem operation
+
+      uint borrowPowerImpactOfRedeemInUnderlying = div_(
+        mul_(maxRedeemableUnderlying, underlying.ltv),
+        10**4
+      );
+      uint borrowPowerInUnderlying = div_(
+        mul_(account.borrowPower,10**underlying.decimals),
+        underlying.price
+      );
+
+      if (borrowPowerImpactOfRedeemInUnderlying > borrowPowerInUnderlying) { // no more borrowPower left after max redeem operation
         return (maxRedeemableUnderlying,0);
       }
-      uint maxBorrowAfterRedeem = div_(
-        sub_(
-          account.borrowPower,
-          maxRedeemableUnderlying * underlying.ltv
-        ),
-        div_(
-          mul_(
-            underlying.ltv,
-            underlying.price
-          ),
-          10**underlying.decimals
-        )
+
+      uint maxBorrowAfterRedeemInUnderlying = // max borrow power in underlying after max redeem has been withdrawn
+      sub_(
+        borrowPowerInUnderlying,
+        borrowPowerImpactOfRedeemInUnderlying 
       );
-      return (maxRedeemableUnderlying, maxBorrowAfterRedeem);
+      return (maxRedeemableUnderlying, maxBorrowAfterRedeemInUnderlying);
   }
 
   ///@notice method to get `base` during makerExecute
