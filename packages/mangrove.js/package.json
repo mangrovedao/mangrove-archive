@@ -5,11 +5,6 @@
   "description": "A Typescript SDK for the Mangrove Protocol.",
   "license": "BSD-3-Clause",
   "main": "dist/nodejs/index.js",
-  "nyc": {
-    "include": [
-      "src/**/*.ts"
-    ]
-  },
   "scripts": {
     "lint": "npx eslint ./src/*.ts",
     "install": "npm run build",
@@ -34,6 +29,13 @@
     "defi",
     "ethereum"
   ],
+  "dependencies": {
+    "big.js": "^6.1.1",
+    "config": "^3.3.6",
+    "dotenv-flow": "^3.2.0",
+    "ethers": "^5.3.0",
+    "typedoc": "^0.21.4"
+  },
   "devDependencies": {
     "@espendk/json-file-reporter": "^1.4.2",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
@@ -64,11 +66,9 @@
     "typechain": "^5.1.2",
     "typescript": "^4.3.0"
   },
-  "dependencies": {
-    "big.js": "^6.1.1",
-    "config": "^3.3.6",
-    "dotenv-flow": "^3.2.0",
-    "ethers": "^5.3.0",
-    "typedoc": "^0.21.4"
+  "nyc": {
+    "include": [
+      "src/**/*.ts"
+    ]
   }
 }
