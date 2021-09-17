@@ -17,7 +17,7 @@ contract AaveTrader is AaveLender {
     interestRateMode = _interestRateMode;
   }
 
-  event ErrorOnBorrow(address cToken, uint amount);
+  event ErrorOnBorrow(address cToken, uint amount, string errorCode);
   event ErrorOnRepay(address cToken, uint amount);
 
   ///@notice method to get `base` during makerExecute
@@ -29,7 +29,6 @@ contract AaveTrader is AaveLender {
     override
     returns (uint)
   {
-
     // 1. Computing total borrow and redeem capacities of underlying asset
     (uint redeemable, uint liquidity_after_redeem) =
       maxGettableUnderlying(base);
@@ -51,11 +50,10 @@ contract AaveTrader is AaveLender {
     }
 
     // 3. trying to borrow missing liquidity
-
     try lendingPool.borrow(address(base), toBorrow, interestRateMode, referralCode, address(this)) {
       return sub_(amount, toBorrow);
-    } catch {
-      emit ErrorOnBorrow(address(base), toBorrow);
+    } catch Error(string memory errorCode){
+      emit ErrorOnBorrow(address(base), toBorrow, errorCode);
       return amount; // unable to borrow requested amount
     }
   }
@@ -63,7 +61,6 @@ contract AaveTrader is AaveLender {
   /// @notice user need to have approved `quote` overlying in order to repay borrow
   function __put__(IERC20 quote, uint amount) internal virtual override {
     //optim
-
     if (amount == 0) {
       return;
     }
@@ -79,6 +76,7 @@ contract AaveTrader is AaveLender {
     }
 
     uint toRepay = min(debtOfUnderlying, amount);
+    
     uint toMint;
     try lendingPool.repay(address(quote), toRepay, interestRateMode, address(this)) {
       toMint = sub_(amount, toRepay) ;
