@@ -4,7 +4,9 @@
   "author": "Adrien Husson <pangel.neu@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "install": "npx hardhat compile",
+    "precommit": "lint-staged",
+    "prepack": "yarn run build",
+    "build": "hardhat compile",
     "doc": "solcco -f doc/MgvDoc.html structs.js contracts/MgvLib.sol contracts/MgvRoot.sol contracts/MgvHasOffers.sol contracts/MgvOfferMaking.sol contracts/MgvOfferTaking.sol contracts/MgvOfferTakingWithPermit.sol contracts/MgvGovernable.sol contracts/AbstractMangrove.sol contracts/Mangrove.sol contracts/InvertedMangrove.sol",
     "test": "npm-run-all test:*",
     "test:solidity": "cross-env NODE_ENV=test NODE_APP_INSTANCE=solidity hardhat test-solidity",
@@ -12,9 +14,10 @@
     "test:polygon-mainnet": "cross-env NODE_ENV=test NODE_APP_INSTANCE=polygon-mainnet hardhat test test/test-mainnet.js"
   },
   "devDependencies": {
-    "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@espendk/json-file-reporter": "^1.4.1",
+    "@ethersproject/hardware-wallets": "^5.0.0",
     "@giry/hardhat-test-solidity": "^0.0.8",
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
     "adhusson-hardhat-solpp": "^2.0.2",
     "chai": "^4.3.4",
     "chai-events": "^0.0.3",
@@ -30,7 +33,7 @@
     "mocha": "^7.2.0",
     "mocha-multi-reporters": "^1.5.1",
     "npm-run-all": "^4.1.5",
-    "prettier": "^2.2.0",
+    "prettier": "^2.4.1",
     "prettier-plugin-solidity": "^1.0.0-beta.3",
     "rimraf": "^3.0.2",
     "solcco": ">=1.0.11"

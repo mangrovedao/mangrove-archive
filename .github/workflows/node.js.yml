@@ -24,7 +24,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [16.x]
+        node-version: [14.x]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
@@ -60,16 +60,16 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         
-    - run: npm ci
-      working-directory: . # NPM CI must run in root to ensure monorepo setup
+    - run: yarn install --frozen-lockfile
+      working-directory: . # Yarn must run in root to ensure monorepo setup
 
     # == Solidity compile and run test suite solidity ==
 
     - name: Solidity Compile
-      run: npx hardhat compile
+      run: yarn run build
 
     - name: Solidity Tests
-      run: npm run test:solidity
+      run: yarn run test:solidity
 
     - name: Solidity Test Report
       uses: dorny/test-reporter@v1
@@ -82,7 +82,7 @@ jobs:
     # == Run test suite Ethereum mainnet ==
 
     - name: Ethereum mainnet Tests
-      run: npm run test:ethereum-mainnet
+      run: yarn run test:ethereum-mainnet
       env:
         ETHEREUM_NODE_URL: ${{ secrets.ETHEREUM_NODE_URL }}
 
@@ -98,7 +98,7 @@ jobs:
     # == Run test suite Polygon mainnet == 
 
     - name: Polygon mainnet Tests
-      run: npm run test:polygon-mainnet
+      run: yarn run test:polygon-mainnet
       env:
         POLYGON_NODE_URL: ${{ secrets.POLYGON_NODE_URL }}
 
@@ -111,10 +111,16 @@ jobs:
         reporter: mocha-json                  # Format of test results
 
 
+    # == Build Mangrove.js == 
+    - name: Mangrove.js build
+      run: yarn run build
+      working-directory: packages/mangrove.js # TODO This build is in a different package than the previous - we should find a better way to handle working directories
+
+
     # == Run test suite Mangrove.js == 
 
     - name: Mangrove.js Tests
-      run: npm run test
+      run: yarn run test
       working-directory: packages/mangrove.js # TODO These tests are in a different package than the previous - we should find a better way to handle working directories
 
     - name: Mangrove.js Test Report
@@ -128,7 +134,7 @@ jobs:
 
     # == Documentation == 
 
-    - run: npm run doc
+    - run: yarn run doc
 
     - name: Archive documentation
       uses: actions/upload-artifact@v2

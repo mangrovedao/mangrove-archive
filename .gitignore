@@ -13,3 +13,12 @@ packages/mangrove-solidity/doc/specs.txt
 .env.*.local
 *mocha-test-report.json
 *.code-workspace
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
