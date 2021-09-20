@@ -233,7 +233,7 @@ contract CompoundLender is MangroveOffer {
     if (errorCode == 0) {
       //compound redeem was a success
       // if ETH was redeemed, one needs to convert them into wETH
-      if (underlying(cBase) == weth) {
+      if (isCeth(cBase)) {
         weth.deposit{value: amountToRedeem}();
       }
       return 0;

@@ -339,9 +339,11 @@ async function logLenderStatus(contract, lenderName, tokens) {
 }
 
 async function newOffer(contract, base_sym, quote_sym, wants, gives) {
-  
   base = (await getContract(base_sym)).address;
   quote = (await getContract(quote_sym)).address;
+
+  const offerId = await nextOfferId(base,quote,contract);
+
   offerTx = await contract.newOffer(
     base,
     quote,
@@ -352,6 +354,7 @@ async function newOffer(contract, base_sym, quote_sym, wants, gives) {
     ethers.constants.MaxUint256
   );
   await offerTx.wait();
+
   console.log(
     "\t \x1b[44m\x1b[37m OFFER \x1b[0m[\x1b[32m" +
       formatToken(wants, await getDecimals(base_sym)) +
@@ -361,11 +364,24 @@ async function newOffer(contract, base_sym, quote_sym, wants, gives) {
       quote_sym +
       "\x1b[0m]"
   );
+  return offerId;
 }
 
 async function snipe(mgv, base_sym, quote_sym, offerId, wants, gives) {
   base = (await getContract(base_sym)).address;
   quote = (await getContract(quote_sym)).address;
+  
+  [success, takerGot, takerGave] = await mgv.callStatic.snipe(
+    base,
+    quote,
+    offerId,
+    wants, // wanted WETH
+    gives, // giving DAI
+    ethers.constants.MaxUint256, // max gas
+    true
+  );
+
+  assert(success, "Snipe failed");
 
   snipeTx = await mgv.snipe(
     base,
@@ -388,6 +404,7 @@ async function snipe(mgv, base_sym, quote_sym, offerId, wants, gives) {
       quote_sym +
       "\x1b[0m]"
   );
+  return [takerGot, takerGave];
 }
 
 async function deployMangrove() {

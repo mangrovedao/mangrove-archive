@@ -94,7 +94,6 @@ function getConfiguredTokens(mainnetConfig, networkName, hre) {
       tokens.dai = { contract: daiContract };
 
       const daiConfig = mainnetConfig.get("tokens.dai");
-      console.log(daiConfig);
       if (daiConfig.has("adminAddress")) {
         tokens.dai.admin = daiConfig.get("adminAddress"); // to mint fresh DAIs on ethereum
       }
