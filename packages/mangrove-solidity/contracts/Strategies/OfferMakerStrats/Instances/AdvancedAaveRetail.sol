@@ -1,6 +1,6 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import "./AaveTrader.sol";
+import "../AaveTrader.sol";
 
 contract AdvancedAaveRetail is AaveTrader {
   constructor(
