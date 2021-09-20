@@ -535,7 +535,7 @@ contract MakerPosthook_Test is IMaker {
     MgvLib.OrderResult calldata
   ) external {
     called = true;
-    (, , uint __gives, uint __wants, uint __gasprice) = MgvPack.offer_unpack(
+    (, , uint __wants, uint __gives, uint __gasprice) = MgvPack.offer_unpack(
       order.offer
     );
     (address __maker, uint __gasreq, , ) = MgvPack.offerDetail_unpack(
