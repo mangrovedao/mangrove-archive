@@ -5,26 +5,11 @@
         "packages": [
             "packages/*"
         ]
-
-
     },
     "scripts": {
         "postinstall": "husky install"
-
-
-
-
-
-
-
-
-
-
     },
     "devDependencies": {
         "husky": "^7.0.2"
-
-
-
     }
 }
