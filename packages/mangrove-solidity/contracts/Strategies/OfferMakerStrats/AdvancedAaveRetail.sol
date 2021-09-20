@@ -10,7 +10,7 @@ contract AdvancedAaveRetail is AaveTrader {
     addressesProvider, 
     MGV, 
     0 /*Not operating on behalf of someone*/, 
-    2 /*variable interest rate (stable borrowing not enabled on AAVE polygon market*/
+    2 /*variable interest rate (stable borrowing not enabled on AAVE polygon market)*/
     ) {}
 
   // Tries to take base directly from `this` balance. Fetches the remainder on Aave.
