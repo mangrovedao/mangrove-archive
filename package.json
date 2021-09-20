@@ -1,11 +1,15 @@
 {
+    "private": true,
+    "name": "mangrove-monorepo",
+    "workspaces": {
+        "packages": [
+            "packages/*"
+        ]
+    },
     "scripts": {
-        "install:mangrove-solidity": "cd packages/mangrove-solidity && npm install",
-        "install:mangrove.js": "cd packages/mangrove.js && npm install",
-        "install": "npm run install:mangrove-solidity && npm run install:mangrove.js",
-        "test:mangrove-solidity": "cd packages/mangrove-solidity && npm test",
-        "test:mangrove.js": "cd packages/mangrove.js && npm test",
-        "test": "npm run test:mangrove-solidity && npm run test:mangrove.js"
+        "postinstall": "husky install"
+    },
+    "devDependencies": {
+        "husky": "^7.0.2"
     }
 }
-  
