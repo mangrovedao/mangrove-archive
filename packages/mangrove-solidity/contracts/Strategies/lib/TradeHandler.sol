@@ -10,33 +10,26 @@ contract TradeHandler {
   enum PostHook {
     Success, // Trade was a success. NB: Do not move this field as it should be the default value
     Get, // Trade was dropped by maker due to a lack of liquidity
-    Price, // Trade was dropped because of price slippage
+    PriceUpdate, // Trade was dropped because of price slippage
     Receive, // Mangrove dropped failade when ERC20 (quote) rejected maker address as receiver
     Transfer // Mangrove dropped failade when ERC20 (base) refused to failansfer funds from maker account to Mangrove
   }
 
   event GetFailure(address base, address quote, uint offerId, uint missingGet);
-  event PriceSlippage(
-    address base,
-    address quote,
-    uint offerId,
-    uint usd_makerWants,
-    uint usd_makerGives
-  );
 
   /// @notice extracts old offer from the order that is received from the Mangrove
   function unpackOfferFromOrder(MgvLib.SingleOrder calldata order)
     internal
     pure
     returns (
-      uint offer_gives,
       uint offer_wants,
+      uint offer_gives,
       uint gasreq,
       uint gasprice
     )
   {
     gasreq = MgvPack.offerDetail_unpack_gasreq(order.offerDetail);
-    (, , offer_gives, offer_wants, gasprice) = MgvPack.offer_unpack(
+    (, , offer_wants, offer_gives, gasprice) = MgvPack.offer_unpack(
       order.offer
     );
   }
@@ -80,7 +73,7 @@ contract TradeHandler {
     if (postHook_switch == PostHook.Get) {
       return 1;
     }
-    if (postHook_switch == PostHook.Price) {
+    if (postHook_switch == PostHook.PriceUpdate) {
       return 2;
     } else {
       return 0;

@@ -221,15 +221,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
       emit GetFailure(order.base, order.quote, order.offerId, args[0]);
       __postHookGetFailure__(args[0], order);
     }
-    if (postHook_switch == PostHook.Price) {
-      emit PriceSlippage(
-        order.base,
-        order.quote,
-        order.offerId,
-        args[0],
-        args[1]
-      );
-      __postHookPriceSlippage__(args[0], args[1], order);
+    if (postHook_switch == PostHook.PriceUpdate) {
+      __postHookPriceUpdate__(args[0], args[1], order);
     }
     // Posthook based on Mangrove's information
     if (postHook_switch == PostHook.Receive) {
@@ -276,13 +269,13 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     order; //shh
   }
 
-  function __postHookPriceSlippage__(
-    uint usd_maker_gives,
-    uint usd_maker_wants,
+  function __postHookPriceUpdate__(
+    uint new_wants,
+    uint new_gives,
     MgvLib.SingleOrder calldata order
   ) internal virtual {
-    usd_maker_gives; //shh
-    usd_maker_wants; //shh
+    new_gives; //shh
+    new_wants; //shh
     order; //shh
   }
 
