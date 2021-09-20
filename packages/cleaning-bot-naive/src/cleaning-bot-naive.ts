@@ -5,7 +5,7 @@ if (!process.env["NODE_CONFIG_DIR"]) {
 }
 import config from "config";
 
-import Mangrove from "../../../mangrove.js/src/index";
+import Mangrove from "@mangrove-exchange/mangrove-js";
 
 const main = async () => {
   const mgv = await Mangrove.connect("http://127.0.0.1:8545"); // TODO move connection string / network name to configuration
@@ -18,13 +18,18 @@ const main = async () => {
   await mgv.cacheDecimals(baseTokenName);
   await mgv.cacheDecimals(quoteTokenName);
 
-  const market = await mgv.market({base: baseTokenName, quote: quoteTokenName});
-  const {asks, bids} = await market.config();
+  const market = await mgv.market({
+    base: baseTokenName,
+    quote: quoteTokenName,
+  });
+  const { asks, bids } = await market.config();
   console.dir(asks);
 
   if (!asks.active) {
-    throw new Error(`Market is not active so exiting - market: base = ${baseTokenName}, quote = ${quoteTokenName}`);
+    throw new Error(
+      `Market is not active so exiting - market: base = ${baseTokenName}, quote = ${quoteTokenName}`
+    );
   }
-}
+};
 
 main();

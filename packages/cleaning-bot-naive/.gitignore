@@ -1,0 +1,7 @@
+.DS_Store
+node_modules/
+dist/
+coverage/
+.husky/
+.env.local
+.env.*.local
