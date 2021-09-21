@@ -189,6 +189,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       if (statusCode != "mgv/notExecuted") {
         postExecute(mor, sor, gasused, makerData, statusCode);
       }
+
       /* #### Case 2 : End of market order */
       /* If `proceed` is false, the taker has gotten its requested volume, or we have reached the end of the book, we conclude the market order. */
     } else {
@@ -512,7 +513,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       gasused = abi.decode(retdata, (uint));
       /* `StatusCode` indicates trade success */
       statusCode = bytes32("mgv/tradeSuccess");
-      emit MgvEvents.Success(
+      emit MgvEvents.OfferSuccess(
         sor.base,
         sor.quote,
         sor.offerId,
@@ -543,7 +544,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       ) {
         mor.failCount += 1;
 
-        emit MgvEvents.MakerFail(
+        emit MgvEvents.OfferFail(
           sor.base,
           sor.quote,
           sor.offerId,

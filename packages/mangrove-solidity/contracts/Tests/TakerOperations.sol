@@ -320,7 +320,7 @@ contract TakerOperations_Test {
       "taker balance should not be lower if maker doesn't pay back"
     );
     TestEvents.expectFrom(address(mgv));
-    MgvEvents.MakerFail(
+    MgvEvents.OfferFail(
       base,
       quote,
       ofr,
@@ -376,7 +376,7 @@ contract TakerOperations_Test {
       "taker balance should not be lower if maker doesn't pay back"
     );
     TestEvents.expectFrom(address(mgv));
-    MgvEvents.MakerFail(
+    MgvEvents.OfferFail(
       base,
       quote,
       ofr,
@@ -420,7 +420,7 @@ contract TakerOperations_Test {
     );
     TestEvents.expectFrom(address(mgv));
 
-    MgvEvents.MakerFail(
+    MgvEvents.OfferFail(
       base,
       quote,
       ofr,
@@ -484,7 +484,7 @@ contract TakerOperations_Test {
       "taker balance should not be lower if maker doesn't pay back"
     );
     TestEvents.expectFrom(address(mgv));
-    MgvEvents.MakerFail(
+    MgvEvents.OfferFail(
       base,
       quote,
       ofr,
@@ -563,7 +563,7 @@ contract TakerOperations_Test {
       TestEvents.eq(takerGot, 1 ether, "Incorrect transaction information");
       TestEvents.eq(takerGave, 1.1 ether, "Incorrect transaction information");
       TestEvents.expectFrom(address(mgv));
-      emit MgvEvents.Success(
+      emit MgvEvents.OfferSuccess(
         base,
         quote,
         ofr,
@@ -769,7 +769,7 @@ contract TakerOperations_Test {
     );
     TestEvents.check(!success, "order should fail");
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.MakerFail(
+    emit MgvEvents.OfferFail(
       base,
       quote,
       ofr,
@@ -788,7 +788,7 @@ contract TakerOperations_Test {
     quoteT.approve(address(mgv), 1 ether);
     mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000, true);
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.MakerFail(
+    emit MgvEvents.OfferFail(
       base,
       quote,
       ofr,
