@@ -1,10 +1,11 @@
 import { addresses, decimals } from './constants';
 import * as eth from './eth';
 import { Market } from './market';
-import { ConnectOptions, Provider, ProviderNetwork, Bigish } from "./types";
-import { IERC20__factory, Mangrove as MangroveContract, Mangrove__factory, MgvReader as MgvReaderContract, MgvReader__factory, MgvEvents__factory, MgvEvents as MgvEventsContract } from './types/typechain';
+import { ConnectOptions, Provider, Signer, ProviderNetwork, Bigish, globalConfig } from "./types";
+import * as typechain from './types/typechain';
 
 import Big from 'big.js';
+import * as ethers from 'ethers';
 Big.prototype[Symbol.for('nodejs.util.inspect.custom')] = Big.prototype.toString;
 
 
@@ -14,9 +15,14 @@ let canConstructMangrove = false;
 
 export class Mangrove {
   _provider: Provider;
+  _signer: Signer;
   _network: ProviderNetwork;
-  contract: MangroveContract;
-  readerContract: MgvReaderContract;
+  _address: string;
+  contract: typechain.Mangrove;
+  events : typechain.MgvEvents;
+  // events: typechain.Mangrove__factory
+  readerContract: typechain.MgvReader;
+  static typechain = typechain;
 
 
   /**
@@ -28,12 +34,10 @@ export class Mangrove {
    *
    * @example
    * ```
-   * const mgv = await require('mangrove.js').connect(<arg>); // web browser
+   * const mgv = await require('mangrove.js').connect(options); // web browser
    * ```
    * 
-   * If arg is falsy, use options.provider.
-   * If a non-url string is provided, it's interpreted as the network name (eg `connect('ropsten')`).
-   * Otherwise arg may be `window.ethereum` (web browser), or `127.0.0.1:8545` (HTTP provider)
+   * if options is a string `s`, it is considered to be {provider:s}
    * const mgv = await require('mangrove.js').connect('http://127.0.0.1:8545'); // HTTP provider
    * 
    * Options:
@@ -44,32 +48,38 @@ export class Mangrove {
    * @returns {Mangrove} Returns an instance mangrove.js
    */
 
-  static async connect(provider: Provider | string = 'mainnet', options: ConnectOptions = {}) : Promise<Mangrove> {
+  static async connect(options: ConnectOptions | string = {}) : Promise<Mangrove> {
+    if (typeof options === "string") {
+      options = {provider: options};
+    }
 
-    options.provider = provider || options.provider;
-    provider = eth._createProvider(options);
-    const network = await eth.getProviderNetwork(provider);
-    const address = Mangrove.getAddress("Mangrove", network.name);
-    const readerAddress = Mangrove.getAddress("MgvReader", network.name);
+    const signer = eth._createSigner(options);
+    const network = await eth.getProviderNetwork(signer.provider);
     canConstructMangrove = true;
     const mgv = new Mangrove({
-      provider: provider,
-      network: network,
-      contract: Mangrove__factory.connect(address,provider),
-      readerContract: MgvReader__factory.connect(readerAddress,provider)
+      signer: signer,
+      network: network
     });
     canConstructMangrove = false;
     return mgv;
   }
 
-  constructor(params:{provider:Provider,network:ProviderNetwork,contract:MangroveContract,readerContract:MgvReaderContract}) {
+  constructor(params:{
+    signer: Signer,
+    network:ProviderNetwork,
+  }) {
     if (!canConstructMangrove) {
       throw Error("Mangrove.js must be initialized async with Mangrove.connect (constructors cannot be async)");
     }
-    this._provider = params.provider,
+    // must always pass a provider-equipped signer
+    this._provider = params.signer.provider; 
+    this._signer = params.signer;
     this._network = params.network;
-    this.contract = params.contract;
-    this.readerContract = params.readerContract;
+    this._address = Mangrove.getAddress("Mangrove", this._network.name);
+    this.contract = typechain.Mangrove__factory.connect(this._address,this._signer);
+    const readerAddress = Mangrove.getAddress("MgvReader", this._network.name);
+    this.readerContract = typechain.MgvReader__factory.connect(readerAddress,this._signer);
+    this.events = typechain.MgvEvents__factory.connect(this._address,this._signer);
   }
   /* Instance */
   /************** */
@@ -80,9 +90,8 @@ export class Mangrove {
   */
   async market(params: {base:string,quote:string}): Promise<Market> {
     return new Market({
+      ...params,
       mgv: this,
-      base: params.base,
-      quote: params.quote
     });
   }
 
@@ -148,9 +157,16 @@ export class Mangrove {
    * Return global Mangrove config 
    */
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-  async config() {
-    const config = await this.contract.config("", "");
-    return config.global;
+  async config(): Promise<globalConfig> {
+    const config = await this.contract.config(ethers.constants.AddressZero, ethers.constants.AddressZero);
+    return {
+      monitor: config.global.monitor,
+      useOracle: config.global.useOracle,
+      notify: config.global.notify,
+      gasprice: config.global.gasprice.toNumber(),
+      gasmax: config.global.gasmax.toNumber(),
+      dead: config.global.dead
+    }
   }
 
   /* Static */
@@ -205,7 +221,7 @@ export class Mangrove {
    */
   static async cacheDecimals(tokenName: string, provider:Provider) : Promise<number> {
     const network = await eth.getProviderNetwork(provider);
-    const token = IERC20__factory.connect(Mangrove.getAddress(tokenName, network.name),provider);
+    const token = typechain.IERC20__factory.connect(Mangrove.getAddress(tokenName, network.name),provider);
     const decimals = await token.decimals();
     this.setDecimals(tokenName,decimals);
     return decimals;
