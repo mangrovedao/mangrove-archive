@@ -12,28 +12,36 @@ contract MgvReader {
     mgv = Mangrove(payable(_mgv));
   }
 
-  // Returns the orderbook for the base/quote pair in packed form. First array is ids, second is offers (as bytes32), third is offerDetails (as bytes32). Array will be of size num_offers. Tail may be 0-filled if order book size is strictly smaller than num_offers.
-  function packed_book(
+  // Returns the orderbook for the base/quote pair in packed form. First number is id of next offer (0 is we're done). First array is ids, second is offers (as bytes32), third is offerDetails (as bytes32). Array will be of size `maxOffers`. Tail may be 0-filled if order book size is strictly smaller than `maxOffers`.
+  function packedBook(
     address base,
     address quote,
-    uint num_offers
+    uint fromId,
+    uint maxOffers
   )
     public
     view
     returns (
+      uint,
       uint[] memory,
       bytes32[] memory,
       bytes32[] memory
     )
   {
-    uint[] memory offerIds = new uint[](num_offers);
-    bytes32[] memory offers = new bytes32[](num_offers);
-    bytes32[] memory offerDetails = new bytes32[](num_offers);
+    uint[] memory offerIds = new uint[](maxOffers);
+    bytes32[] memory offers = new bytes32[](maxOffers);
+    bytes32[] memory offerDetails = new bytes32[](maxOffers);
 
-    uint currentId = MP.local_unpack_best(mgv.locals(base, quote));
+    uint currentId;
+    if (fromId == 0) {
+      currentId = MP.local_unpack_best(mgv.locals(base, quote));
+    } else {
+      currentId = fromId;
+    }
+
     uint i = 0;
 
-    while (currentId != 0 && i < num_offers) {
+    while (currentId != 0 && i < maxOffers) {
       offerIds[i] = currentId;
       offers[i] = mgv.offers(base, quote, currentId);
       offerDetails[i] = mgv.offerDetails(base, quote, currentId);
@@ -41,35 +49,43 @@ contract MgvReader {
       i = i + 1;
     }
 
-    return (offerIds, offers, offerDetails);
+    return (currentId, offerIds, offers, offerDetails);
   }
 
-  // Returns the orderbook for the base/quote pair in unpacked form. First array is ids, second is offers (as structs), third is offerDetails (as structs). Array will be of size num_offers. Tail may be 0-filled if order book size is strictly smaller than num_offers.
+  // Returns the orderbook for the base/quote pair in unpacked form. First number is id of next offer (0 if we're done). First array is ids, second is offers (as structs), third is offerDetails (as structs). Array will be of size `maxOffers`. Tail may be 0-filled if order book size is strictly smaller than `maxOffers`.
   function book(
     address base,
     address quote,
-    uint num_offers
+    uint fromId,
+    uint maxOffers
   )
     public
     view
     returns (
+      uint,
       uint[] memory,
       ML.Offer[] memory,
       ML.OfferDetail[] memory
     )
   {
-    uint[] memory offerIds = new uint[](num_offers);
-    ML.Offer[] memory offers = new ML.Offer[](num_offers);
-    ML.OfferDetail[] memory offerDetails = new ML.OfferDetail[](num_offers);
+    uint[] memory offerIds = new uint[](maxOffers);
+    ML.Offer[] memory offers = new ML.Offer[](maxOffers);
+    ML.OfferDetail[] memory offerDetails = new ML.OfferDetail[](maxOffers);
 
-    uint currentId = MP.local_unpack_best(mgv.locals(base, quote));
+    uint currentId;
+    if (fromId == 0) {
+      currentId = MP.local_unpack_best(mgv.locals(base, quote));
+    } else {
+      currentId = fromId;
+    }
+
     uint i = 0;
-    while (currentId != 0 && i < num_offers) {
+    while (currentId != 0 && i < maxOffers) {
       offerIds[i] = currentId;
       (offers[i], offerDetails[i]) = mgv.offerInfo(base, quote, currentId);
       currentId = offers[i].next;
       i = i + 1;
     }
-    return (offerIds, offers, offerDetails);
+    return (currentId, offerIds, offers, offerDetails);
   }
 }
