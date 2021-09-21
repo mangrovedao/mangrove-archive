@@ -11,29 +11,19 @@ const ethers = hre.ethers;
 let jsonRpcServer; // used to run a localhost fork of mainnet
 
 // Source Files
-const { Mangrove } = require("../src/index.ts");
-const providerUrl = "http://localhost:8545";
+const { Mangrove } = require("../src");
+
+const host = {
+  name: "localhost",
+  port: 8546,
+};
 const _eth = require("../src/eth.ts");
+const { start } = require("repl");
 
 const tests = {
   market: require("./market.test.js"),
 };
 
-// const mnemonic = hre.config.networks.hardhat.accounts.mnemonic;
-
-const mnemonic = hre.network.config.accounts.mnemonic;
-const addresses = [];
-const privateKeys = [];
-for (let i = 0; i < 20; i++) {
-  const wallet = new ethers.Wallet.fromMnemonic(
-    mnemonic,
-    `m/44'/60'/0'/0/${i}`
-  );
-  addresses.push(wallet.address);
-  privateKeys.push(wallet._signingKey().privateKey);
-}
-
-let acc = [addresses, privateKeys]; // Unlocked accounts with test ETH
 let snapshot_id = null;
 
 // Main test suite
@@ -42,17 +32,24 @@ describe("mangrove.js", function () {
     console.log("Running a hardhat instance...");
 
     jsonRpcServer = await hre.run(TASK_NODE_CREATE_SERVER, {
-      hostname: "localhost",
-      port: 8545,
+      hostname: host.name,
+      port: host.port,
       provider: hre.network.provider,
     });
 
     await jsonRpcServer.listen();
 
-    // await hre.network.provider.request({
-    //   method: "hardhat_reset",
-    //   params: [],
-    // });
+    await hre.network.provider.request({
+      method: "hardhat_reset",
+      params: [],
+    });
+
+    // blackbox discovery of network name that will be used during tests
+    const signer = _eth._createSigner({
+      provider: `http://${host.name}:${host.port}`,
+    });
+
+    const account = signer.getAddress();
 
     const toWei = (v, u = "ether") => ethers.utils.parseUnits(v.toString(), u);
 
@@ -80,17 +77,16 @@ describe("mangrove.js", function () {
       20000
     );
 
-    const signer = (await hre.ethers.getSigners())[0];
-    await TokenB.mint(signer.address, toWei(10));
-    await TokenA.mint(signer.address, toWei(10));
+    // const signer = (await hre.ethers.getSigners())[0];
+    await TokenA.mint(account, toWei(10));
+    await TokenA.approve(mgvContract.address, toWei(1000));
+
+    await TokenB.mint(account, toWei(10));
+    await TokenB.approve(mgvContract.address, toWei(1000));
 
     await mgvContract["fund()"]({ value: toWei(10) });
 
-    // blackbox discovery of network name that will be used during tests
-    const provider = _eth._createProvider({
-      provider: "http://localhost:8545",
-    });
-    const network = await _eth.getProviderNetwork(provider);
+    const network = await _eth.getProviderNetwork(signer.provider);
 
     Mangrove.setAddress("Mangrove", mgvContract.address, network.name);
     Mangrove.setAddress("TokenA", TokenA.address, network.name);
@@ -100,8 +96,8 @@ describe("mangrove.js", function () {
       deployments.MgvReader.address,
       network.name
     );
-    await Mangrove.cacheDecimals("TokenA", provider);
-    await Mangrove.cacheDecimals("TokenB", provider);
+    await Mangrove.cacheDecimals("TokenA", signer.provider);
+    await Mangrove.cacheDecimals("TokenB", signer.provider);
 
     await snapshot();
   });
@@ -112,11 +108,13 @@ describe("mangrove.js", function () {
   });
 
   after(async () => {
-    await jsonRpcServer.close();
+    if (jsonRpcServer) {
+      await jsonRpcServer.close();
+    }
   });
 
   for (const [name, test] of Object.entries(tests)) {
-    describe(name, test.bind(this, acc));
+    describe(name, test.bind(this));
   }
 });
 
