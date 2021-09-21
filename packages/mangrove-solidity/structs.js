@@ -28,8 +28,8 @@ const preproc = require("./lib/preproc.js");
 /* Struct fields that are common to multiple structs are factored here. Multiple field names refer to offer identifiers, so the `id` field is a function that takes a name as argument. */
 
 const fields = {
-  gives: { name: "gives", bits: 96, type: "uint" },
   wants: { name: "wants", bits: 96, type: "uint" },
+  gives: { name: "gives", bits: 96, type: "uint" },
   gasprice: { name: "gasprice", bits: 16, type: "uint" },
   gasreq: { name: "gasreq", bits: 24, type: "uint" },
   overhead_gasbase: { name: "overhead_gasbase", bits: 24, type: "uint" },
@@ -53,14 +53,14 @@ const structs = {
     id_field("prev"),
     /* * `next` points to the immediately worse offer. The worst offer's `next` is 0. _24 bits wide_. */
     id_field("next"),
-    /* * `gives` is the amount of `base` the offer will give if successfully executed.
-    _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
-    10 billions. */
-    fields.gives,
     /* * `wants` is the amount of `quote` the offer wants in exchange for `gives`.
      _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
   10 billions. */
     fields.wants,
+    /* * `gives` is the amount of `base` the offer will give if successfully executed.
+    _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
+    10 billions. */
+    fields.gives,
     /* * `gasprice` is in gwei/gas and _16 bits wide_, which accomodates 1 to ~65k gwei / gas.  `gasprice` is also the name of a global Mangrove parameter. When an offer is created, the offer's `gasprice` is set to the max of the user-specified `gasprice` and the Mangrove's global `gasprice`. */
     fields.gasprice,
   ],
