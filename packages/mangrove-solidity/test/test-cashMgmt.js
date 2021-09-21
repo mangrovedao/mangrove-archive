@@ -29,10 +29,7 @@ async function deployStrat(strategy, mgv) {
       break;
     case "SimpleAaveRetail":
     case "AdvancedAaveRetail":
-      makerContract = await Strat.deploy(
-        aave.address,
-        mgv.address
-      );
+      makerContract = await Strat.deploy(aave.address, mgv.address);
       market = [wEth.address, dai.address];
       // aave rejects market entering if underlying balance is 0 (will self enter at first deposit)
       enterMarkets = false;
@@ -74,8 +71,8 @@ async function deployStrat(strategy, mgv) {
   await tkrTx.wait();
   // taker approves mgv for DAI erc
   tkrTx = await dai
-  .connect(testSigner)
-  .approve(mgv.address, ethers.constants.MaxUint256);
+    .connect(testSigner)
+    .approve(mgv.address, ethers.constants.MaxUint256);
   await tkrTx.wait();
 
   allowed = await wEth.allowance(testSigner.address, mgv.address);
@@ -86,9 +83,7 @@ async function deployStrat(strategy, mgv) {
   let i = 0;
   // offer should get/put base/quote tokens on lender contract (OK since `testSigner` is MakerContract admin)
   if (enterMarkets) {
-    mkrTxs[i++] = await makerContract
-      .connect(testSigner)
-      .enterMarkets(market);
+    mkrTxs[i++] = await makerContract.connect(testSigner).enterMarkets(market);
   }
 
   // testSigner asks MakerContract to approve Mangrove for base (DAI/WETH)
@@ -101,7 +96,10 @@ async function deployStrat(strategy, mgv) {
   // One sends 1000 DAI to MakerContract
   mkrTxs[i++] = await dai
     .connect(testSigner)
-    .transfer(makerContract.address, lc.parseToken("1000.0", await lc.getDecimals("DAI")));
+    .transfer(
+      makerContract.address,
+      lc.parseToken("1000.0", await lc.getDecimals("DAI"))
+    );
   // testSigner asks makerContract to approve lender to be able to mint [c/a]Token
   mkrTxs[i++] = await makerContract
     .connect(testSigner)
@@ -171,14 +169,10 @@ async function execLenderStrat(makerContract, mgv, lenderName) {
   );
 
   // checking that MakerContract did put WETH on lender --allowing 5 gwei of rounding error
-  await lc.expectAmountOnLender(
-    makerContract, 
-    lenderName, 
-    [
-      ["DAI", lc.parseToken("200", await lc.getDecimals("DAI")), 4],
-      ["WETH", takerGave, 8]
-    ]
-  ); 
+  await lc.expectAmountOnLender(makerContract, lenderName, [
+    ["DAI", lc.parseToken("200", await lc.getDecimals("DAI")), 4],
+    ["WETH", takerGave, 8],
+  ]);
   await lc.logLenderStatus(makerContract, lenderName, ["WETH", "DAI"]);
 }
 
@@ -232,27 +226,19 @@ async function execPriceFedStrat(makerContract, mgv, lenderName) {
 }
 
 async function execTraderStrat(makerContract, mgv, lenderName) {
-    const dai = await lc.getContract("DAI");
-    const wEth = await await lc.getContract("WETH");
-    
-    await lc.logLenderStatus(makerContract, lenderName, ["WETH", "DAI"]);
-    
-    // // posting new offer on Mangrove via the MakerContract `post` method
-    let offerId = await lc.newOffer(
-      makerContract,
-      "DAI",
-      "WETH",
-      lc.parseToken("300.0", await lc.getDecimals("DAI")), // promised DAI (will need to borrow)
-      lc.parseToken("0.15", await lc.getDecimals("WETH")) // required WETH
-    );
+  const dai = await lc.getContract("DAI");
+  const wEth = await await lc.getContract("WETH");
 
-    let [offer] = await mgv.offerInfo(dai.address, wEth.address, offerId);
+  await lc.logLenderStatus(makerContract, lenderName, ["WETH", "DAI"]);
 
-    lc.assertEqualBN(
-      offer.gives,
-      lc.parseToken("300.0", await lc.getDecimals("DAI")),
-      "Offer not correctly inserted"
-    );
+  // // posting new offer on Mangrove via the MakerContract `post` method
+  let offerId = await lc.newOffer(
+    makerContract,
+    "DAI",
+    "WETH",
+    lc.parseToken("300.0", await lc.getDecimals("DAI")), // promised DAI (will need to borrow)
+    lc.parseToken("0.15", await lc.getDecimals("WETH")) // required WETH
+  );
 
     let [takerGot, takerGave] = await lc.snipeSuccess(
       mgv,
@@ -281,21 +267,36 @@ async function execTraderStrat(makerContract, mgv, lenderName) {
       ]
     );
 
-    await lc.logLenderStatus(makerContract, lenderName, ["WETH", "DAI"]);
+  lc.assertEqualBN(
+    offer.gives,
+    lc.parseToken("300.0", await lc.getDecimals("DAI")),
+    "Offer not correctly inserted"
+  );
 
-    // testSigner asks MakerContract to approve Mangrove for base (weth)
-    mkrTx2 = await makerContract
-      .connect(testSigner)
-      .approveMangrove(wEth.address, ethers.constants.MaxUint256);
-    await mkrTx2.wait();
+  let [takerGot, takerGave] = await lc.snipe(
+    mgv,
+    "DAI", // maker base
+    "WETH", // maker quote
+    offerId,
+    lc.parseToken("300", await lc.getDecimals("DAI")),
+    lc.parseToken("0.15", await lc.getDecimals("WETH"))
+  );
+  lc.assertEqualBN(
+    takerGot,
+    lc.netOf(lc.parseToken("300.0", await lc.getDecimals("DAI")), fee),
+    "Incorrect received amount"
+  );
+  lc.assertEqualBN(
+    takerGave,
+    lc.parseToken("0.15", await lc.getDecimals("WETH")),
+    "Incorrect given amount"
+  );
+  await lc.expectAmountOnLender(makerContract, lenderName, [
+    ["DAI", lc.parseToken("700", await lc.getDecimals("DAI")), 4],
+    ["WETH", takerGave, 8],
+  ]);
 
-    offerId = await lc.newOffer(
-      makerContract,
-      "WETH",
-      "DAI",
-      lc.parseToken("0.2", await lc.getDecimals("WETH")), // promised WETH
-      lc.parseToken("380.0", await lc.getDecimals("DAI")) // required DAI
-    );
+  await lc.logLenderStatus(makerContract, lenderName, ["WETH", "DAI"]);
 
     [takerGot, takerGave] = await lc.snipeSuccess(
       mgv,
@@ -348,7 +349,6 @@ async function execTraderStrat(makerContract, mgv, lenderName) {
 }
 
 describe("Deploy strategies", function () {
-
   this.timeout(100_000); // Deployment is slow so timeout is increased
   let mgv = null;
 
@@ -368,7 +368,10 @@ describe("Deploy strategies", function () {
     const daiBal = await dai.balanceOf(testSigner.address);
     const wethBal = await wEth.balanceOf(testSigner.address);
 
-    lc.assertEqualBN(daiBal, lc.parseToken("10000.0", await lc.getDecimals("DAI")));
+    lc.assertEqualBN(
+      daiBal,
+      lc.parseToken("10000.0", await lc.getDecimals("DAI"))
+    );
     lc.assertEqualBN(
       wethBal,
       lc.parseToken("10.0", await lc.getDecimals("WETH")),
@@ -406,5 +409,4 @@ describe("Deploy strategies", function () {
     console.log("Oracle address is ", await makerContract.oracle());
     await execPriceFedStrat(makerContract, mgv, "aave");
   });
-
 });
