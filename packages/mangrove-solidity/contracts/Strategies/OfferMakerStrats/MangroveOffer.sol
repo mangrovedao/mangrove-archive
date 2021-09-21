@@ -14,6 +14,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   uint immutable MGV_GASMAX;
 
   event NewMakerContract(address mgv);
+  event Fallback(string message);
 
   receive() external payable {}
 
@@ -189,8 +190,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
       return
         returnData({
           drop: true,
-          postHook_switch: PostHook.Get,
-          arg: uint96(missingGet)
+          postHook_switch: PostHook.Get
         });
     }
     return returnData({drop: false, postHook_switch: PostHook.Success});
@@ -203,33 +203,30 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   ) external override onlyCaller(address(MGV)) {
     PostHook postHook_switch;
     uint[] memory args;
+    bytes32 word;
     if (
       result.statusCode == "mgv/tradeSuccess" ||
       result.statusCode == "mgv/makerRevert"
     ) {
       // if trade was a success or dropped by maker, `makerData` determines the posthook switch
-      (postHook_switch, args) = getMakerData(result.makerData);
-    } else {
-      // if `mgv` rejected trade, `statusCode` should determine the posthook switch
-      postHook_switch = switchOfStatusCode(result.statusCode);
-    }
+      (postHook_switch, word) = getMakerData(result.makerData);
+    } 
     // posthook selector based on maker's information
     if (postHook_switch == PostHook.Success) {
-      __postHookNoFailure__(order);
+      __postHookNoFailure__(word, order);
     }
     if (postHook_switch == PostHook.Get) {
-      emit GetFailure(order.base, order.quote, order.offerId, args[0]);
-      __postHookGetFailure__(args[0], order);
+      __postHookGetFailure__(word, order);
     }
     if (postHook_switch == PostHook.PriceUpdate) {
-      __postHookPriceUpdate__(args[0], args[1], order);
+      __postHookPriceUpdate__(word, order);
     }
-    // Posthook based on Mangrove's information
-    if (postHook_switch == PostHook.Receive) {
-      __postHookReceiveFailure__(order);
+    if (postHook_switch == PostHook.Fallback) {
+      __postHookFallback__(word, order);
     }
-    if (postHook_switch == PostHook.Transfer) {
-      __postHookTransferFailure__(order);
+    else {
+      // if `mgv` rejected trade, `statusCode` is the argument given to fallback posthook
+      __postHookFallback__(result.statusCode, order);
     }
   }
 
@@ -254,42 +251,32 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     require(amount == 0, "Insufficient provision");
   }
 
-  function __postHookNoFailure__(MgvLib.SingleOrder calldata order)
+  function __postHookNoFailure__(bytes32 message, MgvLib.SingleOrder calldata order)
     internal
     virtual
   {
+    message;
     order; //shh
   }
 
   function __postHookGetFailure__(
-    uint missingGet,
+    bytes32 message,
     MgvLib.SingleOrder calldata order
   ) internal virtual {
-    missingGet; //shh
+    message; //shh
     order; //shh
   }
 
   function __postHookPriceUpdate__(
-    uint new_wants,
-    uint new_gives,
+    bytes32 message,
     MgvLib.SingleOrder calldata order
   ) internal virtual {
-    new_gives; //shh
-    new_wants; //shh
+    message;
     order; //shh
   }
 
-  function __postHookReceiveFailure__(MgvLib.SingleOrder calldata order)
-    internal
-    virtual
-  {
-    order;
-  }
-
-  function __postHookTransferFailure__(MgvLib.SingleOrder calldata order)
-    internal
-    virtual
-  {
-    order;
+  function __postHookFallback__(string memory message, MgvLib.SingleOrder calldata order) internal virtual {
+    message; //shh
+    order; //shh
   }
 }

@@ -7,7 +7,7 @@ contract AdvancedCompoundRetail is CompoundTrader {
     address _unitroller,
     address payable _MGV,
     address wethAddress
-  ) CompoundTrader(_unitroller, _MGV, wethAddress) {}
+  ) CompoundLender(_unitroller, wethAddress) MangroveOffer(_MGV) {}
 
   // Tries to take base directly from `this` balance. Fetches the remainder on Compound.
   function __get__(IERC20 base, uint amount)

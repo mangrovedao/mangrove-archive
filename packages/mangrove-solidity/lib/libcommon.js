@@ -367,11 +367,11 @@ async function newOffer(contract, base_sym, quote_sym, wants, gives) {
   return offerId;
 }
 
-async function snipe(mgv, base_sym, quote_sym, offerId, wants, gives) {
-  base = (await getContract(base_sym)).address;
-  quote = (await getContract(quote_sym)).address;
+async function snipeSuccess(mgv, base_sym, quote_sym, offerId, wants, gives) {
+  const base = (await getContract(base_sym)).address;
+  const quote = (await getContract(quote_sym)).address;
   
-  [success, takerGot, takerGave] = await mgv.callStatic.snipe(
+  const [success, takerGot, takerGave] = await mgv.callStatic.snipe(
     base,
     quote,
     offerId,
@@ -383,7 +383,7 @@ async function snipe(mgv, base_sym, quote_sym, offerId, wants, gives) {
 
   assert(success, "Snipe failed");
 
-  snipeTx = await mgv.snipe(
+  const snipeTx = await mgv.snipe(
     base,
     quote,
     offerId,
@@ -392,8 +392,7 @@ async function snipe(mgv, base_sym, quote_sym, offerId, wants, gives) {
     ethers.constants.MaxUint256, // max gas
     true //fillWants
   );
-  receipt = await snipeTx.wait(0);
-  //    console.log(receipt.gasUsed.toString());
+  snipeTx.wait(0);
 
   console.log(
     "\t \x1b[44m\x1b[37m TAKE \x1b[0m[\x1b[32m" +
@@ -405,6 +404,35 @@ async function snipe(mgv, base_sym, quote_sym, offerId, wants, gives) {
       "\x1b[0m]"
   );
   return [takerGot, takerGave];
+}
+
+async function snipeFail(mgv, base_sym, quote_sym, offerId, wants, gives) {
+  const base = (await getContract(base_sym)).address;
+  const quote = (await getContract(quote_sym)).address;
+  
+  const [success, takerGot, takerGave] = await mgv.callStatic.snipe(
+    base,
+    quote,
+    offerId,
+    wants, // wanted WETH
+    gives, // giving DAI
+    ethers.constants.MaxUint256, // max gas
+    true
+  );
+
+  assert(!success, "Snipe should fail");
+
+  snipeTx = await mgv.snipe(
+    base,
+    quote,
+    offerId,
+    wants,
+    gives,
+    ethers.constants.MaxUint256, // max gas
+    true //fillWants
+  );
+  await snipeTx.wait(0);
+  //    console.log(receipt.gasUsed.toString());
 }
 
 async function deployMangrove() {
@@ -487,7 +515,9 @@ exports.synch = synch;
 exports.logLenderStatus = logLenderStatus;
 
 // calls to makerContract (will forward to mangrove)
-exports.snipe = snipe;
+exports.snipeSuccess = snipeSuccess;
+exports.snipeFail = snipeFail;
+
 exports.newOffer = newOffer;
 
 // returns nextOfferId in mangrove
