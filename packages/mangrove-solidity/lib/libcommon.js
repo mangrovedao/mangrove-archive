@@ -63,9 +63,8 @@ async function fund(funding_tuples) {
         if (env.mainnet.name == "polygon") {
           await mintPolygonChildErc(dai, recipient, amount);
           break;
-        }
-        else {
-          console.warn (`Unknown network ${env.mainnet.name}`);
+        } else {
+          console.warn(`Unknown network ${env.mainnet.name}`);
         }
       }
       case "WETH": {
@@ -94,15 +93,14 @@ async function fund(funding_tuples) {
           }
           break;
         }
-        if (env.mainnet.name == "polygon"){
+        if (env.mainnet.name == "polygon") {
           await mintPolygonChildErc(wEth, recipient, amount);
           break;
-        }
-        else {
-          console.warn ("Unknown network");
+        } else {
+          console.warn("Unknown network");
         }
       }
-      case "ETH": 
+      case "ETH":
       case "MATIC": {
         amount = parseToken(amount, 18);
         await mintNative(recipient, amount);
@@ -116,78 +114,84 @@ async function fund(funding_tuples) {
 }
 
 function getUnderlyingSymbol(symbol) {
-  switch(symbol){
-    case "CDAI" :
-    case "CETH" :
-    case "ADAI" :
+  switch (symbol) {
+    case "CDAI":
+    case "CETH":
+    case "ADAI":
     case "AWETH":
-      return symbol.slice(1,symbol.length);
+      return symbol.slice(1, symbol.length);
     default:
-      console.warn (`${symbol} is not a recognized overlying symbol`);
+      console.warn(`${symbol} is not a recognized overlying symbol`);
   }
 }
 async function getContract(symbol) {
   let net = env.mainnet;
-  switch(symbol) {
-    case "DAI" :
+  switch (symbol) {
+    case "DAI":
       return net.tokens.dai.contract;
-    case "CDAI" :
+    case "CDAI":
       return net.tokens.cDai.contract;
-    case "WETH" :
+    case "WETH":
       return net.tokens.wEth.contract;
-    case "CWETH" :
+    case "CWETH":
       return net.tokens.cwEth.contract;
-    case "ADAI" :
-    case "AWETH":{
+    case "ADAI":
+    case "AWETH": {
       const underlying = await getContract(getUnderlyingSymbol(symbol));
-      const aTokenAddress = (await net.aave.lendingPool.getReserveData(underlying.address)).aTokenAddress;
-      const aToken = new hre.ethers.Contract(aTokenAddress, net.abis.aToken, hre.ethers.provider);
+      const aTokenAddress = (
+        await net.aave.lendingPool.getReserveData(underlying.address)
+      ).aTokenAddress;
+      const aToken = new ethers.Contract(
+        aTokenAddress,
+        net.abis.aToken,
+        ethers.provider
+      );
       return aToken;
     }
-    case "WETH" :
+    case "WETH":
       return net.tokens.wEth.contract;
-    case "AAVE" :
+    case "AAVE":
       return net.aave.addressesProvider;
-    case "COMP" :
+    case "COMP":
       return net.compound.contract;
     default:
-      console.warn ("Unhandled contract symbol: ", symbol);
+      console.warn("Unhandled contract symbol: ", symbol);
   }
 }
 
 async function getDecimals(symbol) {
-  switch(symbol){
-    case 'MATIC':
-    case 'ETH' :
+  switch (symbol) {
+    case "MATIC":
+    case "ETH":
       return 18;
-    case 'DAI':
-    case 'WETH':
-    case 'CDAI':
-    case 'ADAI':
-    case 'CWETH':
-    case 'AWETH':
+    case "DAI":
+    case "WETH":
+    case "CDAI":
+    case "ADAI":
+    case "CWETH":
+    case "AWETH":
       const token = await getContract(symbol);
-      return (await token.decimals());
+      return await token.decimals();
   }
 }
 
 function getOverlyingSymbol(symbol, lenderName) {
   if (lenderName == "compound") {
-    return ("C"+symbol);
+    return "C" + symbol;
   }
   if (lenderName == "aave") {
-    return ("A"+symbol);
+    return "A" + symbol;
   }
 }
 
 function getCompoundToken(symbol) {
-  switch(symbol) {
-    case "DAI" : 
+  switch (symbol) {
+    case "DAI":
       return env.mainnet.tokens.cDai.contract;
-    case "WETH" :
+    case "WETH":
       return env.mainnet.tokens.cwEth.contract;
     default:
-      console.warn ("No compound token for: ", symbol);
+      console.warn("No compound token for: ", symbol);
   }
 }
 
@@ -254,16 +258,24 @@ function assertAlmost(bignum_expected, bignum_obs, decimal, msg) {
 
 async function logLenderStatus(contract, lenderName, tokens) {
   async function getAaveBorrowBalance(symbol) {
-    const pool = env.mainnet.aave.lendingPool
+    const pool = env.mainnet.aave.lendingPool;
     const token = await getContract(symbol);
     const reserveData = await pool.getReserveData(token.address);
     const stableDebtTokenAddress = reserveData.stableDebtTokenAddress;
     const variableDebtTokenAddress = reserveData.variableDebtTokenAddress;
-    const stableDebt = new hre.ethers.Contract(stableDebtTokenAddress, env.mainnet.abis.stableDebtToken, hre.ethers.provider);
-    const variableDebt = new hre.ethers.Contract(variableDebtTokenAddress, env.mainnet.abis.variableDebtToken, hre.ethers.provider);
+    const stableDebt = new ethers.Contract(
+      stableDebtTokenAddress,
+      env.mainnet.abis.stableDebtToken,
+      ethers.provider
+    );
+    const variableDebt = new ethers.Contract(
+      variableDebtTokenAddress,
+      env.mainnet.abis.variableDebtToken,
+      ethers.provider
+    );
     const sbalance = await stableDebt.balanceOf(contract.address);
     const vbalance = await variableDebt.balanceOf(contract.address);
-    return [sbalance,vbalance];
+    return [sbalance, vbalance];
   }
   function logPosition(s, x, y, z) {
     console.log(
@@ -290,7 +302,7 @@ async function logLenderStatus(contract, lenderName, tokens) {
   }
   if (lenderName == "aave") {
     baseUnit = "ETH";
-    [,,borrowPower,,,] = await pool.getUserAccountData(contract.address);
+    [, , borrowPower, , ,] = await pool.getUserAccountData(contract.address);
   }
   console.log();
   console.log(
@@ -300,11 +312,15 @@ async function logLenderStatus(contract, lenderName, tokens) {
   );
   for (const symbol of tokens) {
     switch (lenderName) {
-      case "compound" : {
+      case "compound": {
         const cToken = getCompoundToken(symbol);
-        const [, , borrowBalance] = await cToken.getAccountSnapshot(contract.address);
+        const [, , borrowBalance] = await cToken.getAccountSnapshot(
+          contract.address
+        );
         const token = await getContract(symbol);
-        const [redeemable,] = await contract.maxGettableUnderlying(cToken.address);
+        const [redeemable] = await contract.maxGettableUnderlying(
+          cToken.address
+        );
         const balance = await token.balanceOf(contract.address);
         const decimals = await getDecimals(symbol);
         logPosition(
@@ -315,24 +331,30 @@ async function logLenderStatus(contract, lenderName, tokens) {
         );
         break;
       }
-      case "aave" : {
+      case "aave": {
         const decimals = await getDecimals(symbol);
         const token = await getContract(symbol);
-        const [stableBorrowBalance,variableBorrowBalance] = await getAaveBorrowBalance(symbol);
-        const borrowBalanceStr = formatToken(stableBorrowBalance, decimals)+"/"+formatToken(variableBorrowBalance, decimals);
-        const [redeemable,] = await contract.maxGettableUnderlying(token.address);
+        const [stableBorrowBalance, variableBorrowBalance] =
+          await getAaveBorrowBalance(symbol);
+        const borrowBalanceStr =
+          formatToken(stableBorrowBalance, decimals) +
+          "/" +
+          formatToken(variableBorrowBalance, decimals);
+        const [redeemable] = await contract.maxGettableUnderlying(
+          token.address
+        );
         const balance = await token.balanceOf(contract.address);
-        
+
         logPosition(
           symbol,
           formatToken(redeemable, decimals),
           borrowBalanceStr,
           formatToken(balance, decimals)
-          );
-          break;
+        );
+        break;
       }
       default:
-        console.warn ("Unrecognized lender ",lenderName);
+        console.warn("Unrecognized lender ", lenderName);
     }
   }
   console.log();
@@ -342,7 +364,7 @@ async function newOffer(contract, base_sym, quote_sym, wants, gives) {
   base = (await getContract(base_sym)).address;
   quote = (await getContract(quote_sym)).address;
 
-  const offerId = await nextOfferId(base,quote,contract);
+  const offerId = await nextOfferId(base, quote, contract);
 
   offerTx = await contract.newOffer(
     base,
@@ -370,7 +392,7 @@ async function newOffer(contract, base_sym, quote_sym, wants, gives) {
 async function snipe(mgv, base_sym, quote_sym, offerId, wants, gives) {
   base = (await getContract(base_sym)).address;
   quote = (await getContract(quote_sym)).address;
-  
+
   [success, takerGot, takerGave] = await mgv.callStatic.snipe(
     base,
     quote,
@@ -455,7 +477,9 @@ function formatToken(amount, decimals) {
 
 async function expectAmountOnLender(makerContract, lenderName, expectations) {
   for (const [symbol_underlying, expected_amount, precision] of expectations) {
-    const overlying = await getContract(getOverlyingSymbol(symbol_underlying, lenderName));
+    const overlying = await getContract(
+      getOverlyingSymbol(symbol_underlying, lenderName)
+    );
     let balance;
     switch (lenderName) {
       case "compound":
@@ -466,8 +490,8 @@ async function expectAmountOnLender(makerContract, lenderName, expectations) {
       case "aave":
         balance = await overlying.balanceOf(makerContract.address);
         break;
-      default :
-        console.warn ("Lender is not recognized");
+      default:
+        console.warn("Lender is not recognized");
     }
     assertAlmost(
       expected_amount,
@@ -475,7 +499,7 @@ async function expectAmountOnLender(makerContract, lenderName, expectations) {
       precision,
       `Incorrect ${symbol_underlying} amount on ${lenderName}`
     );
-  } 
+  }
 }
 
 exports.getDecimals = getDecimals;
@@ -510,6 +534,6 @@ exports.getContract = getContract;
 exports.fund = fund;
 
 // expectAmountOnLender : (user:address, lenderName:["compound | aave"], expectations:(symbol_underlying:string, expected_amount:bigNumber, precision:uint) array -> unit
-// ex. expectAmountOnLender(0xabcd,"compound",[["WETH",amount_w,8],["DAI",amount_dai,4]]) 
+// ex. expectAmountOnLender(0xabcd,"compound",[["WETH",amount_w,8],["DAI",amount_dai,4]])
 // checks if user 0xabcd had amount_w (with 4 decimals precision) weth and amount_dai (with 4 decimals precision) as collateral on compoound
 exports.expectAmountOnLender = expectAmountOnLender;
