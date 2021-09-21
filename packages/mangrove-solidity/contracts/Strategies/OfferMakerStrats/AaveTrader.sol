@@ -5,15 +5,10 @@ import "hardhat/console.sol";
 
 // SPDX-License-Identifier: MIT
 
-contract AaveTrader is AaveLender {
+abstract contract AaveTrader is AaveLender {
   uint public immutable interestRateMode;
 
-  constructor(
-    address _addressesProvider,
-    address payable _MGV,
-    uint _referralCode,
-    uint _interestRateMode
-  ) AaveLender(_addressesProvider, _MGV, _referralCode) {
+  constructor(uint _interestRateMode) {
     interestRateMode = _interestRateMode;
   }
 

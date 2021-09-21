@@ -21,6 +21,6 @@ contract SimpleOracle is IOracle, AccessControlled {
 
     function getPrice(address token) onlyCaller(reader) external view override returns (uint96 price) {
         price = priceData[token];
-        require (price != 0, "Invalid Price");
+        require(price != 0, "missing price data");
     }
 }
