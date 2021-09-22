@@ -1015,6 +1015,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mangrove-exchange/bot-bootstrap@workspace:packages/bot-bootstrap":
+  version: 0.0.0-use.local
+  resolution: "@mangrove-exchange/bot-bootstrap@workspace:packages/bot-bootstrap"
+  dependencies:
+    "@ethersproject/hardware-wallets": ^5.4.0
+    "@mangrove-exchange/mangrove-js": "workspace:*"
+    hardhat: ^2.6.4
+    hardhat-deploy: ^0.9.1
+    mangrove-solidity: "workspace:*"
+  languageName: unknown
+  linkType: soft
+
 "@mangrove-exchange/cleaning-bot-naive@workspace:packages/cleaning-bot-naive":
   version: 0.0.0-use.local
   resolution: "@mangrove-exchange/cleaning-bot-naive@workspace:packages/cleaning-bot-naive"
