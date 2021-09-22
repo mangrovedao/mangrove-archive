@@ -11,6 +11,7 @@
     "prepack": "yarn run build",
     "build": "yarn run lint && yarn run typechain && tsc && yarn run rollup && yarn run copy-static-assets",
     "copy-static-assets": "ts-node copyStaticAssets.ts",
+    "write-test-deployment-file": "ts-node writeTestDeploymentFiles.ts",
     "publish_patch": "npm version patch && npm publish --access public",
     "publish_minor": "npm version minor && npm publish --access public",
     "publish_major": "npm version major && npm publish --access public",
