@@ -98,7 +98,7 @@ contract AMM_Test {
 
   function check_logs(address mgr, bool inverted) internal {
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferSuccess(
+    emit MgvEvents.Success(
       address(tk0),
       address(tk1),
       3,
@@ -106,7 +106,7 @@ contract AMM_Test {
       1 ether,
       0.5 ether
     );
-    emit MgvEvents.OfferSuccess(
+    emit MgvEvents.Success(
       address(tk0),
       address(tk1),
       2,
@@ -119,7 +119,7 @@ contract AMM_Test {
       TestEvents.expectFrom(address(invMgv));
       MGV = invMgv;
     }
-    emit MgvEvents.OfferWrite(
+    emit MgvEvents.WriteOffer(
       address(tk1),
       address(tk0),
       mgr,
@@ -127,10 +127,9 @@ contract AMM_Test {
       1.2 ether,
       MGV.config(address(0), address(0)).global.gasprice,
       100_000,
-      1,
-      0
+      1
     );
-    emit MgvEvents.OfferSuccess(
+    emit MgvEvents.Success(
       address(tk1),
       address(tk0),
       1,
@@ -140,7 +139,7 @@ contract AMM_Test {
     );
     TestEvents.expectFrom(address(mgv));
 
-    emit MgvEvents.OfferWrite(
+    emit MgvEvents.WriteOffer(
       address(tk0),
       address(tk1),
       mgr,
@@ -148,8 +147,7 @@ contract AMM_Test {
       0.6 ether,
       mgv.config(address(0), address(0)).global.gasprice,
       100_000,
-      4,
-      0
+      4
     );
   }
 

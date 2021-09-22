@@ -107,22 +107,22 @@ library MgvEvents {
   event SetGasprice(uint value);
 
   /* * Offer execution */
-  event OfferSuccess(
+  event Success(
     address indexed base,
     address indexed quote,
-    uint id,
-    // `maker` is not logged because it can be retrieved from the state using `(base,quote,id)`.
+    uint offerId,
+    // maker's address is not logged because it can be retrieved from `WriteOffer` event using `offerId`.
     address taker,
     uint takerWants,
     uint takerGives
   );
 
   /* Log information when a trade execution reverts */
-  event OfferFail(
+  event MakerFail(
     address indexed base,
     address indexed quote,
-    uint id,
-    // `maker` is not logged because it can be retrieved from the state using `(base,quote,id)`.
+    uint offerId,
+    // maker's address is not logged because it can be retrieved from `WriteOffer` event using `offerId`.
     address taker,
     uint takerWants,
     uint takerGives,
@@ -151,36 +151,20 @@ library MgvEvents {
   /* * Mangrove closure */
   event Kill();
 
-  /* * An offer was created or updated.
-  A few words about why we include a `prev` field, and why we don't include a
-  `next` field: in theory clients should need neither `prev` nor a `next` field.
-  They could just 1. Read the order book state at a given block `b`.  2. On
-  every event, update a local copy of the orderbook.  But in practice, we do not
-  want to force clients to keep a copy of the *entire* orderbook. There may be a
-  long tail of spam. Now if they only start with the first $N$ offers and
-  receive a new offer that goes to the end of the book, they cannot tell if
-  there are missing offers between the new offer and the end of the local copy
-  of the book.
-  
-  So we add a prev pointer so clients with only a prefix of the book can receive
-  out-of-prefix offers and know what to do with them. The `next` pointer is an
-  optimization useful in Solidity (we traverse fewer memory locations) but
-  useless in client code.
-  */
-  event OfferWrite(
+  /* * An offer was created or updated. */
+  event WriteOffer(
     address indexed base,
     address indexed quote,
     address maker,
-    uint wants,
-    uint gives,
+    uint makerWants,
+    uint makerGives,
     uint gasprice,
     uint gasreq,
-    uint id,
-    uint prev
+    uint offerId
   );
 
   /* * `offerId` was present and is now removed from the book. */
-  event OfferRetract(address indexed base, address indexed quote, uint id);
+  event RetractOffer(address indexed base, address indexed quote, uint offerId);
 }
 
 /* # IMaker interface */
