@@ -3,8 +3,8 @@
  * @desc These methods facilitate interactions with the Ethereum blockchain.
  */
 
-import { ethers, Signer } from 'ethers';
-import { CallOptions, Provider, ProviderNetwork } from './types';
+import { ethers, Signer } from "ethers";
+import { CallOptions, Provider, ProviderNetwork } from "./types";
 
 /**
  * This helps the mangrove.js constructor discover which Ethereum network the
@@ -20,24 +20,25 @@ import { CallOptions, Provider, ProviderNetwork } from './types';
  */
 export async function getProviderNetwork(
   _provider: Provider
-) : Promise<ProviderNetwork> {
-
+): Promise<ProviderNetwork> {
   let networkId;
-  if (_provider['send']) {
-    networkId = await (_provider as any).send('net_version');
-  } else if (_provider['_network']) {
+  if (_provider["send"]) {
+    networkId = await (_provider as any).send("net_version");
+  } else if (_provider["_network"]) {
     networkId = (_provider as any)._network.chainId;
   } else {
-    throw Error("Provider can neither make RPC requests nor has a known network.")
+    throw Error(
+      "Provider can neither make RPC requests nor has a known network."
+    );
   }
 
   networkId = isNaN(networkId) ? 0 : +networkId;
 
-  const network = ethers.providers.getNetwork(networkId) || { name: 'unknown' };
+  const network = ethers.providers.getNetwork(networkId) || { name: "unknown" };
 
   return {
     id: networkId,
-    name: network.name === 'homestead' ? 'mainnet' : network.name
+    name: network.name === "homestead" ? "mainnet" : network.name,
   };
 }
 
@@ -46,7 +47,7 @@ export async function getProviderNetwork(
  *
  * @param {CallOptions} options The call options of a pending Ethereum
  *     transaction.
- * 
+ *
  * options.provider can be:
  * - a string (url or ethers.js network name)
  * - an EIP-1193 provider object (eg window.ethereum)
@@ -55,12 +56,12 @@ export async function getProviderNetwork(
  *
  * @returns {object} Returns a valid Ethereum network signer object with an attached provider.
  */
-export function _createSigner(options: CallOptions = {}) : Signer {
+export function _createSigner(options: CallOptions = {}): Signer {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let provider: any = options.provider;
   const isADefaultProvider = !!ethers.providers.getNetwork(provider.toString());
 
-  let signer:Signer;
+  let signer: Signer;
 
   // Create an ethers provider, web3s can sign
   if (typeof provider === "string") {
@@ -79,18 +80,25 @@ export function _createSigner(options: CallOptions = {}) : Signer {
 
   if (signer && (!!options.privateKey || !!options.mnemonic)) {
     console.warn("Signing info provided will override default signer.");
-  } 
-  
+  }
+
   // Add an explicit signer
   if (options.privateKey) {
     signer = new ethers.Wallet(options.privateKey, provider);
     if (options.mnemonic) {
-      console.warn("Both private key and mnemonic were specified. Using privateKey.");
+      console.warn(
+        "Both private key and mnemonic were specified. Using privateKey."
+      );
     }
   } else if (options.mnemonic) {
-    signer = new ethers.Wallet(ethers.Wallet.fromMnemonic(options.mnemonic), provider);
+    signer = new ethers.Wallet(
+      ethers.Wallet.fromMnemonic(options.mnemonic),
+      provider
+    );
   } else if (!signer) {
-    throw Error("Must provide private key or mnemonic, selected provider has no signer info.");
+    throw Error(
+      "Must provide private key or mnemonic, selected provider has no signer info."
+    );
   }
 
   return signer;

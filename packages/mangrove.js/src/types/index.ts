@@ -1,45 +1,43 @@
+import { Signer as AbstractSigner } from "@ethersproject/abstract-signer/lib/index";
+import { FallbackProvider } from "@ethersproject/providers/lib/fallback-provider";
 import {
-  Signer as AbstractSigner
-} from '@ethersproject/abstract-signer/lib/index';
-import {
-  FallbackProvider
-} from '@ethersproject/providers/lib/fallback-provider';
-import {
-  Provider, BlockTag, TransactionRequest, TransactionResponse
-} from '@ethersproject/abstract-provider';
-import {
-  Signer
-} from '@ethersproject/abstract-signer';
-import { Deferrable } from '@ethersproject/properties';
-import { BigNumber } from '@ethersproject/bignumber/lib/bignumber';
-import type {Awaited, MarkOptional} from 'ts-essentials';
-import type {Big} from 'big.js';
-import type * as EventTypes from './typechain/MgvEvents';
+  Provider,
+  BlockTag,
+  TransactionRequest,
+  TransactionResponse,
+} from "@ethersproject/abstract-provider";
+import { Signer } from "@ethersproject/abstract-signer";
+import { Deferrable } from "@ethersproject/properties";
+import { BigNumber } from "@ethersproject/bignumber/lib/bignumber";
+import type { Awaited, MarkOptional } from "ts-essentials";
+import type { Big } from "big.js";
+import type * as EventTypes from "./typechain/MgvEvents";
 
 // simplify type notation to access returned values from reader contract
 
-import {MgvReader,Mangrove} from './typechain';
-
-export type {Signer,Provider};
+import { MgvReader, Mangrove } from "./typechain";
+export type { Signer, Provider };
 
 export namespace BookReturns {
-  type _bookReturns = Awaited<ReturnType<MgvReader["functions"]["book"]>>
+  type _bookReturns = Awaited<ReturnType<MgvReader["functions"]["book"]>>;
   export type indices = _bookReturns[1];
   export type offers = _bookReturns[2];
   export type details = _bookReturns[3];
 }
 
-export type internalConfig = Awaited<ReturnType<Mangrove["functions"]["config"]>>["ret"];
+export type internalConfig = Awaited<
+  ReturnType<Mangrove["functions"]["config"]>
+>["ret"];
 export type localConfig = {
-  active: boolean,
-  fee: number,
-  density: number,
-  overhead_gasbase: number,
-  offer_gasbase: number,
-  lock: boolean,
-  best: number,
-  last: number
-}
+  active: boolean;
+  fee: number;
+  density: number;
+  overhead_gasbase: number;
+  offer_gasbase: number;
+  lock: boolean;
+  best: number;
+  last: number;
+};
 
 export type globalConfig = {
   monitor: string;
@@ -48,28 +46,28 @@ export type globalConfig = {
   gasprice: number;
   gasmax: number;
   dead: boolean;
-}
+};
 
 export type bookSubscriptionEvent =
-  ({ name: "OfferWrite" } & EventTypes.OfferWriteEvent ) |
-  ({ name: "OfferFail" } & EventTypes.OfferFailEvent ) |
-  ({ name: "OfferSuccess" } & EventTypes.OfferSuccessEvent ) |
-  ({ name: "OfferRetract" } & EventTypes.OfferRetractEvent ) |
-  ({ name: "SetGasbase" } & EventTypes.SetGasbaseEvent )
+  | ({ name: "OfferWrite" } & EventTypes.OfferWriteEvent)
+  | ({ name: "OfferFail" } & EventTypes.OfferFailEvent)
+  | ({ name: "OfferSuccess" } & EventTypes.OfferSuccessEvent)
+  | ({ name: "OfferRetract" } & EventTypes.OfferRetractEvent)
+  | ({ name: "SetGasbase" } & EventTypes.SetGasbaseEvent);
 
 export type Offer = {
-  prev: number,
-  next: number,
-  volume: Big,
-  price: Big,
-  gives: Big,
-  wants: Big,
-  overhead_gasbase: number,
-  offer_gasbase: number,
-  maker: string,
-  gasreq: number,
-  gasprice: number
-}
+  prev: number;
+  next: number;
+  volume: Big;
+  price: Big;
+  gives: Big;
+  wants: Big;
+  overhead_gasbase: number;
+  offer_gasbase: number;
+  maker: string;
+  gasreq: number;
+  gasprice: number;
+};
 
 // =-=-=-=-=-= /src/index.ts =-=-=-=-=-=
 
@@ -79,14 +77,13 @@ export interface ConnectOptions {
   provider?: Provider | string;
 }
 
-
 // =-=-=-=-=-= /src/eth.ts =-=-=-=-=-=
 
 export interface AbiType {
   internalType?: string;
   name?: string;
   type?: string;
-  components?: AbiType[],
+  components?: AbiType[];
 }
 
 export interface AbiItem {
@@ -124,8 +121,8 @@ export interface Connection {
 }
 
 export interface Network {
-  chainId: number,
-  name: string
+  chainId: number;
+  name: string;
 }
 
 export interface ProviderNetwork {
@@ -134,12 +131,10 @@ export interface ProviderNetwork {
 }
 
 type GenericGetBalance = (
-    addressOrName: string | number | Promise<string | number>,
-    blockTag?: string | number | Promise<string | number>
+  blockTag?: string | number | Promise<string | number>
 ) => Promise<BigNumber>;
 
 type GenericGetTransactionCount = (
-  addressOrName: string | number | Promise<string>,
   blockTag?: BlockTag | Promise<BlockTag>
 ) => Promise<number>;
 
@@ -186,7 +181,6 @@ export interface MarketHistoryServiceRequest {
   network?: string;
 }
 
-
 export interface GovernanceServiceRequest {
   proposal_ids?: number[];
   state?: string;
@@ -196,16 +190,18 @@ export interface GovernanceServiceRequest {
   network?: string;
 }
 
-export type APIRequest = AccountServiceRequest |
-  CTokenServiceRequest | MarketHistoryServiceRequest | GovernanceServiceRequest;
-
+export type APIRequest =
+  | AccountServiceRequest
+  | CTokenServiceRequest
+  | MarketHistoryServiceRequest
+  | GovernanceServiceRequest;
 
 // =-=-=-=-=-= /src/EIP712.ts =-=-=-=-=-=
 
 export interface Signature {
-  r : string;
-  s : string;
-  v : string;
+  r: string;
+  s: string;
+  v: string;
 }
 
 export interface EIP712Type {
@@ -221,7 +217,7 @@ export interface EIP712Domain {
 
 export interface VoteTypes {
   EIP712Domain: EIP712Type[];
-  Ballot: EIP712Type[]
+  Ballot: EIP712Type[];
 }
 
 export interface DelegateTypes {
@@ -246,25 +242,30 @@ export type EIP712Message = DelegateSignatureMessage | VoteSignatureMessage;
 
 interface SimpleEthersProvider {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  jsonRpcFetchFunc(method: string, parameters: any[]):any;
+  jsonRpcFetchFunc(method: string, parameters: any[]): any;
 }
 
 export interface SimpleEthersSigner {
-  _signingKey():any;
-  getAddress():any;
+  _signingKey(): any;
+  getAddress(): any;
   provider?: SimpleEthersProvider;
 }
 
 /* Mangrove */
 
-export interface TokenInfo { name:string, address: string, decimals: number }
-
-export interface MarketParams {
-  base: string | MarkOptional<TokenInfo,"address"|"decimals">;
-  quote: string | MarkOptional<TokenInfo,"address"|"decimals">;
+export interface TokenInfo {
+  name: string;
+  address: string;
+  decimals: number;
 }
 
-export type Bigish = Big|number|string;
+export interface MarketParams {
+  base: string | MarkOptional<TokenInfo, "address" | "decimals">;
+  quote: string | MarkOptional<TokenInfo, "address" | "decimals">;
+}
+
+export type Bigish = Big | number | string;
 
 export type TradeParams =
-  { volume: Bigish; price: Bigish; } | { wants: Bigish, gives: Bigish }
+  | { volume: Bigish; price: Bigish }
+  | { wants: Bigish; gives: Bigish };
