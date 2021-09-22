@@ -43,8 +43,9 @@ contract PriceFed is Defensive, AaveLender {
     MGV.fund{value:amount}();
   }
 
-  function __postHookFallback__(string memory message, MgvLib.SingleOrder calldata order) override internal {
-    console.log(message);
+  function __postHookFallback__(bytes32 message, MgvLib.SingleOrder calldata order) override internal {
+    string memory m = string(bytesOfWord(message));
+    console.log(m);
   }
   
   // Closing diamond inheritance for solidity compiler
