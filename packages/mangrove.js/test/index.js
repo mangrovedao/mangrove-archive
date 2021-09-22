@@ -5,10 +5,10 @@
 // To run a single test: `npm test -- -g 'eth.getBalance'`
 
 // Set up hardhat
-const { TASK_NODE_CREATE_SERVER } = require("hardhat/builtin-tasks/task-names");
 const hre = require("hardhat");
+const helpers = require("./helpers");
 const ethers = hre.ethers;
-let jsonRpcServer; // used to run a localhost fork of mainnet
+let server; // used to run a localhost server
 
 // Source Files
 const { Mangrove } = require("../src");
@@ -18,7 +18,7 @@ const host = {
   port: 8546,
 };
 const _eth = require("../src/eth.ts");
-const { start } = require("repl");
+// const { start } = require("repl");
 
 const tests = {
   market: require("./market.test.js"),
@@ -30,14 +30,11 @@ let snapshot_id = null;
 describe("mangrove.js", function () {
   before(async () => {
     console.log("Running a hardhat instance...");
-
-    jsonRpcServer = await hre.run(TASK_NODE_CREATE_SERVER, {
+    server = await helpers.hreServer({
       hostname: host.name,
       port: host.port,
       provider: hre.network.provider,
     });
-
-    await jsonRpcServer.listen();
 
     await hre.network.provider.request({
       method: "hardhat_reset",
@@ -108,8 +105,8 @@ describe("mangrove.js", function () {
   });
 
   after(async () => {
-    if (jsonRpcServer) {
-      await jsonRpcServer.close();
+    if (server) {
+      await server.close();
     }
   });
 

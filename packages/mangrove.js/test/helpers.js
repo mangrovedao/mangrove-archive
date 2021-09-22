@@ -1,4 +1,6 @@
+const hre = require("hardhat");
 const ethers = require("ethers");
+
 exports.sleep = (ms) => {
   return new Promise((cb) => setTimeout(cb, ms));
 };
@@ -26,3 +28,16 @@ exports.asyncQueue = () => {
 };
 
 exports.toWei = (v, u = "ether") => ethers.utils.parseUnits(v.toString(), u);
+
+exports.hreServer = async ({ hostname, port, provider }) => {
+  const {
+    TASK_NODE_CREATE_SERVER,
+  } = require("hardhat/builtin-tasks/task-names");
+  const server = await hre.run(TASK_NODE_CREATE_SERVER, {
+    hostname,
+    port,
+    provider,
+  });
+  await server.listen();
+  return server;
+};
