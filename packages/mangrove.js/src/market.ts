@@ -1,9 +1,4 @@
-import {
-  utils as ethersUtils,
-  BigNumber,
-  BigNumberish,
-  ContractTransaction,
-} from "ethers";
+import { utils as ethersUtils, BigNumber, ContractTransaction } from "ethers";
 import {
   TradeParams,
   BookReturns,
@@ -12,7 +7,6 @@ import {
   localConfig,
   bookSubscriptionEvent,
 } from "./types";
-import type { Mangrove as MangroveType } from "./types/typechain";
 import { Mangrove } from "./mangrove";
 
 const DEFAULT_MAX_OFFERS = 50;
@@ -120,25 +114,26 @@ export class Market {
     semibook: semibook,
     cb: (a: bookSubscriptionCbArgument, utils?: T) => void,
     utils: T
-  ) {
+  ): (...args: any[]) => any {
     return (_evt) => {
       const evt: bookSubscriptionEvent = this.mgv.events.interface.parseLog(
         _evt
       ) as any;
 
       // declare const evt: EventTypes.OfferWriteEvent;
+      let next;
+      let offer;
       switch (evt.name) {
         case "OfferWrite":
           removeOffer(semibook, evt.args.id.toNumber());
 
-          let next;
           try {
             next = BigNumber.from(getNext(semibook, evt.args.prev.toNumber()));
           } catch (e) {
             // next was not found, we are outside local OB copy. skip.
           }
 
-          const offer = this.toOfferObject(semibook.ba, {
+          offer = this.toOfferObject(semibook.ba, {
             ...evt.args,
             ...semibook.gasbase,
             next,
@@ -224,15 +219,16 @@ export class Market {
     return Object.keys(this.subscriptions).length > 0;
   }
 
-  async unsubscribe() {
+  unsubscribe(): void {
     if (!this.subscribed()) throw Error("Not subscribed");
-    const { asksFilter, bidsFilter } = this.bookFilter();
+    const { asksFilter, bidsFilter } = this.#bookFilter();
     const { asksCallback, bidsCallback } = this.subscriptions;
     this.mgv.events.off(asksFilter, asksCallback);
     this.mgv.events.off(bidsFilter, bidsCallback);
   }
 
-  bookFilter() {
+  /* eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types */
+  #bookFilter() {
     /* Disjunction of possible event names */
     const topics0 = [
       "OfferSuccess",
@@ -278,7 +274,7 @@ export class Market {
 
     const config = await this.config();
 
-    const { asksFilter, bidsFilter } = this.bookFilter();
+    const { asksFilter, bidsFilter } = this.#bookFilter();
 
     const rawAsks = await this.rawBook(
       this.base.address,
@@ -481,8 +477,8 @@ export class Market {
   }
 
   async rawBook(
-    base_a,
-    quote_a,
+    base_a: string,
+    quote_a: string,
     opts: bookOpts = bookOptsDefault
   ): Promise<[BookReturns.indices, BookReturns.offers, BookReturns.details]> {
     opts = { ...bookOptsDefault, ...opts };
@@ -498,7 +494,7 @@ export class Market {
       details = [];
     await this.mgv.contract.config(this.mgv._address, this.mgv._address);
     do {
-      let [_nextId, _offerIds, _offers, _details] =
+      const [_nextId, _offerIds, _offers, _details] =
         await this.mgv.readerContract.book(
           base_a,
           quote_a,
