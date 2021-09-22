@@ -84,6 +84,22 @@ contract NotAdmin {
   }
 }
 
+contract Deployer {
+  AbstractMangrove mgv;
+
+  function deploy(address base, address quote)
+    public
+    returns (AbstractMangrove)
+  {
+    mgv = MgvSetup.deploy(msg.sender);
+    return mgv;
+  }
+
+  function setGovernance(address governance) public {
+    mgv.setGovernance(governance);
+  }
+}
+
 // In these tests, the testing contract is the market maker.
 contract Gatekeeping_Test is IMaker {
   receive() external payable {}
@@ -94,6 +110,17 @@ contract Gatekeeping_Test is IMaker {
   TestMaker dual_mkr;
   address base;
   address quote;
+
+  function gov_is_not_sender_test() public {
+    Deployer deployer = new Deployer();
+    AbstractMangrove _mgv = deployer.deploy(base, quote);
+
+    TestEvents.eq(
+      _mgv.governance(),
+      address(this),
+      "governance should return this"
+    );
+  }
 
   function a_beforeAll() public {
     TestToken baseT = TokenSetup.setup("A", "$A");
