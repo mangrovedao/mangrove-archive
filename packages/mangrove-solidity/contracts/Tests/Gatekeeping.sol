@@ -87,10 +87,7 @@ contract NotAdmin {
 contract Deployer {
   AbstractMangrove mgv;
 
-  function deploy(address base, address quote)
-    public
-    returns (AbstractMangrove)
-  {
+  function deploy() public returns (AbstractMangrove) {
     mgv = MgvSetup.deploy(msg.sender);
     return mgv;
   }
@@ -113,7 +110,7 @@ contract Gatekeeping_Test is IMaker {
 
   function gov_is_not_sender_test() public {
     Deployer deployer = new Deployer();
-    AbstractMangrove _mgv = deployer.deploy(base, quote);
+    AbstractMangrove _mgv = deployer.deploy();
 
     TestEvents.eq(
       _mgv.governance(),
