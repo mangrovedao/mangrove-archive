@@ -1,6 +1,5 @@
-
-
 # Adding the Mangrove.js library as a dependency
+
 I had to turn the following TypeScript compilation flags off in order for `ts-node` to not complain about mangrove.js:
 
 ```
@@ -11,10 +10,11 @@ I had to turn the following TypeScript compilation flags off in order for `ts-no
 > ⚠️ Wouldn't we want these compiler options to be on in mangrove.js?
 
 ## Mangrove.js dist
+
 I had to add `"module": "CommonJS"` in mangrove.js's `tconfig.json` to be able to use `require("../../../mangrove.js/dist/nodejs/mangrove")` from a JS file.
 
-
 # Connecting to Mangrove
+
 I tried to connect to a local Hardhat node started in a separate terminal with `npx hardhat node`.
 
 ```TypeScript
@@ -31,8 +31,8 @@ Turns out 'unknown' at the end refers to an internal name Mangrove.js assigns to
 
 > ⚠️ Perhaps the error message instead could refer to the provided URL, i.e. `http://127.0.0.1:8545`?
 
-
 ## Addresses
+
 I realized that I need to set up addresses for network I'm connecting to. As far as I can tell, this must happen in `constants.ts`, which is part of the Mangrove.js package.
 
 > ⚠️ We should probably provide an API and a configuration option for providing those addresses.
@@ -49,12 +49,15 @@ The minimal addresses I had to add to `constants.ts` were:
 ```
 
 ## Provider
+
 Since mangrove.js constructs a Provider, I think it should be possible to get and use that Provider, such that it can be used for other purposes, e.g. connecting to contracts not controlled my mangrove.js.
 
 > ⚠️ Perhaps expose `Mangrove._provider`.
 
 # Reading the configuration
+
 ## OUTDATED the API was changed after this was written
+
 First attempt:
 
 ```TypeScript
@@ -97,14 +100,13 @@ but that gave me the compressed representation:
 '0x00000000000000000000000000000000000000000000000107a1200000000000'
 ```
 
-
 # Reading the Mangrove
 
 ## Reading Markets
+
 I couldn't find a way to get a list of the existing markets?
 
 > ⚠️ Maybe we should add a method for getting a list of existing markets/pairs?
-
 
 # Market
 
@@ -146,8 +148,8 @@ Turns out I need to call `cacheDecimals()` for each of the tokens.
 
 > ⚠️ Could Mangrove.js call `cacheDecimals()` automatically when needed?
 
-
 ## OUTDATED The API was changed
+
 However, the structure has some obscure contents:
 
 ```Javascript
@@ -173,17 +175,15 @@ However, the structure has some obscure contents:
 
 > ⚠️ Could we give all elements in the config meaningful names?
 
-
 ## Activating markets
+
 The cleaning bot should obviously not activate markets, but it requires an active market to operate on. So I'm adding some temporary code to do just that.
 
 I couldn't find any API for activating markets?
 
 > ⚠️ Should Mangrove.js have API's for the administrative stuff, like activating markets?
 
-
-
-## Contract API 
+## Contract API
 
 For the auto-generated API (via typechain), currently mappings that gives rise to Market.contract.offers() (in generated Mangrove.d.ts) get unhelpful parameter names:
 
