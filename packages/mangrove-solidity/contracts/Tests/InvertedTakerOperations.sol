@@ -238,22 +238,8 @@ contract InvertedTakerOperations_Test is ITaker {
       "Incorrect transfer (got) during reentrancy"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferSuccess(
-      base,
-      quote,
-      1,
-      address(this),
-      0.1 ether,
-      0.1 ether
-    );
-    emit MgvEvents.OfferSuccess(
-      base,
-      quote,
-      2,
-      address(this),
-      0.1 ether,
-      0.1 ether
-    );
+    emit MgvEvents.Success(base, quote, 1, address(this), 0.1 ether, 0.1 ether);
+    emit MgvEvents.Success(base, quote, 2, address(this), 0.1 ether, 0.1 ether);
   }
 
   function taker_pays_back_correct_amount_1_test() public {

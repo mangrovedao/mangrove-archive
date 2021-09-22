@@ -176,7 +176,7 @@ contract MgvOfferMaking is MgvHasOffers {
       // credit `balanceOf` and log transfer
       creditWei(msg.sender, provision);
     }
-    emit MgvEvents.OfferRetract(base, quote, offerId);
+    emit MgvEvents.RetractOffer(base, quote, offerId);
   }
 
   /* ## Provisioning
@@ -244,15 +244,8 @@ contract MgvOfferMaking is MgvHasOffers {
     require(uint96(ofp.gives) == ofp.gives, "mgv/writeOffer/gives/96bits");
     require(uint96(ofp.wants) == ofp.wants, "mgv/writeOffer/wants/96bits");
 
-    /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
-
-       `findPosition` is only ever called here, but exists as a separate function to make the code easier to read.
-
-    **Warning**: `findPosition` will call `better`, which may read the offer's `offerDetails`. So it is important to find the offer position _before_ we update its `offerDetail` in storage. We waste 1 (hot) read in that case but we deem that the code would get too ugly if we passed the old `offerDetail` as argument to `findPosition` and to `better`, just to save 1 hot read in that specific case.  */
-    (uint prev, uint next) = findPosition(ofp);
-
     /* Log the write offer event. */
-    emit MgvEvents.OfferWrite(
+    emit MgvEvents.WriteOffer(
       ofp.base,
       ofp.quote,
       msg.sender,
@@ -260,9 +253,15 @@ contract MgvOfferMaking is MgvHasOffers {
       ofp.gives,
       ofp.gasprice,
       ofp.gasreq,
-      ofp.id,
-      prev
+      ofp.id
     );
+
+    /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
+
+       `findPosition` is only ever called here, but exists as a separate function to make the code easier to read.
+
+    **Warning**: `findPosition` will call `better`, which may read the offer's `offerDetails`. So it is important to find the offer position _before_ we update its `offerDetail` in storage. We waste 1 (hot) read in that case but we deem that the code would get too ugly if we passed the old `offerDetail` as argument to `findPosition` and to `better`, just to save 1 hot read in that specific case.  */
+    (uint prev, uint next) = findPosition(ofp);
 
     /* We now write the new `offerDetails` and remember the previous provision (0 by default, for new offers) to balance out maker's `balanceOf`. */
     uint oldProvision;
