@@ -386,16 +386,9 @@ library MgvSetup {
 
   function setup(TestToken base, TestToken quote)
     public
-    returns (AbstractMangrove mgv)
+    returns (AbstractMangrove)
   {
-    TestUtils.not0x(address(base));
-    TestUtils.not0x(address(quote));
-
-    mgv = deploy(address(this));
-    mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
-    mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
-
-    return mgv;
+    return setup(base, quote, false);
   }
 
   function setup(
@@ -407,17 +400,11 @@ library MgvSetup {
     TestUtils.not0x(address(quote));
     if (inverted) {
       mgv = invertedDeploy(address(this));
-      mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
-      mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
-
-      return mgv;
     } else {
       mgv = deploy(address(this));
-      mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
-      mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
-
-      return mgv;
     }
+    mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
+    mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
   }
 }
 
