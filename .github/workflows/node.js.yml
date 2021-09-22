@@ -60,7 +60,7 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         
-    - run: yarn install --frozen-lockfile
+    - run: yarn install --immutable
       working-directory: . # Yarn must run in root to ensure monorepo setup
 
     # == Solidity compile and run test suite solidity ==
