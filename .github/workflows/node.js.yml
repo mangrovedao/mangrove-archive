@@ -43,18 +43,17 @@ jobs:
         git config --global url."https://github.com/".insteadOf
         ssh://git@github.com/
 
-    # == npm setup ==
-    - name: Use Node.js ${{ matrix.node-version }} (caching npm)
-      # Ensure use configured Node.js version
+    # == yarn setup ==
+    - name: Yarn setup (caching yarn dependencies)
       # - refactored into the two following mutually exclusive steps,
       #   to workaround https://github.com/nektos/act/issues/329
       if: ${{ !env.ACT }}
       uses: actions/setup-node@v2
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'npm'
+        cache: 'yarn'
 
-    - name: Use Node.js ${{ matrix.node-version }} (no cache)
+    - name: Yarn setup (no caching of dependencies)
       if: ${{ env.ACT }}
       uses: actions/setup-node@v2
       with:
