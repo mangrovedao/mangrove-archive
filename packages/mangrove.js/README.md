@@ -61,6 +61,13 @@ const main = async () => {
       ]
     }
   */
+
+  // Subscribe to orderbook
+  market.subscribe((event, utils) => {
+    /* `event` is an offer write, failure, success, or cancel */
+    console.log(utils.book());
+    /* Prints the updated book, same format as `market.book()` */
+  });
 };
 
 main().catch(console.error);

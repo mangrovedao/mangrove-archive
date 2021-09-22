@@ -2,7 +2,7 @@ module.exports = (hre, formatArg) => {
   const ethers = hre.ethers;
 
   const logFormatters = {
-    MakerFail: (log, rawLog, originator) => {
+    OfferFail: (log, rawLog, originator) => {
       const statusCode = hre.ethers.utils.parseBytes32String(
         log.args.statusCode
       );
@@ -13,7 +13,7 @@ module.exports = (hre, formatArg) => {
       console.log(`╰ statusCode ${statusCode}`);
       console.log("");
     },
-    Success: (log, rawLog, originator) => {
+    OfferSuccess: (log, rawLog, originator) => {
       console.log("");
       console.log(`┏ Offer ${formatArg(log.args.offerId)} consumed`);
       console.log(`┃ takerWants ${formatArg(log.args.takerWants)}`);
