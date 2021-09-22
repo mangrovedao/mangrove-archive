@@ -236,7 +236,6 @@ export class Market {
       "OfferWrite",
       "OfferRetract",
       "SetGasbase",
-      "Bla",
     ].map((e) =>
       this.mgv.events.interface.getEventTopic(
         this.mgv.events.interface.getEvent(e as any)
