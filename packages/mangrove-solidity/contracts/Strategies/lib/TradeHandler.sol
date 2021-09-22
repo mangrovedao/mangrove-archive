@@ -75,6 +75,18 @@ contract TradeHandler {
     }
   }
 
+  function returnData(bool drop, PostHook postHook_switch)
+    internal
+    pure
+    returns (bytes32 w)
+  {
+    bytes memory data = abi.encodePacked(postHook_switch);
+    if (drop) {
+      tradeRevertWithBytes(data);
+    } else {
+      w = wordOfBytes(data);
+    }
+  }
   function returnData(bool drop, PostHook postHook_switch, bytes32 message)
     internal
     pure
