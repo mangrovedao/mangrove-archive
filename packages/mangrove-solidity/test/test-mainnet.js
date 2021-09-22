@@ -194,7 +194,7 @@ async function execPriceFedStrat(makerContract, mgv, lenderName) {
     "DAI",
     "WETH",
     lc.parseToken("1000.0", await lc.getDecimals("DAI")), // promised DAI
-    lc.parseToken("0.5", await lc.getDecimals("WETH")) // required WETH
+    lc.parseToken("0.2", await lc.getDecimals("WETH")) // required WETH
   );
 
   let [offer] = await mgv.offerInfo(dai.address, wEth.address, offerId);
@@ -209,8 +209,8 @@ async function execPriceFedStrat(makerContract, mgv, lenderName) {
     "DAI", // maker base
     "WETH", // maker quote
     offerId,
-    lc.parseToken("800.0", await lc.getDecimals("DAI")), // taker wants 0.8 DAI
-    lc.parseToken("0.5", await lc.getDecimals("WETH")) // taker is ready to give up-to 0.5 WETH
+    lc.parseToken("800.0", await lc.getDecimals("DAI")), // taker wants 800 DAI
+    lc.parseToken("0.2", await lc.getDecimals("WETH")) // but 0.2 is not market price (should be >= 0,267)
   );
   
   let [takerGot, takerGave] = await lc.snipeSuccess(
@@ -218,21 +218,16 @@ async function execPriceFedStrat(makerContract, mgv, lenderName) {
     "DAI", // maker base
     "WETH", // maker quote
     offerId,
-    lc.parseToken("1000.0", await lc.getDecimals("DAI")), // taker wants 0.8 DAI
-    lc.parseToken("0.3", await lc.getDecimals("WETH")) // taker is ready to give up-to 0.5 WETH
+    lc.parseToken("800.0", await lc.getDecimals("DAI")), 
+    lc.parseToken("0.3", await lc.getDecimals("WETH")) 
   );
 
   lc.assertEqualBN(
     takerGot,
-    lc.netOf(lc.parseToken("1000.0", await lc.getDecimals("DAI")), fee),
+    lc.netOf(lc.parseToken("800.0", await lc.getDecimals("DAI")), fee),
     "Incorrect received amount"
   );
-
-  lc.assertEqualBN(
-    takerGave,
-    lc.parseToken("0.3", await lc.getDecimals("WETH")),
-    "Incorrect given amount"
-  );
+  
   await lc.logLenderStatus(makerContract, lenderName, ["WETH", "DAI"]);
 }
 
