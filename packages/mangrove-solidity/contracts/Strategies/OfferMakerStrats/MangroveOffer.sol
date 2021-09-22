@@ -213,7 +213,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     } 
     // posthook selector based on maker's information
     if (postHook_switch == PostHook.Success) {
-      __postHookNoFailure__(word, order);
+      __postHookSuccess__(word, order);
     }
     if (postHook_switch == PostHook.Get) {
       __postHookGetFailure__(word, order);
@@ -251,7 +251,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     require(amount == 0, "Insufficient provision");
   }
 
-  function __postHookNoFailure__(bytes32 message, MgvLib.SingleOrder calldata order)
+  function __postHookSuccess__(bytes32 message, MgvLib.SingleOrder calldata order)
     internal
     virtual
   {
@@ -275,7 +275,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     order; //shh
   }
 
-  function __postHookFallback__(string memory message, MgvLib.SingleOrder calldata order) internal virtual {
+  function __postHookFallback__(bytes32 message, MgvLib.SingleOrder calldata order) internal virtual {
     message; //shh
     order; //shh
   }
