@@ -130,18 +130,6 @@ export interface ProviderNetwork {
   name?: string;
 }
 
-type GenericGetBalance = (
-  blockTag?: string | number | Promise<string | number>
-) => Promise<BigNumber>;
-
-type GenericGetTransactionCount = (
-  blockTag?: BlockTag | Promise<BlockTag>
-) => Promise<number>;
-
-type GenericSendTransaction = (
-  transaction: string | Promise<string> | Deferrable<TransactionRequest>
-) => Promise<TransactionResponse>;
-
 // =-=-=-=-=-= /src/api.ts =-=-=-=-=-=
 
 export interface APIResponse {
