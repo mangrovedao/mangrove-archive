@@ -18,7 +18,7 @@ const main = async () => {
     `http://${host.name}:${host.port}`
   );
 
-  console.log(provider);
+  // console.log(provider);
   // await provider.send(
   //   "hardhat_reset",
   //   [],
@@ -64,13 +64,13 @@ const main = async () => {
   console.log("user2", await signer2.getAddress());
 
   // const signer = (await hre.ethers.getSigners())[0];
-  await TokenA.mint(user, toWei(10));
-  await TokenA.approve(mgvContract.address, toWei(1000));
+  await TokenA.mint(user, toWei(10000));
+  await TokenA.approve(mgvContract.address, toWei(1000000));
 
-  await TokenB.mint(user, toWei(10));
-  await TokenB.approve(mgvContract.address, toWei(1000));
+  await TokenB.mint(user, toWei(10000));
+  await TokenB.approve(mgvContract.address, toWei(1000000));
 
-  await mgvContract["fund()"]({ value: toWei(10) });
+  await mgvContract["fund()"]({ value: toWei(100) });
 
   const newOffer = (base, quote, { wants, gives, gasreq, gasprice }) => {
     return mgv.contract.newOffer(
@@ -78,7 +78,7 @@ const main = async () => {
       quote,
       helpers.toWei(wants),
       helpers.toWei(gives),
-      gasreq || 10000,
+      gasreq || 100000,
       gasprice || 1,
       0
     );
@@ -91,38 +91,47 @@ const main = async () => {
   const between = (a, b) => a + Math.random() * (b - a);
   const market = await mgv.market({ base: "TokenA", quote: "TokenB" });
 
-  const pushOffer = async () => {
+  const pushOffer = async (ba /*bids|asks*/) => {
+    let base = "base",
+      quote = "quote";
+    if (ba === "bids") [base, quote] = [quote, base];
     const book = await market.book();
-    const buffer = book.asks.length > 30 ? 5000 : 0;
-    console.log("asks length", book.asks.length);
+    // console.log(book,ba,book[ba]);
+    const buffer = book[ba].length > 30 ? 5000 : 0;
+    console.log(`${ba} length`, book[ba].length);
 
-    const timeoutId = setTimeout(() => {
-      console.log("pushing offer");
-      newOffer(market.base.address, market.quote.address, {
-        wants: 1,
-        gives: 1,
-      });
-      pushOffer();
+    setTimeout(() => {
+      console.log(`pushing offer to ${ba}`);
+      const wants = 1 + between(0, 3);
+      const gives = wants * between(1.001, 4);
+      newOffer(market[base].address, market[quote].address, { wants, gives });
+      pushOffer(ba);
     }, between(1000 + buffer, 3000 + buffer));
   };
 
-  const pullOffer = async () => {
+  const pullOffer = async (ba) => {
+    let base = "base",
+      quote = "quote";
+    if (ba === "bids") [base, quote] = [quote, base];
     const book = await market.book();
+    // console.log(book,ba,book[ba]);
     console.log(
-      "ids",
-      book.asks.map((o) => o.id)
+      `${ba} ids`,
+      book[ba].map((o) => o.id)
     );
-    if (book.asks.length !== 0) {
-      const offer = book.asks.shift();
-      await retractOffer(market.base.address, market.quote.address, offer.id);
+    if (book[ba].length !== 0) {
+      const offer = book[ba].shift();
+      await retractOffer(market[base].address, market[quote].address, offer.id);
     }
-    const timeoutId = setTimeout(() => {
-      pullOffer();
+    setTimeout(() => {
+      pullOffer(ba);
     }, between(2000, 4000));
   };
 
-  pushOffer();
-  pullOffer();
+  pushOffer("asks");
+  pullOffer("asks");
+  pushOffer("bids");
+  pullOffer("bids");
 };
 
 main().catch((e) => console.error(e));
