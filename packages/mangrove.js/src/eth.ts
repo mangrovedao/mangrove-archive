@@ -34,11 +34,17 @@ export async function getProviderNetwork(
 
   networkId = isNaN(networkId) ? 0 : +networkId;
 
-  const network = ethers.providers.getNetwork(networkId) || { name: "unknown" };
+  let networkName;
+
+  if (networkId === 31337) {
+    networkName = "hardhat";
+  } else {
+    networkName = ethers.providers.getNetwork(networkId).name;
+  }
 
   return {
     id: networkId,
-    name: network.name === "homestead" ? "mainnet" : network.name,
+    name: networkName === "homestead" ? "mainnet" : networkName,
   };
 }
 

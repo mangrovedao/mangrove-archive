@@ -152,7 +152,11 @@ contract Pedagogical_Test {
 
     dai = new TestToken({admin: address(this), name: "Dai", symbol: "DAI"});
 
-    mgv = new Mangrove({gasprice: 40, gasmax: 1_000_000});
+    mgv = new Mangrove({
+      governance: address(this),
+      gasprice: 40,
+      gasmax: 1_000_000
+    });
 
     // activate a market where taker buys BAT using DAI
     mgv.activate({

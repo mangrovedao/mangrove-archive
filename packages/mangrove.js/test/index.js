@@ -46,7 +46,7 @@ describe("mangrove.js", function () {
       provider: `http://${host.name}:${host.port}`,
     });
 
-    const account = signer.getAddress();
+    const account = await signer.getAddress();
 
     const toWei = (v, u = "ether") => ethers.utils.parseUnits(v.toString(), u);
 
@@ -84,17 +84,6 @@ describe("mangrove.js", function () {
     await mgvContract["fund()"]({ value: toWei(10) });
 
     const network = await _eth.getProviderNetwork(signer.provider);
-
-    Mangrove.setAddress("Mangrove", mgvContract.address, network.name);
-    Mangrove.setAddress("TokenA", TokenA.address, network.name);
-    Mangrove.setAddress("TokenB", TokenB.address, network.name);
-    Mangrove.setAddress(
-      "MgvReader",
-      deployments.MgvReader.address,
-      network.name
-    );
-    await Mangrove.cacheDecimals("TokenA", signer.provider);
-    await Mangrove.cacheDecimals("TokenB", signer.provider);
 
     await snapshot();
   });

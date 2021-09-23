@@ -433,7 +433,8 @@ async function deployMangrove() {
   const Mangrove = await ethers.getContractFactory("Mangrove");
   const mgv_gasprice = 500;
   let gasmax = 2000000;
-  const mgv = await Mangrove.deploy(mgv_gasprice, gasmax);
+  const deployer = await provider.getSigner().getAddress();
+  const mgv = await Mangrove.deploy(deployer, mgv_gasprice, gasmax);
   await mgv.deployed();
   const receipt = await mgv.deployTransaction.wait(0);
   console.log(

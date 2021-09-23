@@ -17,7 +17,7 @@
   "devDependencies": {
     "@espendk/json-file-reporter": "^1.4.1",
     "@ethersproject/hardware-wallets": "^5.0.0",
-    "@giry/hardhat-test-solidity": "^0.0.8",
+    "@giry/hardhat-test-solidity": "^0.0.10",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "adhusson-hardhat-solpp": "^2.0.2",
     "chai": "^4.3.4",
