@@ -20,6 +20,12 @@
     "clean-typechain": "rimraf src/types/typechain/*.ts; exit 0",
     "typechain": "yarn run clean-typechain && npx typechain --target=ethers-v5 --out-dir=src/types/typechain \"../mangrove-solidity/build/exported-abis/**/*.json\""
   },
+  "files": [
+    "dist/",
+    "src/",
+    "LICENSE",
+    "README.md"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/giry-dev/mangrove.git"
