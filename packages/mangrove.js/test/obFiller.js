@@ -1,6 +1,9 @@
 const hre = require("hardhat");
 const helpers = require("./helpers");
 const main = async () => {
+  console.log("Mnemonic:");
+  console.log(hre.config.networks.hardhat.accounts.mnemonic);
+  console.log("");
   const { Mangrove } = require("../src");
 
   const host = {
@@ -17,6 +20,10 @@ const main = async () => {
   const provider = new hre.ethers.providers.JsonRpcProvider(
     `http://${host.name}:${host.port}`
   );
+
+  console.log("RPC node");
+  console.log(`http://${host.name}:${host.port}`);
+  console.log("");
 
   // console.log(provider);
   // await provider.send(
@@ -58,10 +65,12 @@ const main = async () => {
     hre.ethers.utils.parseUnits(v.toString(), u);
   const signer = (await hre.ethers.getSigners())[0];
   const user = await signer.getAddress();
-  console.log("user", user);
+  console.log("User/admin");
+  console.log(user);
+  console.log("");
 
   const signer2 = provider.getSigner();
-  console.log("user2", await signer2.getAddress());
+  // console.log("user2", await signer2.getAddress());
 
   // const signer = (await hre.ethers.getSigners())[0];
   await TokenA.mint(user, toWei(10000));
@@ -98,10 +107,10 @@ const main = async () => {
     const book = await market.book();
     // console.log(book,ba,book[ba]);
     const buffer = book[ba].length > 30 ? 5000 : 0;
-    console.log(`${ba} length`, book[ba].length);
+    // console.log(`${ba} length`, book[ba].length);
 
     setTimeout(() => {
-      console.log(`pushing offer to ${ba}`);
+      // console.log(`pushing offer to ${ba}`);
       const wants = 1 + between(0, 3);
       const gives = wants * between(1.001, 4);
       newOffer(market[base].address, market[quote].address, { wants, gives });
@@ -114,11 +123,10 @@ const main = async () => {
       quote = "quote";
     if (ba === "bids") [base, quote] = [quote, base];
     const book = await market.book();
-    // console.log(book,ba,book[ba]);
-    console.log(
-      `${ba} ids`,
-      book[ba].map((o) => o.id)
-    );
+    // console.log(
+    //   `${ba} ids`,
+    //   book[ba].map((o) => o.id)
+    // );
     if (book[ba].length !== 0) {
       const offer = book[ba].shift();
       await retractOffer(market[base].address, market[quote].address, offer.id);
