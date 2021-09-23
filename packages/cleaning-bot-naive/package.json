@@ -4,14 +4,14 @@
   "author": "Mangrove DAO",
   "description": "A simple and naive order book cleaning bot for Mangrove",
   "license": "BSD-3-Clause",
-  "main": "dist/nodejs/index.ts",
+  "main": "src/index.ts",
   "scripts": {
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "precommit": "lint-staged",
     "format": "prettier --write --ignore-unknown .",
     "build": "yarn run format && tsc && yarn run copy-static-assets",
     "copy-static-assets": "ts-node copyStaticAssets.ts",
-    "start": "cd dist/nodejs && node index.js",
+    "start": "ts-node src/index.ts",
     "test": "mocha --reporter mocha-multi-reporters --reporter-option configFile=mocha-multi-reporters.json -r ts-node/register 'test/**/*.ts'",
     "local-hardhat:start-node": "hardhat node --no-deploy",
     "local-hardhat:deploy-mangrove": "hardhat deploy --network localhost"
