@@ -107,6 +107,17 @@ jobs:
         reporter: mocha-json                  # Format of test results
 
 
+    # == Solidity Documentation == 
+
+    - run: yarn run doc
+
+    - name: Archive documentation
+      uses: actions/upload-artifact@v2
+      with:
+        name: documentation
+        path: ${{env.working-directory}}/doc/
+
+
     # == Build Mangrove.js == 
     - name: Mangrove.js build
       run: yarn run build
@@ -114,7 +125,6 @@ jobs:
 
 
     # == Run test suite Mangrove.js == 
-
     - name: Mangrove.js Tests
       run: yarn run test
       working-directory: packages/mangrove.js # TODO These tests are in a different package than the previous - we should find a better way to handle working directories
@@ -128,12 +138,22 @@ jobs:
         reporter: mocha-json                  # Format of test results
 
 
-    # == Documentation == 
+    # == Build Cleaning Bot Naive == 
+    - name: Cleaning Bot Naive - Build
+      run: yarn run build
+      working-directory: packages/cleaning-bot-naive # TODO This build is in a different package than the previous - we should find a better way to handle working directories
 
-    - run: yarn run doc
 
-    - name: Archive documentation
-      uses: actions/upload-artifact@v2
+    # == Run test suite Cleaning Bot Naive == 
+    - name: Cleaning Bot Naive - Tests
+      run: yarn run test
+      working-directory: packages/cleaning-bot-naive # TODO These tests are in a different package than the previous - we should find a better way to handle working directories
+
+    - name: Cleaning Bot Naive - Test Report
+      uses: dorny/test-reporter@v1
+      if: ${{ !env.ACT && (success() || failure()) }}
       with:
-        name: documentation
-        path: ${{env.working-directory}}/doc/
+        name: Cleaning Bot Naive - Tests                   # Name of the check run which will be created
+        path: packages/cleaning-bot-naive/cleaning-bot-naive-mocha-test-report.json # Path to test results
+        reporter: mocha-json                               # Format of test results
+        
