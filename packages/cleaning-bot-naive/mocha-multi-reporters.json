@@ -1,6 +1,6 @@
 {
   "reporterEnabled": "spec, @espendk/json-file-reporter",
   "espendkJsonFileReporterReporterOptions": {
-    "output": "test-report.json"
+    "output": "cleaning-bot-naive-mocha-test-report.json"
   }
 }
