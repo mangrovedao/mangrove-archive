@@ -1,25 +1,30 @@
 import { Signer as AbstractSigner } from "@ethersproject/abstract-signer/lib/index";
 import { FallbackProvider } from "@ethersproject/providers/lib/fallback-provider";
 import {
+  Provider,
   BlockTag,
   TransactionRequest,
   TransactionResponse,
 } from "@ethersproject/abstract-provider";
+import { Signer } from "@ethersproject/abstract-signer";
 import { Deferrable } from "@ethersproject/properties";
 import { BigNumber } from "@ethersproject/bignumber/lib/bignumber";
 import type { Awaited, MarkOptional } from "ts-essentials";
 import type { Big } from "big.js";
+import type * as EventTypes from "./typechain/MgvEvents";
 
 // simplify type notation to access returned values from reader contract
 
 import { MgvReader, Mangrove } from "./typechain";
+export type { Signer, Provider };
 
-type _bookReturns = Awaited<ReturnType<MgvReader["functions"]["book"]>>;
-export type bookReturns = {
-  indices: _bookReturns[0];
-  offers: _bookReturns[1];
-  details: _bookReturns[2];
-};
+export namespace BookReturns {
+  type _bookReturns = Awaited<ReturnType<MgvReader["functions"]["book"]>>;
+  export type indices = _bookReturns[1];
+  export type offers = _bookReturns[2];
+  export type details = _bookReturns[3];
+}
+
 export type internalConfig = Awaited<
   ReturnType<Mangrove["functions"]["config"]>
 >["ret"];
@@ -33,6 +38,22 @@ export type localConfig = {
   best: number;
   last: number;
 };
+
+export type globalConfig = {
+  monitor: string;
+  useOracle: boolean;
+  notify: boolean;
+  gasprice: number;
+  gasmax: number;
+  dead: boolean;
+};
+
+export type bookSubscriptionEvent =
+  | ({ name: "OfferWrite" } & EventTypes.OfferWriteEvent)
+  | ({ name: "OfferFail" } & EventTypes.OfferFailEvent)
+  | ({ name: "OfferSuccess" } & EventTypes.OfferSuccessEvent)
+  | ({ name: "OfferRetract" } & EventTypes.OfferRetractEvent)
+  | ({ name: "SetGasbase" } & EventTypes.SetGasbaseEvent);
 
 export type Offer = {
   prev: number;
@@ -107,30 +128,6 @@ export interface Network {
 export interface ProviderNetwork {
   id?: number;
   name?: string;
-}
-
-type GenericGetBalance = (
-  blockTag?: string | number | Promise<string | number>
-) => Promise<BigNumber>;
-
-type GenericGetTransactionCount = (
-  blockTag?: BlockTag | Promise<BlockTag>
-) => Promise<number>;
-
-type GenericSendTransaction = (
-  transaction: string | Promise<string> | Deferrable<TransactionRequest>
-) => Promise<TransactionResponse>;
-
-export interface Provider extends AbstractSigner, FallbackProvider {
-  connection?: Connection;
-  _network: Network;
-  call: AbstractSigner["call"] | FallbackProvider["call"];
-  getBalance: GenericGetBalance;
-  getTransactionCount: GenericGetTransactionCount;
-  resolveName: AbstractSigner["resolveName"] | FallbackProvider["resolveName"];
-  sendTransaction: GenericSendTransaction;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  send?: (method: string, parameters: string[]) => any;
 }
 
 // =-=-=-=-=-= /src/api.ts =-=-=-=-=-=

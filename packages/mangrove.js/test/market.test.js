@@ -2,55 +2,136 @@ const ethers = require("ethers");
 const BigNumber = ethers.BigNumber;
 
 const assert = require("assert");
-const { Mangrove } = require("../src/index.ts");
-const providerUrl = "http://localhost:8545";
+const { Mangrove } = require("../src");
+const providerUrl = "http://localhost:8546";
+const helpers = require("./helpers");
 
 const { Big } = require("big.js");
 //pretty-print when using console.log
-Big.prototype[Symbol.for("nodejs.util.inspect.custom")] =
-  Big.prototype.toString;
-
-const toWei = (v, u = "ether") => ethers.utils.parseUnits(v.toString(), u);
+Big.prototype[Symbol.for("nodejs.util.inspect.custom")] = function () {
+  return `<Big>${this.toString()}`; // previously just Big.prototype.toString;
+};
 
 const newOffer = (mgv, base, quote, { wants, gives, gasreq, gasprice }) => {
   return mgv.contract.newOffer(
     base,
     quote,
-    toWei(wants),
-    toWei(gives),
-    gasreq,
-    gasprice,
+    helpers.toWei(wants),
+    helpers.toWei(gives),
+    gasreq || 10000,
+    gasprice || 1,
     0
   );
 };
 
-module.exports = function suite([publicKeys, privateKeys]) {
-  const acc1 = { address: publicKeys[0], privateKey: privateKeys[0] };
+module.exports = function suite() {
+  let mgv;
+
+  before(async () => {
+    //set mgv object
+    mgv = await Mangrove.connect(providerUrl);
+
+    //shorten polling for faster tests
+    mgv._provider.pollingInterval = 250;
+  });
+
+  it("subscribes", async function () {
+    const queue = helpers.asyncQueue();
+
+    const market = await mgv.market({ base: "TokenA", quote: "TokenB" });
+    const addrA = market.base.address;
+    const addrB = market.quote.address;
+
+    let latestBook;
+
+    const cb = (evt, utils) => {
+      queue.put(evt);
+      latestBook = utils.book();
+    };
+    await market.subscribe(cb);
+
+    newOffer(mgv, addrA, addrB, { wants: "1", gives: "1.2" });
+    newOffer(mgv, addrB, addrA, { wants: "1.3", gives: "1.1" });
+
+    const offer1 = {
+      id: 1,
+      prev: 0,
+      next: 0,
+      gasprice: 1,
+      gasreq: 10000,
+      maker: await mgv._signer.getAddress(),
+      overhead_gasbase: (await market.config()).asks.overhead_gasbase,
+      offer_gasbase: (await market.config()).asks.offer_gasbase,
+      wants: Big("1"),
+      gives: Big("1.2"),
+      volume: Big("1.2"),
+      price: Big("1").div(Big("1.2")),
+    };
+
+    assert.deepStrictEqual(
+      await queue.get(),
+      {
+        type: "OfferWrite",
+        ba: "asks",
+        offer: offer1,
+      },
+      "offer1(ask) not correct"
+    );
+
+    const offer2 = {
+      id: 1,
+      prev: 0,
+      next: 0,
+      gasprice: 1,
+      gasreq: 10000,
+      maker: await mgv._signer.getAddress(),
+      overhead_gasbase: (await market.config()).bids.overhead_gasbase,
+      offer_gasbase: (await market.config()).bids.offer_gasbase,
+      wants: Big("1.3"),
+      gives: Big("1.1"),
+      volume: Big("1.3"),
+      price: Big("1.1").div(Big("1.3")),
+    };
+
+    assert.deepStrictEqual(
+      await queue.get(),
+      {
+        type: "OfferWrite",
+        ba: "bids",
+        offer: offer2,
+      },
+      "offer2(bid) not correct"
+    );
+
+    assert.deepStrictEqual(
+      latestBook,
+      {
+        asks: [offer1],
+        bids: [offer2],
+      },
+      "book not correct"
+    );
+
+    market.sell({ wants: "1", gives: "1.3" });
+
+    const offerFail = await queue.get();
+    assert.equal(offerFail.type, "OfferSuccess");
+    assert.equal(offerFail.ba, "bids");
+    //TODO test offerRetract, offerfail, setGasbase
+
+    market.unsubscribe();
+  });
 
   it("gets config", async function () {
-    // Connect to mangrove
-    const mgv = await Mangrove.connect(providerUrl, {
-      privateKey: acc1.privateKey,
-    });
-
     const fee = 13;
     const market = await mgv.market({ base: "TokenA", quote: "TokenB" });
-    await mgv.contract.setFee(
-      mgv.getAddress(market.base),
-      mgv.getAddress(market.quote),
-      fee
-    );
+    await mgv.contract.setFee(market.base.address, market.quote.address, fee);
 
     const config = await market.config();
     assert.strictEqual(config.asks.fee, fee, "wrong fee");
   });
 
   it("gets OB", async function () {
-    // Connect to Mangrove
-    const mgv = await Mangrove.connect(providerUrl, {
-      privateKey: acc1.privateKey,
-    });
-
     // Initialize A/B market.
     const market = await mgv.market({ base: "TokenA", quote: "TokenB" });
 
@@ -86,6 +167,8 @@ module.exports = function suite([publicKeys, privateKeys]) {
     asks = reorder(asks, [3, 1, 2]);
     bids = reorder(bids, [2, 1, 3]);
 
+    const selfAddress = await mgv._signer.getAddress();
+
     // Add price/volume, prev/next, +extra info to expected book.
     // Volume always in base, price always in quote/base.
     const config = await market.config();
@@ -101,7 +184,7 @@ module.exports = function suite([publicKeys, privateKeys]) {
           next: ary[i + 1]?.id || 0,
           volume: Big(ofr[baseVolume]),
           price: Big(ofr[quoteVolume]).div(Big(ofr[baseVolume])),
-          maker: acc1.address,
+          maker: selfAddress,
           overhead_gasbase: _config.overhead_gasbase,
           offer_gasbase: _config.offer_gasbase,
         };
@@ -138,10 +221,6 @@ module.exports = function suite([publicKeys, privateKeys]) {
   });
 
   it("does market buy", async function () {
-    const mgv = await Mangrove.connect(providerUrl, {
-      privateKey: acc1.privateKey,
-    });
-
     // TODO
   });
 };
