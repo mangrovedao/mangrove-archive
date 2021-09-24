@@ -5,5 +5,6 @@ module.exports = {
   extends: ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
   rules: {
     "no-empty": ["error", { allowEmptyCatch: true }],
+    "@typescript-eslint/no-explicit-any": "off",
   },
 };

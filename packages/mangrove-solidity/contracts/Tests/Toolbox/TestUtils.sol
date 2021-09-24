@@ -357,7 +357,7 @@ library TestUtils {
 
 library TokenSetup {
   function setup(string memory name, string memory ticker)
-    external
+    public
     returns (TestToken)
   {
     return new TestToken(address(this), name, ticker);
@@ -365,42 +365,46 @@ library TokenSetup {
 }
 
 library MgvSetup {
-  function setup(TestToken base, TestToken quote)
-    external
+  function deploy(address governance) public returns (AbstractMangrove mgv) {
+    mgv = new Mangrove({
+      governance: governance,
+      gasprice: 40,
+      gasmax: 1_000_000
+    });
+  }
+
+  function invertedDeploy(address governance)
+    public
     returns (AbstractMangrove mgv)
   {
-    TestUtils.not0x(address(base));
-    TestUtils.not0x(address(quote));
-    mgv = new Mangrove({gasprice: 40, gasmax: 1_000_000});
+    mgv = new InvertedMangrove({
+      governance: governance,
+      gasprice: 40,
+      gasmax: 1_000_000
+    });
+  }
 
-    mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
-    mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
-
-    return mgv;
+  function setup(TestToken base, TestToken quote)
+    public
+    returns (AbstractMangrove)
+  {
+    return setup(base, quote, false);
   }
 
   function setup(
     TestToken base,
     TestToken quote,
     bool inverted
-  ) external returns (AbstractMangrove mgv) {
+  ) public returns (AbstractMangrove mgv) {
     TestUtils.not0x(address(base));
     TestUtils.not0x(address(quote));
     if (inverted) {
-      mgv = new InvertedMangrove({gasprice: 40, gasmax: 1_000_000});
-
-      mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
-      mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
-
-      return mgv;
+      mgv = invertedDeploy(address(this));
     } else {
-      mgv = new Mangrove({gasprice: 40, gasmax: 1_000_000});
-
-      mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
-      mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
-
-      return mgv;
+      mgv = deploy(address(this));
     }
+    mgv.activate(address(base), address(quote), 0, 100, 80_000, 20_000);
+    mgv.activate(address(quote), address(base), 0, 100, 80_000, 20_000);
   }
 }
 
