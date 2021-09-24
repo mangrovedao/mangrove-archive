@@ -7,7 +7,7 @@ const argv = require("yargs")
   .option("network", {
     alias: "n",
     demandOption: true,
-    describe: "the network to run the suite agains (ethereum, polygon, ...)",
+    describe: "the network to run the suite against (ethereum, polygon, ...)",
     type: "string",
   })
   .help().argv;
