@@ -220,7 +220,7 @@ contract MakerOperations_Test is IMaker {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 2300, 0);
     mkr.retractOfferWithDeprovision(ofr);
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.RetractOffer(_base, _quote, ofr);
+    emit MgvEvents.OfferRetract(_base, _quote, ofr);
   }
 
   function retract_retracted_does_not_drain_test() public {
@@ -262,7 +262,7 @@ contract MakerOperations_Test is IMaker {
     uint ofr = mkr.newOffer(0.9 ether, 1 ether, 2300, 100);
     mkr.retractOffer(ofr);
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.RetractOffer(_base, _quote, ofr);
+    emit MgvEvents.OfferRetract(_base, _quote, ofr);
   }
 
   function retract_offer_maintains_balance_test() public {
@@ -715,7 +715,7 @@ contract MakerOperations_Test is IMaker {
     mgv.setGasprice(cfg.global.gasprice + 1); //gasprice goes up
     try mkr.updateOffer(1.0 ether + 2, 1.0 ether, 100_000, ofr0, ofr0) {
       TestEvents.expectFrom(address(mgv));
-      emit MgvEvents.WriteOffer(
+      emit MgvEvents.OfferWrite(
         _base,
         _quote,
         address(mkr),
@@ -723,7 +723,8 @@ contract MakerOperations_Test is IMaker {
         1.0 ether,
         cfg.global.gasprice + 1,
         100_000,
-        ofr0
+        ofr0,
+        0
       );
     } catch {
       TestEvents.fail("Update offer should have succeeded");

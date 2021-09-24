@@ -218,7 +218,7 @@ contract MakerPosthook_Test is IMaker {
       "Offer was not correctly updated"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.WriteOffer(
+    emit MgvEvents.OfferWrite(
       base,
       quote,
       address(this),
@@ -226,7 +226,8 @@ contract MakerPosthook_Test is IMaker {
       1 ether,
       _gasprice,
       gasreq,
-      ofr
+      ofr,
+      0
     );
   }
 
@@ -263,7 +264,7 @@ contract MakerPosthook_Test is IMaker {
       "Offer was not correctly updated"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.WriteOffer(
+    emit MgvEvents.OfferWrite(
       base,
       quote,
       address(this),
@@ -271,7 +272,8 @@ contract MakerPosthook_Test is IMaker {
       1 ether,
       _gasprice,
       gasreq,
-      ofr
+      ofr,
+      0
     );
   }
 
@@ -291,7 +293,7 @@ contract MakerPosthook_Test is IMaker {
       "Offer was not correctly updated"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.WriteOffer(
+    emit MgvEvents.OfferWrite(
       base,
       quote,
       address(this),
@@ -299,7 +301,8 @@ contract MakerPosthook_Test is IMaker {
       1 ether,
       _gasprice,
       gasreq,
-      ofr
+      ofr,
+      0
     );
   }
 
@@ -332,7 +335,7 @@ contract MakerPosthook_Test is IMaker {
       "Taker should not have been debited of her quote tokens"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.MakerFail(
+    emit MgvEvents.OfferFail(
       base,
       quote,
       ofr,
@@ -378,7 +381,7 @@ contract MakerPosthook_Test is IMaker {
       "Offer was not correctly updated"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.WriteOffer(
+    emit MgvEvents.OfferWrite(
       base,
       quote,
       address(this),
@@ -386,7 +389,8 @@ contract MakerPosthook_Test is IMaker {
       1 ether,
       _gasprice,
       gasreq,
-      ofr
+      ofr,
+      0
     );
   }
 
@@ -445,9 +449,16 @@ contract MakerPosthook_Test is IMaker {
       "Incorrect maker balance after take"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.Success(base, quote, ofr, address(tkr), 1 ether, 1 ether);
+    emit MgvEvents.OfferSuccess(
+      base,
+      quote,
+      ofr,
+      address(tkr),
+      1 ether,
+      1 ether
+    );
     emit MgvEvents.Credit(address(this), mkr_provision);
-    emit MgvEvents.RetractOffer(base, quote, ofr);
+    emit MgvEvents.OfferRetract(base, quote, ofr);
   }
 
   function balance_after_fail_and_retract_test() public {
@@ -476,7 +487,7 @@ contract MakerPosthook_Test is IMaker {
       "Incorrect overall balance after penalty for taker"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.MakerFail(
+    emit MgvEvents.OfferFail(
       base,
       quote,
       ofr,
@@ -486,7 +497,7 @@ contract MakerPosthook_Test is IMaker {
       "mgv/makerRevert",
       "NOK"
     );
-    emit MgvEvents.RetractOffer(base, quote, ofr);
+    emit MgvEvents.OfferRetract(base, quote, ofr);
     emit MgvEvents.Credit(address(this), mkr_provision - penalty);
   }
 
@@ -499,8 +510,15 @@ contract MakerPosthook_Test is IMaker {
     TestEvents.check(success, "Snipe should succeed");
     mgv.updateOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0, ofr);
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.Success(base, quote, ofr, address(tkr), 1 ether, 1 ether);
-    emit MgvEvents.RetractOffer(base, quote, ofr);
+    emit MgvEvents.OfferSuccess(
+      base,
+      quote,
+      ofr,
+      address(tkr),
+      1 ether,
+      1 ether
+    );
+    emit MgvEvents.OfferRetract(base, quote, ofr);
   }
 
   function check_best_in_posthook(
@@ -602,7 +620,7 @@ contract MakerPosthook_Test is IMaker {
     );
     uint refund = mgv.balanceOf(address(this)) + mkr_provision - weiBalMaker;
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.MakerFail(
+    emit MgvEvents.OfferFail(
       base,
       quote,
       ofr,
@@ -612,7 +630,7 @@ contract MakerPosthook_Test is IMaker {
       "mgv/makerRevert",
       "NOK"
     );
-    emit MgvEvents.RetractOffer(base, quote, ofr);
+    emit MgvEvents.OfferRetract(base, quote, ofr);
     MgvEvents.Credit(address(this), refund);
   }
 
