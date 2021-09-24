@@ -1,16 +1,8 @@
-// Config file with defaults
-var config = {};
-
-var defer = require("config/defer").deferConfig;
-
-// TODO Find better way of doing this...
-function requireFromProjectRoot(pathFromProjectRoot) {
-  return require(__dirname + "/../" + pathFromProjectRoot);
-}
-
-///////////////////////////
-// Hardhat configuration //
-config.hardhat = {
+/**
+ * @type import('hardhat/config').HardhatUserConfig
+ */
+module.exports = {
+  solidity: "0.7.3",
   defaultNetwork: "hardhat",
   networks: {
     hardhat: {
@@ -41,10 +33,4 @@ config.hardhat = {
       default: 0, // take first account as deployer
     },
   },
-  mocha: defer(function () {
-    // Use same configuration when running Mocha via Hardhat
-    return this.mocha;
-  }),
 };
-
-module.exports = config;

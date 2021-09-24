@@ -5,13 +5,7 @@ import "hardhat/console.sol";
 
 // SPDX-License-Identifier: MIT
 
-contract CompoundTrader is CompoundLender {
-  constructor(
-    address _unitroller,
-    address payable _MGV,
-    address wethAddress
-  ) CompoundLender(_unitroller, _MGV, wethAddress) {}
-
+abstract contract CompoundTrader is CompoundLender {
   event ErrorOnBorrow(address cToken, uint amount, uint errorCode);
   event ErrorOnRepay(address cToken, uint amount, uint errorCode);
 
@@ -34,9 +28,10 @@ contract CompoundTrader is CompoundLender {
     }
 
     // 1. Computing total borrow and redeem capacities of underlying asset
-    (uint redeemable, uint liquidity_after_redeem) =
-      maxGettableUnderlying(address(base_cErc20));
-   
+    (uint redeemable, uint liquidity_after_redeem) = maxGettableUnderlying(
+      address(base_cErc20)
+    );
+
     // 2. trying to redeem liquidity from Compound
     uint toRedeem = min(redeemable, amount);
 
@@ -48,7 +43,7 @@ contract CompoundTrader is CompoundLender {
       return amount;
     }
     amount = sub_(amount, toRedeem);
-    uint toBorrow= min(liquidity_after_redeem, amount); 
+    uint toBorrow = min(liquidity_after_redeem, amount);
     if (toBorrow == 0) {
       return amount;
     }

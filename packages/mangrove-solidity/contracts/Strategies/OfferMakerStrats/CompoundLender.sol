@@ -7,7 +7,7 @@ import "hardhat/console.sol";
 
 // SPDX-License-Identifier: MIT
 
-contract CompoundLender is MangroveOffer {
+abstract contract CompoundLender is MangroveOffer {
   event ErrorOnRedeem(address ctoken, uint amount, uint errorCode);
   event ErrorOnMint(address ctoken, uint amount, uint errorCode);
   event ComptrollerError(address comp, uint errorCode);
@@ -23,11 +23,7 @@ contract CompoundLender is MangroveOffer {
 
   IERC20 immutable weth;
 
-  constructor(
-    address _unitroller,
-    address payable _MGV,
-    address wethAddress
-  ) MangroveOffer(_MGV) {
+  constructor(address _unitroller, address wethAddress) {
     comptroller = IComptroller(_unitroller); // unitroller is a proxy for comptroller calls
     require(_unitroller != address(0), "Invalid comptroller address");
     ICompoundPriceOracle _oracle = IComptroller(_unitroller).oracle(); // pricefeed used by the comptroller
@@ -191,7 +187,7 @@ contract CompoundLender is MangroveOffer {
           Exp({mantissa: heap.collateralFactorMantissa}),
           heap.maxRedeemable
         )
-      )    
+      )
     );
   }
 
@@ -214,7 +210,7 @@ contract CompoundLender is MangroveOffer {
       return amount;
     }
     base_cErc20.accrueInterest();
-    (uint redeemable,) = maxGettableUnderlying(address(base_cErc20));
+    (uint redeemable, ) = maxGettableUnderlying(address(base_cErc20));
 
     uint redeemAmount = min(redeemable, amount);
 

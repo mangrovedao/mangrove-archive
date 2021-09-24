@@ -7,7 +7,9 @@
         ]
     },
     "scripts": {
-        "postinstall": "husky install"
+        "postinstall": "husky install",
+        "build": "yarn workspaces foreach --topological-dev run build",
+        "test": "yarn workspaces foreach --topological-dev run test"
     },
     "devDependencies": {
         "husky": "^7.0.2"

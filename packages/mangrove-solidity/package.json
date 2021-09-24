@@ -1,14 +1,14 @@
 {
-  "name": "mangrove-solidity",
+  "name": "@giry/mangrove-solidity",
   "version": "1.0.0",
-  "author": "Adrien Husson <pangel.neu@gmail.com>",
+  "author": "Mangrove DAO",
   "license": "MIT",
   "scripts": {
     "precommit": "lint-staged",
     "prepack": "yarn run build",
     "build": "hardhat compile",
     "doc": "solcco -f doc/MgvDoc.html structs.js contracts/MgvLib.sol contracts/MgvRoot.sol contracts/MgvHasOffers.sol contracts/MgvOfferMaking.sol contracts/MgvOfferTaking.sol contracts/MgvOfferTakingWithPermit.sol contracts/MgvGovernable.sol contracts/AbstractMangrove.sol contracts/Mangrove.sol contracts/InvertedMangrove.sol",
-    "test": "npm-run-all test:*",
+    "test": "npm-run-all \"test:*\"",
     "test:solidity": "cross-env NODE_ENV=test NODE_APP_INSTANCE=solidity hardhat test-solidity",
     "test:ethereum-mainnet": "yarn run testSuites --network ethereum",
     "test:polygon-mainnet": "yarn run testSuites --network polygon",

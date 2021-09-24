@@ -5,12 +5,11 @@ import "../interfaces/Aave/ILendingPool.sol";
 import "../interfaces/Aave/ILendingPoolAddressesProvider.sol";
 import "../interfaces/Aave/IPriceOracleGetter.sol";
 
-
 import "hardhat/console.sol";
 
 // SPDX-License-Identifier: MIT
 
-contract AaveLender is MangroveOffer {
+abstract contract AaveLender is MangroveOffer {
   event ErrorOnRedeem(address ctoken, uint amount);
   event ErrorOnMint(address ctoken, uint amount);
 
@@ -19,15 +18,16 @@ contract AaveLender is MangroveOffer {
   IPriceOracleGetter public immutable priceOracle;
   uint16 referralCode;
 
-  constructor(
-    address _addressesProvider,
-    address payable _MGV,
-    uint _referralCode
-  ) MangroveOffer(_MGV) {
-    require(uint16(_referralCode) == _referralCode,"Referral code should be uint16");
+  constructor(address _addressesProvider, uint _referralCode) {
+    require(
+      uint16(_referralCode) == _referralCode,
+      "Referral code should be uint16"
+    );
     referralCode = uint16(referralCode); // for aave reference, put 0 for tests
-    address _lendingPool = ILendingPoolAddressesProvider(_addressesProvider).getLendingPool();
-    address _priceOracle = ILendingPoolAddressesProvider(_addressesProvider).getPriceOracle();
+    address _lendingPool = ILendingPoolAddressesProvider(_addressesProvider)
+      .getLendingPool();
+    address _priceOracle = ILendingPoolAddressesProvider(_addressesProvider)
+      .getPriceOracle();
     require(_lendingPool != address(0), "Invalid lendingPool address");
     require(_priceOracle != address(0), "Invalid priceOracle address");
     lendingPool = ILendingPool(_lendingPool);
@@ -49,7 +49,7 @@ contract AaveLender is MangroveOffer {
   }
 
   function redeem(IERC20 underlying, uint amount) external onlyAdmin {
-    aaveRedeem(underlying,amount);
+    aaveRedeem(underlying, amount);
   }
 
   ///@notice exits markets
@@ -94,71 +94,69 @@ contract AaveLender is MangroveOffer {
     Account memory account; // accound parameters
     (
       account.collateral,
-      account.debt, 
-      account.borrowPower,  // avgLtv * sumCollateralEth - sumDebtEth
-      account.liquidationThreshold, 
-      account.ltv, 
+      account.debt,
+      account.borrowPower, // avgLtv * sumCollateralEth - sumDebtEth
+      account.liquidationThreshold,
+      account.ltv,
       account.health // avgLiquidityThreshold * sumCollateralEth / sumDebtEth  -- should be less than 10**18
-      ) = lendingPool.getUserAccountData(address(this));
-      DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(address(asset));
-      (
-        underlying.ltv, // collateral factor for lending
-        underlying.liquidationThreshold,  // collateral factor for borrowing
-        /*liquidationBonus*/,
-        underlying.decimals,
-        /*reserveFactor*/
-      ) = DataTypes.getParams(reserveData.configuration);
-      account.balanceOfUnderlying = IERC20(reserveData.aTokenAddress).balanceOf(address(this));
+    ) = lendingPool.getUserAccountData(address(this));
+    DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(
+      address(asset)
+    );
+    (
+      underlying.ltv, // collateral factor for lending
+      underlying.liquidationThreshold, // collateral factor for borrowing
+      ,
+      /*liquidationBonus*/
+      underlying.decimals,
+      /*reserveFactor*/
 
-      
-      underlying.price =  IPriceOracleGetter(priceOracle).getAssetPrice(address(asset)); // divided by 10**underlying.decimals
+    ) = DataTypes.getParams(reserveData.configuration);
+    account.balanceOfUnderlying = IERC20(reserveData.aTokenAddress).balanceOf(
+      address(this)
+    );
 
-      // account.redeemPower = account.liquidationThreshold * account.collateral - account.debt
-      account.redeemPower = sub_(
-        div_(
-          mul_(
-            account.liquidationThreshold,
-            account.collateral
-          ),
-          10**4
-        ), 
-        account.debt
-      );
-      // max redeem capacity = account.redeemPower/ underlying.liquidationThreshold * underlying.price
-      // unless account doesn't have enough collateral in asset token (hence the min())
+    underlying.price = priceOracle.getAssetPrice(address(asset)); // divided by 10**underlying.decimals
 
-      uint maxRedeemableUnderlying = // in 10**underlying.decimals
-      div_(
-          account.redeemPower * 10**(underlying.decimals) * 10**4,
-          mul_(
-            underlying.liquidationThreshold,
-            underlying.price
-          )
-      );
-      
-      maxRedeemableUnderlying = min (maxRedeemableUnderlying, account.balanceOfUnderlying);
-      // computing max borrow capacity on the premisses that maxRedeemableUnderlying has been redeemed.
-      // max borrow capacity = (account.borrowPower - (ltv*redeemed)) / underlying.ltv * underlying.price
+    // account.redeemPower = account.liquidationThreshold * account.collateral - account.debt
+    account.redeemPower = sub_(
+      div_(mul_(account.liquidationThreshold, account.collateral), 10**4),
+      account.debt
+    );
+    // max redeem capacity = account.redeemPower/ underlying.liquidationThreshold * underlying.price
+    // unless account doesn't have enough collateral in asset token (hence the min())
 
-      uint borrowPowerImpactOfRedeemInUnderlying = div_(
-        mul_(maxRedeemableUnderlying, underlying.ltv),
-        10**4
-      );
-      uint borrowPowerInUnderlying = div_(
-        mul_(account.borrowPower,10**underlying.decimals),
-        underlying.price
+    uint maxRedeemableUnderlying = div_( // in 10**underlying.decimals
+        account.redeemPower * 10**(underlying.decimals) * 10**4,
+        mul_(underlying.liquidationThreshold, underlying.price)
       );
 
-      if (borrowPowerImpactOfRedeemInUnderlying > borrowPowerInUnderlying) { // no more borrowPower left after max redeem operation
-        return (maxRedeemableUnderlying,0);
-      }
+    maxRedeemableUnderlying = min(
+      maxRedeemableUnderlying,
+      account.balanceOfUnderlying
+    );
+    // computing max borrow capacity on the premisses that maxRedeemableUnderlying has been redeemed.
+    // max borrow capacity = (account.borrowPower - (ltv*redeemed)) / underlying.ltv * underlying.price
 
-      uint maxBorrowAfterRedeemInUnderlying = // max borrow power in underlying after max redeem has been withdrawn
-      sub_(
+    uint borrowPowerImpactOfRedeemInUnderlying = div_(
+      mul_(maxRedeemableUnderlying, underlying.ltv),
+      10**4
+    );
+    uint borrowPowerInUnderlying = div_(
+      mul_(account.borrowPower, 10**underlying.decimals),
+      underlying.price
+    );
+
+    if (borrowPowerImpactOfRedeemInUnderlying > borrowPowerInUnderlying) {
+      // no more borrowPower left after max redeem operation
+      return (maxRedeemableUnderlying, 0);
+    }
+
+    uint maxBorrowAfterRedeemInUnderlying = sub_( // max borrow power in underlying after max redeem has been withdrawn
         borrowPowerInUnderlying,
-        borrowPowerImpactOfRedeemInUnderlying 
+        borrowPowerImpactOfRedeemInUnderlying
       );
-      return (maxRedeemableUnderlying, maxBorrowAfterRedeemInUnderlying);
+    return (maxRedeemableUnderlying, maxBorrowAfterRedeemInUnderlying);
   }
 
   ///@notice method to get `base` during makerExecute
@@ -170,7 +168,10 @@ contract AaveLender is MangroveOffer {
     override
     returns (uint)
   {
-    (uint redeemable, /*maxBorrowAfterRedeem*/) = maxGettableUnderlying(base);
+    (
+      uint redeemable, /*maxBorrowAfterRedeem*/
+
+    ) = maxGettableUnderlying(base);
 
     uint redeemAmount = min(redeemable, amount);
 
@@ -185,14 +186,15 @@ contract AaveLender is MangroveOffer {
     internal
     returns (uint)
   {
-    try lendingPool.withdraw(address(asset),amountToRedeem,address(this)) returns (uint withdrawn) {
+    try
+      lendingPool.withdraw(address(asset), amountToRedeem, address(this))
+    returns (uint withdrawn) {
       //aave redeem was a success
       if (amountToRedeem == withdrawn) {
         return 0;
-      }
-      else {
+      } else {
         emit ErrorOnRedeem(address(asset), amountToRedeem);
-        return (amountToRedeem-withdrawn);
+        return (amountToRedeem - withdrawn);
       }
     } catch {
       //compound redeem failed
@@ -214,12 +216,13 @@ contract AaveLender is MangroveOffer {
   // NB `ctoken` contract MUST be approved to perform `transferFrom token` by `this` contract.
   /// @notice user need to approve ctoken in order to mint
   function aaveMint(IERC20 quote, uint amount) internal {
-      // contract must haveallowance()to spend funds on behalf ofmsg.sender for at-leastamount for the asset being deposited. This can be done via the standard ERC20 approve() method.
-      try lendingPool.deposit(address(quote), amount, address(this), referralCode) {
-        return;
-      } catch {
-        emit ErrorOnMint(address(quote), amount);
-      }
+    // contract must haveallowance()to spend funds on behalf ofmsg.sender for at-leastamount for the asset being deposited. This can be done via the standard ERC20 approve() method.
+    try
+      lendingPool.deposit(address(quote), amount, address(this), referralCode)
+    {
+      return;
+    } catch {
+      emit ErrorOnMint(address(quote), amount);
+    }
   }
-
 }
