@@ -6,11 +6,13 @@ import "../../MgvPack.sol";
 import "../../Mangrove.sol";
 import "../../MgvLib.sol";
 
+//import "hardhat/console.sol";
+
 contract TradeHandler {
   enum PostHook {
     Success, // Trade was a success. NB: Do not move this field as it should be the default value
     Get, // Trade was dropped by maker due to a lack of liquidity
-    PriceUpdate, // Trade was dropped because of price slippage
+    Reneged, // Trade was dropped because of price slippage
     Fallback // Fallback posthook
   }
 
@@ -87,12 +89,13 @@ contract TradeHandler {
       w = wordOfBytes(data);
     }
   }
-  function returnData(bool drop, PostHook postHook_switch, bytes32 message)
-    internal
-    pure
-    returns (bytes32 w)
-  {
-    bytes memory data = abi.encodePacked(postHook_switch,message);
+
+  function returnData(
+    bool drop,
+    PostHook postHook_switch,
+    bytes32 message
+  ) internal pure returns (bytes32 w) {
+    bytes memory data = abi.encodePacked(postHook_switch, message);
     if (drop) {
       tradeRevertWithBytes(data);
     } else {
@@ -102,10 +105,11 @@ contract TradeHandler {
 
   function getMakerData(bytes32 w)
     internal
-    pure
-    returns (PostHook postHook_switch, bytes32 message){
+    view
+    returns (PostHook postHook_switch, bytes32 message)
+  {
     postHook_switch = decodeSwitch(w);
-    message = (w << 1) >> 1 ; // ([postHook_switch:1])[message:31]
+    message = (w << 1) >> 1; // ([postHook_switch:1])[message:31]
   }
 
   function decodeSwitch(bytes32 w)
