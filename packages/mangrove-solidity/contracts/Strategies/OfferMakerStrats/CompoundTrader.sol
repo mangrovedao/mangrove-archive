@@ -5,12 +5,7 @@ import "hardhat/console.sol";
 
 // SPDX-License-Identifier: MIT
 
-contract CompoundTrader is CompoundLender {
-  constructor(
-    address _unitroller,
-    address payable _MGV,
-    address wethAddress
-  ) CompoundLender(_unitroller, _MGV, wethAddress) {}
+abstract contract CompoundTrader is CompoundLender {
 
   event ErrorOnBorrow(address cToken, uint amount, uint errorCode);
   event ErrorOnRepay(address cToken, uint amount, uint errorCode);

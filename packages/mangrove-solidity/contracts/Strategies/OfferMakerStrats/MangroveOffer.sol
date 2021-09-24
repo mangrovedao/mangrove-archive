@@ -14,6 +14,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   uint immutable MGV_GASMAX;
 
   event NewMakerContract(address mgv);
+  event Fallback(string message);
 
   receive() external payable {}
 
@@ -24,8 +25,9 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   // Offer constructor (caller will be admin)
   constructor(address _MGV) {
     bytes32 global_pack = Mangrove(payable(_MGV)).global();
-    (, , , uint __gasprice, uint __gasmax, uint __dead) =
-      MgvPack.global_unpack(global_pack);
+    (, , , uint __gasprice, uint __gasmax, uint __dead) = MgvPack.global_unpack(
+      global_pack
+    );
     require(__dead == 0, "Mangrove contract is permanently disabled"); //sanity check
     MGV = Mangrove(payable(_MGV));
     MGV_GASMAX = __gasmax;
@@ -112,7 +114,27 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint OPTgasreq,
     uint OPTgasprice,
     uint OPTpivotId
-  ) public onlyAdmin returns (uint offerId) {
+  ) external onlyAdmin returns (uint offerId) {
+    offerId = newOfferInternal(
+      base,
+      quote,
+      promised_base,
+      quote_for_promised_base,
+      OPTgasreq,
+      OPTgasprice,
+      OPTpivotId
+    );
+  }
+
+  function newOfferInternal(
+    address base,
+    address quote,
+    uint promised_base,
+    uint quote_for_promised_base,
+    uint OPTgasreq,
+    uint OPTgasprice,
+    uint OPTpivotId
+  ) internal returns (uint offerId) {
     (OPTgasreq, OPTgasprice, OPTpivotId) = fillOptionalArgs(
       OPTgasreq,
       OPTgasprice,
@@ -140,14 +162,41 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint OPTgasprice,
     uint OPTpivotId,
     uint offerId
-  ) public onlyAdmin {
+  ) external onlyAdmin {
+    updateOfferInternal(
+      base_erc20,
+      quote_erc20,
+      wants,
+      gives,
+      OPTgasreq,
+      OPTgasprice,
+      OPTpivotId,
+      offerId
+    );
+  }
+
+  function updateOfferInternal(
+    address base_erc20,
+    address quote_erc20,
+    uint wants,
+    uint gives,
+    uint OPTgasreq,
+    uint OPTgasprice,
+    uint OPTpivotId,
+    uint offerId
+  ) internal {
     (OPTgasreq, OPTgasprice, OPTpivotId) = fillOptionalArgs(
       OPTgasreq,
       OPTgasprice,
       OPTpivotId
     );
-    uint bounty =
-      getProvision(base_erc20, quote_erc20, MGV, OPTgasreq, OPTgasprice);
+    uint bounty = getProvision(
+      base_erc20,
+      quote_erc20,
+      MGV,
+      OPTgasreq,
+      OPTgasprice
+    );
     uint provision = MGV.balanceOf(address(this));
     if (bounty > provision) {
       __autoRefill__(bounty - provision);
@@ -182,16 +231,14 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     onlyCaller(address(MGV))
     returns (bytes32)
   {
-    __lastLook__(order); // might revert or let the trade proceed
+    bool proceed = __lastLook__(order); // might revert or let the trade proceed
+    if (!proceed) {
+      returnData({drop: true, postHook_switch: PostHook.Reneged});
+    }
     __put__(IERC20(order.quote), order.gives); // specifies what to do with the received funds
     uint missingGet = __get__(IERC20(order.base), order.wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
     if (missingGet > 0) {
-      return
-        returnData({
-          drop: true,
-          postHook_switch: PostHook.Get,
-          arg: uint96(missingGet)
-        });
+      return returnData({drop: true, postHook_switch: PostHook.Get});
     }
     return returnData({drop: false, postHook_switch: PostHook.Success});
   }
@@ -203,40 +250,33 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   ) external override onlyCaller(address(MGV)) {
     PostHook postHook_switch;
     uint[] memory args;
+    bytes32 word;
     if (
       result.statusCode == "mgv/tradeSuccess" ||
       result.statusCode == "mgv/makerRevert"
     ) {
       // if trade was a success or dropped by maker, `makerData` determines the posthook switch
-      (postHook_switch, args) = getMakerData(result.makerData);
-    } else {
-      // if `mgv` rejected trade, `statusCode` should determine the posthook switch
-      postHook_switch = switchOfStatusCode(result.statusCode);
+      (postHook_switch, word) = getMakerData(result.makerData);
     }
     // posthook selector based on maker's information
     if (postHook_switch == PostHook.Success) {
-      __postHookNoFailure__(order);
+      __postHookSuccess__(word, order);
+      return;
     }
     if (postHook_switch == PostHook.Get) {
-      emit GetFailure(order.base, order.quote, order.offerId, args[0]);
-      __postHookGetFailure__(args[0], order);
+      __postHookGetFailure__(word, order);
+      return;
     }
-    if (postHook_switch == PostHook.Price) {
-      emit PriceSlippage(
-        order.base,
-        order.quote,
-        order.offerId,
-        args[0],
-        args[1]
-      );
-      __postHookPriceSlippage__(args[0], args[1], order);
+    if (postHook_switch == PostHook.Reneged) {
+      __postHookReneged__(word, order);
+      return;
     }
-    // Posthook based on Mangrove's information
-    if (postHook_switch == PostHook.Receive) {
-      __postHookReceiveFailure__(order);
-    }
-    if (postHook_switch == PostHook.Transfer) {
-      __postHookTransferFailure__(order);
+    if (postHook_switch == PostHook.Fallback) {
+      __postHookFallback__(word, order);
+      return;
+    } else {
+      // if `mgv` rejected trade, `statusCode` is the argument given to fallback posthook
+      __postHookFallback__(result.statusCode, order);
     }
   }
 
@@ -253,50 +293,48 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     return (balance > amount ? 0 : amount - balance);
   }
 
-  function __lastLook__(MgvLib.SingleOrder calldata order) internal virtual {
+  function __lastLook__(MgvLib.SingleOrder calldata order)
+    internal
+    virtual
+    returns (bool)
+  {
     order; //shh
+    return true;
   }
 
   function __autoRefill__(uint amount) internal virtual {
     require(amount == 0, "Insufficient provision");
   }
 
-  function __postHookNoFailure__(MgvLib.SingleOrder calldata order)
-    internal
-    virtual
-  {
+  function __postHookSuccess__(
+    bytes32 message,
+    MgvLib.SingleOrder calldata order
+  ) internal virtual {
+    message;
     order; //shh
   }
 
   function __postHookGetFailure__(
-    uint missingGet,
+    bytes32 message,
     MgvLib.SingleOrder calldata order
   ) internal virtual {
-    missingGet; //shh
+    message; //shh
     order; //shh
   }
 
-  function __postHookPriceSlippage__(
-    uint usd_maker_gives,
-    uint usd_maker_wants,
+  function __postHookReneged__(
+    bytes32 message,
     MgvLib.SingleOrder calldata order
   ) internal virtual {
-    usd_maker_gives; //shh
-    usd_maker_wants; //shh
+    message;
     order; //shh
   }
 
-  function __postHookReceiveFailure__(MgvLib.SingleOrder calldata order)
-    internal
-    virtual
-  {
-    order;
-  }
-
-  function __postHookTransferFailure__(MgvLib.SingleOrder calldata order)
-    internal
-    virtual
-  {
-    order;
+  function __postHookFallback__(
+    bytes32 message,
+    MgvLib.SingleOrder calldata order
+  ) internal virtual {
+    message; //shh
+    order; //shh
   }
 }

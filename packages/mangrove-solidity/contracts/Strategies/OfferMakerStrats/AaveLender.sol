@@ -10,7 +10,7 @@ import "hardhat/console.sol";
 
 // SPDX-License-Identifier: MIT
 
-contract AaveLender is MangroveOffer {
+abstract contract AaveLender is MangroveOffer {
   event ErrorOnRedeem(address ctoken, uint amount);
   event ErrorOnMint(address ctoken, uint amount);
 
@@ -21,9 +21,8 @@ contract AaveLender is MangroveOffer {
 
   constructor(
     address _addressesProvider,
-    address payable _MGV,
     uint _referralCode
-  ) MangroveOffer(_MGV) {
+  ) {
     require(uint16(_referralCode) == _referralCode,"Referral code should be uint16");
     referralCode = uint16(referralCode); // for aave reference, put 0 for tests
     address _lendingPool = ILendingPoolAddressesProvider(_addressesProvider).getLendingPool();
@@ -111,7 +110,7 @@ contract AaveLender is MangroveOffer {
       account.balanceOfUnderlying = IERC20(reserveData.aTokenAddress).balanceOf(address(this));
 
       
-      underlying.price =  IPriceOracleGetter(priceOracle).getAssetPrice(address(asset)); // divided by 10**underlying.decimals
+      underlying.price =  priceOracle.getAssetPrice(address(asset)); // divided by 10**underlying.decimals
 
       // account.redeemPower = account.liquidationThreshold * account.collateral - account.debt
       account.redeemPower = sub_(

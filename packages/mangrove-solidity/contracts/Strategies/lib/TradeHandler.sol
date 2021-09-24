@@ -6,37 +6,29 @@ import "../../MgvPack.sol";
 import "../../Mangrove.sol";
 import "../../MgvLib.sol";
 
+//import "hardhat/console.sol";
+
 contract TradeHandler {
   enum PostHook {
     Success, // Trade was a success. NB: Do not move this field as it should be the default value
     Get, // Trade was dropped by maker due to a lack of liquidity
-    Price, // Trade was dropped because of price slippage
-    Receive, // Mangrove dropped failade when ERC20 (quote) rejected maker address as receiver
-    Transfer // Mangrove dropped failade when ERC20 (base) refused to failansfer funds from maker account to Mangrove
+    Reneged, // Trade was dropped because of price slippage
+    Fallback // Fallback posthook
   }
-
-  event GetFailure(address base, address quote, uint offerId, uint missingGet);
-  event PriceSlippage(
-    address base,
-    address quote,
-    uint offerId,
-    uint usd_makerWants,
-    uint usd_makerGives
-  );
 
   /// @notice extracts old offer from the order that is received from the Mangrove
   function unpackOfferFromOrder(MgvLib.SingleOrder calldata order)
     internal
     pure
     returns (
-      uint offer_gives,
       uint offer_wants,
+      uint offer_gives,
       uint gasreq,
       uint gasprice
     )
   {
     gasreq = MgvPack.offerDetail_unpack_gasreq(order.offerDetail);
-    (, , offer_gives, offer_wants, gasprice) = MgvPack.offer_unpack(
+    (, , offer_wants, offer_gives, gasprice) = MgvPack.offer_unpack(
       order.offer
     );
   }
@@ -62,45 +54,20 @@ contract TradeHandler {
       10**9);
   }
 
-  function switchOfStatusCode(bytes32 statusCode)
-    internal
-    pure
-    returns (PostHook postHook_switch)
-  {
-    if (statusCode == "mgv/makerTransferFail") {
-      postHook_switch = PostHook.Transfer;
-    } else {
-      if (statusCode == "mgv/makerReceiveFail") {
-        postHook_switch = PostHook.Receive;
-      }
-    }
-  }
-
-  function arity(PostHook postHook_switch) private pure returns (uint) {
-    if (postHook_switch == PostHook.Get) {
-      return 1;
-    }
-    if (postHook_switch == PostHook.Price) {
-      return 2;
-    } else {
-      return 0;
-    }
-  }
-
-  function wordOfBytes(bytes memory data) private pure returns (bytes32 w) {
+  function wordOfBytes(bytes memory data) internal pure returns (bytes32 w) {
     assembly {
       w := mload(add(data, 32))
     }
   }
 
-  function bytesOfWord(bytes32 w) private pure returns (bytes memory data) {
+  function bytesOfWord(bytes32 w) internal pure returns (bytes memory data) {
     data = new bytes(32);
     assembly {
       mstore(add(data, 32), w)
     }
   }
 
-  function wordOfUint(uint x) private pure returns (bytes32 w) {
+  function wordOfUint(uint x) internal pure returns (bytes32 w) {
     w = bytes32(x);
   }
 
@@ -110,7 +77,6 @@ contract TradeHandler {
     }
   }
 
-  // failing a failade with either 1 or 2 arguments.
   function returnData(bool drop, PostHook postHook_switch)
     internal
     pure
@@ -127,51 +93,23 @@ contract TradeHandler {
   function returnData(
     bool drop,
     PostHook postHook_switch,
-    uint96 arg
+    bytes32 message
   ) internal pure returns (bytes32 w) {
-    bytes memory data = abi.encodePacked(postHook_switch, arg);
+    bytes memory data = abi.encodePacked(postHook_switch, message);
     if (drop) {
       tradeRevertWithBytes(data);
     } else {
       w = wordOfBytes(data);
     }
   }
-
-  function returnData(
-    bool drop,
-    PostHook postHook_switch,
-    uint96 arg0,
-    uint96 arg1
-  ) internal pure returns (bytes32 w) {
-    bytes memory data = abi.encodePacked(postHook_switch, arg0, arg1);
-    if (drop) {
-      tradeRevertWithBytes(data);
-    } else {
-      w = wordOfBytes(data);
-    }
-  }
-
-  bytes32 constant MASKSWITCH =
-    0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
-  bytes32 constant MASKFIRSTARG =
-    0x00000000000000000000000000ffffffffffffffffffffffffffffffffffffff;
 
   function getMakerData(bytes32 w)
     internal
-    pure
-    returns (PostHook postHook_switch, uint[] memory args)
+    view
+    returns (PostHook postHook_switch, bytes32 message)
   {
     postHook_switch = decodeSwitch(w);
-    uint N = arity(postHook_switch);
-    args = new uint[](N);
-    if (N > 0) {
-      bytes32 arg0 = (w & MASKSWITCH) >> (19 * 8); // ([postHook_switch:1])[arg0:12][arg1 + padding:19]
-      args[0] = abi.decode(bytesOfWord(arg0), (uint96));
-      if (N == 2) {
-        bytes32 arg1 = (w & MASKFIRSTARG) >> (7 * 8); // ([postHook_switch:1][arg0:12])[arg1:12][padding:7]
-        args[1] = abi.decode(bytesOfWord(arg1), (uint96));
-      }
-    }
+    message = (w << 1) >> 1; // ([postHook_switch:1])[message:31]
   }
 
   function decodeSwitch(bytes32 w)

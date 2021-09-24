@@ -10,7 +10,7 @@ contract AccessControlled {
   }
 
   modifier onlyCaller(address caller) {
-    require(msg.sender == caller, "AccessControlled/Invalid");
+    require(caller == address(0) || msg.sender == caller, "AccessControlled/Invalid");
     _;
   }
 
