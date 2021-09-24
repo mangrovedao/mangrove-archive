@@ -1,5 +1,5 @@
 {
-  "name": "@mangrove-exchange/cleaning-bot-naive",
+  "name": "@giry/cleaning-bot-naive",
   "version": "0.0.1",
   "author": "Mangrove DAO",
   "description": "A simple and naive order book cleaning bot for Mangrove",
@@ -22,7 +22,7 @@
     "bot"
   ],
   "dependencies": {
-    "@mangrove-exchange/mangrove-js": "workspace:*",
+    "@giry/mangrove-js": "workspace:*",
     "config": "^3.3.6",
     "dotenv-flow": "^3.2.0"
   },

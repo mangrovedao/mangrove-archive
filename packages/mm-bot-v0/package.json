@@ -1,6 +1,8 @@
 {
-    "name": "@mangrove-exchange/mm-bot-v0",
-    "scripts": {
+    "name": "@giry/mm-bot-v0",
+    "version": "0.0.1",
+    "author": "Mangrove DAO",
+      "scripts": {
         "start:mm-bot-v0": "ts-node ./packages/mm-bot-v0/src/mm-bot-v0.ts",
         "local-hardhat:deploy-mangrove": "hardhat deploy --network localhost",
         "local-hardhat:create-test-market": "yarn run local-hardhat:deploy-mangrove && hardhat run packages/bot-bootstrap/src/populate-market.js"

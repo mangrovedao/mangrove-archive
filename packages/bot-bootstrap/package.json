@@ -1,11 +1,13 @@
 {
-    "name": "@mangrove-exchange/bot-bootstrap",
+    "name": "@giry/bot-bootstrap",
+    "version": "0.0.1",
+    "author": "Mangrove DAO",
     "main": "src/populate-market.js",
     "dependencies": {
         "@ethersproject/hardware-wallets": "^5.4.0",
-        "@mangrove-exchange/mangrove-js": "workspace:*",
+        "@giry/mangrove-js": "workspace:*",
+        "@giry/mangrove-solidity": "workspace:*",
         "hardhat": "^2.6.4",
-        "hardhat-deploy": "^0.9.1",
-        "mangrove-solidity": "workspace:*"
+        "hardhat-deploy": "^0.9.1"
     }
 }
