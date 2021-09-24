@@ -9564,18 +9564,8 @@ typescript@^3.9.3:
   linkType: hard
 
 "yargs@npm:^17.1.1":
-<<<<<<< HEAD
-<<<<<<< HEAD
   version: 17.2.0
   resolution: "yargs@npm:17.2.0"
-=======
-  version: 17.1.1
-  resolution: "yargs@npm:17.1.1"
->>>>>>> Convenience runner for Solidity JS test suites
-=======
-  version: 17.2.0
-  resolution: "yargs@npm:17.2.0"
->>>>>>> getting in synch with master
   dependencies:
     cliui: ^7.0.2
     escalade: ^3.1.1
