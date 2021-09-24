@@ -226,6 +226,8 @@ async function execPriceFedStrat(makerContract, mgv, lenderName) {
 /// newOffer: wants 380 DAIs for 0.2 ETHs
 /// borrows 0.05 ETHs using 1080 DAIs of collateral
 /// now 1080 DAIs - locked DAI and 0 ETHs (borrower of 0.05 ETHs)
+/// newOffer: wants 0.63 ETHs for 1500 DAIs
+/// repays the full debt and borrows the missing part in DAI
 
 async function execTraderStrat(makerContract, mgv, lenderName) {
   const dai = await lc.getContract("DAI");
@@ -305,7 +307,7 @@ async function execTraderStrat(makerContract, mgv, lenderName) {
   await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
   await lc.expectAmountOnLender(makerContract, lenderName, [
     // dai_on_lender = (1080 * CF_DAI * price_DAI - 0.05 * price_ETH)/price_DAI
-    ["WETH", zero, lc.parseToken("0.05", await lc.getDecimals("WETH")), 8],
+    ["WETH", zero, lc.parseToken("0.05", await lc.getDecimals("WETH")), 9],
   ]);
 
   offerId = await lc.newOffer(
@@ -335,6 +337,7 @@ async function execTraderStrat(makerContract, mgv, lenderName) {
     "Incorrect given amount"
   );
   await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
+  //TODO check borrowing DAIs and not borrowing WETHs anymore
 }
 
 describe("Deploy strategies", function () {
