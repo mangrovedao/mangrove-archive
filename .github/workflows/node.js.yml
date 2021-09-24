@@ -6,18 +6,19 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  NODE_ENV: test
+  working-directory: packages/mangrove-solidity
+
 jobs:
-  build:
+  # ==== Job: Setup, build and test Mangrove
+  mangrove-solidity:
 
     runs-on: ubuntu-latest
 
-    env:
-      NODE_ENV: test
-      working-directory: packages/mangrove-solidity # For easy and consistently setting CWD for steps in this job 
-
     defaults:
       run:
-        working-directory: ${{env.working-directory}} # CWD for all _run_ steps in this job 
+        working-directory: ${{env.working-directory}}
 
     strategy:
       matrix:
@@ -64,12 +65,17 @@ jobs:
     - name: Solidity Compile
       run: yarn run build-this-package
 
+    - name: Save status of Mangrove Solidity build
+      # So we can fail-fast and drop the X Test Report steps, if build fails
+      # A tiny bit hacky, but it's simple and works
+      run: echo "mangrove_built=true" >> $GITHUB_ENV
+
     - name: Solidity Tests
       run: yarn run test:solidity
 
     - name: Solidity Test Report
       uses: dorny/test-reporter@v1
-      if: ${{ !env.ACT && (success() || failure()) }}
+      if: ${{ env.mangrove_built && !env.ACT && (success() || failure()) }}
       with:
         name: Solidity Tests                  # Name of the check run which will be created
         path: ${{env.working-directory}}/solidity-mocha-test-report.json # Path to test results
@@ -77,37 +83,95 @@ jobs:
 
     # == Run test suite Ethereum mainnet ==
 
-    - name: Ethereum mainnet Tests
-      run: yarn run test:ethereum-mainnet
-      env:
-        ETHEREUM_NODE_URL: ${{ secrets.ETHEREUM_NODE_URL }}
+    # TODO Temp disabled to save time -->
 
-    - name: Ethereum mainnet Test Report
-      uses: dorny/test-reporter@v1
-      if: ${{ !env.ACT && (success() || failure()) }}
-      with:
-        name: Ethereum mainnet Tests          # Name of the check run which will be created
-        path: ${{env.working-directory}}/ethereum-mainnet-mocha-test-report.json # Path to test results
-        reporter: mocha-json                  # Format of test results
+    # - name: Ethereum mainnet Tests
+    #   run: yarn run test:ethereum-mainnet
+    #   env:
+    #     ETHEREUM_NODE_URL: ${{ secrets.ETHEREUM_NODE_URL }}
+
+    # - name: Ethereum mainnet Test Report
+    #   uses: dorny/test-reporter@v1
+    #   if: ${{ env.mangrove_built && !env.ACT && (success() || failure()) }}
+    #   with:
+    #     name: Ethereum mainnet Tests          # Name of the check run which will be created
+    #     path: ${{env.working-directory}}/ethereum-mainnet-mocha-test-report.json # Path to test results
+    #     reporter: mocha-json                  # Format of test results
 
 
     # == Run test suite Polygon mainnet == 
 
-    - name: Polygon mainnet Tests
-      run: yarn run test:polygon-mainnet
-      env:
-        POLYGON_NODE_URL: ${{ secrets.POLYGON_NODE_URL }}
+    # - name: Polygon mainnet Tests
+    #   run: yarn run test:polygon-mainnet
+    #   env:
+    #     POLYGON_NODE_URL: ${{ secrets.POLYGON_NODE_URL }}
 
-    - name: Polygon mainnet Test Report
-      uses: dorny/test-reporter@v1
-      if: ${{ !env.ACT && (success() || failure()) }}
+    # - name: Polygon mainnet Test Report
+    #   uses: dorny/test-reporter@v1
+    #   if: ${{ env.mangrove_built && !env.ACT && (success() || failure()) }}
+    #   with:
+    #     name: Polygon mainnet Tests           # Name of the check run which will be created
+    #     path: ${{env.working-directory}}/polygon-mainnet-mocha-test-report.json # Path to test results
+    #     reporter: mocha-json                  # Format of test results
+
+    - name: Zip build
+      uses: montudor/action-zip@v1
+      with: 
+        args: zip -qq -r build.zip ${{env.working-directory}}/build
+
+    - name: Cache mangrove-solidity build as artifact
+      uses: actions/upload-artifact@v2
       with:
-        name: Polygon mainnet Tests           # Name of the check run which will be created
-        path: ${{env.working-directory}}/polygon-mainnet-mocha-test-report.json # Path to test results
-        reporter: mocha-json                  # Format of test results
+        name: build.zip
+        path: build.zip
 
 
-    # == Solidity Documentation == 
+  # ==== Job: Mangrove documentation ====
+  mangrove-solidity-doc:
+    needs: mangrove-solidity
+    
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ${{env.working-directory}}    
+
+    steps:
+
+    # == Git checkout ==
+    - name: Checkout
+      uses: actions/checkout@v2
+      # Workaround for https://github.com/npm/cli/issues/2610
+      with:
+        persist-credentials: false
+
+
+    - name: Reconfigure git to use HTTP authentication
+      # Workaround for https://github.com/npm/cli/issues/2610    
+      run: >
+        git config --global url."https://github.com/".insteadOf
+        ssh://git@github.com/
+
+    # == yarn setup ==
+    - name: Yarn setup (caching yarn dependencies)
+      # - refactored into the two following mutually exclusive steps,
+      #   to workaround https://github.com/nektos/act/issues/329
+      if: ${{ !env.ACT }}
+      uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'yarn'
+
+    - name: Yarn setup (no caching of dependencies)
+      if: ${{ env.ACT }}
+      uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node-version }}
+        
+    - run: yarn install --immutable
+      working-directory: . # Yarn must run in root to ensure monorepo setup
+
+    # == create docs ==
 
     - run: yarn run doc
 
@@ -117,26 +181,89 @@ jobs:
         name: documentation
         path: ${{env.working-directory}}/doc/
 
+  # ==== Job: mangrove.js ====
+  mangrove-js:
+    needs: mangrove-solidity
+
+    runs-on: ubuntu-latest
+
+    env:
+      working-directory: packages/mangrove.js
+
+    defaults:
+      run:
+        working-directory: packages/mangrove.js
+
+    strategy:
+      matrix:
+        node-version: [14.x]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
+    steps:
+
+    # == Git checkout ==
+    - name: Checkout
+      uses: actions/checkout@v2
+      # Workaround for https://github.com/npm/cli/issues/2610
+      with:
+        persist-credentials: false
+
+
+    - name: Reconfigure git to use HTTP authentication
+      # Workaround for https://github.com/npm/cli/issues/2610    
+      run: >
+        git config --global url."https://github.com/".insteadOf
+        ssh://git@github.com/
+
+    # == yarn setup ==
+    - name: Yarn setup (caching yarn dependencies)
+      # - refactored into the two following mutually exclusive steps,
+      #   to workaround https://github.com/nektos/act/issues/329
+      if: ${{ !env.ACT }}
+      uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'yarn'
+
+    - name: Yarn setup (no caching of dependencies)
+      if: ${{ env.ACT }}
+      uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node-version }}
+        
+    - run: yarn install --immutable
+      working-directory: . # Yarn must run in root to ensure monorepo setup
+
+    # == download artefact ==
+
+    - name: Download cached mangrove-solidity build
+      uses: actions/download-artifact@v2
+      with:
+        name: build.zip
+
+    - name: Unzip artifact
+      uses: montudor/action-zip@v1
+      with:
+        args: unzip -qq build.zip
 
     # == Build Mangrove.js == 
     - name: Mangrove.js build
       run: yarn run build-this-package
-      working-directory: packages/mangrove.js # TODO This build is in a different package than the previous - we should find a better way to handle working directories
-
 
     # == Run test suite Mangrove.js == 
+
     - name: Mangrove.js Tests
       run: yarn run test
-      working-directory: packages/mangrove.js # TODO These tests are in a different package than the previous - we should find a better way to handle working directories
 
     - name: Mangrove.js Test Report
       uses: dorny/test-reporter@v1
       if: ${{ !env.ACT && (success() || failure()) }}
       with:
         name: Mangrove.js Tests               # Name of the check run which will be created
-        path: packages/mangrove.js/mangrovejs-mocha-test-report.json # Path to test results
+        path: ${{env.working-directory}}/mangrovejs-mocha-test-report.json # Path to test results
         reporter: mocha-json                  # Format of test results
 
+    # TODO - to move to separate job -->
 
     # == Build Cleaning Bot Naive == 
     - name: Cleaning Bot Naive - Build
