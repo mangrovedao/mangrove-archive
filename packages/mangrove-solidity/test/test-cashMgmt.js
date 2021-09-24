@@ -1,9 +1,8 @@
 const { assert } = require("chai");
 //const { parseToken } = require("ethers/lib/utils");
 const { ethers, env, mangrove, network } = require("hardhat");
-
-let testSigner = null;
 const lc = require("../lib/libcommon.js");
+let testSigner = null;
 
 async function deployStrat(strategy, mgv) {
   const dai = await lc.getContract("DAI");
@@ -33,7 +32,7 @@ async function deployStrat(strategy, mgv) {
       market = [wEth.address, dai.address];
       // aave rejects market entering if underlying balance is 0 (will self enter at first deposit)
       enterMarkets = false;
-      break; 
+      break;
     case "PriceFed":
       SimpleOracle = await ethers.getContractFactory("SimpleOracle");
       oracle = await SimpleOracle.deploy();
@@ -46,12 +45,12 @@ async function deployStrat(strategy, mgv) {
       market = [wEth.address, dai.address];
       // aave rejects market entering if underlying balance is 0 (will self enter at first deposit)
       enterMarkets = false;
+      await makerContract.setSlippage(300); // 3% slippage allowed
       break;
     default:
       console.warn("Undefined strategy " + strategy);
   }
   await makerContract.deployed();
-  console.log("Maker contract deployed!");
 
   // provisioning Mangrove on behalf of MakerContract
   let overrides = { value: lc.parseToken("2.0", 18) };
@@ -77,7 +76,7 @@ async function deployStrat(strategy, mgv) {
 
   allowed = await wEth.allowance(testSigner.address, mgv.address);
   lc.assertEqualBN(allowed, ethers.constants.MaxUint256, "Approve failed");
-  
+
   /*********************** MAKER SIDE PREMICES **************************/
   let mkrTxs = [];
   let i = 0;
@@ -117,10 +116,9 @@ async function deployStrat(strategy, mgv) {
 
   /***********************************************************************/
   if (oracle) {
-    console.log("Setting up oracle prices");
     await oracle.setReader(makerContract.address); // maker Contract is the only one to be able to read data from oracle
-    await oracle.setPrice(dai.address, lc.parseToken("1.0", 6));  // sets DAI price to 1 USD (6 decimals)
-    await oracle.setPrice(wEth.address, lc.parseToken("3000.0", 6));  // sets ETH price to 3K USD (6 decimals)
+    await oracle.setPrice(dai.address, lc.parseToken("1.0", 6)); // sets DAI price to 1 USD (6 decimals)
+    await oracle.setPrice(wEth.address, lc.parseToken("3000.0", 6)); // sets ETH price to 3K USD (6 decimals)
   }
   return makerContract;
 }
@@ -133,6 +131,7 @@ async function execLenderStrat(makerContract, mgv, lenderName) {
 
   // // posting new offer on Mangrove via the MakerContract `post` method
   let offerId = await lc.newOffer(
+    mgv,
     makerContract,
     "DAI",
     "WETH",
@@ -147,7 +146,7 @@ async function execLenderStrat(makerContract, mgv, lenderName) {
     "Offer not correctly inserted"
   );
 
-  let [takerGot, takerGave]= await lc.snipeSuccess(
+  let [takerGot, takerGave] = await lc.snipeSuccess(
     mgv,
     "DAI", // maker base
     "WETH", // maker quote
@@ -184,6 +183,7 @@ async function execPriceFedStrat(makerContract, mgv, lenderName) {
 
   // // posting new offer on Mangrove via the MakerContract `post` method
   let offerId = await lc.newOffer(
+    mgv,
     makerContract,
     "DAI",
     "WETH",
@@ -192,36 +192,35 @@ async function execPriceFedStrat(makerContract, mgv, lenderName) {
   );
 
   let [offer] = await mgv.offerInfo(dai.address, wEth.address, offerId);
+
   lc.assertEqualBN(
     offer.gives,
     lc.parseToken("1000.0", await lc.getDecimals("DAI")),
     "Offer not correctly inserted"
   );
-
   await lc.snipeFail(
     mgv,
     "DAI", // maker base
     "WETH", // maker quote
     offerId,
-    lc.parseToken("800.0", await lc.getDecimals("DAI")), // taker wants 800 DAI
-    lc.parseToken("0.2", await lc.getDecimals("WETH")) // but 0.2 is not market price (should be >= 0,267)
+    lc.parseToken("1000.0", await lc.getDecimals("DAI")), // taker wants 1000 DAI
+    lc.parseToken("0.2", await lc.getDecimals("WETH")) // but 0.2. is not market price (should be >= 0,3334)
   );
-  
-  let [takerGot, takerGave] = await lc.snipeSuccess(
+  let [takerGot] = await lc.snipeSuccess(
     mgv,
     "DAI", // maker base
     "WETH", // maker quote
     offerId,
-    lc.parseToken("800.0", await lc.getDecimals("DAI")), 
-    lc.parseToken("0.3", await lc.getDecimals("WETH")) 
+    lc.parseToken("1000.0", await lc.getDecimals("DAI")),
+    lc.parseToken("0.3334", await lc.getDecimals("WETH"))
   );
 
   lc.assertEqualBN(
     takerGot,
-    lc.netOf(lc.parseToken("800.0", await lc.getDecimals("DAI")), fee),
+    lc.netOf(lc.parseToken("1000.0", await lc.getDecimals("DAI")), fee),
     "Incorrect received amount"
   );
-  
+
   await lc.logLenderStatus(makerContract, lenderName, ["WETH", "DAI"]);
 }
 
@@ -233,6 +232,7 @@ async function execTraderStrat(makerContract, mgv, lenderName) {
 
   // // posting new offer on Mangrove via the MakerContract `post` method
   let offerId = await lc.newOffer(
+    mgv,
     makerContract,
     "DAI",
     "WETH",
@@ -240,40 +240,7 @@ async function execTraderStrat(makerContract, mgv, lenderName) {
     lc.parseToken("0.15", await lc.getDecimals("WETH")) // required WETH
   );
 
-    let [takerGot, takerGave] = await lc.snipeSuccess(
-      mgv,
-      "DAI", // maker base
-      "WETH", // maker quote
-      offerId,
-      lc.parseToken("300", await lc.getDecimals("DAI")),
-      lc.parseToken("0.15", await lc.getDecimals("WETH"))
-    );
-    lc.assertEqualBN(
-      takerGot,
-      lc.netOf(lc.parseToken("300.0", await lc.getDecimals("DAI")), fee),
-      "Incorrect received amount"
-    );
-    lc.assertEqualBN(
-      takerGave,
-      lc.parseToken("0.15", await lc.getDecimals("WETH")),
-      "Incorrect given amount"
-    );
-    await lc.expectAmountOnLender(
-      makerContract, 
-      lenderName, 
-      [
-        ["DAI", lc.parseToken("700", await lc.getDecimals("DAI")), 4],
-        ["WETH", takerGave, 8]
-      ]
-    );
-
-  lc.assertEqualBN(
-    offer.gives,
-    lc.parseToken("300.0", await lc.getDecimals("DAI")),
-    "Offer not correctly inserted"
-  );
-
-  let [takerGot, takerGave] = await lc.snipe(
+  let [takerGot, takerGave] = await lc.snipeSuccess(
     mgv,
     "DAI", // maker base
     "WETH", // maker quote
@@ -295,57 +262,70 @@ async function execTraderStrat(makerContract, mgv, lenderName) {
     ["DAI", lc.parseToken("700", await lc.getDecimals("DAI")), 4],
     ["WETH", takerGave, 8],
   ]);
+  // testSigner asks MakerContract to approve Mangrove for base (weth)
+  mkrTx2 = await makerContract
+    .connect(testSigner)
+    .approveMangrove(wEth.address, ethers.constants.MaxUint256);
+  await mkrTx2.wait();
+
+  offerId = await lc.newOffer(
+    mgv,
+    makerContract,
+    "WETH",
+    "DAI",
+    lc.parseToken("0.2", await lc.getDecimals("WETH")), // promised WETH
+    lc.parseToken("380.0", await lc.getDecimals("DAI")) // required DAI
+  );
+
+  [takerGot, takerGave] = await lc.snipeSuccess(
+    mgv,
+    "WETH",
+    "DAI",
+    offerId,
+    lc.parseToken("0.2", await lc.getDecimals("WETH")), // wanted WETH
+    lc.parseToken("380.0", await lc.getDecimals("DAI")) // giving DAI
+  );
+
+  lc.assertEqualBN(
+    takerGot,
+    lc.netOf(lc.parseToken("0.2", await lc.getDecimals("WETH")), fee),
+    "Incorrect received amount"
+  );
+  lc.assertEqualBN(
+    takerGave,
+    lc.parseToken("380", await lc.getDecimals("DAI")),
+    "Incorrect given amount"
+  );
 
   await lc.logLenderStatus(makerContract, lenderName, ["WETH", "DAI"]);
 
-    [takerGot, takerGave] = await lc.snipeSuccess(
-      mgv,
-      "WETH",
-      "DAI",
-      offerId,
-      lc.parseToken("0.2", await lc.getDecimals("WETH")), // wanted WETH
-      lc.parseToken("380.0", await lc.getDecimals("DAI")) // giving DAI
-    );
-    
-    lc.assertEqualBN(
-      takerGot,
-      lc.netOf(lc.parseToken("0.2", await lc.getDecimals("WETH")), fee),
-      "Incorrect received amount"
-    );
-    lc.assertEqualBN(
-      takerGave,
-      lc.parseToken("380", await lc.getDecimals("DAI")),
-      "Incorrect given amount"
-    );
-    
-    await lc.logLenderStatus(makerContract, lenderName, ["WETH", "DAI"]);
-    
-    offerId = await lc.newOffer(
-      makerContract,
-      "DAI",
-      "WETH",
-      lc.parseToken("1500", await lc.getDecimals("DAI")), // promised DAI
-      lc.parseToken("0.63", await lc.getDecimals("WETH")) // required WETH
-    );
-    [takerGot, takerGave] = await lc.snipeSuccess(
-      mgv,
-      "DAI",
-      "WETH",
-      offerId,
-      lc.parseToken("1500", await lc.getDecimals("DAI")), // wanted DAI
-      lc.parseToken("0.63", await lc.getDecimals("WETH")) // giving WETH
-    );
-    lc.assertEqualBN(
-      takerGot,
-      lc.netOf(lc.parseToken("1500", await lc.getDecimals("DAI")), fee),
-      "Incorrect received amount"
-    );
-    lc.assertEqualBN(
-      takerGave,
-      lc.parseToken("0.63", await lc.getDecimals("WETH")),
-      "Incorrect given amount"
-    );
-    await lc.logLenderStatus(makerContract, lenderName, ["WETH", "DAI"]);
+  offerId = await lc.newOffer(
+    mgv,
+    makerContract,
+    "DAI",
+    "WETH",
+    lc.parseToken("1500", await lc.getDecimals("DAI")), // promised DAI
+    lc.parseToken("0.63", await lc.getDecimals("WETH")) // required WETH
+  );
+  [takerGot, takerGave] = await lc.snipeSuccess(
+    mgv,
+    "DAI",
+    "WETH",
+    offerId,
+    lc.parseToken("1500", await lc.getDecimals("DAI")), // wanted DAI
+    lc.parseToken("0.63", await lc.getDecimals("WETH")) // giving WETH
+  );
+  lc.assertEqualBN(
+    takerGot,
+    lc.netOf(lc.parseToken("1500", await lc.getDecimals("DAI")), fee),
+    "Incorrect received amount"
+  );
+  lc.assertEqualBN(
+    takerGave,
+    lc.parseToken("0.63", await lc.getDecimals("WETH")),
+    "Incorrect given amount"
+  );
+  await lc.logLenderStatus(makerContract, lenderName, ["WETH", "DAI"]);
 }
 
 describe("Deploy strategies", function () {
@@ -358,7 +338,7 @@ describe("Deploy strategies", function () {
     const dai = await lc.getContract("DAI");
     const wEth = await await lc.getContract("WETH");
     [testSigner] = await ethers.getSigners();
-    
+
     await lc.fund([
       ["ETH", "1000.0", testSigner.address],
       ["WETH", "10.0", testSigner.address],
@@ -384,29 +364,28 @@ describe("Deploy strategies", function () {
     assert(cfg.local.active, "Market is inactive");
   });
 
-  // it("Pure lender strat on compound", async function () {
-  //   const makerContract = await deployStrat("SimpleCompoundRetail", mgv);
-  //   await execLenderStrat(makerContract, mgv, "compound");
-  // });
+  it("Pure lender strat on compound", async function () {
+    const makerContract = await deployStrat("SimpleCompoundRetail", mgv);
+    await execLenderStrat(makerContract, mgv, "compound");
+  });
 
-  // it("Lender/borrower strat on compound", async function () {
-  //   const makerContract = await deployStrat("AdvancedCompoundRetail", mgv);
-  //   await execTraderStrat(makerContract, mgv, "compound");
-  // });
+  it("Lender/borrower strat on compound", async function () {
+    const makerContract = await deployStrat("AdvancedCompoundRetail", mgv);
+    await execTraderStrat(makerContract, mgv, "compound");
+  });
 
-  // it("Pure lender strat on aave", async function () {
-  //   const makerContract = await deployStrat("SimpleAaveRetail", mgv);
-  //   await execLenderStrat(makerContract, mgv, "aave");
-  // });
+  it("Pure lender strat on aave", async function () {
+    const makerContract = await deployStrat("SimpleAaveRetail", mgv);
+    await execLenderStrat(makerContract, mgv, "aave");
+  });
 
-  // it("Lender/borrower strat on aave", async function () {
-  //   const makerContract = await deployStrat("AdvancedAaveRetail", mgv);
-  //   await execTraderStrat(makerContract, mgv, "aave");
-  // });
+  it("Lender/borrower strat on aave", async function () {
+    const makerContract = await deployStrat("AdvancedAaveRetail", mgv);
+    await execTraderStrat(makerContract, mgv, "aave");
+  });
 
   it("Price fed strat", async function () {
     const makerContract = await deployStrat("PriceFed", mgv);
-    console.log("Oracle address is ", await makerContract.oracle());
     await execPriceFedStrat(makerContract, mgv, "aave");
   });
 });

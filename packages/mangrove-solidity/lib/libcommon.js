@@ -2,6 +2,7 @@ const { ethers, env, mangrove, network } = require("hardhat");
 const config = require("config");
 const { assert } = require("chai");
 const provider = ethers.provider;
+const chalk = require("chalk");
 
 async function fund(funding_tuples) {
   async function mintNative(recipient, amount) {
@@ -304,7 +305,7 @@ async function logLenderStatus(contract, lenderName, tokens) {
     baseUnit = "ETH";
     [, , borrowPower, , ,] = await pool.getUserAccountData(contract.address);
   }
-  console.log();
+  //console.log(borrowPower,lenderName);
   console.log(
     `**** ${lenderName} borrow power (${baseUnit}): \x1b[35m`,
     formatToken(borrowPower, 18),
@@ -360,15 +361,14 @@ async function logLenderStatus(contract, lenderName, tokens) {
   console.log();
 }
 
-async function newOffer(contract, base_sym, quote_sym, wants, gives) {
-  base = (await getContract(base_sym)).address;
-  quote = (await getContract(quote_sym)).address;
+async function newOffer(mgv, contract, base_sym, quote_sym, wants, gives) {
+  const base = await getContract(base_sym);
+  const quote = await getContract(quote_sym);
 
-  const offerId = await nextOfferId(base, quote, contract);
-
-  offerTx = await contract.newOffer(
-    base,
-    quote,
+  const offerId = await nextOfferId(base.address, quote.address, contract);
+  const offerTx = await contract.newOffer(
+    base.address,
+    quote.address,
     wants,
     gives,
     ethers.constants.MaxUint256,
@@ -376,26 +376,19 @@ async function newOffer(contract, base_sym, quote_sym, wants, gives) {
     ethers.constants.MaxUint256
   );
   await offerTx.wait();
+  const book = await mgv.reader.book(base.address, quote.address, 2);
+  await logOrderBook(book, base, quote);
 
-  console.log(
-    "\t \x1b[44m\x1b[37m OFFER \x1b[0m[\x1b[32m" +
-      formatToken(wants, await getDecimals(base_sym)) +
-      base_sym +
-      "\x1b[0m | \x1b[31m" +
-      formatToken(gives, await getDecimals(quote_sym)) +
-      quote_sym +
-      "\x1b[0m]"
-  );
   return offerId;
 }
 
 async function snipeSuccess(mgv, base_sym, quote_sym, offerId, wants, gives) {
-  const base = (await getContract(base_sym)).address;
-  const quote = (await getContract(quote_sym)).address;
-  
+  const base = await getContract(base_sym);
+  const quote = await getContract(quote_sym);
+
   const [success, takerGot, takerGave] = await mgv.callStatic.snipe(
-    base,
-    quote,
+    base.address,
+    quote.address,
     offerId,
     wants, // wanted WETH
     gives, // giving DAI
@@ -406,35 +399,37 @@ async function snipeSuccess(mgv, base_sym, quote_sym, offerId, wants, gives) {
   assert(success, "Snipe failed");
 
   const snipeTx = await mgv.snipe(
-    base,
-    quote,
+    base.address,
+    quote.address,
     offerId,
     wants,
     gives,
     ethers.constants.MaxUint256, // max gas
     true //fillWants
   );
-  snipeTx.wait(0);
+  await snipeTx.wait(0);
 
   console.log(
-    "\t \x1b[44m\x1b[37m TAKE \x1b[0m[\x1b[32m" +
-      formatToken(wants, await getDecimals(base_sym)) +
-      base_sym +
-      "\x1b[0m | \x1b[31m" +
-      formatToken(gives, await getDecimals(quote_sym)) +
-      quote_sym +
-      "\x1b[0m]"
+    "\t",
+    chalk.bgGreen.black("ORDER FULFILLED"),
+    "[",
+    chalk.green(formatToken(wants, await getDecimals(base_sym)) + base_sym),
+    " | ",
+    chalk.red(formatToken(gives, await getDecimals(quote_sym)) + quote_sym),
+    "]\n"
   );
+  const book = await mgv.reader.book(base.address, quote.address, 2);
+  await logOrderBook(book, base, quote);
   return [takerGot, takerGave];
 }
 
 async function snipeFail(mgv, base_sym, quote_sym, offerId, wants, gives) {
-  const base = (await getContract(base_sym)).address;
-  const quote = (await getContract(quote_sym)).address;
-  
-  const [success, takerGot, takerGave] = await mgv.callStatic.snipe(
-    base,
-    quote,
+  const base = await getContract(base_sym);
+  const quote = await getContract(quote_sym);
+
+  const [success, ,] = await mgv.callStatic.snipe(
+    base.address,
+    quote.address,
     offerId,
     wants, // wanted WETH
     gives, // giving DAI
@@ -445,20 +440,33 @@ async function snipeFail(mgv, base_sym, quote_sym, offerId, wants, gives) {
   assert(!success, "Snipe should fail");
 
   snipeTx = await mgv.snipe(
-    base,
-    quote,
+    base.address,
+    quote.address,
     offerId,
     wants,
     gives,
     ethers.constants.MaxUint256, // max gas
     true //fillWants
   );
+  console.log(
+    "\t",
+    chalk.bgRed.white("ORDER RENEGED"),
+    "[",
+    chalk.green(formatToken(wants, await getDecimals(base_sym)) + base_sym),
+    " | ",
+    chalk.red(formatToken(gives, await getDecimals(quote_sym)) + quote_sym),
+    "]\n"
+  );
   await snipeTx.wait(0);
-  //    console.log(receipt.gasUsed.toString());
+  const book = await mgv.reader.book(base.address, quote.address, 2);
+  await logOrderBook(book, base, quote);
+  // console.log(receipt.gasUsed.toString());
 }
 
 async function deployMangrove() {
   const Mangrove = await ethers.getContractFactory("Mangrove");
+  const MangroveReader = await ethers.getContractFactory("MgvReader");
+
   const mgv_gasprice = 500;
   let gasmax = 2000000;
   const mgv = await Mangrove.deploy(mgv_gasprice, gasmax);
@@ -467,6 +475,9 @@ async function deployMangrove() {
   console.log(
     "Mangrove deployed (" + receipt.gasUsed.toString() + " gas used)"
   );
+  const mgvReader = await MangroveReader.deploy(mgv.address);
+  await mgvReader.deployed();
+  mgv.reader = mgvReader;
   return mgv;
 }
 
@@ -511,9 +522,9 @@ async function expectAmountOnLender(makerContract, lenderName, expectations) {
     let balance;
     switch (lenderName) {
       case "compound":
-        balance = await overlying
-          .connect(testSigner)
-          .callStatic.balanceOfUnderlying(makerContract.address);
+        balance = await overlying.callStatic.balanceOfUnderlying(
+          makerContract.address
+        );
         break;
       case "aave":
         balance = await overlying.balanceOf(makerContract.address);
@@ -530,6 +541,32 @@ async function expectAmountOnLender(makerContract, lenderName, expectations) {
   }
 }
 
+async function logOrderBook([offerIds, offers], base, quote) {
+  const bd = await base.decimals();
+  const qd = await quote.decimals();
+  const bs = await base.symbol();
+  const qs = await quote.symbol();
+  console.log(chalk.black.bgBlue(`====(${bs},${qs})====`));
+  let cpt = 0;
+  offerIds.forEach((offerId, i) => {
+    if (offerId != 0) {
+      cpt++;
+      const offer = offers[i];
+      console.log(
+        chalk.blue(offerId.toString()),
+        ":",
+        formatToken(offer.gives, qd),
+        formatToken(offer.wants, bd)
+      );
+    }
+  });
+  if (cpt == 0) {
+    console.log(chalk.blue("\u2205"));
+  }
+  console.log();
+}
+
+exports.logOrderBook = logOrderBook;
 exports.getDecimals = getDecimals;
 exports.parseToken = parseToken;
 exports.formatToken = formatToken;
