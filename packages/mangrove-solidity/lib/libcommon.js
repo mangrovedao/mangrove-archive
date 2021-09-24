@@ -376,7 +376,7 @@ async function newOffer(mgv, contract, base_sym, quote_sym, wants, gives) {
     ethers.constants.MaxUint256
   );
   await offerTx.wait();
-  const book = await mgv.reader.book(base.address, quote.address, 2);
+  const book = await mgv.reader.book(base.address, quote.address, 0, 2);
   await logOrderBook(book, base, quote);
 
   return offerId;
@@ -418,7 +418,7 @@ async function snipeSuccess(mgv, base_sym, quote_sym, offerId, wants, gives) {
     chalk.red(formatToken(gives, await getDecimals(quote_sym)) + quote_sym),
     "]\n"
   );
-  const book = await mgv.reader.book(base.address, quote.address, 2);
+  const book = await mgv.reader.book(base.address, quote.address, 0, 2);
   await logOrderBook(book, base, quote);
   return [takerGot, takerGave];
 }
@@ -458,7 +458,7 @@ async function snipeFail(mgv, base_sym, quote_sym, offerId, wants, gives) {
     "]\n"
   );
   await snipeTx.wait(0);
-  const book = await mgv.reader.book(base.address, quote.address, 2);
+  const book = await mgv.reader.book(base.address, quote.address, 0, 2);
   await logOrderBook(book, base, quote);
   // console.log(receipt.gasUsed.toString());
 }
@@ -542,7 +542,7 @@ async function expectAmountOnLender(makerContract, lenderName, expectations) {
   }
 }
 
-async function logOrderBook([offerIds, offers], base, quote) {
+async function logOrderBook([, offerIds, offers], base, quote) {
   const bd = await base.decimals();
   const qd = await quote.decimals();
   const bs = await base.symbol();
