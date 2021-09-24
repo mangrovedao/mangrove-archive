@@ -27,12 +27,12 @@ config.hardhat = {
     contracts: [
       {
         artifacts:
-          "node_modules/mangrove-solidity/build/cache/solpp-generated-contracts",
-        deploy: "node_modules/mangrove-solidity/deploy",
+          "node_modules/@giry/mangrove-solidity/build/cache/solpp-generated-contracts",
+        deploy: "node_modules/@giry/mangrove-solidity/deploy",
       },
     ],
     deployments: {
-      localhost: "node_modules/mangrove-solidity/deployments",
+      localhost: "node_modules/@giry/mangrove-solidity/deployments",
     },
   },
   // see github.com/wighawag/hardhat-deploy#1-namedaccounts-ability-to-name-addresses

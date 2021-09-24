@@ -5,7 +5,7 @@ const { expect } = chai;
 import chaiAsPromised from "chai-as-promised";
 chai.use(chaiAsPromised);
 
-import Mangrove from "@mangrove-exchange/mangrove-js";
+import Mangrove from "@giry/mangrove-js";
 
 describe("Loading Mangrove.js", () => {
   it("should not be able to connect to Mangrove when no network is running", () => {

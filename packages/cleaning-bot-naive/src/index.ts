@@ -6,7 +6,7 @@ if (!process.env["NODE_CONFIG_DIR"]) {
 import config from "config";
 console.dir(config);
 
-import Mangrove from "@mangrove-exchange/mangrove-js";
+import Mangrove from "@giry/mangrove-js";
 
 const main = async () => {
   const mgv = await Mangrove.connect("http://127.0.0.1:8545"); // TODO move connection string / network name to configuration

@@ -1,7 +1,7 @@
 const hre = require("hardhat");
 const ethers = hre.ethers;
 
-const lc = require("mangrove-solidity/lib/libcommon.js");
+const lc = require("@giry/mangrove-solidity/lib/libcommon.js");
 
 /* This script sets up a simple Mangrove market:
  *
@@ -12,7 +12,7 @@ const lc = require("mangrove-solidity/lib/libcommon.js");
  * - Posts offer
  */
 
-const { Mangrove } = require("@mangrove-exchange/mangrove-js");
+const { Mangrove } = require("@giry/mangrove-js");
 
 const mnemonic = hre.network.config.accounts.mnemonic;
 const addresses = [];
@@ -40,7 +40,7 @@ const main = async () => {
         }    
         );
 
-    const tokenAbi = require("mangrove-solidity/cache/solpp-generated-contracts/Tests/Agents/TestToken.sol/TestToken.json").abi;
+    const tokenAbi = require("@giry/mangrove-solidity/cache/solpp-generated-contracts/Tests/Agents/TestToken.sol/TestToken.json").abi;
     const TokenA = new hre.ethers.Contract(mgv.getAddress("TokenA"), tokenAbi, mgv._provider);
     const TokenB = new hre.ethers.Contract(mgv.getAddress("TokenB"), tokenAbi, mgv._provider);
       
