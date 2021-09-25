@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {MgvEvents} from "./MgvLib.sol";
+import {HasMgvEvents} from "./MgvLib.sol";
 import {MgvRoot} from "./MgvRoot.sol";
 
 contract MgvGovernable is MgvRoot {
@@ -14,7 +14,7 @@ contract MgvGovernable is MgvRoot {
     uint _gasprice,
     uint gasmax
   ) MgvRoot() {
-    emit MgvEvents.NewMgv();
+    emit NewMgv();
 
     /* Initially, governance is open to anyone. */
 
@@ -51,7 +51,7 @@ contract MgvGovernable is MgvRoot {
   ) public {
     authOnly();
     locals[base][quote] = $$(set_local("locals[base][quote]", [["active", 1]]));
-    emit MgvEvents.SetActive(base, quote, true);
+    emit SetActive(base, quote, true);
     setFee(base, quote, fee);
     setDensity(base, quote, density);
     setGasbase(base, quote, overhead_gasbase, offer_gasbase);
@@ -60,7 +60,7 @@ contract MgvGovernable is MgvRoot {
   function deactivate(address base, address quote) public {
     authOnly();
     locals[base][quote] = $$(set_local("locals[base][quote]", [["active", 0]]));
-    emit MgvEvents.SetActive(base, quote, false);
+    emit SetActive(base, quote, false);
   }
 
   /* ### `fee` */
@@ -75,7 +75,7 @@ contract MgvGovernable is MgvRoot {
     locals[base][quote] = $$(
       set_local("locals[base][quote]", [["fee", "fee"]])
     );
-    emit MgvEvents.SetFee(base, quote, fee);
+    emit SetFee(base, quote, fee);
   }
 
   /* ### `density` */
@@ -92,7 +92,7 @@ contract MgvGovernable is MgvRoot {
     locals[base][quote] = $$(
       set_local("locals[base][quote]", [["density", "density"]])
     );
-    emit MgvEvents.SetDensity(base, quote, density);
+    emit SetDensity(base, quote, density);
   }
 
   /* ### `gasbase` */
@@ -122,7 +122,7 @@ contract MgvGovernable is MgvRoot {
         ]
       )
     );
-    emit MgvEvents.SetGasbase(base, quote, overhead_gasbase, offer_gasbase);
+    emit SetGasbase(base, quote, overhead_gasbase, offer_gasbase);
   }
 
   /* ## Globals */
@@ -130,7 +130,7 @@ contract MgvGovernable is MgvRoot {
   function kill() public {
     authOnly();
     global = $$(set_global("global", [["dead", 1]]));
-    emit MgvEvents.Kill();
+    emit Kill();
   }
 
   /* ### `gasprice` */
@@ -142,7 +142,7 @@ contract MgvGovernable is MgvRoot {
     //+clear+
 
     global = $$(set_global("global", [["gasprice", "gasprice"]]));
-    emit MgvEvents.SetGasprice(gasprice);
+    emit SetGasprice(gasprice);
   }
 
   /* ### `gasmax` */
@@ -152,28 +152,28 @@ contract MgvGovernable is MgvRoot {
     require(uint24(gasmax) == gasmax, "mgv/config/gasmax/24bits");
     //+clear+
     global = $$(set_global("global", [["gasmax", "gasmax"]]));
-    emit MgvEvents.SetGasmax(gasmax);
+    emit SetGasmax(gasmax);
   }
 
   /* ### `governance` */
   function setGovernance(address governanceAddress) public {
     authOnly();
     governance = governanceAddress;
-    emit MgvEvents.SetGovernance(governanceAddress);
+    emit SetGovernance(governanceAddress);
   }
 
   /* ### `vault` */
   function setVault(address vaultAddress) public {
     authOnly();
     vault = vaultAddress;
-    emit MgvEvents.SetVault(vaultAddress);
+    emit SetVault(vaultAddress);
   }
 
   /* ### `monitor` */
   function setMonitor(address monitor) public {
     authOnly();
     global = $$(set_global("global", [["monitor", "monitor"]]));
-    emit MgvEvents.SetMonitor(monitor);
+    emit SetMonitor(monitor);
   }
 
   /* ### `useOracle` */
@@ -181,7 +181,7 @@ contract MgvGovernable is MgvRoot {
     authOnly();
     uint _useOracle = useOracle ? 1 : 0;
     global = $$(set_global("global", [["useOracle", "_useOracle"]]));
-    emit MgvEvents.SetUseOracle(useOracle);
+    emit SetUseOracle(useOracle);
   }
 
   /* ### `notify` */
@@ -189,6 +189,6 @@ contract MgvGovernable is MgvRoot {
     authOnly();
     uint _notify = notify ? 1 : 0;
     global = $$(set_global("global", [["notify", "_notify"]]));
-    emit MgvEvents.SetNotify(notify);
+    emit SetNotify(notify);
   }
 }

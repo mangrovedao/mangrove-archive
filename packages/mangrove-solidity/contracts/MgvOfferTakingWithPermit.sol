@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {MgvEvents} from "./MgvLib.sol";
+import {HasMgvEvents} from "./MgvLib.sol";
 
 import {MgvOfferTaking} from "./MgvOfferTaking.sol";
 
@@ -56,25 +56,24 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
     require(deadline >= block.timestamp, "mgv/permit/expired");
 
     uint nonce = nonces[owner]++;
-    bytes32 digest =
-      keccak256(
-        abi.encodePacked(
-          "\x19\x01",
-          DOMAIN_SEPARATOR,
-          keccak256(
-            abi.encode(
-              PERMIT_TYPEHASH,
-              base,
-              quote,
-              owner,
-              spender,
-              value,
-              nonce,
-              deadline
-            )
+    bytes32 digest = keccak256(
+      abi.encodePacked(
+        "\x19\x01",
+        DOMAIN_SEPARATOR,
+        keccak256(
+          abi.encode(
+            PERMIT_TYPEHASH,
+            base,
+            quote,
+            owner,
+            spender,
+            value,
+            nonce,
+            deadline
           )
         )
-      );
+      )
+    );
     address recoveredAddress = ecrecover(digest, v, r, s);
     require(
       recoveredAddress != address(0) && recoveredAddress == owner,
@@ -82,7 +81,7 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
     );
 
     allowances[base][quote][owner][spender] = value;
-    emit MgvEvents.Approval(base, quote, owner, spender, value);
+    emit Approval(base, quote, owner, spender, value);
   }
 
   function approve(
@@ -92,7 +91,7 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
     uint value
   ) external returns (bool) {
     allowances[base][quote][msg.sender][spender] = value;
-    emit MgvEvents.Approval(base, quote, msg.sender, spender, value);
+    emit Approval(base, quote, msg.sender, spender, value);
     return true;
   }
 

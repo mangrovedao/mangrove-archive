@@ -98,7 +98,7 @@ contract Deployer {
 }
 
 // In these tests, the testing contract is the market maker.
-contract Gatekeeping_Test is IMaker {
+contract Gatekeeping_Test is IMaker, HasMgvEvents {
   receive() external payable {}
 
   AbstractMangrove mgv;
@@ -173,8 +173,8 @@ contract Gatekeeping_Test is IMaker {
     }
     // Logging tests
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.SetGovernance(address(notAdmin));
-    emit MgvEvents.SetFee(base, quote, 1);
+    emit SetGovernance(address(notAdmin));
+    emit SetFee(base, quote, 1);
   }
 
   function only_gov_can_set_fee_test() public {
@@ -201,7 +201,7 @@ contract Gatekeeping_Test is IMaker {
     }
     // Logging tests
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.SetDensity(base, quote, 0);
+    emit SetDensity(base, quote, 0);
   }
 
   function only_gov_can_kill_test() public {
@@ -221,7 +221,7 @@ contract Gatekeeping_Test is IMaker {
     );
     // Logging tests
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.Kill();
+    emit Kill();
   }
 
   function kill_is_idempotent_test() public {
@@ -233,8 +233,8 @@ contract Gatekeeping_Test is IMaker {
     );
     // Logging tests
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.Kill();
-    emit MgvEvents.Kill();
+    emit Kill();
+    emit Kill();
   }
 
   function only_gov_can_set_vault_test() public {
@@ -401,7 +401,7 @@ contract Gatekeeping_Test is IMaker {
       );
       // Logging tests
       TestEvents.expectFrom(address(mgv));
-      emit MgvEvents.OfferWrite(
+      emit OfferWrite(
         address(base),
         address(quote),
         address(mkr),
@@ -412,7 +412,7 @@ contract Gatekeeping_Test is IMaker {
         ofr, //ofrId
         0 // prev
       );
-      emit MgvEvents.Debit(
+      emit Debit(
         address(mkr),
         TestUtils.getProvision(
           mgv,
@@ -447,7 +447,7 @@ contract Gatekeeping_Test is IMaker {
       );
       // Logging tests
       TestEvents.expectFrom(address(mgv));
-      emit MgvEvents.OfferWrite(
+      emit OfferWrite(
         address(base),
         address(quote),
         address(mkr),
@@ -458,7 +458,7 @@ contract Gatekeeping_Test is IMaker {
         ofr, //ofrId
         0 // prev
       );
-      emit MgvEvents.Debit(
+      emit Debit(
         address(mkr),
         TestUtils.getProvision(mgv, address(base), address(quote), 1, 0)
       );
@@ -568,7 +568,7 @@ contract Gatekeeping_Test is IMaker {
     );
     //Log test
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.Approval(
+    emit Approval(
       address(base),
       address(quote),
       address(tkr),
@@ -1043,10 +1043,10 @@ contract Gatekeeping_Test is IMaker {
   function activation_emits_events_in_order_test() public {
     mgv.activate(quote, base, 7, 0, 1, 3);
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.SetActive(quote, base, true);
-    emit MgvEvents.SetFee(quote, base, 7);
-    emit MgvEvents.SetDensity(quote, base, 0);
-    emit MgvEvents.SetGasbase(quote, base, 1, 3);
+    emit SetActive(quote, base, true);
+    emit SetFee(quote, base, 7);
+    emit SetDensity(quote, base, 0);
+    emit SetGasbase(quote, base, 1, 3);
   }
 
   function updateOffer_on_inactive_fails_test() public {
@@ -1057,7 +1057,7 @@ contract Gatekeeping_Test is IMaker {
     } catch Error(string memory r) {
       TestUtils.revertEq(r, "mgv/inactive");
       TestEvents.expectFrom(address(mgv));
-      emit MgvEvents.SetActive(base, quote, false);
+      emit SetActive(base, quote, false);
     }
   }
 }

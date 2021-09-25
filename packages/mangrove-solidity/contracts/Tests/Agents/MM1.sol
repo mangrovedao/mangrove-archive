@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {ITaker, IMaker, MgvLib as DC, MgvEvents, IMgvMonitor} from "../../MgvLib.sol";
+import {ITaker, IMaker, MgvLib as DC, HasMgvEvents, IMgvMonitor} from "../../MgvLib.sol";
 import "../../AbstractMangrove.sol";
 import "../Toolbox/TestUtils.sol";
 import "hardhat/console.sol";

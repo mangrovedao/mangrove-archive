@@ -10,7 +10,7 @@ import "./Toolbox/TestUtils.sol";
 
 import "./Agents/TestToken.sol";
 
-contract MakerPosthook_Test is IMaker {
+contract MakerPosthook_Test is IMaker, HasMgvEvents {
   AbstractMangrove mgv;
   TestTaker tkr;
   TestToken baseT;
@@ -218,7 +218,7 @@ contract MakerPosthook_Test is IMaker {
       "Offer was not correctly updated"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferWrite(
+    emit OfferWrite(
       base,
       quote,
       address(this),
@@ -264,7 +264,7 @@ contract MakerPosthook_Test is IMaker {
       "Offer was not correctly updated"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferWrite(
+    emit OfferWrite(
       base,
       quote,
       address(this),
@@ -293,7 +293,7 @@ contract MakerPosthook_Test is IMaker {
       "Offer was not correctly updated"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferWrite(
+    emit OfferWrite(
       base,
       quote,
       address(this),
@@ -335,7 +335,7 @@ contract MakerPosthook_Test is IMaker {
       "Taker should not have been debited of her quote tokens"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferFail(
+    emit OfferFail(
       base,
       quote,
       ofr,
@@ -381,7 +381,7 @@ contract MakerPosthook_Test is IMaker {
       "Offer was not correctly updated"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferWrite(
+    emit OfferWrite(
       base,
       quote,
       address(this),
@@ -449,16 +449,9 @@ contract MakerPosthook_Test is IMaker {
       "Incorrect maker balance after take"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferSuccess(
-      base,
-      quote,
-      ofr,
-      address(tkr),
-      1 ether,
-      1 ether
-    );
-    emit MgvEvents.Credit(address(this), mkr_provision);
-    emit MgvEvents.OfferRetract(base, quote, ofr);
+    emit OfferSuccess(base, quote, ofr, address(tkr), 1 ether, 1 ether);
+    emit Credit(address(this), mkr_provision);
+    emit OfferRetract(base, quote, ofr);
   }
 
   function balance_after_fail_and_retract_test() public {
@@ -487,7 +480,7 @@ contract MakerPosthook_Test is IMaker {
       "Incorrect overall balance after penalty for taker"
     );
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferFail(
+    emit OfferFail(
       base,
       quote,
       ofr,
@@ -497,8 +490,8 @@ contract MakerPosthook_Test is IMaker {
       "mgv/makerRevert",
       "NOK"
     );
-    emit MgvEvents.OfferRetract(base, quote, ofr);
-    emit MgvEvents.Credit(address(this), mkr_provision - penalty);
+    emit OfferRetract(base, quote, ofr);
+    emit Credit(address(this), mkr_provision - penalty);
   }
 
   function update_offer_after_deprovision_in_posthook_succeeds_test() public {
@@ -510,15 +503,8 @@ contract MakerPosthook_Test is IMaker {
     TestEvents.check(success, "Snipe should succeed");
     mgv.updateOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0, ofr);
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferSuccess(
-      base,
-      quote,
-      ofr,
-      address(tkr),
-      1 ether,
-      1 ether
-    );
-    emit MgvEvents.OfferRetract(base, quote, ofr);
+    emit OfferSuccess(base, quote, ofr, address(tkr), 1 ether, 1 ether);
+    emit OfferRetract(base, quote, ofr);
   }
 
   function check_best_in_posthook(
@@ -620,7 +606,7 @@ contract MakerPosthook_Test is IMaker {
     );
     uint refund = mgv.balanceOf(address(this)) + mkr_provision - weiBalMaker;
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferFail(
+    emit OfferFail(
       base,
       quote,
       ofr,
@@ -630,8 +616,8 @@ contract MakerPosthook_Test is IMaker {
       "mgv/makerRevert",
       "NOK"
     );
-    emit MgvEvents.OfferRetract(base, quote, ofr);
-    MgvEvents.Credit(address(this), refund);
+    emit OfferRetract(base, quote, ofr);
+    emit Credit(address(this), refund);
   }
 
   function reverting_posthook(

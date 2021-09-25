@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {IERC20, MgvEvents, IMaker, IMgvMonitor, MgvLib as ML} from "./MgvLib.sol";
+import {IERC20, HasMgvEvents, IMaker, IMgvMonitor, MgvLib as ML} from "./MgvLib.sol";
 import {MgvHasOffers} from "./MgvHasOffers.sol";
 
 abstract contract MgvOfferTaking is MgvHasOffers {
@@ -104,6 +104,9 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
     /* Over the course of the market order, a penalty reserved for `msg.sender` has accumulated in `mor.totalPenalty`. No actual transfers have occured yet -- all the ethers given by the makers as provision are owned by the Mangrove. `sendPenalty` finally gives the accumulated penalty to `msg.sender`. */
     sendPenalty(mor.totalPenalty);
+
+    emit OrderComplete(base, quote, taker, mor.totalGot, mor.totalGave);
+
     //+clear+
     return (mor.totalGot, mor.totalGave);
   }
@@ -339,6 +342,9 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     /* Over the course of the snipes order, a penalty reserved for `msg.sender` has accumulated in `mor.totalPenalty`. No actual transfers have occured yet -- all the ethers given by the makers as provision are owned by the Mangrove. `sendPenalty` finally gives the accumulated penalty to `msg.sender`. */
     sendPenalty(mor.totalPenalty);
     //+clear+
+
+    emit OrderComplete(base, quote, taker, mor.totalGot, mor.totalGave);
+
     return (mor.successCount, mor.totalGot, mor.totalGave);
   }
 
@@ -513,7 +519,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       gasused = abi.decode(retdata, (uint));
       /* `StatusCode` indicates trade success */
       statusCode = bytes32("mgv/tradeSuccess");
-      emit MgvEvents.OfferSuccess(
+      emit OfferSuccess(
         sor.base,
         sor.quote,
         sor.offerId,
@@ -544,7 +550,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       ) {
         mor.failCount += 1;
 
-        emit MgvEvents.OfferFail(
+        emit OfferFail(
           sor.base,
           sor.quote,
           sor.offerId,
@@ -706,12 +712,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     gasused = oldGas - gasleft();
 
     if (!callSuccess) {
-      emit MgvEvents.PosthookFail(
-        sor.base,
-        sor.quote,
-        sor.offerId,
-        postHookData
-      );
+      emit PosthookFail(sor.base, sor.quote, sor.offerId, postHookData);
     }
   }
 

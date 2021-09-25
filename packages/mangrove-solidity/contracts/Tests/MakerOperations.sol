@@ -15,7 +15,7 @@ import "./Agents/TestMoriartyMaker.sol";
 import "./Agents/MakerDeployer.sol";
 import "./Agents/TestTaker.sol";
 
-contract MakerOperations_Test is IMaker {
+contract MakerOperations_Test is IMaker, HasMgvEvents {
   AbstractMangrove mgv;
   TestMaker mkr;
   TestMaker mkr2;
@@ -204,7 +204,7 @@ contract MakerOperations_Test is IMaker {
     tkr.take(ofr, 0.1 ether); // fails but we don't care
 
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.PosthookFail(_base, _quote, ofr, "posthookFail");
+    emit PosthookFail(_base, _quote, ofr, "posthookFail");
   }
 
   function delete_restores_balance_test() public {
@@ -220,7 +220,7 @@ contract MakerOperations_Test is IMaker {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 2300, 0);
     mkr.retractOfferWithDeprovision(ofr);
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferRetract(_base, _quote, ofr);
+    emit OfferRetract(_base, _quote, ofr);
   }
 
   function retract_retracted_does_not_drain_test() public {
@@ -262,7 +262,7 @@ contract MakerOperations_Test is IMaker {
     uint ofr = mkr.newOffer(0.9 ether, 1 ether, 2300, 100);
     mkr.retractOffer(ofr);
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferRetract(_base, _quote, ofr);
+    emit OfferRetract(_base, _quote, ofr);
   }
 
   function retract_offer_maintains_balance_test() public {
@@ -715,7 +715,7 @@ contract MakerOperations_Test is IMaker {
     mgv.setGasprice(cfg.global.gasprice + 1); //gasprice goes up
     try mkr.updateOffer(1.0 ether + 2, 1.0 ether, 100_000, ofr0, ofr0) {
       TestEvents.expectFrom(address(mgv));
-      emit MgvEvents.OfferWrite(
+      emit OfferWrite(
         _base,
         _quote,
         address(mkr),
@@ -745,7 +745,7 @@ contract MakerOperations_Test is IMaker {
         "Maker balance is incorrect"
       );
       TestEvents.expectFrom(address(mgv));
-      emit MgvEvents.Credit(address(mkr), provision - _provision);
+      emit Credit(address(mkr), provision - _provision);
     } catch {
       TestEvents.fail("Update offer should have succeeded");
     }

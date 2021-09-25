@@ -2,7 +2,7 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {MgvLib as ML, MgvEvents, IMgvMonitor} from "./MgvLib.sol";
+import {MgvLib as ML, HasMgvEvents, IMgvMonitor} from "./MgvLib.sol";
 import {MgvRoot} from "./MgvRoot.sol";
 
 /* `MgvHasOffers` contains the state variables and functions common to both market-maker operations and market-taker operations. Mostly: storing offers, removing them, updating market makers' provisions. */
@@ -39,24 +39,22 @@ contract MgvHasOffers is MgvRoot {
     uint offerId
   ) external view returns (ML.Offer memory, ML.OfferDetail memory) {
     bytes32 offer = offers[base][quote][offerId];
-    ML.Offer memory offerStruct =
-      ML.Offer({
-        prev: $$(offer_prev("offer")),
-        next: $$(offer_next("offer")),
-        wants: $$(offer_wants("offer")),
-        gives: $$(offer_gives("offer")),
-        gasprice: $$(offer_gasprice("offer"))
-      });
+    ML.Offer memory offerStruct = ML.Offer({
+      prev: $$(offer_prev("offer")),
+      next: $$(offer_next("offer")),
+      wants: $$(offer_wants("offer")),
+      gives: $$(offer_gives("offer")),
+      gasprice: $$(offer_gasprice("offer"))
+    });
 
     bytes32 offerDetail = offerDetails[base][quote][offerId];
 
-    ML.OfferDetail memory offerDetailStruct =
-      ML.OfferDetail({
-        maker: $$(offerDetail_maker("offerDetail")),
-        gasreq: $$(offerDetail_gasreq("offerDetail")),
-        overhead_gasbase: $$(offerDetail_overhead_gasbase("offerDetail")),
-        offer_gasbase: $$(offerDetail_offer_gasbase("offerDetail"))
-      });
+    ML.OfferDetail memory offerDetailStruct = ML.OfferDetail({
+      maker: $$(offerDetail_maker("offerDetail")),
+      gasreq: $$(offerDetail_gasreq("offerDetail")),
+      overhead_gasbase: $$(offerDetail_overhead_gasbase("offerDetail")),
+      offer_gasbase: $$(offerDetail_offer_gasbase("offerDetail"))
+    });
     return (offerStruct, offerDetailStruct);
   }
 
@@ -67,12 +65,12 @@ contract MgvHasOffers is MgvRoot {
     uint makerBalance = balanceOf[maker];
     require(makerBalance >= amount, "mgv/insufficientProvision");
     balanceOf[maker] = makerBalance - amount;
-    emit MgvEvents.Debit(maker, amount);
+    emit Debit(maker, amount);
   }
 
   function creditWei(address maker, uint amount) internal {
     balanceOf[maker] += amount;
-    emit MgvEvents.Credit(maker, amount);
+    emit Credit(maker, amount);
   }
 
   /* # Misc. low-level functions */
