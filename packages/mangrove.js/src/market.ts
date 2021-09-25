@@ -116,7 +116,7 @@ export class Market {
     utils: T
   ): (...args: any[]) => any {
     return (_evt) => {
-      const evt: bookSubscriptionEvent = this.mgv.events.interface.parseLog(
+      const evt: bookSubscriptionEvent = this.mgv.contract.interface.parseLog(
         _evt
       ) as any;
 
@@ -223,8 +223,8 @@ export class Market {
     if (!this.subscribed()) throw Error("Not subscribed");
     const { asksFilter, bidsFilter } = this.#bookFilter();
     const { asksCallback, bidsCallback } = this.subscriptions;
-    this.mgv.events.off(asksFilter, asksCallback);
-    this.mgv.events.off(bidsFilter, bidsCallback);
+    this.mgv.contract.off(asksFilter, asksCallback);
+    this.mgv.contract.off(bidsFilter, bidsCallback);
   }
 
   /* eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types */
@@ -237,8 +237,8 @@ export class Market {
       "OfferRetract",
       "SetGasbase",
     ].map((e) =>
-      this.mgv.events.interface.getEventTopic(
-        this.mgv.events.interface.getEvent(e as any)
+      this.mgv.contract.interface.getEventTopic(
+        this.mgv.contract.interface.getEvent(e as any)
       )
     );
 
@@ -318,8 +318,8 @@ export class Market {
 
     this.subscriptions = { asksCallback, bidsCallback };
 
-    this.mgv.events.on(asksFilter, asksCallback);
-    this.mgv.events.on(bidsFilter, bidsCallback);
+    this.mgv.contract.on(asksFilter, asksCallback);
+    this.mgv.contract.on(bidsFilter, bidsCallback);
   }
 
   #mapConfig(ba: "bids" | "asks", cfg: internalConfig): localConfig {
@@ -446,6 +446,12 @@ export class Market {
     wants = this.toUnits("quote", wants);
 
     return this.#marketOrder({ wants, gives, orderType: "sell" });
+    // const resp = await this.#marketOrder({ wants, gives, orderType: "sell" });
+    // const receipt = await resp.wait();
+    // for (const log of receipt.logs)
+    //   const evt: bookSubscriptionEvent = this.mgv.contract.interface.getEvent("OrderComplete"(
+    //     _evt
+    //   ) as any;
   }
 
   /**
