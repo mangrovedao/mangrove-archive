@@ -19,7 +19,7 @@
     "rollup": "rollup -c rollup.config.ts",
     "test": "cross-env NODE_ENV=test nyc --reporter=lcov mocha -r ts-node/register ./test/index.js  --timeout 60000 --reporter mocha-multi-reporters --reporter-options configFile=mocha-multi-reporters.json",
     "clean-typechain": "rimraf src/types/typechain/*.ts; exit 0",
-    "typechain": "yarn run clean-typechain && npx typechain --target=ethers-v5 --out-dir=src/types/typechain \"dist/nodejs/mangrove-abis/**/*.json\""
+    "typechain": "yarn run clean-typechain && npx typechain --target=ethers-v5 --out-dir=src/types/typechain \"src/abis/*.json\""
   },
   "files": [
     "dist/",
