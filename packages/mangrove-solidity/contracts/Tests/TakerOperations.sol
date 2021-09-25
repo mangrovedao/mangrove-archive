@@ -18,7 +18,7 @@ import "./Agents/TestTaker.sol";
    and a TestTaker which throws away any funds received upon getting
    a callback.
 */
-contract TakerOperations_Test {
+contract TakerOperations_Test is HasMgvEvents {
   TestToken baseT;
   TestToken quoteT;
   address base;
@@ -320,7 +320,7 @@ contract TakerOperations_Test {
       "taker balance should not be lower if maker doesn't pay back"
     );
     TestEvents.expectFrom(address(mgv));
-    MgvEvents.OfferFail(
+    emit OfferFail(
       base,
       quote,
       ofr,
@@ -330,7 +330,7 @@ contract TakerOperations_Test {
       "mgv/makerTransferFail",
       "testMaker/transferFail"
     );
-    MgvEvents.Credit(address(refusemkr), mkr_provision - penalty);
+    emit Credit(address(refusemkr), mkr_provision - penalty);
   }
 
   function taker_reverts_on_penalty_triggers_revert_test() public {
@@ -376,7 +376,7 @@ contract TakerOperations_Test {
       "taker balance should not be lower if maker doesn't pay back"
     );
     TestEvents.expectFrom(address(mgv));
-    MgvEvents.OfferFail(
+    emit OfferFail(
       base,
       quote,
       ofr,
@@ -386,7 +386,7 @@ contract TakerOperations_Test {
       "mgv/makerTransferFail",
       ""
     );
-    MgvEvents.Credit(address(mkr), mkr_provision - penalty);
+    emit Credit(address(mkr), mkr_provision - penalty);
   }
 
   function taker_reimbursed_if_maker_is_blacklisted_for_quote_test() public {
@@ -420,7 +420,7 @@ contract TakerOperations_Test {
     );
     TestEvents.expectFrom(address(mgv));
 
-    MgvEvents.OfferFail(
+    emit OfferFail(
       base,
       quote,
       ofr,
@@ -430,7 +430,7 @@ contract TakerOperations_Test {
       "mgv/makerReceiveFail",
       ""
     );
-    MgvEvents.Credit(address(mkr), mkr_provision - penalty);
+    emit Credit(address(mkr), mkr_provision - penalty);
   }
 
   function taker_collects_failing_offer_test() public {
@@ -484,7 +484,7 @@ contract TakerOperations_Test {
       "taker balance should not be lower if maker doesn't pay back"
     );
     TestEvents.expectFrom(address(mgv));
-    MgvEvents.OfferFail(
+    emit OfferFail(
       base,
       quote,
       ofr,
@@ -494,7 +494,7 @@ contract TakerOperations_Test {
       "mgv/makerRevert",
       "testMaker/revert"
     );
-    MgvEvents.Credit(address(failmkr), mkr_provision - penalty);
+    emit Credit(address(failmkr), mkr_provision - penalty);
   }
 
   function taker_hasnt_approved_base_succeeds_order_with_fee_test() public {
@@ -563,14 +563,7 @@ contract TakerOperations_Test {
       TestEvents.eq(takerGot, 1 ether, "Incorrect transaction information");
       TestEvents.eq(takerGave, 1.1 ether, "Incorrect transaction information");
       TestEvents.expectFrom(address(mgv));
-      emit MgvEvents.OfferSuccess(
-        base,
-        quote,
-        ofr,
-        address(this),
-        1 ether,
-        1.1 ether
-      );
+      emit OfferSuccess(base, quote, ofr, address(this), 1 ether, 1.1 ether);
     } catch {
       TestEvents.fail("Snipe should succeed");
     }
@@ -769,7 +762,7 @@ contract TakerOperations_Test {
     );
     TestEvents.check(!success, "order should fail");
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferFail(
+    emit OfferFail(
       base,
       quote,
       ofr,
@@ -788,7 +781,7 @@ contract TakerOperations_Test {
     quoteT.approve(address(mgv), 1 ether);
     mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000, true);
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferFail(
+    emit OfferFail(
       base,
       quote,
       ofr,

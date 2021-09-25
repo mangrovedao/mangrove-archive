@@ -100,6 +100,16 @@ const main = async () => {
   const between = (a, b) => a + Math.random() * (b - a);
   const market = await mgv.market({ base: "TokenA", quote: "TokenB" });
 
+  console.log(`Token A (${mgv.getDecimals("TokenA")} decimals`);
+  console.log(market.base.address);
+  console.log();
+
+  console.log(`Token B (${mgv.getDecimals("TokenB")} decimals`);
+  console.log(market.quote.address);
+  console.log();
+
+  console.log("Orderbook filler is now running.");
+
   const pushOffer = async (ba /*bids|asks*/) => {
     let base = "base",
       quote = "quote";
@@ -127,14 +137,24 @@ const main = async () => {
     //   `${ba} ids`,
     //   book[ba].map((o) => o.id)
     // );
+
     if (book[ba].length !== 0) {
-      const offer = book[ba].shift();
+      // const offer = book[ba].shift();
+      const pulledIndex = Math.floor(Math.random() * book[ba].length);
+      const offer = book[ba][pulledIndex];
       await retractOffer(market[base].address, market[quote].address, offer.id);
     }
     setTimeout(() => {
       pullOffer(ba);
     }, between(2000, 4000));
   };
+
+  // setTimeout(async () => {
+  //   const bla = await market.buy({wants:3,gives:4});
+  //   console.log(bla);
+  // // console.log(bla);
+  // // console.log((await bla.wait()).events);
+  // },5000);
 
   pushOffer("asks");
   pullOffer("asks");

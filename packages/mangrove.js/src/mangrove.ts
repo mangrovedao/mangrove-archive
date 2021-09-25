@@ -26,8 +26,6 @@ export class Mangrove {
   _network: ProviderNetwork;
   _address: string;
   contract: typechain.Mangrove;
-  events: typechain.MgvEvents;
-  // events: typechain.Mangrove__factory
   readerContract: typechain.MgvReader;
   static typechain = typechain;
 
@@ -90,10 +88,6 @@ export class Mangrove {
     const readerAddress = Mangrove.getAddress("MgvReader", this._network.name);
     this.readerContract = typechain.MgvReader__factory.connect(
       readerAddress,
-      this._signer
-    );
-    this.events = typechain.MgvEvents__factory.connect(
-      this._address,
       this._signer
     );
   }

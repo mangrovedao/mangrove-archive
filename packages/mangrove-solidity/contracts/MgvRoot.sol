@@ -19,10 +19,10 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {MgvLib as ML, MgvEvents, IMgvMonitor} from "./MgvLib.sol";
+import {MgvLib as ML, HasMgvEvents, IMgvMonitor} from "./MgvLib.sol";
 
 /* `MgvRoot` contains state variables used everywhere in the operation of the Mangrove and their related function. */
-contract MgvRoot {
+contract MgvRoot is HasMgvEvents {
   /* # State variables */
   //+clear+
   /* The `vault` address. If a pair has fees >0, those fees are sent to the vault. */

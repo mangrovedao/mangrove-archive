@@ -78,7 +78,7 @@ library MgvLib {
 
 /* # Events
 The events emitted for use by bots are listed here: */
-library MgvEvents {
+contract HasMgvEvents {
   /* * Emitted at the creation of the new Mangrove contract on the pair (`quote`, `base`)*/
   event NewMgv();
 
@@ -105,6 +105,15 @@ library MgvEvents {
   event SetGasmax(uint value);
   event SetDensity(address indexed base, address indexed quote, uint value);
   event SetGasprice(uint value);
+
+  /* Market order execution */
+  event OrderComplete(
+    address indexed base,
+    address indexed quote,
+    address taker,
+    uint takerGot,
+    uint takerGave
+  );
 
   /* * Offer execution */
   event OfferSuccess(

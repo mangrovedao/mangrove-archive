@@ -12,7 +12,7 @@ import "../Agents/TestDelegateTaker.sol";
 import "../Agents/OfferManager.sol";
 import "../Agents/UniSwapMaker.sol";
 
-contract AMM_Test {
+contract AMM_Test is HasMgvEvents {
   AbstractMangrove mgv;
   AbstractMangrove invMgv;
   TestToken tk0;
@@ -98,7 +98,7 @@ contract AMM_Test {
 
   function check_logs(address mgr, bool inverted) internal {
     TestEvents.expectFrom(address(mgv));
-    emit MgvEvents.OfferSuccess(
+    emit OfferSuccess(
       address(tk0),
       address(tk1),
       3,
@@ -106,7 +106,7 @@ contract AMM_Test {
       1 ether,
       0.5 ether
     );
-    emit MgvEvents.OfferSuccess(
+    emit OfferSuccess(
       address(tk0),
       address(tk1),
       2,
@@ -119,7 +119,7 @@ contract AMM_Test {
       TestEvents.expectFrom(address(invMgv));
       MGV = invMgv;
     }
-    emit MgvEvents.OfferWrite(
+    emit OfferWrite(
       address(tk1),
       address(tk0),
       mgr,
@@ -130,7 +130,7 @@ contract AMM_Test {
       1,
       0
     );
-    emit MgvEvents.OfferSuccess(
+    emit OfferSuccess(
       address(tk1),
       address(tk0),
       1,
@@ -140,7 +140,7 @@ contract AMM_Test {
     );
     TestEvents.expectFrom(address(mgv));
 
-    emit MgvEvents.OfferWrite(
+    emit OfferWrite(
       address(tk0),
       address(tk1),
       mgr,

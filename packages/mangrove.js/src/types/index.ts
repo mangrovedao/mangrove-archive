@@ -11,7 +11,7 @@ import { Deferrable } from "@ethersproject/properties";
 import { BigNumber } from "@ethersproject/bignumber/lib/bignumber";
 import type { Awaited, MarkOptional } from "ts-essentials";
 import type { Big } from "big.js";
-import type * as EventTypes from "./typechain/MgvEvents";
+import type * as MgvTypes from "./typechain/Mangrove";
 
 // simplify type notation to access returned values from reader contract
 
@@ -49,11 +49,11 @@ export type globalConfig = {
 };
 
 export type bookSubscriptionEvent =
-  | ({ name: "OfferWrite" } & EventTypes.OfferWriteEvent)
-  | ({ name: "OfferFail" } & EventTypes.OfferFailEvent)
-  | ({ name: "OfferSuccess" } & EventTypes.OfferSuccessEvent)
-  | ({ name: "OfferRetract" } & EventTypes.OfferRetractEvent)
-  | ({ name: "SetGasbase" } & EventTypes.SetGasbaseEvent);
+  | ({ name: "OfferWrite" } & MgvTypes.OfferWriteEvent)
+  | ({ name: "OfferFail" } & MgvTypes.OfferFailEvent)
+  | ({ name: "OfferSuccess" } & MgvTypes.OfferSuccessEvent)
+  | ({ name: "OfferRetract" } & MgvTypes.OfferRetractEvent)
+  | ({ name: "SetGasbase" } & MgvTypes.SetGasbaseEvent);
 
 export type Offer = {
   prev: number;
