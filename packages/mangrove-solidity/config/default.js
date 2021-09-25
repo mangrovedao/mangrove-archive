@@ -41,7 +41,7 @@ config.hardhat = {
   abiExporter: {
     path: "./build/exported-abis", // NB I changed this, as we were generating files in one package into a different package
     clear: true,
-    flat: false,
+    flat: true,
     only: [":MgvReader$", ":Mangrove$", ":MgvEvents$", ":IERC20$"],
     spacing: 2,
     pretty: false,
