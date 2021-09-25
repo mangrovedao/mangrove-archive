@@ -109,8 +109,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   function newOffer(
     address base,
     address quote,
-    uint promised_base,
-    uint quote_for_promised_base,
+    uint quote_for_promised_base, //wants
+    uint promised_base, //gives
     uint OPTgasreq,
     uint OPTgasprice,
     uint OPTpivotId
@@ -118,8 +118,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     offerId = newOfferInternal(
       base,
       quote,
-      promised_base,
-      quote_for_promised_base,
+      quote_for_promised_base, //wants
+      promised_base, //gives
       OPTgasreq,
       OPTgasprice,
       OPTpivotId
@@ -129,8 +129,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   function newOfferInternal(
     address base,
     address quote,
-    uint promised_base,
-    uint quote_for_promised_base,
+    uint quote_for_promised_base, //wants
+    uint promised_base, //gives
     uint OPTgasreq,
     uint OPTgasprice,
     uint OPTpivotId

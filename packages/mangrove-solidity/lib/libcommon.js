@@ -121,6 +121,11 @@ function getUnderlyingSymbol(symbol) {
     case "ADAI":
     case "AWETH":
       return symbol.slice(1, symbol.length);
+    case "vdDAI":
+    case "vdWETH":
+    case "sdDAI":
+    case "sdWETH":
+      return symbol.slice(2, symbol.length);
     default:
       console.warn(`${symbol} is not a recognized overlying symbol`);
   }
@@ -155,6 +160,33 @@ async function getContract(symbol) {
       return net.aave.addressesProvider;
     case "COMP":
       return net.compound.contract;
+    case "vdWETH":
+    case "vdDAI": {
+      const underlying = await getContract(getUnderlyingSymbol(symbol));
+      const reserveData = await net.aave.lendingPool.getReserveData(
+        underlying.address
+      );
+      const variableDebtTokenAddress = reserveData.variableDebtTokenAddress;
+      const VariableDebtToken = new ethers.Contract(
+        variableDebtTokenAddress,
+        net.abis.variableDebtToken,
+        ethers.provider
+      );
+      return VariableDebtToken;
+    }
+    case "sdWETH":
+    case "sdDAI":
+      const underlying = await getContract(getUnderlyingSymbol(symbol));
+      const reserveData = await net.aave.lendingPool.getReserveData(
+        underlying.address
+      );
+      const stableDebtTokenAddress = reserveData.stableDebtTokenAddress;
+      const StableDebtToken = new ethers.Contract(
+        stableDebtTokenAddress,
+        net.abis.stableDebtToken,
+        ethers.provider
+      );
+      return StableDebtToken;
     default:
       console.warn("Unhandled contract symbol: ", symbol);
   }
@@ -211,8 +243,8 @@ async function nextOfferId(base, quote, ctr) {
   let offerId = await ctr.callStatic.newOffer(
     base,
     quote,
-    parseToken("1.0", 18),
-    0,
+    0, // wants
+    parseToken("1.0", 18), // gives
     0,
     0,
     0
@@ -230,31 +262,31 @@ function netOf(bn, fee) {
   return bn.sub(bn.mul(fee).div(10000));
 }
 
-function assertAlmost(bignum_expected, bignum_obs, decimal, msg) {
-  error = bignum_expected.div(ethers.utils.parseUnits("1.0", decimal));
-  if (bignum_expected.lte(bignum_obs)) {
-    assert(
-      bignum_obs.sub(bignum_expected).lte(error),
-      msg +
-        ":\n " +
-        "\x1b[32mExpected: " +
-        formatToken(bignum_expected, 18) +
-        "\n\x1b[31mGiven: " +
-        formatToken(bignum_obs, 18) +
-        "\x1b[0m\n"
-    );
-  } else {
-    assert(
-      bignum_expected.sub(bignum_obs).lte(error),
-      msg +
-        ":\n" +
-        "\x1b[32mExpected: " +
-        formatToken(bignum_expected, 18) +
-        "\n\x1b[31mGiven: " +
-        formatToken(bignum_obs, 18) +
-        "\x1b[0m\n"
-    );
+function assertAlmost(bignum_expected, bignum_obs, decimals, precision, msg) {
+  if (!bignum_obs) {
+    throw "error";
   }
+  function truncate(bn) {
+    let n = ethers.utils.parseUnits("1.0", decimals - precision);
+    return bn.div(n).mul(n);
+  }
+  let error;
+  if (bignum_expected.lte(bignum_obs)) {
+    error = bignum_obs.sub(bignum_expected);
+  } else {
+    error = bignum_expected.sub(bignum_obs);
+  }
+
+  assert(
+    truncate(error).eq(0),
+    msg +
+      ":\n" +
+      "\x1b[32mExpected: " +
+      formatToken(bignum_expected, decimals) +
+      "\n\x1b[31mGiven: " +
+      formatToken(bignum_obs, decimals) +
+      "\x1b[0m\n"
+  );
 }
 
 async function logLenderStatus(contract, lenderName, tokens) {
@@ -376,6 +408,9 @@ async function newOffer(mgv, contract, base_sym, quote_sym, wants, gives) {
     ethers.constants.MaxUint256
   );
   await offerTx.wait();
+  const [offer] = await mgv.offerInfo(base.address, quote.address, offerId);
+  assertEqualBN(offer.wants, wants, "Offer not correctly inserted (wants)");
+  assertEqualBN(offer.gives, gives, "Offer not correctly inserted (gives)");
   const book = await mgv.reader.book(base.address, quote.address, 0, 2);
   await logOrderBook(book, base, quote);
 
@@ -390,8 +425,8 @@ async function snipeSuccess(mgv, base_sym, quote_sym, offerId, wants, gives) {
     base.address,
     quote.address,
     offerId,
-    wants, // wanted WETH
-    gives, // giving DAI
+    wants, // wanted quote
+    gives, // giving base
     ethers.constants.MaxUint256, // max gas
     true
   );
@@ -431,8 +466,8 @@ async function snipeFail(mgv, base_sym, quote_sym, offerId, wants, gives) {
     base.address,
     quote.address,
     offerId,
-    wants, // wanted WETH
-    gives, // giving DAI
+    wants, // wanted quote
+    gives, // giving base
     ethers.constants.MaxUint256, // max gas
     true
   );
@@ -516,28 +551,63 @@ function formatToken(amount, decimals) {
 }
 
 async function expectAmountOnLender(makerContract, lenderName, expectations) {
-  for (const [symbol_underlying, expected_amount, precision] of expectations) {
+  for (const [
+    symbol_underlying,
+    expected_amount,
+    expected_borrow,
+    precision,
+  ] of expectations) {
     const overlying = await getContract(
       getOverlyingSymbol(symbol_underlying, lenderName)
     );
+    const decimals = await getDecimals(symbol_underlying);
     let balance;
+    let borrow;
     switch (lenderName) {
       case "compound":
         balance = await overlying.callStatic.balanceOfUnderlying(
           makerContract.address
         );
+        borrow = await overlying.callStatic.borrowBalanceCurrent(
+          makerContract.address
+        );
         break;
       case "aave":
         balance = await overlying.balanceOf(makerContract.address);
+        const variableDebtToken = await getContract("vd" + symbol_underlying);
+        const stableDebtToken = await getContract("sd" + symbol_underlying);
+        const vborrow = await variableDebtToken.balanceOf(
+          makerContract.address
+        );
+        const sborrow = await stableDebtToken.balanceOf(makerContract.address);
+        if (vborrow.lte(sborrow)) {
+          borrow = sborrow;
+        } else {
+          borrow = vborrow;
+        }
         break;
       default:
         console.warn("Lender is not recognized");
     }
+    if (!balance) {
+      console.warn("Balance not produced");
+    }
     assertAlmost(
       expected_amount,
       balance,
+      decimals,
       precision,
-      `Incorrect ${symbol_underlying} amount on ${lenderName}`
+      `Incorrect ${symbol_underlying} lending balance on ${lenderName} (truncated at ${precision} decimals)`
+    );
+    if (!borrow) {
+      console.warn("Borrow balance not produced");
+    }
+    assertAlmost(
+      expected_borrow,
+      borrow,
+      decimals,
+      precision,
+      `Incorrect ${symbol_underlying} borrow balance on ${lenderName} (truncated at ${precision} decimals)`
     );
   }
 }
@@ -567,6 +637,11 @@ async function logOrderBook([, offerIds, offers], base, quote) {
   console.log();
 }
 
+async function tokenOf(amount, symbol) {
+  parseToken(amount, await getDecimals(symbol));
+}
+
+exports.tokenOf = tokenOf;
 exports.logOrderBook = logOrderBook;
 exports.getDecimals = getDecimals;
 exports.parseToken = parseToken;

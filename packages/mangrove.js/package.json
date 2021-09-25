@@ -9,7 +9,8 @@
     "precommit": "lint-staged",
     "lint": "npx eslint ./src/*.ts",
     "prepack": "yarn run build",
-    "build": "yarn run lint && yarn run typechain && tsc && yarn run copy-static-assets && yarn run rollup",
+    "build": "yarn run lint && yarn run copy-mangrove-assets && yarn run typechain && tsc && yarn run copy-static-assets && yarn run rollup",
+    "copy-mangrove-assets": "ts-node copyMangroveAssets.ts",
     "copy-static-assets": "ts-node copyStaticAssets.ts",
     "write-test-deployment-file": "ts-node writeTestDeploymentFiles.ts",
     "publish_patch": "npm version patch && npm publish --access public",
@@ -18,7 +19,7 @@
     "rollup": "rollup -c rollup.config.ts",
     "test": "cross-env NODE_ENV=test nyc --reporter=lcov mocha -r ts-node/register ./test/index.js  --timeout 60000 --reporter mocha-multi-reporters --reporter-options configFile=mocha-multi-reporters.json",
     "clean-typechain": "rimraf src/types/typechain/*.ts; exit 0",
-    "typechain": "yarn run clean-typechain && npx typechain --target=ethers-v5 --out-dir=src/types/typechain \"../mangrove-solidity/build/exported-abis/**/*.json\""
+    "typechain": "yarn run clean-typechain && npx typechain --target=ethers-v5 --out-dir=src/types/typechain \"dist/nodejs/mangrove-abis/**/*.json\""
   },
   "files": [
     "dist/",
