@@ -1,4 +1,5 @@
-import { utils as ethersUtils, BigNumber, ContractTransaction } from "ethers";
+import * as ethers from "ethers";
+import { BigNumber } from "ethers"; // syntactic sugar
 import {
   TradeParams,
   BookReturns,
@@ -22,6 +23,7 @@ Big.DP = 20; // precision when dividing
 Big.RM = Big.roundHalfUp; // round to nearest
 
 //TODO Implement maxVolume?:number
+type OrderResult = { got: Big; gave: Big };
 type bookOpts = { fromId: number; maxOffers: number; chunkSize?: number };
 const bookOptsDefault: bookOpts = { fromId: 0, maxOffers: DEFAULT_MAX_OFFERS };
 type semibookMap = { offers: { [key: string]: Offer }; best: number };
@@ -242,8 +244,8 @@ export class Market {
       )
     );
 
-    const base_padded = ethersUtils.hexZeroPad(this.base.address, 32);
-    const quote_padded = ethersUtils.hexZeroPad(this.quote.address, 32);
+    const base_padded = ethers.utils.hexZeroPad(this.base.address, 32);
+    const quote_padded = ethers.utils.hexZeroPad(this.quote.address, 32);
 
     const asksFilter = {
       address: this.mgv._address,
@@ -411,7 +413,7 @@ export class Market {
    * market.buy({volume: 100, price: '1.01'}) //use strings to be exact
    * ```
    */
-  buy(params: TradeParams): Promise<ContractTransaction> {
+  buy(params: TradeParams): Promise<OrderResult> {
     let wants = "price" in params ? Big(params.volume) : Big(params.wants);
     let gives = "price" in params ? wants.mul(params.price) : Big(params.gives);
 
@@ -438,7 +440,7 @@ export class Market {
    * market.sell({volume: 100, price: 1})
    * ```
    */
-  sell(params: TradeParams): Promise<ContractTransaction> {
+  sell(params: TradeParams): Promise<OrderResult> {
     let gives = "price" in params ? Big(params.volume) : Big(params.gives);
     let wants = "price" in params ? gives.div(params.price) : Big(params.wants);
 
@@ -462,23 +464,50 @@ export class Market {
    * If `orderType` is `"sell"`, the quote/base market will be used,
    * with contract function argument `fillWants` set to false.
    */
-  #marketOrder(params: {
+  async #marketOrder({
+    wants,
+    gives,
+    orderType,
+  }: {
     wants: Big;
     gives: Big;
     orderType: "buy" | "sell";
-  }): Promise<ContractTransaction> {
+  }): Promise<{ got: Big; gave: Big }> {
     const [onchainBase, onchainQuote, fillWants] =
-      params.orderType === "buy"
+      orderType === "buy"
         ? [this.base, this.quote, true]
         : [this.quote, this.base, false];
 
-    return this.mgv.contract.marketOrder(
+    const response = await this.mgv.contract.marketOrder(
       onchainBase.address,
       onchainQuote.address,
-      BigNumber.from(params.wants.toFixed(0)),
-      BigNumber.from(params.gives.toFixed(0)),
+      BigNumber.from(wants.toFixed(0)),
+      BigNumber.from(gives.toFixed(0)),
       fillWants
     );
+    const receipt = await response.wait();
+
+    //TODO return TransactionResponse and another 'OrderResult' promise
+    let result: ethers.Event | undefined;
+    //last OrderComplete is ours!
+    for (const evt of receipt.events) {
+      if (evt.event === "OrderComplete") {
+        result = evt;
+      }
+    }
+    if (!result) {
+      throw Error("market order went wrong");
+    }
+    return {
+      got: this.fromUnits(
+        orderType === "buy" ? "base" : "quote",
+        result.args.takerGot.toString()
+      ),
+      gave: this.fromUnits(
+        orderType === "buy" ? "quote" : "base",
+        result.args.takerGave.toString()
+      ),
+    };
   }
 
   async rawBook(
