@@ -762,6 +762,40 @@ contract MakerOperations_Test is IMaker {
     TestEvents.eq(ofr.next, right, "ofr.next should be unchanged");
   }
 
+  function update_on_retracted_offer_test() public {
+    uint provision = TestUtils.getProvision(mgv, _base, _quote, 100_000);
+    mkr.provisionMgv(provision);
+    uint offerId = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+    mkr.retractOfferWithDeprovision(offerId);
+    mkr.withdrawMgv(provision);
+    TestEvents.eq(
+      mgv.balanceOf(address(mkr)),
+      0,
+      "Maker should have no more provision on Mangrove"
+    );
+    (MgvLib.Offer memory ofr, ) = mgv.offerInfo(_base, _quote, offerId);
+    TestEvents.eq(ofr.gives, 0, "Retracted offer should have 0 gives");
+    TestEvents.eq(
+      ofr.gasprice,
+      0,
+      "Deprovisioned offer should have 0 gasprice"
+    );
+    try mkr.updateOffer(1 ether + 2, 1 ether, 100_000, offerId, offerId) {
+      TestEvents.fail(
+        "Deprovisioned offer cannot be updated unless reprovisioned"
+      );
+    } catch Error(string memory message) {
+      TestEvents.eq(message, "mgv/insufficientProvision", "");
+      mkr.provisionMgv(provision);
+      try mkr.updateOffer(1 ether + 2, 1 ether, 100_000, offerId, offerId) {
+        (ofr, ) = mgv.offerInfo(_base, _quote, offerId);
+        TestEvents.eq(ofr.gives, 1 ether, "Offer not correctly updated");
+      } catch {
+        TestEvents.fail("Updating offer should succeed");
+      }
+    }
+  }
+
   function testOBBest(uint id) internal {
     (MgvLib.Offer memory ofr, ) = mgv.offerInfo(_base, _quote, id);
     TestEvents.eq(mgv.best(_base, _quote), id, "testOBBest: not best");
