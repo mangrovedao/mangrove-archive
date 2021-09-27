@@ -62,7 +62,7 @@ jobs:
     # == Solidity compile and run test suite solidity ==
 
     - name: Solidity Compile
-      run: yarn run build
+      run: yarn run build-this-package
 
     - name: Solidity Tests
       run: yarn run test:solidity
@@ -120,7 +120,7 @@ jobs:
 
     # == Build Mangrove.js == 
     - name: Mangrove.js build
-      run: yarn run build
+      run: yarn run build-this-package
       working-directory: packages/mangrove.js # TODO This build is in a different package than the previous - we should find a better way to handle working directories
 
 
@@ -140,7 +140,7 @@ jobs:
 
     # == Build Cleaning Bot Naive == 
     - name: Cleaning Bot Naive - Build
-      run: yarn run build
+      run: yarn run build-this-package
       working-directory: packages/cleaning-bot-naive # TODO This build is in a different package than the previous - we should find a better way to handle working directories
 
 
