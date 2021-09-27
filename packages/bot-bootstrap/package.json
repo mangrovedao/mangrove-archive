@@ -3,6 +3,12 @@
     "version": "0.0.1",
     "author": "Mangrove DAO",
     "main": "src/populate-market.js",
+    "scripts": {
+        "build-this-package": "echo No build here",
+        "build": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
+        "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
+        "test": "echo No tests here"
+    },
     "dependencies": {
         "@ethersproject/hardware-wallets": "^5.4.0",
         "@giry/mangrove-js": "workspace:*",
