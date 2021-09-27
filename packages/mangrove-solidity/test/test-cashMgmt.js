@@ -2,6 +2,7 @@ const { assert } = require("chai");
 //const { parseToken } = require("ethers/lib/utils");
 const { ethers, env, mangrove, network } = require("hardhat");
 const lc = require("../lib/libcommon.js");
+const chalk = require("chalk");
 
 let testSigner = null;
 const zero = lc.parseToken("0.0", 18);
@@ -121,6 +122,7 @@ async function deployStrat(strategy, mgv) {
     await oracle.setReader(makerContract.address); // maker Contract is the only one to be able to read data from oracle
     await oracle.setPrice(dai.address, lc.parseToken("1.0", 6)); // sets DAI price to 1 USD (6 decimals)
     await oracle.setPrice(wEth.address, lc.parseToken("3000.0", 6)); // sets ETH price to 3K USD (6 decimals)
+    makerContract.oracle = oracle;
   }
   return makerContract;
 }
@@ -185,6 +187,22 @@ async function execPriceFedStrat(makerContract, mgv, lenderName) {
     lc.parseToken("0.2", await lc.getDecimals("WETH")), // required WETH
     lc.parseToken("1000.0", await lc.getDecimals("DAI")) // promised DAI
   );
+  const filter_slippage = makerContract.filters.Slippage();
+  makerContract.once(filter_slippage, (id, old_wants, new_wants, event) => {
+    assert(
+      id.eq(offerId),
+      `Reneging on wrong offer Id (${id} \u2260 ${offerId})`
+    );
+    lc.assertEqualBN(old_wants, lc.parseToken("0.2", 18), "Invalid old price");
+    assert(old_wants.lt(new_wants), "Invalid new price");
+    console.log(
+      "    " +
+        chalk.green(`\u2713`) +
+        chalk.grey(` Verified logged event `) +
+        chalk.yellow(`(${event.event})`)
+    );
+    console.log();
+  });
 
   // snipe should fail because offer will renege trade (price too low)
   await lc.snipeFail(
