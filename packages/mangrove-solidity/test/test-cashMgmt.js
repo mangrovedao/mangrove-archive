@@ -120,9 +120,14 @@ async function deployStrat(strategy, mgv) {
   /***********************************************************************/
   if (oracle) {
     await oracle.setReader(makerContract.address); // maker Contract is the only one to be able to read data from oracle
-    await oracle.setPrice(dai.address, lc.parseToken("1.0", 6)); // sets DAI price to 1 USD (6 decimals)
-    await oracle.setPrice(wEth.address, lc.parseToken("3000.0", 6)); // sets ETH price to 3K USD (6 decimals)
-    makerContract.oracle = oracle;
+    try {
+      const oracleTx = await oracle.getPrice(dai.address); // should fail
+      assert(false, "Reading price should have failed");
+    } catch {
+      await oracle.setPrice(dai.address, lc.parseToken("1.0", 6)); // sets DAI price to 1 USD (6 decimals)
+      await oracle.setPrice(wEth.address, lc.parseToken("3000.0", 6)); // sets ETH price to 3K USD (6 decimals)
+      makerContract.oracle = oracle;
+    }
   }
   return makerContract;
 }
