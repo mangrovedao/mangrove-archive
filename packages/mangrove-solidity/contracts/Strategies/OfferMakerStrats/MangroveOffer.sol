@@ -14,7 +14,6 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   uint immutable MGV_GASMAX;
 
   event NewMakerContract(address mgv);
-  event Fallback(string message);
 
   receive() external payable {}
 
