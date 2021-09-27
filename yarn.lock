@@ -903,8 +903,10 @@ __metadata:
     "@typescript-eslint/eslint-plugin": ^4.31.1
     "@typescript-eslint/parser": ^4.2.0
     big.js: ^6.1.1
+    chalk: ^4.1.2
     config: ^3.3.6
     cross-env: ^7.0.3
+    dir-compare-cli: ^1.0.1
     docblock-parser: ^1.0.0
     dotenv-flow: ^3.2.0
     eslint: ^7.9.0
@@ -2478,6 +2480,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"buffer-equal@npm:1.0.0":
+  version: 1.0.0
+  resolution: "buffer-equal@npm:1.0.0"
+  checksum: c63a62d25ffc6f3a7064a86dd0d92d93a32d03b14f22d17374790bc10e94bca2312302895fdd28a2b0060999d4385cf90cbf6ad1a6678065156c664016d3be45
+  languageName: node
+  linkType: hard
+
 "buffer-from@npm:^1.0.0":
   version: 1.1.2
   resolution: "buffer-from@npm:1.1.2"
@@ -2891,6 +2900,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"colors@npm:1.0.3":
+  version: 1.0.3
+  resolution: "colors@npm:1.0.3"
+  checksum: 234e8d3ab7e4003851cdd6a1f02eaa16dabc502ee5f4dc576ad7959c64b7477b15bd21177bab4055a4c0a66aa3d919753958030445f87c39a253d73b7a3637f5
+  languageName: node
+  linkType: hard
+
 "combined-stream@npm:^1.0.8":
   version: 1.0.8
   resolution: "combined-stream@npm:1.0.8"
@@ -2917,6 +2933,15 @@ __metadata:
   bin:
     command-line-args: bin/cli.js
   checksum: 618109143fbca741048d54a5d31a2a5e166fbda318ed1419c1ca66877ce92ed80d6768a52a2e6392eb751f16ca7755d4014ced6f5f858a68d0cbe793bab6e3ee
+  languageName: node
+  linkType: hard
+
+"commander@npm:2.9.0":
+  version: 2.9.0
+  resolution: "commander@npm:2.9.0"
+  dependencies:
+    graceful-readlink: ">= 1.0.0"
+  checksum: 37939b6866ae190784fa946ea5b926dfe713731064c746e818642ac59e28f513b54e88e35d8c34b4d24d063cb465977dca2efd2ec974f91e495c743fcb2ae7a2
   languageName: node
   linkType: hard
 
@@ -3314,6 +3339,33 @@ __metadata:
   version: 4.0.2
   resolution: "diff@npm:4.0.2"
   checksum: f2c09b0ce4e6b301c221addd83bf3f454c0bc00caa3dd837cf6c127d6edf7223aa2bbe3b688feea110b7f262adbfc845b757c44c8a9f8c0c5b15d8fa9ce9d20d
+  languageName: node
+  linkType: hard
+
+"dir-compare-cli@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "dir-compare-cli@npm:1.0.1"
+  dependencies:
+    colors: 1.0.3
+    commander: 2.9.0
+    dir-compare: 2.4.0
+  bin:
+    dircompare: src/cli/dircompare.js
+  checksum: 3535c783b26b782a58c6f97d0ed2ee8c5261af58dedbef345307ceec72e3a743ab3e16b82aa08b4856fe83e6162313c9a65350c81c4c64c7414402b9afb0d983
+  languageName: node
+  linkType: hard
+
+"dir-compare@npm:2.4.0":
+  version: 2.4.0
+  resolution: "dir-compare@npm:2.4.0"
+  dependencies:
+    buffer-equal: 1.0.0
+    colors: 1.0.3
+    commander: 2.9.0
+    minimatch: 3.0.4
+  bin:
+    dircompare: src/cli/dircompare.js
+  checksum: 16710bcb640b0edb753c6ecf10440c20a073588d797f624288601c52bca64a1f8c4dcd474d1fb7fda3595361b7cf528dee856140d83ecdaa19ba5695112d1209
   languageName: node
   linkType: hard
 
@@ -4513,6 +4565,13 @@ fsevents@~2.1.1:
   version: 4.2.8
   resolution: "graceful-fs@npm:4.2.8"
   checksum: 5d224c8969ad0581d551dfabdb06882706b31af2561bd5e2034b4097e67cc27d05232849b8643866585fd0a41c7af152950f8776f4dd5579e9853733f31461c6
+  languageName: node
+  linkType: hard
+
+"graceful-readlink@npm:>= 1.0.0":
+  version: 1.0.1
+  resolution: "graceful-readlink@npm:1.0.1"
+  checksum: 4c1889ca0a6fc0bb9585b55c26a99719be132cbc4b7d84036193b70608059b9783e52e2a866d5a8e39821b16a69e899644ca75c6206563f1319b6720836b9ab2
   languageName: node
   linkType: hard
 
