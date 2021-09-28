@@ -70,6 +70,11 @@ jobs:
       # A tiny bit hacky, but it's simple and works
       run: echo "mangrove_built=true" >> $GITHUB_ENV
 
+    - name: Save status of Mangrove Solidity build
+      # So we can fail-fast and drop the X Test Report steps, if build fails
+      # A tiny bit hacky, but it's simple and works
+      run: echo "mangrove_built=true" >> $GITHUB_ENV
+
     - name: Solidity Tests
       run: yarn run test:solidity
 
