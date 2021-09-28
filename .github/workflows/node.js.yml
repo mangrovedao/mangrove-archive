@@ -60,6 +60,10 @@ jobs:
 
     # - run: echo '"@giry-dev:registry" "https://npm.pkg.github.com/"' >> .yarnrc
 
+    - run: yarn npm whoami
+
+    - run: yarn npm whoami --scope giry-dev
+      if: {{ success() || failure()) }}
     # - name: Yarn setup (no caching of dependencies)
     #   if: ${{ env.ACT }}
     #   uses: actions/setup-node@v2
