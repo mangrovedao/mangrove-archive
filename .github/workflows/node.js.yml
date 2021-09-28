@@ -85,7 +85,7 @@ jobs:
       # A tiny bit hacky, but it's simple and works
       run: echo "mangrove_built=true" >> $GITHUB_ENV
 
-    - run: yarn version --new-version ${{ env.version }} --no-git-tag-version
+    # - run: yarn version --new-version ${{ env.version }} --no-git-tag-version
 
     - run: yarn publish
       env:
