@@ -55,6 +55,7 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'yarn'
         registry-url: ${{ env.registry_url }}
+        always-auth: true
         scope: ${{ env.scope }}
 
     # - run: echo '"@giry-dev:registry" "https://npm.pkg.github.com/"' >> .yarnrc
