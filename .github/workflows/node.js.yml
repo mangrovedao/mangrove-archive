@@ -11,7 +11,6 @@ env:
   working-directory: packages/mangrove-solidity
   version: "${{ github.sha }}"
   package: "@${{ github.repository }}"
-  registry_url: "https://npm.pkg.github.com"
   scope: "${{ github.repository_owner }}"  
 
 jobs:
@@ -52,7 +51,7 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'yarn'
-        registry-url: ${{ env.registry_url }}
+        registry-url: https://npm.pkg.github.com
         always-auth: true
         scope: ${{ env.scope }}
 
