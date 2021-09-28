@@ -15,6 +15,7 @@ I had to add `"module": "CommonJS"` in mangrove.js's `tconfig.json` to be able t
 
 # Connecting to Mangrove
 
+**OUTDATED the API was changed after this was written**
 I tried to connect to a local Hardhat node started in a separate terminal with `npx hardhat node`.
 
 ```TypeScript
@@ -48,6 +49,10 @@ The minimal addresses I had to add to `constants.ts` were:
   }
 ```
 
+**Updated 2021-09-28:** There's now automatic detection of Hardhat and a set of addresses in `mangrove-js/src/hardhatAddresses.json`. This file is written as part of the build, but also checked in to git as part of `./src` ?
+
+The auto detection is nice, but the implementation is surprising - a more functional approach with clean separation between sources and generated artifacts would be good. Perhaps we could generate the file to a separate folder (like hardhat-deploy does) and not check it into git?
+
 ## Provider
 
 Since mangrove.js constructs a Provider, I think it should be possible to get and use that Provider, such that it can be used for other purposes, e.g. connecting to contracts not controlled my mangrove.js.
@@ -56,7 +61,7 @@ Since mangrove.js constructs a Provider, I think it should be possible to get an
 
 # Reading the configuration
 
-## OUTDATED the API was changed after this was written
+## OUTDATED the API was changed after this was written - this now works
 
 First attempt:
 
@@ -110,7 +115,7 @@ I couldn't find a way to get a list of the existing markets?
 
 # Market
 
-I was a bit surprised that I could create a market for a non-configure/non-existant pair without error:
+**OUTDATED** I was a bit surprised that I could create a market for a non-configure/non-existant pair without error:
 
 ```TypeScript
   const market = await mgv.market({base: "Foo", quote: "Bar"});
@@ -118,7 +123,7 @@ I was a bit surprised that I could create a market for a non-configure/non-exist
 
 The method is `async` so would expect it to actually read from the network.
 
-> ⚠️ Maybe `market()` should not be `async` or it should actually give an error, if the market doesn't exist.
+> ⚠️ [Implemented] Maybe `market()` should not be `async` or it should actually give an error, if the market doesn't exist.
 
 After adding addresses for `TokenA` and `TokenB` I can (almost) read the config of that market:
 
@@ -130,7 +135,7 @@ After adding addresses for `TokenA` and `TokenB` I can (almost) read the config 
   const marketConfig = await market.config();
 ```
 
-I get the following cryptic error message:
+**OUTDATED** I get the following cryptic error message:
 
 ```
 Error: No decimals on record for token TokenA
@@ -146,7 +151,7 @@ Error: No decimals on record for token TokenA
 
 Turns out I need to call `cacheDecimals()` for each of the tokens.
 
-> ⚠️ Could Mangrove.js call `cacheDecimals()` automatically when needed?
+> ⚠️ [Implemented] Could Mangrove.js call `cacheDecimals()` automatically when needed?
 
 ## OUTDATED The API was changed
 
@@ -173,7 +178,7 @@ However, the structure has some obscure contents:
 ]
 ```
 
-> ⚠️ Could we give all elements in the config meaningful names?
+> ⚠️ [Implemented] Could we give all elements in the config meaningful names?
 
 ## Activating markets
 

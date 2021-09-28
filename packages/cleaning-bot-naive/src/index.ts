@@ -4,17 +4,34 @@ if (!process.env["NODE_CONFIG_DIR"]) {
   process.env["NODE_CONFIG_DIR"] = __dirname + "/config/";
 }
 import config from "config";
-console.dir(config);
 
 import Mangrove from "@giry/mangrove-js";
 
 const main = async () => {
-  const mgv = await Mangrove.connect("http://127.0.0.1:8545"); // TODO move connection string / network name to configuration
+  const mgv = await Mangrove.connect(config.get("jsonRpcUrl"));
 
-  //FIXME Currently doesn't work
-  const cfg = await mgv.config();
+  /* Get global config */
+  const mgvConfig = await mgv.config();
+  console.log("Mangrove config:");
+  console.dir(mgvConfig);
 
-  console.log(`Mangrove config: ${cfg}`);
+  /* Connect to market */
+  const baseTokenName = "TokenA";
+  const quoteTokenName = "TokenB";
+
+  const market = await mgv.market({
+    base: baseTokenName,
+    quote: quoteTokenName,
+  });
+  const marketConfig = await market.config();
+
+  console.log(`Market config for (${market.base.name}, ${market.quote.name}):`);
+  console.dir(marketConfig);
+
+  /* Get order book */
+  const orderBook = await market.book();
+  console.log(`Order book for (${market.base.name}, ${market.quote.name}):`);
+  console.dir(orderBook);
 };
 
-main();
+main().catch((e) => console.error(e));
