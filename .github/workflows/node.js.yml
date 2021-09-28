@@ -87,7 +87,7 @@ jobs:
 
     # - run: yarn version --new-version ${{ env.version }} --no-git-tag-version
 
-    - run: yarn publish
+    - run: yarn npm publish --access restricted --tag ${{ env.version }}
       env:
         NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
