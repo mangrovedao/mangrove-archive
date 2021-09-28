@@ -9,6 +9,10 @@ on:
 env:
   NODE_ENV: test
   working-directory: packages/mangrove-solidity
+  version: "0.1.0-g${{ github.sha }}"
+  package: "@${{ github.repository }}"
+  registry_url: "https://npm.pkg.github.com"
+  scope: "${{ github.repository_owner }}"  
 
 jobs:
   # ==== Job: Setup, build and test Mangrove
@@ -50,15 +54,21 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'yarn'
+        registry-url: ${{ env.registry_url }}
+        scope: ${{ env.scope }}        
 
-    - name: Yarn setup (no caching of dependencies)
-      if: ${{ env.ACT }}
-      uses: actions/setup-node@v2
-      with:
-        node-version: ${{ matrix.node-version }}
+    - run: echo '"@giry-dev:registry" "https://npm.pkg.github.com/"' >> .yarnrc
+
+    # - name: Yarn setup (no caching of dependencies)
+    #   if: ${{ env.ACT }}
+    #   uses: actions/setup-node@v2
+    #   with:
+    #     node-version: ${{ matrix.node-version }}
         
     - run: yarn install --immutable
       working-directory: . # Yarn must run in root to ensure monorepo setup
+      env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     # == Solidity compile and run test suite solidity ==
 
@@ -74,6 +84,12 @@ jobs:
       # So we can fail-fast and drop the X Test Report steps, if build fails
       # A tiny bit hacky, but it's simple and works
       run: echo "mangrove_built=true" >> $GITHUB_ENV
+
+    - run: yarn version --new-version ${{ env.version }} --no-git-tag-version
+
+    - run: yarn publish
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     # TODO: Temp disabled to save time -->      
     # - name: Solidity Tests
@@ -121,16 +137,18 @@ jobs:
     #     path: ${{env.working-directory}}/polygon-mainnet-mocha-test-report.json # Path to test results
     #     reporter: mocha-json                  # Format of test results
 
-    - name: Zip dist
-      uses: montudor/action-zip@v1
-      with: 
-        args: zip -qq -r mangrove-solidity-dist.zip ${{env.working-directory}}/dist
+    # - name: Zip dist
+    #   uses: montudor/action-zip@v1
+    #   with: 
+    #     args: zip -qq -r mangrove-solidity-dist.zip ${{env.working-directory}}/dist
 
-    - name: Cache mangrove-solidity dist as artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: mangrove-solidity-dist.zip
-        path: mangrove-solidity-dist.zip
+    # - name: Cache mangrove-solidity dist as artifact
+    #   uses: actions/upload-artifact@v2
+    #   with:
+    #     name: mangrove-solidity-dist.zip
+    #     path: mangrove-solidity-dist.zip
+
+
 
 
   # ==== Job: Mangrove documentation ====
@@ -243,15 +261,15 @@ jobs:
 
     # == download artefact ==
 
-    - name: Download cached mangrove-solidity dist
-      uses: actions/download-artifact@v2
-      with:
-        name: mangrove-solidity-dist.zip
+    # - name: Download cached mangrove-solidity dist
+    #   uses: actions/download-artifact@v2
+    #   with:
+    #     name: mangrove-solidity-dist.zip
 
-    - name: Unzip artifact
-      uses: montudor/action-zip@v1
-      with:
-        args: unzip -qq mangrove-solidity-dist.zip
+    # - name: Unzip artifact
+    #   uses: montudor/action-zip@v1
+    #   with:
+    #     args: unzip -qq mangrove-solidity-dist.zip
 
     # == Build Mangrove.js == 
     - name: Mangrove.js build
