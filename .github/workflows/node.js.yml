@@ -88,7 +88,7 @@ jobs:
 
     # == Run test suite Ethereum mainnet ==
 
-    # TODO Temp disabled to save time -->
+    # TODO: Temp disabled to save time -->
 
     # - name: Ethereum mainnet Tests
     #   run: yarn run test:ethereum-mainnet
@@ -106,6 +106,7 @@ jobs:
 
     # == Run test suite Polygon mainnet == 
 
+    # TODO: Temp disabled to save time -->    
     # - name: Polygon mainnet Tests
     #   run: yarn run test:polygon-mainnet
     #   env:
@@ -119,16 +120,16 @@ jobs:
     #     path: ${{env.working-directory}}/polygon-mainnet-mocha-test-report.json # Path to test results
     #     reporter: mocha-json                  # Format of test results
 
-    # - name: Zip build
-    #   uses: montudor/action-zip@v1
-    #   with: 
-    #     args: zip -qq -r build.zip ${{env.working-directory}}/build
+    - name: Zip dist
+      uses: montudor/action-zip@v1
+      with: 
+        args: zip -qq -r mangrove-solidity-dist.zip ${{env.working-directory}}/build
 
-    # - name: Cache mangrove-solidity dist as artifact
-    #   uses: actions/upload-artifact@v2
-    #   with:
-    #     name: mangrove-solidity-dist.zip
-    #     path: mangrove-solidity-dist.zip
+    - name: Cache mangrove-solidity dist as artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: mangrove-solidity-dist.zip
+        path: mangrove-solidity-dist.zip
 
 
   # ==== Job: Mangrove documentation ====
@@ -241,15 +242,15 @@ jobs:
 
     # == download artefact ==
 
-    # - name: Download cached mangrove-solidity dist
-    #   uses: actions/download-artifact@v2
-    #   with:
-    #     name: mangrove-solidity-dist.zip
+    - name: Download cached mangrove-solidity dist
+      uses: actions/download-artifact@v2
+      with:
+        name: mangrove-solidity-dist.zip
 
-    # - name: Unzip artifact
-    #   uses: montudor/action-zip@v1
-    #   with:
-    #     args: unzip -qq mangrove-solidity-dist.zip
+    - name: Unzip artifact
+      uses: montudor/action-zip@v1
+      with:
+        args: unzip -qq mangrove-solidity-dist.zip
 
     # == Build Mangrove.js == 
     - name: Mangrove.js build
@@ -260,6 +261,8 @@ jobs:
     - name: Mangrove.js Tests
       run: yarn run test
 
+
+    # TODO: Only run if mangrove.js build went ok. 
     - name: Mangrove.js Test Report
       uses: dorny/test-reporter@v1
       if: ${{ !env.ACT && (success() || failure()) }}
@@ -268,7 +271,7 @@ jobs:
         path: ${{env.working-directory}}/mangrovejs-mocha-test-report.json # Path to test results
         reporter: mocha-json                  # Format of test results
 
-    # TODO - to move to separate job -->
+    # TODO: to move to separate job -->
 
     # == Build Cleaning Bot Naive == 
     - name: Cleaning Bot Naive - Build
@@ -277,6 +280,7 @@ jobs:
 
 
     # == Run test suite Cleaning Bot Naive == 
+    # TODO: Only run if mangrove.js build went ok.    
     - name: Cleaning Bot Naive - Tests
       run: yarn run test
       working-directory: packages/cleaning-bot-naive # TODO These tests are in a different package than the previous - we should find a better way to handle working directories
