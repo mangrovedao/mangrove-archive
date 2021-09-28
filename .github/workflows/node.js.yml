@@ -62,8 +62,7 @@ jobs:
 
     - run: yarn npm whoami
 
-    - run: yarn npm whoami --scope giry-dev
-      if: {{ success() || failure()) }}
+    #- run: yarn npm whoami --scope giry-dev
     # - name: Yarn setup (no caching of dependencies)
     #   if: ${{ env.ACT }}
     #   uses: actions/setup-node@v2
