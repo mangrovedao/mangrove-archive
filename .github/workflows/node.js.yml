@@ -65,9 +65,10 @@ jobs:
 
     # - run: echo '"@giry-dev:registry" "https://npm.pkg.github.com/"' >> .yarnrc
 
-    - run: cat .npmrc
+    - run: ls -la
+      working-directory: .
 
-    - run: cat .yarnrc.yml
+    - run: ls -la
 
     - run: yarn install --immutable
       working-directory: . # Yarn must run in root to ensure monorepo setup
