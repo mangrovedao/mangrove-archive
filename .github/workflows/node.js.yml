@@ -9,7 +9,7 @@ on:
 env:
   NODE_ENV: test
   working-directory: packages/mangrove-solidity
-  version: "0.1.0-g${{ github.sha }}"
+  version: "${{ github.sha }}"
   package: "@${{ github.repository }}"
   registry_url: "https://npm.pkg.github.com"
   scope: "${{ github.repository_owner }}"  
