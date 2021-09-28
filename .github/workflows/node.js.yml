@@ -75,16 +75,17 @@ jobs:
       # A tiny bit hacky, but it's simple and works
       run: echo "mangrove_built=true" >> $GITHUB_ENV
 
-    - name: Solidity Tests
-      run: yarn run test:solidity
+    # TODO: Temp disabled to save time -->      
+    # - name: Solidity Tests
+    #   run: yarn run test:solidity
 
-    - name: Solidity Test Report
-      uses: dorny/test-reporter@v1
-      if: ${{ env.mangrove_built && !env.ACT && (success() || failure()) }}
-      with:
-        name: Solidity Tests                  # Name of the check run which will be created
-        path: ${{env.working-directory}}/solidity-mocha-test-report.json # Path to test results
-        reporter: mocha-json                  # Format of test results
+    # - name: Solidity Test Report
+    #   uses: dorny/test-reporter@v1
+    #   if: ${{ env.mangrove_built && !env.ACT && (success() || failure()) }}
+    #   with:
+    #     name: Solidity Tests                  # Name of the check run which will be created
+    #     path: ${{env.working-directory}}/solidity-mocha-test-report.json # Path to test results
+    #     reporter: mocha-json                  # Format of test results
 
     # == Run test suite Ethereum mainnet ==
 
@@ -123,7 +124,7 @@ jobs:
     - name: Zip dist
       uses: montudor/action-zip@v1
       with: 
-        args: zip -qq -r mangrove-solidity-dist.zip ${{env.working-directory}}/build
+        args: zip -qq -r mangrove-solidity-dist.zip ${{env.working-directory}}/dist
 
     - name: Cache mangrove-solidity dist as artifact
       uses: actions/upload-artifact@v2
