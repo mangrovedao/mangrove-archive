@@ -20,19 +20,23 @@ module.exports = async () => {
     },
   });
 
-  const makeToken = (name, symbol) => {
+  const makeToken = (tokenName, symbol, decimals = 18) => {
     return {
-      name: name,
+      name: symbol,
+      token: true,
       options: {
-        contract: "TestToken",
+        contract: "TestTokenWithDecimals",
         from: deployer,
-        args: [deployer, name, symbol],
+        args: [deployer, tokenName, symbol, decimals],
       },
     };
   };
 
-  const tokenA = await withAddress(makeToken("TokenA", "A"));
-  const tokenB = await withAddress(makeToken("TokenB", "B"));
+  const tokenA = await withAddress(makeToken("Token A", "TokenA"));
+  const tokenB = await withAddress(makeToken("Token B", "TokenB"));
+  const Dai = await withAddress(makeToken("Dai Stablecoin", "DAI", 18));
+  const Usdc = await withAddress(makeToken("USDC", "USDC", 6));
+  const Weth = await withAddress(makeToken("WETH", "WETH", 18));
 
   const testMaker = await withAddress({
     name: "TestMaker",
@@ -50,5 +54,5 @@ module.exports = async () => {
     },
   });
 
-  return [mangrove, tokenA, tokenB, testMaker, mgvReader];
+  return [mangrove, tokenA, tokenB, Dai, Usdc, Weth, testMaker, mgvReader];
 };

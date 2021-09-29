@@ -329,7 +329,7 @@ export class Market {
     return {
       active: cfg.local.active,
       fee: cfg.local.fee.toNumber(),
-      density: this.fromUnits(bq, cfg.local.density.toString()).toNumber(),
+      density: this.fromUnits(bq, cfg.local.density.toString()),
       overhead_gasbase: cfg.local.overhead_gasbase.toNumber(),
       offer_gasbase: cfg.local.offer_gasbase.toNumber(),
       lock: cfg.local.lock,

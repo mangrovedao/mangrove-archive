@@ -33,6 +33,10 @@ const main = async () => {
 
   const deployer = (await hre.getNamedAccounts()).deployer;
   const deployments = await hre.deployments.run("TestingSetup");
+  // const params = await (require("@giry/mangrove-solidity/lib/testDeploymentParams")());
+
+  const signer = (await hre.ethers.getSigners())[0];
+  const user = await signer.getAddress();
 
   // console.log(await hre.deployments.deterministic("Mangrove",{
   //   from: deployer,
@@ -41,30 +45,40 @@ const main = async () => {
   const mgv = await Mangrove.connect(`http://${host.name}:${host.port}`);
   const mgvContract = await hre.ethers.getContract("Mangrove");
   const mgvReader = await hre.ethers.getContract("MgvReader");
-  const TokenA = await hre.ethers.getContract("TokenA");
-  const TokenB = await hre.ethers.getContract("TokenB");
+  // const TokenA = await hre.ethers.getContract("TokenA");
+  // const TokenB = await hre.ethers.getContract("TokenB");
 
-  await mgvContract.activate(
-    TokenA.address,
-    TokenB.address,
-    0,
-    10,
-    80000,
-    20000
-  );
-  await mgvContract.activate(
-    TokenB.address,
-    TokenA.address,
-    0,
-    10,
-    80000,
-    20000
-  );
+  const activate = (base, quote) => {
+    console.log("activating", base, quote);
+    return mgvContract.activate(base, quote, 0, 10, 80000, 20000);
+  };
+
+  const approve = (tkn) => {
+    tkn.contract.mint(user, mgv.toUnits(tkn.name, tkn.amount).toFixed());
+  };
+
+  // await activate(TokenA.address,TokenB.address);
+  // await activate(TokenB.address,TokenA.address);
+
+  const tkns = [
+    { name: "WETH", amount: 1000 },
+    { name: "DAI", amount: 10_000 },
+    { name: "USDC", amount: 10_000 },
+  ];
+
+  for (const t of tkns) t.contract = await hre.ethers.getContract(t.name);
+
+  for (const tkn1 of tkns) {
+    await approve(tkn1);
+    for (const tkn2 of tkns) {
+      if (tkn1 !== tkn2) {
+        await activate(tkn1.contract.address, tkn2.contract.address);
+      }
+    }
+  }
 
   const toWei = (v, u = "ether") =>
     hre.ethers.utils.parseUnits(v.toString(), u);
-  const signer = (await hre.ethers.getSigners())[0];
-  const user = await signer.getAddress();
   console.log("User/admin");
   console.log(user);
   console.log("");
@@ -73,11 +87,11 @@ const main = async () => {
   // console.log("user2", await signer2.getAddress());
 
   // const signer = (await hre.ethers.getSigners())[0];
-  await TokenA.mint(user, toWei(10000));
-  await TokenA.approve(mgvContract.address, toWei(1000000));
+  // await TokenA.mint(user, mgv.toUnits("TokenA", 1000));
+  // await TokenA.approve(mgvContract.address, toWei(1000000));
 
-  await TokenB.mint(user, toWei(10000));
-  await TokenB.approve(mgvContract.address, toWei(1000000));
+  // await TokenB.mint(user, mgv.toUnits("TokenB", 1000));
+  // await TokenB.approve(mgvContract.address, toWei(1000000));
 
   await mgvContract["fund()"]({ value: toWei(100) });
 
@@ -98,19 +112,26 @@ const main = async () => {
   };
 
   const between = (a, b) => a + Math.random() * (b - a);
-  const market = await mgv.market({ base: "TokenA", quote: "TokenB" });
 
-  console.log(`Token A (${mgv.getDecimals("TokenA")} decimals`);
-  console.log(market.base.address);
-  console.log();
+  for (const t of tkns) {
+    console.log(`${t.name} (${mgv.getDecimals(t.name)} decimals)`);
+    console.log(t.address);
+    console.log("");
+  }
 
-  console.log(`Token B (${mgv.getDecimals("TokenB")} decimals`);
-  console.log(market.quote.address);
-  console.log();
+  const WethDai = await mgv.market({ base: "WETH", quote: "DAI" });
+  const WethUsdc = await mgv.market({ base: "WETH", quote: "USDC" });
+  const DaiUsdc = await mgv.market({ base: "DAI", quote: "USDC" });
+
+  const markets = [WethDai, WethUsdc, DaiUsdc];
+
+  // console.log(`Token B (${mgv.getDecimals("TokenB")} decimals`);
+  // console.log(market.quote.address);
+  // console.log();
 
   console.log("Orderbook filler is now running.");
 
-  const pushOffer = async (ba /*bids|asks*/) => {
+  const pushOffer = async (market, ba /*bids|asks*/) => {
     let base = "base",
       quote = "quote";
     if (ba === "bids") [base, quote] = [quote, base];
@@ -124,11 +145,11 @@ const main = async () => {
       const wants = 1 + between(0, 3);
       const gives = wants * between(1.001, 4);
       newOffer(market[base].address, market[quote].address, { wants, gives });
-      pushOffer(ba);
+      pushOffer(market, ba);
     }, between(1000 + buffer, 3000 + buffer));
   };
 
-  const pullOffer = async (ba) => {
+  const pullOffer = async (market, ba) => {
     let base = "base",
       quote = "quote";
     if (ba === "bids") [base, quote] = [quote, base];
@@ -145,7 +166,7 @@ const main = async () => {
       await retractOffer(market[base].address, market[quote].address, offer.id);
     }
     setTimeout(() => {
-      pullOffer(ba);
+      pullOffer(market, ba);
     }, between(2000, 4000));
   };
 
@@ -156,10 +177,12 @@ const main = async () => {
   // // console.log((await bla.wait()).events);
   // },5000);
 
-  pushOffer("asks");
-  pullOffer("asks");
-  pushOffer("bids");
-  pullOffer("bids");
+  for (const market of markets) {
+    pushOffer(market, "asks");
+    pushOffer(market, "bids");
+    pullOffer(market, "asks");
+    pullOffer(market, "bids");
+  }
 };
 
 main().catch((e) => console.error(e));
