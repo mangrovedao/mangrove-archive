@@ -84,9 +84,9 @@ contract ERC20BL is Context, IERC20 {
 
   uint private _totalSupply;
 
-  string private _name;
-  string private _symbol;
-  uint8 private _decimals;
+  string internal _name;
+  string internal _symbol;
+  uint8 internal _decimals;
 
   modifier notBlackListed(address addr) {
     require(
