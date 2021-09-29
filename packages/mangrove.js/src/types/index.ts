@@ -31,7 +31,7 @@ export type internalConfig = Awaited<
 export type localConfig = {
   active: boolean;
   fee: number;
-  density: number;
+  density: Big;
   overhead_gasbase: number;
   offer_gasbase: number;
   lock: boolean;
