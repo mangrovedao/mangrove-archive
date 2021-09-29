@@ -26,7 +26,8 @@
   "dependencies": {
     "@giry/mangrove-js": "workspace:*",
     "config": "^3.3.6",
-    "dotenv-flow": "^3.2.0"
+    "dotenv-flow": "^3.2.0",
+    "winston": "^3.3.3"
   },
   "devDependencies": {
     "@espendk/json-file-reporter": "^1.4.2",
