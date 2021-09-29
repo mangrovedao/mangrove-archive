@@ -61,10 +61,10 @@ jobs:
       # A tiny bit hacky, but it's simple and works
       run: echo "mangrove_built=true" >> $GITHUB_ENV
 
-    - name: Solidity Tests
+    - name: Mangrove Solidity Tests
       run: yarn run test:solidity
 
-    - name: Solidity Test Report
+    - name: Mangrove Solidity Test Report
       uses: dorny/test-reporter@v1
       if: ${{ env.mangrove_built && (success() || failure()) }}
       with:
@@ -76,12 +76,12 @@ jobs:
 
     # TODO: Temp disabled to save time -->
 
-    # - name: Ethereum mainnet Tests
+    # - name: Mangrove Ethereum mainnet Tests
     #   run: yarn run test:ethereum-mainnet
     #   env:
     #     ETHEREUM_NODE_URL: ${{ secrets.ETHEREUM_NODE_URL }}
 
-    # - name: Ethereum mainnet Test Report
+    # - name: Mangrove Ethereum mainnet Test Report
     #   uses: dorny/test-reporter@v1
     #   if: ${{ env.mangrove_built && (success() || failure()) }}
     #   with:
@@ -93,12 +93,12 @@ jobs:
     # == Run test suite Polygon mainnet == 
 
     # TODO: Temp disabled to save time -->    
-    # - name: Polygon mainnet Tests
+    # - name: Mangrove Polygon mainnet Tests
     #   run: yarn run test:polygon-mainnet
     #   env:
     #     POLYGON_NODE_URL: ${{ secrets.POLYGON_NODE_URL }}
 
-    # - name: Polygon mainnet Test Report
+    # - name: Mangrove Polygon mainnet Test Report
     #   uses: dorny/test-reporter@v1
     #   if: ${{ env.mangrove_built && (success() || failure()) }}
     #   with:
@@ -223,10 +223,8 @@ jobs:
       run: yarn run build-this-package
 
     # == Run test suite Mangrove.js == 
-
     - name: Mangrove.js Tests
       run: yarn run test
-
 
     # TODO: Only run if mangrove.js build went ok. 
     - name: Mangrove.js Test Report
