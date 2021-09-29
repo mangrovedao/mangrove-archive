@@ -1,10 +1,5 @@
-import dotenvFlow from "dotenv-flow";
-dotenvFlow.config();
-if (!process.env["NODE_CONFIG_DIR"]) {
-  process.env["NODE_CONFIG_DIR"] = __dirname + "/config/";
-}
-import config from "config";
-
+import { config } from "./util/config";
+import { logger } from "./util/logger";
 import Mangrove from "@giry/mangrove-js";
 
 const main = async () => {
@@ -12,8 +7,7 @@ const main = async () => {
 
   /* Get global config */
   const mgvConfig = await mgv.config();
-  console.log("Mangrove config:");
-  console.dir(mgvConfig);
+  logger.info("Mangrove config retrieved", mgvConfig);
 
   /* Connect to market */
   const baseTokenName = "TokenA";
@@ -25,13 +19,17 @@ const main = async () => {
   });
   const marketConfig = await market.config();
 
-  console.log(`Market config for (${market.base.name}, ${market.quote.name}):`);
-  console.dir(marketConfig);
+  logger.info(
+    `Market config for (${market.base.name}, ${market.quote.name}) retrieved`,
+    marketConfig
+  );
 
   /* Get order book */
   const orderBook = await market.book();
-  console.log(`Order book for (${market.base.name}, ${market.quote.name}):`);
-  console.dir(orderBook);
+  logger.info(
+    `Order book for (${market.base.name}, ${market.quote.name}) retrieved`,
+    { asksCount: orderBook.asks.length, bidsCount: orderBook.bids.length }
+  );
 };
 
 main().catch((e) => console.error(e));

@@ -1,3 +1,6 @@
 {
-  "jsonRpcUrl": "http://localhost:8546"
+  "jsonRpcUrl": "http://localhost:8546",
+  "log": {
+    "logLevel": "info"
+  }
 }
