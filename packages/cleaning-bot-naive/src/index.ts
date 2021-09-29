@@ -1,7 +1,7 @@
 import { config } from "./util/config";
 import { logger } from "./util/logger";
+import { MarketCleaner } from "./MarketCleaner";
 import Mangrove from "@giry/mangrove-js";
-import { Market, Offer } from "@giry/mangrove-js/dist/nodejs/market";
 
 const main = async () => {
   const mgv = await Mangrove.connect(config.get("jsonRpcUrl"));
@@ -9,6 +9,27 @@ const main = async () => {
   /* Get global config */
   const mgvConfig = await mgv.config();
   logger.info("Mangrove config retrieved", mgvConfig);
+
+  /* TODO Subscribe to all open markets & monitor which markets exist and open
+   *
+   * Pseudo code:
+   *
+   *   const markets = mgv.getMarkets();
+   *   let marketCleanerMap = new Map<{base: String, quote: String}, MarketCleaner>();
+   *   for (const market in markets) {
+   *     marketCleanerMap.set({base: "A", quote: "B"}, MarketCleaner.create(market));
+   *   }
+   *
+   *   mgv.subscribeToMarketUpdates((marketUpdate) => { add/remove market cleaner });
+   *
+   * NB: How do we ensure that we don't miss any market changes between initialization and subscription?
+   *     Maybe subscribe first and then just buffer updates until initialization has completed?
+   */
+
+  let marketCleanerMap = new Map<
+    { base: String; quote: String },
+    MarketCleaner
+  >();
 
   /* Connect to market */
   const baseTokenName = "TokenA";
@@ -18,43 +39,11 @@ const main = async () => {
     base: baseTokenName,
     quote: quoteTokenName,
   });
-  const marketConfig = await market.config();
 
-  logger.info(
-    `Market config for (${market.base.name}, ${market.quote.name}) retrieved`,
-    marketConfig
-  );
-
-  /* Get order book */
-  const orderBook = await market.book();
-  logger.info(
-    `Order book for (${market.base.name}, ${market.quote.name}) retrieved`,
-    { asksCount: orderBook.asks.length, bidsCount: orderBook.bids.length }
-  );
-
-  /* Subscribe to market updates */
-  const subscriptionPromise = market.subscribe((marketUpdate) => {
-    logger.info(
-      `Received an update for market (${market.base.name}, ${market.quote.name})`,
-      marketUpdate
-    );
-    // If its a write, we naively try to snipe the offer
-    if (marketUpdate.type === "OfferWrite") {
-      snipeOffer(market, marketUpdate.ba, marketUpdate.offer);
-    }
-  });
-
-  await subscriptionPromise;
-
-  logger.info(
-    `Listening to order book updates for market (${market.base.name}, ${market.quote.name})...`
+  marketCleanerMap.set(
+    { base: market.base.name, quote: market.quote.name },
+    await MarketCleaner.create(market)
   );
 };
-
-function snipeOffer(market: Market, ba: String, offer: Offer) {
-  logger.info(
-    `Sniping offer ${offer.id} from ${ba} on market (${market.base.name}, ${market.quote.name})`
-  );
-}
 
 main().catch((e) => console.error(e));
