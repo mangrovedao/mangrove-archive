@@ -1,4 +1,4 @@
-import { addresses, decimals } from "./constants";
+import { addresses, decimals as loadedDecimals } from "./constants";
 import * as eth from "./eth";
 import { Market } from "./market";
 import {
@@ -141,26 +141,34 @@ export class Mangrove {
     return Mangrove.cacheDecimals(tokenName, this._provider);
   }
 
-  /** Convert public token amount to internal token representation
+  /** Convert public token amount to internal token representation.
+   *
+   * if not provided, `decimals` are automatically fetched from saved token decimals
    *
    *  @example
    *  ```
    *  mgv.toUnits("USDC",10) // 10e6
    *  ```
    */
-  toUnits(tokenName: string, amount: Bigish): Big {
-    return Big(amount).mul(Big(10).pow(this.getDecimals(tokenName)));
+  toUnits(tokenName: string, amount: Bigish, decimals?: number): Big {
+    decimals =
+      typeof decimals === "undefined" ? this.getDecimals(tokenName) : decimals;
+    return Big(amount).mul(Big(10).pow(decimals));
   }
 
-  /** Convert internal token amount to public token representation
+  /** Convert internal token amount to public token representation.
+   *
+   * if not provided, `decimals` are automatically fetched from saved token decimals
    *
    *  @example
    *  ```
    *  mgv.toUnits("DAI","1e19") // 10
    *  ```
    */
-  fromUnits(tokenName: string, amount: Bigish): Big {
-    return Big(amount).div(Big(10).pow(this.getDecimals(tokenName)));
+  fromUnits(tokenName: string, amount: Bigish, decimals?: number): Big {
+    decimals =
+      typeof decimals === "undefined" ? this.getDecimals(tokenName) : decimals;
+    return Big(amount).div(Big(10).pow(decimals));
   }
 
   /**
@@ -215,18 +223,18 @@ export class Mangrove {
    * To read decimals directly onchain, use `cacheDecimals`.
    */
   static getDecimals(tokenName: string): number {
-    if (typeof decimals[tokenName] !== "number") {
+    if (typeof loadedDecimals[tokenName] !== "number") {
       throw Error(`No decimals on record for token ${tokenName}`);
     }
 
-    return decimals[tokenName] as number;
+    return loadedDecimals[tokenName] as number;
   }
 
   /**
    * Set decimals for `tokenName` on current network.
    */
   static setDecimals(tokenName: string, dec: number): void {
-    decimals[tokenName] = dec;
+    loadedDecimals[tokenName] = dec;
   }
 
   /**
