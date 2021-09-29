@@ -41,4 +41,5 @@ export const decimals = {
   ZRX: 18,
   TokenA: 18,
   TokenB: 18,
+  WETH: 18,
 };
