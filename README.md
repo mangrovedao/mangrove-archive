@@ -1,12 +1,19 @@
 This is the Mangrove monorepo which contains most of the packages developed for the Mangrove.
 
-Some other Mangrove packages (like `mangrove-dApp`) live in their own, separate repos. The rules for which packages go where are not hard and fast; On the contrary, we are experimenting with different structure, in order to figure out what the pros and cons are in our specific circumstances.
+Some other Mangrove packages (like `mangrove-dApp`) live in their own, separate repos. The rules for which packages go where are not hard and fast; On the contrary, we are experimenting with different structures, in order to figure out what the pros and cons are in our specific circumstances.
 
 # Prerequisites
 You must have [Yarn 2](https://yarnpkg.com/) installed, as this monorepo uses [Yarn 2 workspaces](https://yarnpkg.com/features/workspaces) to manage dependencies and run commands on multiple packages.
 
+
 # Usage
-Whenever you clone or pull, you should run Yarn in the root folder afterwards:
+The following sections describe the most common use cases in this monorepo. For more details on how to use Yarn and Yarn workspaces, see the [Yarn 2 CLI documentation](https://yarnpkg.com/cli/install).
+
+⚠️ Be aware that when googling Yarn commands, it's often not clear whether the results pertain to Yarn 1 (aka 'Classic') or Yarn 2. Currently (September 2021), most examples and much tool support is implicitly engineered towards Yarn 1.
+
+
+## Update monorepo after clone, pull etc.
+Whenever you clone, pull, or similar, you should run Yarn in the root folder afterwards:
 
 ```shell
 $ yarn
@@ -18,7 +25,46 @@ This will
 - install Husky Git hooks.
 
 
-Then, still in the root folder, to build all packages, run
+## Building and testing a single package
+Mostly, you'll only be working on a single package and don't want to build and test the whole monorepo. You just want to build enough such that the current package can be build, tested, and run.
+
+To do this, change into the package directory:
+
+```shell
+cd packages/<somePackage>
+```
+
+and then run:
+
+```shell
+yarn build
+```
+
+This will recursively build the package and its dependencies in topological order.
+
+To build the package *without building its dependencies*, run
+
+```shell
+yarn build-this-package
+```
+
+To test the package, run
+
+```shell
+yarn test
+```
+
+This will run just the tests in the current package.
+
+If you wish to also run the tests of its dependencies, run
+
+```shell
+yarn test-with-dependencies
+```
+
+
+## Building and testing all packages
+To build all packages, run the following in the root folder:
 
 ```shell
 $ yarn build
@@ -30,32 +76,24 @@ Afterwards, if you want to run all tests for all packages, you can run
 $ yarn test
 ```
 
-To run scripts in individual packages, you can either use [`yarn workspace <workspaceName> <commandName>`](https://yarnpkg.com/cli/workspace/#gatsby-focus-wrapper) command *in any folder*, e.g. to run the tests for the `mangrove.js` package:
+
+## Running scripts in a named package
+Regardless of the folder you're in, you can always run a script in a particular package by using the [`yarn workspace <packageName> <commandName>`](https://yarnpkg.com/cli/workspace/#gatsby-focus-wrapper) command. E.g. to run the tests for the `mangrove.js` package, run the following in *any folder*:
 
 ```shell
 $ yarn workspace @giry/mangrove-js test
 ```
 
-or you can simply `cd` into the folder and run the command, e.g.:
-
-```shell
-$ cd packages/mangrove-js; yarn test
-```
-
-Check out the Yarn 2 CLI documentation for more information: https://yarnpkg.com/cli/install .
-
-⚠️ Be aware, that when googling yarn commands, it's often not clear whether the results pertain to Yarn 1 (aka 'Classic') or Yarn 2. Currently (September 2021), most examples and much tool support is implicitly engineered towards Yarn 1.
-
 
 ## Commands on multiple packages at once
-You can use [`yarn workspaces foreach <commandName`](https://yarnpkg.com/cli/workspaces/foreach) to run a command on all packages.
+You can use [`yarn workspaces foreach <commandName>`](https://yarnpkg.com/cli/workspaces/foreach) to run a command on all packages.
 
 If the command should be in topological order you can add the flag `--topological-dev`, e.g.:
 
 ```shell
-$ yarn workspaces foreach --topological-dev build
+$ yarn workspaces foreach --topological-dev build-this-package
 ```
-This will only run `build` in a package after its dependencies in the monorepo have been built.
+This will only run `build-this-package` in a package after its dependencies in the monorepo have been built.
 
 
 # Structure and contents of this monorepo
@@ -164,4 +202,4 @@ Yarn 2 has introduced an alternative to `node_modules` called "Plug'n'Play". Whi
 # Git hooks and Husky
 We use [Husky](https://typicode.github.io/husky/#/) to manage our Git hooks.
 
-The Git hook script are in the `.husky/` folder. 
+The Git hook scripts are in the `.husky/` folder. 
