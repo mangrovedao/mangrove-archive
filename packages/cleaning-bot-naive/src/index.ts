@@ -30,6 +30,16 @@ const main = async () => {
     `Order book for (${market.base.name}, ${market.quote.name}) retrieved`,
     { asksCount: orderBook.asks.length, bidsCount: orderBook.bids.length }
   );
+
+  /* Subscribe to market updates */
+  const subscriptionPromise = market.subscribe((x) => {
+    logger.info(
+      `Received an update for market (${market.base.name}, ${market.quote.name})`,
+      x
+    );
+  });
+
+  await subscriptionPromise;
 };
 
 main().catch((e) => console.error(e));

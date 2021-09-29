@@ -153,9 +153,7 @@ Turns out I need to call `cacheDecimals()` for each of the tokens.
 
 > ⚠️ [Implemented] Could Mangrove.js call `cacheDecimals()` automatically when needed?
 
-## OUTDATED The API was changed
-
-However, the structure has some obscure contents:
+**OUTDATED The API was changed** However, the structure has some obscure contents:
 
 ```Javascript
 [
@@ -186,7 +184,7 @@ The cleaning bot should obviously not activate markets, but it requires an activ
 
 I couldn't find any API for activating markets?
 
-> ⚠️ Should Mangrove.js have API's for the administrative stuff, like activating markets?
+> ⚠️ [Resolved: Not for now] Should Mangrove.js have API's for the administrative stuff, like activating markets?
 
 ## Contract API
 
@@ -202,3 +200,7 @@ For the auto-generated API (via typechain), currently mappings that gives rise t
 ```
 
 Since this stems from Solidity and goes through an auto-generation phase to generate the TypeScript bindings, I understand there may be other considerations here. But in a public API it would be very nice to have all method by fairly self-documenting.
+
+## Subscribing
+
+The `subscribe()` method is undocumented. The callback takes `any` as an argument, so I don't know what to expect?
