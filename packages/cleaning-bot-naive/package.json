@@ -9,9 +9,11 @@
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "precommit": "lint-staged",
     "format": "prettier --write --ignore-unknown .",
-    "build": "yarn run format && tsc && yarn run copy-static-assets",
+    "build-this-package": "yarn run format && tsc && yarn run copy-static-assets",
+    "build": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
     "copy-static-assets": "ts-node copyStaticAssets.ts",
     "start": "ts-node src/index.ts",
+    "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
     "test": "mocha --reporter mocha-multi-reporters --reporter-option configFile=mocha-multi-reporters.json -r ts-node/register 'test/**/*.ts'",
     "local-hardhat:start-node": "hardhat node --no-deploy",
     "local-hardhat:deploy-mangrove": "hardhat deploy --network localhost"
@@ -24,7 +26,8 @@
   "dependencies": {
     "@giry/mangrove-js": "workspace:*",
     "config": "^3.3.6",
-    "dotenv-flow": "^3.2.0"
+    "dotenv-flow": "^3.2.0",
+    "winston": "^3.3.3"
   },
   "devDependencies": {
     "@espendk/json-file-reporter": "^1.4.2",

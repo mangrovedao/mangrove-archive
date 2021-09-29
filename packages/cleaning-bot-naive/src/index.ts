@@ -1,20 +1,45 @@
-import dotenvFlow from "dotenv-flow";
-dotenvFlow.config();
-if (!process.env["NODE_CONFIG_DIR"]) {
-  process.env["NODE_CONFIG_DIR"] = __dirname + "/config/";
-}
-import config from "config";
-console.dir(config);
-
+import { config } from "./util/config";
+import { logger } from "./util/logger";
 import Mangrove from "@giry/mangrove-js";
 
 const main = async () => {
-  const mgv = await Mangrove.connect("http://127.0.0.1:8545"); // TODO move connection string / network name to configuration
+  const mgv = await Mangrove.connect(config.get("jsonRpcUrl"));
 
-  //FIXME Currently doesn't work
-  const cfg = await mgv.config();
+  /* Get global config */
+  const mgvConfig = await mgv.config();
+  logger.info("Mangrove config retrieved", mgvConfig);
 
-  console.log(`Mangrove config: ${cfg}`);
+  /* Connect to market */
+  const baseTokenName = "TokenA";
+  const quoteTokenName = "TokenB";
+
+  const market = await mgv.market({
+    base: baseTokenName,
+    quote: quoteTokenName,
+  });
+  const marketConfig = await market.config();
+
+  logger.info(
+    `Market config for (${market.base.name}, ${market.quote.name}) retrieved`,
+    marketConfig
+  );
+
+  /* Get order book */
+  const orderBook = await market.book();
+  logger.info(
+    `Order book for (${market.base.name}, ${market.quote.name}) retrieved`,
+    { asksCount: orderBook.asks.length, bidsCount: orderBook.bids.length }
+  );
+
+  /* Subscribe to market updates */
+  const subscriptionPromise = market.subscribe((x) => {
+    logger.info(
+      `Received an update for market (${market.base.name}, ${market.quote.name})`,
+      x
+    );
+  });
+
+  await subscriptionPromise;
 };
 
-main();
+main().catch((e) => console.error(e));

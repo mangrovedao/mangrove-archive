@@ -96,7 +96,11 @@ Each package should have its own `package.json` file based on the following temp
                                                 // on the files staged for commit.
     "prepack": "build",                         // Yarn 2 recommends using the `prepack` lifecycle script for building
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx", // Linting of the specified file types.
-    "build": "<build command(s)>",              // This script is called by the `build` script in root
+    "build-this-package": "<build command(s)>", // This script is called by the `build` script in root
+    "build": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
+                                                // Build dependencies and this package in topological order
+    "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
+                                                // Test this package and its dependencies in topological order
     "test": "<test command(s)",                 // This script is called by the `test` script in root
   },
   "lint-staged": {

@@ -14,6 +14,8 @@ contract PriceFed is Defensive, AaveLender {
     address payable _MGV
   ) Defensive(_oracle) AaveLender(_addressesProvider, 0) MangroveOffer(_MGV) {}
 
+  event Slippage(uint indexed offerId, uint old_wants, uint new_wants);
+
   // reposts only if offer was reneged due to a price slippage
   function __postHookReneged__(
     bytes32 message,
@@ -24,6 +26,7 @@ contract PriceFed is Defensive, AaveLender {
     uint price_base = oracle.getPrice(order.base);
 
     uint new_offer_wants = div_(mul_(old_gives, price_base), price_quote);
+    emit Slippage(order.offerId, old_wants, new_offer_wants);
     // since offer is persistent it will auto refill if contract does not have enough provision on the Mangrove
     updateOfferInternal(
       order.base,
