@@ -31,13 +31,13 @@ Mostly, you'll only be working on a single package and don't want to build and t
 To do this, change into the package directory:
 
 ```shell
-cd packages/<somePackage>
+$ cd packages/<somePackage>
 ```
 
 and then run:
 
 ```shell
-yarn build
+$ yarn build
 ```
 
 This will recursively build the package and its dependencies in topological order.
@@ -45,13 +45,13 @@ This will recursively build the package and its dependencies in topological orde
 To build the package *without building its dependencies*, run
 
 ```shell
-yarn build-this-package
+$ yarn build-this-package
 ```
 
 To test the package, run
 
 ```shell
-yarn test
+$ yarn test
 ```
 
 This will run just the tests in the current package.
@@ -59,7 +59,7 @@ This will run just the tests in the current package.
 If you wish to also run the tests of its dependencies, run
 
 ```shell
-yarn test-with-dependencies
+$ yarn test-with-dependencies
 ```
 
 
