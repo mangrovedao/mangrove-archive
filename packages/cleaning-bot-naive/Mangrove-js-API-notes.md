@@ -184,7 +184,7 @@ The cleaning bot should obviously not activate markets, but it requires an activ
 
 I couldn't find any API for activating markets?
 
-> ⚠️ [Resolved: Not for now] Should Mangrove.js have API's for the administrative stuff, like activating markets?
+> ⚠️ [Resolved: Not supported for now] Should Mangrove.js have API's for the administrative stuff, like activating markets?
 
 ## Contract API
 
@@ -204,3 +204,15 @@ Since this stems from Solidity and goes through an auto-generation phase to gene
 ## Subscribing
 
 The `subscribe()` method is undocumented. The callback takes `any` as an argument, so I don't know what to expect?
+
+> ⚠️ Some documentation on how to use `subscribe()` and its options would be good.
+
+It seems one has to filter the feed oneself.
+
+> ⚠️ An option for only subscribing to certain updates (e.g. `OfferWrite` on `asks`) would be nice.
+
+## Cached order book
+
+I'd like to maintain a cached copy of the order book, so I don't have to read the full order book via MgvReader all the time. It seems that mangrove.js maintains such a cache (`semibook`) - could we expose that to the subscribed listeners?
+
+> ⚠️ Exposing the cached order book would be a nice service.
