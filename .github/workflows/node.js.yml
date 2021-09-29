@@ -11,7 +11,7 @@ env:
   working-directory: packages/mangrove-solidity
 
 jobs:
-  # ==== Job: Setup, build and test Mangrove
+  # ==== Job: Build and test Mangrove
   mangrove-solidity:
 
     runs-on: ubuntu-latest
@@ -119,7 +119,7 @@ jobs:
 
   # ==== End job mangrove-solidity ====
 
-  # ==== Job: Mangrove documentation ====
+  # ==== Job: Build Mangrove documentation ====
   mangrove-solidity-doc:
     needs: mangrove-solidity
     
@@ -165,7 +165,7 @@ jobs:
 
   # ==== End job mangrove-solidity-doc ====
 
-  # ==== Job: mangrove-js ====
+  # ==== Job: Build and test mangrove.js ====
   mangrove-js:
     needs: mangrove-solidity
 
@@ -251,7 +251,7 @@ jobs:
 
   # ==== End job: mangrove-js ====
         
-  # ==== Job: cleaning-bot-naive ====
+  # ==== Job: Build and test cleaning-bot-naive ====
   cleaning-bot-naive:
     needs: mangrove-js
 
