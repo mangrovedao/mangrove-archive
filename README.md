@@ -135,7 +135,7 @@ When adding dependencies to another package in the monorepo, you can use `worksp
 "@giry/mangrove-js": "workspace:*"
 ```
 
-Yarn will resolve this dependency amongst the packages in the monorepo and will use a symlink in `node_modules` for the package. You can add dependencies as either run-time dependencies, in `"dependencies"` or as a build-time dependency, in `"devDependencies":`.
+Yarn will resolve this dependency amongst the packages in the monorepo and will use a symlink in `node_modules` for the package. You can add dependencies as either run-time dependencies, in `"dependencies"` or as a build-time dependency, in `"devDependencies"`.
 
 When publishing (using e.g. `yarn pack` or `yarn npm publish`) Yarn will replace the version range with the current version of the dependency.
 
