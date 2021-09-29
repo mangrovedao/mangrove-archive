@@ -1,9 +1,9 @@
 This is the Mangrove monorepo which contains most of the packages developed for the Mangrove.
 
-Some packages (like `mangrove-dApp`) live in their own, separate repos. The rules for which packages go where are not hard and fast; On the contrary, we are experimenting with different structure, in order to figure out what the pros and cons are in our specific circumstances.
+Some other Mangrove packages (like `mangrove-dApp`) live in their own, separate repos. The rules for which packages go where are not hard and fast; On the contrary, we are experimenting with different structure, in order to figure out what the pros and cons are in our specific circumstances.
 
 # Prerequisites
-You must have Yarn 2 installed, as this monorepo uses [Yarn 2 workspaces](https://yarnpkg.com/features/workspaces) to manage dependencies and run commands on multiple packages.
+You must have [Yarn 2](https://yarnpkg.com/) installed, as this monorepo uses [Yarn 2 workspaces](https://yarnpkg.com/features/workspaces) to manage dependencies and run commands on multiple packages.
 
 # Usage
 Whenever you clone or pull, you should run Yarn in the root folder afterwards:
@@ -18,20 +18,19 @@ This will
 - install Husky Git hooks.
 
 
-Then to build all packages, run
+Then, still in the root folder, to build all packages, run
 
 ```shell
 $ yarn build
 ```
-(also in the root folder.)
 
-If you want to run all tests, you can run
+Afterwards, if you want to run all tests for all packages, you can run
 
 ```shell
 $ yarn test
 ```
 
-To run scripts in individual packages, you can either use [`yarn workspace <workspaceName> <commandName>`](https://yarnpkg.com/cli/workspace/#gatsby-focus-wrapper) command *in any folder*, e.g.:
+To run scripts in individual packages, you can either use [`yarn workspace <workspaceName> <commandName>`](https://yarnpkg.com/cli/workspace/#gatsby-focus-wrapper) command *in any folder*, e.g. to run the tests for the `mangrove.js` package:
 
 ```shell
 $ yarn workspace @giry/mangrove-js test
@@ -45,7 +44,7 @@ $ cd packages/mangrove-js; yarn test
 
 Check out the Yarn 2 CLI documentation for more information: https://yarnpkg.com/cli/install .
 
-⚠️ Be aware, that when googling yarn commands, it's often not clear whether the results pertain to Yarn 1 (aka 'Classic') or Yarn 2.
+⚠️ Be aware, that when googling yarn commands, it's often not clear whether the results pertain to Yarn 1 (aka 'Classic') or Yarn 2. Currently (September 2021), most examples and much tool support is implicitly engineered towards Yarn 1.
 
 
 ## Commands on multiple packages at once
@@ -109,17 +108,17 @@ Each package should have its own `package.json` file based on the following temp
                                                 // `prettier` will autoformat the files which we generally prefer.
   },
   "dependencies": {
-    "@giry/mangrove-js": "workspace:*",         // This is an example of a dependency to another package in the monorepo
-                                                // Depending on @giry/mangrove-js is not required :-)
+    "@giry/mangrove-js": "workspace:*",         // This is an example of a run-time dependency to another package in the monorepo
   },
-  "devDependencies": {                          // You probably want the following development dependencies
-                                                // (the version patterns will probably soon be outdated...):
-    "eslint": "^7.32.0",
-    "eslint-config-prettier": "^8.3.0",
+  "devDependencies": {                          
+    "@giry/mangrove-solidity": "workspace:*",   // This is an example of a build-time dependency to another package in the monorepo
+                                                
+    "eslint": "^7.32.0",                        // You probably want the following development dependencies
+    "eslint-config-prettier": "^8.3.0",         // (the version patterns will probably soon be outdated...):
     "eslint-plugin-prettier": "^4.0.0",
     "lint-staged": "^11.1.2",
     "prettier": "2.3.2",
-    "prettier-eslint": "^13.0.0",
+    "prettier-eslint": "^13.0.0" 
   }
 }
 ```
@@ -136,7 +135,7 @@ When adding dependencies to another package in the monorepo, you can use `worksp
 "@giry/mangrove-js": "workspace:*"
 ```
 
-Yarn will resolve this dependency amongst the packages in the monorepo and will use a symlink in `node_modules` for the package.
+Yarn will resolve this dependency amongst the packages in the monorepo and will use a symlink in `node_modules` for the package. You can add dependencies as either run-time dependencies, in `"dependencies"` or as a build-time dependency, in `"devDependencies":`.
 
 When publishing (using e.g. `yarn pack` or `yarn npm publish`) Yarn will replace the version range with the current version of the dependency.
 
