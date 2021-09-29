@@ -45,7 +45,7 @@ $ cd packages/mangrove-js; yarn test
 
 Check out the Yarn 2 CLI documentation for more information: https://yarnpkg.com/cli/install .
 
-*NB:* Be aware, that when googling yarn commands, it's often not clear whether the results pertain to Yarn 1 (aka 'Classic') or Yarn 2.
+⚠️ Be aware, that when googling yarn commands, it's often not clear whether the results pertain to Yarn 1 (aka 'Classic') or Yarn 2.
 
 
 ## Commands on multiple packages at once
