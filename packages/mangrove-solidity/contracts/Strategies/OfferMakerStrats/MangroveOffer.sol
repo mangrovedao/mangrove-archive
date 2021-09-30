@@ -260,14 +260,18 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
 
   ////// Virtual functions to customize trading strategies
 
-  function __put__(IERC20 quote, uint amount) internal virtual {
+  function __put__(IERC20 demandToken, uint amount) internal virtual {
     /// @notice receive payment is just stored at this address
-    quote;
+    demandToken;
     amount;
   }
 
-  function __get__(IERC20 base, uint amount) internal virtual returns (uint) {
-    uint balance = base.balanceOf(address(this));
+  function __get__(IERC20 supplyToken, uint amount)
+    internal
+    virtual
+    returns (uint)
+  {
+    uint balance = supplyToken.balanceOf(address(this));
     return (balance > amount ? 0 : amount - balance);
   }
 
