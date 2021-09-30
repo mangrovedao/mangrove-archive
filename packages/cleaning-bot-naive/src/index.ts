@@ -31,8 +31,8 @@ const main = async () => {
 
   /* Connect to market */
   const market = await mgv.market({
-    base: "TokenA",
-    quote: "TokenB",
+    base: "WETH",
+    quote: "DAI",
   });
 
   marketCleanerMap.set(
