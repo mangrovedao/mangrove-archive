@@ -33,19 +33,19 @@ contract PriceFed is Defensive, AaveLender {
       order.quote,
       new_offer_wants,
       old_gives,
-      MAXUINT,
-      MAXUINT,
-      MAXUINT,
+      OFR_GASREQ,
+      OFR_GASPRICE,
+      0,
       order.offerId
     );
   }
 
-  function __autoRefill__(uint amount) internal override {
-    require(
-      address(this).balance >= amount,
-      "Insufficient fund to provision offer"
-    );
+  function __autoRefill__(uint amount) internal override returns (bool) {
+    if (address(this).balance < amount) {
+      return false;
+    }
     MGV.fund{value: amount}();
+    return true;
   }
 
   function __postHookFallback__(
