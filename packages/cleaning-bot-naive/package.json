@@ -10,7 +10,7 @@
     "precommit": "lint-staged",
     "format": "prettier --write --ignore-unknown .",
     "build-this-package": "yarn run format && tsc && yarn run copy-static-assets",
-    "build": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
+    "build": "yarn install && yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
     "copy-static-assets": "ts-node copyStaticAssets.ts",
     "start": "ts-node src/index.ts",
     "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",

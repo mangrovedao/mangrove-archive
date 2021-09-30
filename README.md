@@ -13,16 +13,24 @@ The following sections describe the most common use cases in this monorepo. For 
 
 
 ## Update monorepo after clone, pull etc.
-Whenever you clone, pull, or similar, you should run Yarn in the root folder afterwards:
+Whenever you clone, pull, or similar, you should run `yarn build` afterwards, either in the root folder or in a package folder:
 
 ```shell
-$ yarn
+# In ./ or in ./packages/<somePackage>
+$ yarn build
 ```
+
 This will 
 
-- install/update all dependencies
-- set up appropriate symlinks inside the `node_modules` folders of packages that depend on other packages in the monorepo
-- install Husky Git hooks.
+1. Run `yarn install` which:
+    - installs/updates all dependencies in the monorepo
+    - set up appropriate symlinks inside the `node_modules` folders of packages that depend on other packages in the monorepo
+    - installs Husky Git hooks.
+2. Build all relevant packages for the folder you're in
+    - If you're in root, all packages are built
+    - If you're in a package folder, all dependencies of the package and the package itself are built (in topological order).
+
+You're clone is now updated and ready to run :-)
 
 
 ## Building and testing a single package
@@ -40,9 +48,9 @@ and then run:
 $ yarn build
 ```
 
-This will recursively build the package and its dependencies in topological order.
+This will update dependencies (using `yarn install`) and recursively build the package and its dependencies in topological order.
 
-To build the package *without building its dependencies*, run
+To build the package *without updating or building its dependencies*, run
 
 ```shell
 $ yarn build-this-package
@@ -134,8 +142,8 @@ Each package should have its own `package.json` file based on the following temp
     "prepack": "build",                         // Yarn 2 recommends using the `prepack` lifecycle script for building
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx", // Linting of the specified file types.
     "build-this-package": "<build command(s)>", // This script is called by the `build` script in root
-    "build": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
-                                                // Build dependencies and this package in topological order
+    "build": "yarn install && yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
+                                                // Update and build dependencies and this package in topological order
     "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
                                                 // Test this package and its dependencies in topological order
     "test": "<test command(s)",                 // This script is called by the `test` script in root
@@ -146,7 +154,7 @@ Each package should have its own `package.json` file based on the following temp
                                                 // `prettier` will autoformat the files which we generally prefer.
   },
   "dependencies": {
-    "@giry/mangrove-js": "workspace:*",         // This is an example of a run-time dependency to another package in the monorepo
+    "@giry/mangrove-js": "workspace:*"          // This is an example of a run-time dependency to another package in the monorepo
   },
   "devDependencies": {                          
     "@giry/mangrove-solidity": "workspace:*",   // This is an example of a build-time dependency to another package in the monorepo

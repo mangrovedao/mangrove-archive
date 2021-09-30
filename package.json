@@ -8,8 +8,7 @@
     },
     "scripts": {
         "postinstall": "husky install",
-        "build": "yarn workspaces foreach --topological-dev run build-this-package",
-        "build:mangrove-js": "yarn workspace @giry/mangrove-js run build",
+        "build": "yarn install && yarn workspaces foreach --topological-dev run build-this-package",
         "test": "yarn workspaces foreach --topological-dev run test"
     },
     "devDependencies": {
