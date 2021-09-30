@@ -11,7 +11,7 @@ You must have [Yarn 2](https://yarnpkg.com/) installed, as this monorepo uses [Y
 # Usage
 The following sections describe the most common use cases in this monorepo. For more details on how to use Yarn and Yarn workspaces, see the [Yarn 2 CLI documentation](https://yarnpkg.com/cli/install).
 
-⚠️ Be aware that when googling Yarn commands, it's often not clear whether the results pertain to Yarn 1 (aka 'Classic') or Yarn 2. Currently (September 2021), most examples and much tool support is implicitly engineered towards Yarn 1.
+⚠️&nbsp; Be aware that when googling Yarn commands, it's often not clear whether the results pertain to Yarn 1 (aka 'Classic') or Yarn 2. Currently (September 2021), most examples and much tool support is implicitly engineered towards Yarn 1.
 
 
 ## Update monorepo after clone, pull etc.
@@ -172,10 +172,6 @@ Each package should have its own `package.json` file based on the following temp
 ```
 
 
-## Lifecycle scripts
-Yarn 2 deliberately only supports a subset of the lifecycle scripts supported by npm. So when adding/modifying lifecycle scripts, you should consult Yarn 2's documentation on the subject: https://yarnpkg.com/advanced/lifecycle-scripts#gatsby-focus-wrapper .
-
-
 ## Dependencies inside monorepo
 When adding dependencies to another package in the monorepo, you can use `workspace:*` as the version range, e.g.:
 
@@ -188,6 +184,31 @@ Yarn will resolve this dependency amongst the packages in the monorepo and will 
 When publishing (using e.g. `yarn pack` or `yarn npm publish`) Yarn will replace the version range with the current version of the dependency.
 
 There are more options and details which are documented in the Yarn 2 documentation of workspaces: https://yarnpkg.com/features/workspaces .
+
+
+## Scripts
+A few things are important to note regarding `package.json` scripts:
+
+### Lifecycle scripts and Yarn 2
+Yarn 2 deliberately only supports a subset of the lifecycle scripts supported by npm. So when adding/modifying lifecycle scripts, you should consult Yarn 2's documentation on the subject: https://yarnpkg.com/advanced/lifecycle-scripts#gatsby-focus-wrapper .
+
+
+### `yarn build` VS `yarn install`
+A single command should be sufficient for getting a usable repo after updating your clone (e.g. `git clone/pull/merge/...`).
+
+By "usable repo" we mean:
+- Internal + external dependencies should be up-to-date
+- The packages relevant to *your* work are built and ready to run.
+
+Often this is achieved by having a `postinstall` script which runs any required build steps.
+
+If we added such a `postinstall` script to all packages, a single `yarn install` in root or package would both update dependencies and build the packages you care about.
+
+However, there's an issue with this approach: `postinstall` will also be run when other people install our packages. Thus they would also be forced to build the package and `devDependencies` would have to be changed into `dependencies`.
+
+This is why we've opted to instead add `yarn install` to the `build` scripts in root and in all packages.
+
+This allows us to run a single `yarn build` in root or package to both update dependencies and build the packages you care about.
 
 
 # Yarn configuration
