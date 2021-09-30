@@ -115,7 +115,7 @@ const main = async () => {
 
   for (const t of tkns) {
     console.log(`${t.name} (${mgv.getDecimals(t.name)} decimals)`);
-    console.log(t.address);
+    console.log(t.contract.address);
     console.log("");
   }
 
