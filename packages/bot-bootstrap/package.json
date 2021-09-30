@@ -5,7 +5,7 @@
     "main": "src/populate-market.js",
     "scripts": {
         "build-this-package": "echo No build here",
-        "build": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
+        "build": "yarn install && yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
         "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
         "test": "echo No tests here"
     },
