@@ -1,6 +1,7 @@
 import { config } from "./util/config";
 import { logger } from "./util/logger";
 import { MarketCleaner } from "./MarketCleaner";
+import { TokenPair } from "./TokenPair";
 import Mangrove from "@giry/mangrove-js";
 
 const main = async () => {
@@ -26,18 +27,12 @@ const main = async () => {
    *     Maybe subscribe first and then just buffer updates until initialization has completed?
    */
 
-  let marketCleanerMap = new Map<
-    { base: String; quote: String },
-    MarketCleaner
-  >();
+  let marketCleanerMap = new Map<TokenPair, MarketCleaner>();
 
   /* Connect to market */
-  const baseTokenName = "TokenA";
-  const quoteTokenName = "TokenB";
-
   const market = await mgv.market({
-    base: baseTokenName,
-    quote: quoteTokenName,
+    base: "TokenA",
+    quote: "TokenB",
   });
 
   marketCleanerMap.set(
