@@ -27,6 +27,14 @@ type OrderResult = { got: Big; gave: Big };
 type bookOpts = { fromId: number; maxOffers: number; chunkSize?: number };
 const bookOptsDefault: bookOpts = { fromId: 0, maxOffers: DEFAULT_MAX_OFFERS };
 type semibookMap = { offers: { [key: string]: Offer }; best: number };
+
+export type subscribeUtils = {
+  book: () => {
+    asks: ReturnType<typeof mapToArray>;
+    bids: ReturnType<typeof mapToArray>;
+  };
+};
+
 export type Offer = {
   id: number;
   prev: number;
@@ -112,115 +120,12 @@ export class Market {
     };
   }
 
-  createBookEventCallback<T>(
-    semibook: semibook,
-    cb: (a: bookSubscriptionCbArgument, utils?: T) => void,
-    utils: T
-  ): (...args: any[]) => any {
-    return (_evt) => {
-      const evt: bookSubscriptionEvent = this.mgv.contract.interface.parseLog(
-        _evt
-      ) as any;
-
-      // declare const evt: EventTypes.OfferWriteEvent;
-      let next;
-      let offer;
-      switch (evt.name) {
-        case "OfferWrite":
-          removeOffer(semibook, evt.args.id.toNumber());
-
-          try {
-            next = BigNumber.from(getNext(semibook, evt.args.prev.toNumber()));
-          } catch (e) {
-            // next was not found, we are outside local OB copy. skip.
-          }
-
-          offer = this.toOfferObject(semibook.ba, {
-            ...evt.args,
-            ...semibook.gasbase,
-            next,
-          });
-
-          insertOffer(semibook, evt.args.id.toNumber(), offer);
-
-          cb(
-            {
-              type: evt.name,
-              offer: offer,
-              ba: semibook.ba,
-            },
-            utils
-          );
-          break;
-
-        case "OfferFail":
-          cb(
-            {
-              type: evt.name,
-              ba: semibook.ba,
-              taker: evt.args.taker,
-              offer: removeOffer(semibook, evt.args.id.toNumber()),
-              takerWants: this.fromUnits(
-                semibook.ba === "asks" ? "base" : "quote",
-                evt.args.takerWants.toString()
-              ),
-              takerGives: this.fromUnits(
-                semibook.ba === "asks" ? "quote" : "base",
-                evt.args.takerGives.toString()
-              ),
-              statusCode: evt.args.statusCode,
-              makerData: evt.args.makerData,
-            },
-            utils
-          );
-          break;
-
-        case "OfferSuccess":
-          cb(
-            {
-              type: evt.name,
-              ba: semibook.ba,
-              taker: evt.args.taker,
-              offer: removeOffer(semibook, evt.args.id.toNumber()),
-              takerWants: this.fromUnits(
-                semibook.ba === "asks" ? "base" : "quote",
-                evt.args.takerWants.toString()
-              ),
-              takerGives: this.fromUnits(
-                semibook.ba === "asks" ? "quote" : "base",
-                evt.args.takerGives.toString()
-              ),
-            },
-            utils
-          );
-          break;
-
-        case "OfferRetract":
-          cb(
-            {
-              type: evt.name,
-              ba: semibook.ba,
-              offer: removeOffer(semibook, evt.args.id.toNumber()),
-            },
-            utils
-          );
-          break;
-
-        case "SetGasbase":
-          semibook.gasbase.overhead_gasbase =
-            evt.args.overhead_gasbase.toNumber();
-          semibook.gasbase.offer_gasbase = evt.args.offer_gasbase.toNumber();
-          break;
-        default:
-          throw Error(`Unknown event ${evt}`);
-      }
-    };
-  }
-
+  /* Returns whether the market currently calls a user-provided callback on book-related events. */
   subscribed(): boolean {
     return Object.keys(this.subscriptions).length > 0;
   }
 
+  /* Stop calling a user-provided function on book-related events. */
   unsubscribe(): void {
     if (!this.subscribed()) throw Error("Not subscribed");
     const { asksFilter, bidsFilter } = this.#bookFilter();
@@ -260,33 +165,67 @@ export class Market {
     return { asksFilter, bidsFilter };
   }
 
-  /* warning! you should await this otherwise you'll *think* you're reading the book when you're not */
+  /**
+   *
+   * Subscribe to orderbook updates.
+   *
+   * `cb` gets called whenever the orderbook is updated.
+   *  Its first argument `event` is a summary of the event. It has the following properties:
+   *
+   * * `type` the type of change. May be: * `"OfferWrite"`: an offer was
+   * inserted  or moved in the book.  * `"OfferFail"`, `"OfferSuccess"`,
+   * `"OfferRetract"`: an offer was removed from the book because it failed,
+   * succeeded, or was canceled.
+   *
+   * * `ba` is either `"bids"` or `"asks"`. The offer concerned by the change is
+   * either an ask (an offer for `base` asking for `quote`) or a bid (`an offer
+   * for `quote` asking for `base`).
+   *
+   * * `offer` is information about the offer, see type `Offer`.
+   *
+   * * `taker`, `takerWants`, `takerGives` (for `"OfferFail"` and
+   * `"OfferSuccess"` only): address of the taker who executed the offer as well
+   * as the volumes that were requested by the taker.
+   *
+   * * `statusCode`, `makerData` : extra data from mangrove and the maker
+   * contract. See the [Mangrove contracts documentation](#TODO) for the list of possible status codes.
+   *
+   * `opts` may specify the maximum of offers to read initially, and the chunk
+   * size used when querying the reader contract (always ran locally).
+   *
+   * The callback `cb` takes a `utils` object as a second argument which has a
+   * `book` function that returns the updated `book`, taking the current event
+   * into account. It is more efficient to call `utils.book()` than to call
+   * `market.book()`.
+   *
+   * @example
+   * ```
+   * const market = await mgv.market({base:"USDC",quote:"DAI"}
+   * await market.subscribe((event,utils) => console.log(event.type, utils.book()))
+   * ```
+   *
+   * @note The subscription is only effective once the void Promise returned by `subscribe` has fulfilled.
+   *
+   * @note Only one subscription may be active at a time.
+   */
   async subscribe(
-    cb: (x: any) => void,
-    opts: bookOpts = bookOptsDefault
+    cb: (event: bookSubscriptionCbArgument, utils?: subscribeUtils) => void,
+    opts: Omit<bookOpts, "fromId"> = bookOptsDefault
   ): Promise<void> {
     if (this.subscribed()) throw Error("Already subscribed.");
-
-    if (opts.fromId !== 0) {
-      throw Error(
-        "Cannot subscribe to order book without reading it from the start."
-      );
-    }
 
     const config = await this.config();
 
     const { asksFilter, bidsFilter } = this.#bookFilter();
 
-    const rawAsks = await this.rawBook(
-      this.base.address,
-      this.quote.address,
-      opts
-    );
-    const rawBids = await this.rawBook(
-      this.quote.address,
-      this.base.address,
-      opts
-    );
+    const rawAsks = await this.rawBook(this.base.address, this.quote.address, {
+      ...opts,
+      ...{ fromId: 0 },
+    });
+    const rawBids = await this.rawBook(this.quote.address, this.base.address, {
+      ...opts,
+      ...{ fromId: 0 },
+    });
 
     const asks = {
       ba: "asks" as const,
@@ -306,7 +245,7 @@ export class Market {
       ...this.rawToMap("bids", ...rawBids),
     };
 
-    const utils = {
+    const utils: subscribeUtils = {
       book: () => {
         return {
           asks: mapToArray(asks.best, asks.offers),
@@ -315,8 +254,8 @@ export class Market {
       },
     };
 
-    const asksCallback = this.createBookEventCallback(asks, cb, utils);
-    const bidsCallback = this.createBookEventCallback(bids, cb, utils);
+    const asksCallback = this.#createBookEventCallback(asks, cb, utils);
+    const bidsCallback = this.#createBookEventCallback(bids, cb, utils);
 
     this.subscriptions = { asksCallback, bidsCallback };
 
@@ -510,6 +449,7 @@ export class Market {
     };
   }
 
+  /* Provides the book with raw BigNumber values */
   async rawBook(
     base_a: string,
     quote_a: string,
@@ -610,7 +550,7 @@ export class Market {
         data.best = ids[0].toNumber();
       }
 
-      data.offers[offerId.toNumber()] = this.toOfferObject(ba, {
+      data.offers[offerId.toNumber()] = this.#toOfferObject(ba, {
         id: ids[index],
         ...offers[index],
         ...details[index],
@@ -635,7 +575,7 @@ export class Market {
     details: BookReturns.details
   ) {
     return ids.map((offerId, index) => {
-      return this.toOfferObject(ba, {
+      return this.#toOfferObject(ba, {
         id: ids[index],
         ...offers[index],
         ...details[index],
@@ -643,7 +583,7 @@ export class Market {
     });
   }
 
-  toOfferObject(ba: "bids" | "asks", raw: OfferData): Offer {
+  #toOfferObject(ba: "bids" | "asks", raw: OfferData): Offer {
     const _gives = this.fromUnits(
       ba === "asks" ? "base" : "quote",
       raw.gives.toString()
@@ -676,6 +616,111 @@ export class Market {
       wants: _wants,
       volume: baseVolume,
       price: quoteVolume.div(baseVolume),
+    };
+  }
+
+  #createBookEventCallback(
+    semibook: semibook,
+    cb: (a: bookSubscriptionCbArgument, utils?: subscribeUtils) => void,
+    utils: subscribeUtils
+  ): (...args: any[]) => any {
+    return (_evt) => {
+      const evt: bookSubscriptionEvent = this.mgv.contract.interface.parseLog(
+        _evt
+      ) as any;
+
+      // declare const evt: EventTypes.OfferWriteEvent;
+      let next;
+      let offer;
+      switch (evt.name) {
+        case "OfferWrite":
+          removeOffer(semibook, evt.args.id.toNumber());
+
+          try {
+            next = BigNumber.from(getNext(semibook, evt.args.prev.toNumber()));
+          } catch (e) {
+            // next was not found, we are outside local OB copy. skip.
+          }
+
+          offer = this.#toOfferObject(semibook.ba, {
+            ...evt.args,
+            ...semibook.gasbase,
+            next,
+          });
+
+          insertOffer(semibook, evt.args.id.toNumber(), offer);
+
+          cb(
+            {
+              type: evt.name,
+              offer: offer,
+              ba: semibook.ba,
+            },
+            utils
+          );
+          break;
+
+        case "OfferFail":
+          cb(
+            {
+              type: evt.name,
+              ba: semibook.ba,
+              taker: evt.args.taker,
+              offer: removeOffer(semibook, evt.args.id.toNumber()),
+              takerWants: this.fromUnits(
+                semibook.ba === "asks" ? "base" : "quote",
+                evt.args.takerWants.toString()
+              ),
+              takerGives: this.fromUnits(
+                semibook.ba === "asks" ? "quote" : "base",
+                evt.args.takerGives.toString()
+              ),
+              statusCode: evt.args.statusCode,
+              makerData: evt.args.makerData,
+            },
+            utils
+          );
+          break;
+
+        case "OfferSuccess":
+          cb(
+            {
+              type: evt.name,
+              ba: semibook.ba,
+              taker: evt.args.taker,
+              offer: removeOffer(semibook, evt.args.id.toNumber()),
+              takerWants: this.fromUnits(
+                semibook.ba === "asks" ? "base" : "quote",
+                evt.args.takerWants.toString()
+              ),
+              takerGives: this.fromUnits(
+                semibook.ba === "asks" ? "quote" : "base",
+                evt.args.takerGives.toString()
+              ),
+            },
+            utils
+          );
+          break;
+
+        case "OfferRetract":
+          cb(
+            {
+              type: evt.name,
+              ba: semibook.ba,
+              offer: removeOffer(semibook, evt.args.id.toNumber()),
+            },
+            utils
+          );
+          break;
+
+        case "SetGasbase":
+          semibook.gasbase.overhead_gasbase =
+            evt.args.overhead_gasbase.toNumber();
+          semibook.gasbase.offer_gasbase = evt.args.offer_gasbase.toNumber();
+          break;
+        default:
+          throw Error(`Unknown event ${evt}`);
+      }
     };
   }
 }

@@ -49,7 +49,6 @@ const main = async () => {
   // const TokenB = await hre.ethers.getContract("TokenB");
 
   const activate = (base, quote) => {
-    console.log("activating", base, quote);
     return mgvContract.activate(base, quote, 0, 10, 80000, 20000);
   };
 
@@ -107,7 +106,25 @@ const main = async () => {
     );
   };
 
-  const retractOffer = (base, quote, offerId) => {
+  const retractOffer = async (base, quote, offerId) => {
+    const estimate = await mgv.contract.estimateGas.retractOffer(
+      base,
+      quote,
+      offerId,
+      true
+    );
+    const newEstimate = Math.round(estimate.toNumber() * 1.3);
+    const resp = await mgv.contract.retractOffer(base, quote, offerId, true, {
+      gasLimit: newEstimate,
+    });
+    const receipt = await resp.wait(0);
+    if (!estimate.eq(receipt.gasUsed)) {
+      console.log(
+        "estimate != used:",
+        estimate.toNumber(),
+        receipt.gasUsed.toNumber()
+      );
+    }
     return mgv.contract.retractOffer(base, quote, offerId, true);
   };
 
