@@ -49,7 +49,6 @@ const main = async () => {
   // const TokenB = await hre.ethers.getContract("TokenB");
 
   const activate = (base, quote) => {
-    console.log("activating", base, quote);
     return mgvContract.activate(base, quote, 0, 10, 80000, 20000);
   };
 
@@ -133,7 +132,7 @@ const main = async () => {
 
   for (const t of tkns) {
     console.log(`${t.name} (${mgv.getDecimals(t.name)} decimals)`);
-    console.log(t.address);
+    console.log(t.contract.address);
     console.log("");
   }
 
