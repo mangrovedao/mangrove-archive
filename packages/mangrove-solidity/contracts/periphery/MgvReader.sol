@@ -30,7 +30,7 @@ contract MgvReader {
   {
     uint[] memory offerIds = new uint[](maxOffers);
     bytes32[] memory offers = new bytes32[](maxOffers);
-    bytes32[] memory offerDetails = new bytes32[](maxOffers);
+    bytes32[] memory details = new bytes32[](maxOffers);
 
     uint currentId;
     if (fromId == 0) {
@@ -44,12 +44,18 @@ contract MgvReader {
     while (currentId != 0 && i < maxOffers) {
       offerIds[i] = currentId;
       offers[i] = mgv.offers(base, quote, currentId);
-      offerDetails[i] = mgv.offerDetails(base, quote, currentId);
+      details[i] = mgv.offerDetails(base, quote, currentId);
       currentId = MP.offer_unpack_next(offers[i]);
       i = i + 1;
     }
 
-    return (currentId, offerIds, offers, offerDetails);
+    assembly {
+      mstore(offerIds, i)
+      mstore(offers, i)
+      mstore(details, i)
+    }
+
+    return (currentId, offerIds, offers, details);
   }
 
   // Returns the orderbook for the base/quote pair in unpacked form. First number is id of next offer (0 if we're done). First array is ids, second is offers (as structs), third is offerDetails (as structs). Array will be of size `maxOffers`. Tail may be 0-filled if order book size is strictly smaller than `maxOffers`.
@@ -70,7 +76,7 @@ contract MgvReader {
   {
     uint[] memory offerIds = new uint[](maxOffers);
     ML.Offer[] memory offers = new ML.Offer[](maxOffers);
-    ML.OfferDetail[] memory offerDetails = new ML.OfferDetail[](maxOffers);
+    ML.OfferDetail[] memory details = new ML.OfferDetail[](maxOffers);
 
     uint currentId;
     if (fromId == 0) {
@@ -82,10 +88,17 @@ contract MgvReader {
     uint i = 0;
     while (currentId != 0 && i < maxOffers) {
       offerIds[i] = currentId;
-      (offers[i], offerDetails[i]) = mgv.offerInfo(base, quote, currentId);
+      (offers[i], details[i]) = mgv.offerInfo(base, quote, currentId);
       currentId = offers[i].next;
       i = i + 1;
     }
-    return (currentId, offerIds, offers, offerDetails);
+
+    assembly {
+      mstore(offerIds, i)
+      mstore(offers, i)
+      mstore(details, i)
+    }
+
+    return (currentId, offerIds, offers, details);
   }
 }
