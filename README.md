@@ -32,7 +32,7 @@ This will
     - If you're in root, all packages are built
     - If you're in a package folder, all dependencies of the package and the package itself are built (in topological order).
 
-You're clone is now updated and ready to run :-)
+Your clone is now updated and ready to run :-)
 
 
 ## Building and testing a single package
