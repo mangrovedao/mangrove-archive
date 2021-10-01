@@ -417,6 +417,40 @@ async function newOffer(mgv, contract, base_sym, quote_sym, wants, gives) {
   return offerId;
 }
 
+async function marketOrder(mgv, base_sym, quote_sym, wants, gives) {
+  const base = await getContract(base_sym);
+  const quote = await getContract(quote_sym);
+
+  const [takerGot, takerGave] = await mgv.callStatic.marketOrder(
+    base.address,
+    quote.address,
+    wants, // wanted base
+    gives, // giving quote
+    true
+  );
+  assert(takerGot.gt(0), "market order failed");
+
+  const moTx = await mgv.marketOrder(
+    base.address,
+    quote.address,
+    wants,
+    gives,
+    true //fillWants
+  );
+  await moTx.wait(0);
+
+  console.log(
+    "\t",
+    chalk.bgGreen.black("ORDER FULFILLED"),
+    "[",
+    chalk.green(formatToken(wants, await getDecimals(base_sym)) + base_sym),
+    " | ",
+    chalk.red(formatToken(gives, await getDecimals(quote_sym)) + quote_sym),
+    "]\n"
+  );
+  return [takerGot, takerGave];
+}
+
 async function snipeSuccess(mgv, base_sym, quote_sym, offerId, wants, gives) {
   const base = await getContract(base_sym);
   const quote = await getContract(quote_sym);
@@ -637,11 +671,7 @@ async function logOrderBook([, offerIds, offers], base, quote) {
   console.log();
 }
 
-async function tokenOf(amount, symbol) {
-  parseToken(amount, await getDecimals(symbol));
-}
-
-exports.tokenOf = tokenOf;
+exports.marketOrder = marketOrder;
 exports.logOrderBook = logOrderBook;
 exports.getDecimals = getDecimals;
 exports.parseToken = parseToken;

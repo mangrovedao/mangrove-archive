@@ -92,6 +92,12 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint gasprice,
     uint pivotId
   ) external onlyAdmin returns (uint offerId) {
+    if (gasreq == uint(-1)) {
+      gasreq = OFR_GASREQ;
+    }
+    if (gasprice == uint(-1)) {
+      gasprice = OFR_GASPRICE;
+    }
     offerId = newOfferInternal(
       supplyToken,
       demandToken,

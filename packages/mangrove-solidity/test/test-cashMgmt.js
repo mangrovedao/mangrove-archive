@@ -9,7 +9,7 @@ const zero = lc.parseToken("0.0", 18);
 
 async function deployStrat(strategy, mgv) {
   const dai = await lc.getContract("DAI");
-  const wEth = await await lc.getContract("WETH");
+  const wEth = await lc.getContract("WETH");
   const comp = await lc.getContract("COMP");
   const aave = await lc.getContract("AAVE"); //returns addressesProvider
   const cwEth = await lc.getContract("CWETH");
@@ -22,6 +22,7 @@ async function deployStrat(strategy, mgv) {
   switch (strategy) {
     case "SimpleCompoundRetail":
     case "AdvancedCompoundRetail":
+    case "SwingingMarketMaker":
       makerContract = await Strat.deploy(
         comp.address,
         mgv.address,
@@ -132,9 +133,67 @@ async function deployStrat(strategy, mgv) {
   return makerContract;
 }
 
+async function execSwingerStrat(makerContract, mgv, lenderName) {
+  const dai = await lc.getContract("DAI");
+  const wEth = await lc.getContract("WETH");
+
+  await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
+  await makerContract.setPrice(
+    dai.address,
+    wEth.address,
+    lc.parseToken("3000.0", 18)
+  );
+  await makerContract.setPrice(
+    wEth.address,
+    dai.address,
+    lc.parseToken("0.000334", 18)
+  );
+
+  await makerContract.startStrat(
+    dai.address,
+    wEth.address,
+    lc.parseToken("1000.0", 18)
+  );
+
+  let book01 = await mgv.reader.book(dai.address, wEth.address, 0, 1);
+  let book10 = await mgv.reader.book(wEth.address, dai.address, 0, 1);
+  await lc.logOrderBook(book01, dai, wEth);
+  await lc.logOrderBook(book10, wEth, dai);
+
+  // market order
+  await lc.marketOrder(
+    mgv,
+    "DAI",
+    "WETH",
+    lc.parseToken("1000", 18),
+    lc.parseToken("0.34", 18)
+  );
+  await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
+
+  book01 = await mgv.reader.book(dai.address, wEth.address, 0, 1);
+  book10 = await mgv.reader.book(wEth.address, dai.address, 0, 1);
+  await lc.logOrderBook(book01, dai, wEth);
+  await lc.logOrderBook(book10, wEth, dai);
+
+  // market order
+  await lc.marketOrder(
+    mgv,
+    "WETH",
+    "DAI",
+    lc.parseToken("0.334", 18),
+    lc.parseToken("1100", 18)
+  );
+  await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
+
+  book01 = await mgv.reader.book(dai.address, wEth.address, 0, 1);
+  book10 = await mgv.reader.book(wEth.address, dai.address, 0, 1);
+  await lc.logOrderBook(book01, dai, wEth);
+  await lc.logOrderBook(book10, wEth, dai);
+}
+
 async function execLenderStrat(makerContract, mgv, lenderName) {
   const dai = await lc.getContract("DAI");
-  const wEth = await await lc.getContract("WETH");
+  const wEth = await lc.getContract("WETH");
 
   await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
 
@@ -179,7 +238,7 @@ async function execLenderStrat(makerContract, mgv, lenderName) {
 
 async function execPriceFedStrat(makerContract, mgv, lenderName) {
   const dai = await lc.getContract("DAI");
-  const wEth = await await lc.getContract("WETH");
+  const wEth = await lc.getContract("WETH");
 
   await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
 
@@ -254,7 +313,7 @@ async function execPriceFedStrat(makerContract, mgv, lenderName) {
 
 async function execTraderStrat(makerContract, mgv, lenderName) {
   const dai = await lc.getContract("DAI");
-  const wEth = await await lc.getContract("WETH");
+  const wEth = await lc.getContract("WETH");
 
   await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
 
@@ -371,7 +430,7 @@ describe("Deploy strategies", function () {
     // 1. mint (1000 dai, 1000 eth, 1000 weth) for testSigner
     // 2. activates (dai,weth) market
     const dai = await lc.getContract("DAI");
-    const wEth = await await lc.getContract("WETH");
+    const wEth = await lc.getContract("WETH");
     [testSigner] = await ethers.getSigners();
 
     await lc.fund([
@@ -399,28 +458,32 @@ describe("Deploy strategies", function () {
     assert(cfg.local.active, "Market is inactive");
   });
 
-  it("Pure lender strat on compound", async function () {
-    const makerContract = await deployStrat("SimpleCompoundRetail", mgv);
-    await execLenderStrat(makerContract, mgv, "compound");
-  });
+  // it("Pure lender strat on compound", async function () {
+  //   const makerContract = await deployStrat("SimpleCompoundRetail", mgv);
+  //   await execLenderStrat(makerContract, mgv, "compound");
+  // });
 
-  it("Lender/borrower strat on compound", async function () {
-    const makerContract = await deployStrat("AdvancedCompoundRetail", mgv);
-    await execTraderStrat(makerContract, mgv, "compound");
-  });
+  // it("Lender/borrower strat on compound", async function () {
+  //   const makerContract = await deployStrat("AdvancedCompoundRetail", mgv);
+  //   await execTraderStrat(makerContract, mgv, "compound");
+  // });
 
-  it("Pure lender strat on aave", async function () {
-    const makerContract = await deployStrat("SimpleAaveRetail", mgv);
-    await execLenderStrat(makerContract, mgv, "aave");
-  });
+  // it("Pure lender strat on aave", async function () {
+  //   const makerContract = await deployStrat("SimpleAaveRetail", mgv);
+  //   await execLenderStrat(makerContract, mgv, "aave");
+  // });
 
-  it("Lender/borrower strat on aave", async function () {
-    const makerContract = await deployStrat("AdvancedAaveRetail", mgv);
-    await execTraderStrat(makerContract, mgv, "aave");
-  });
+  // it("Lender/borrower strat on aave", async function () {
+  //   const makerContract = await deployStrat("AdvancedAaveRetail", mgv);
+  //   await execTraderStrat(makerContract, mgv, "aave");
+  // });
 
+  // it("Price fed strat", async function () {
+  //   const makerContract = await deployStrat("PriceFed", mgv);
+  //   await execPriceFedStrat(makerContract, mgv, "aave");
+  // });
   it("Price fed strat", async function () {
-    const makerContract = await deployStrat("PriceFed", mgv);
-    await execPriceFedStrat(makerContract, mgv, "aave");
+    const makerContract = await deployStrat("SwingingMarketMaker", mgv);
+    await execSwingerStrat(makerContract, mgv, "compound");
   });
 });

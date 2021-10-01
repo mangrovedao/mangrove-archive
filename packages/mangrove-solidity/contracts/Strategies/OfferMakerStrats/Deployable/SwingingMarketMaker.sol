@@ -1,6 +1,7 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "../CompoundTrader.sol";
+import "hardhat/console.sol";
 
 contract SwingingMarketMaker is CompoundTrader {
   event Begin();
@@ -85,7 +86,7 @@ contract SwingingMarketMaker is CompoundTrader {
     return true;
   }
 
-  function __postHookSuccess__(bytes32, MgvLib.SingleOrder memory order)
+  function __postHookSuccess__(bytes32, MgvLib.SingleOrder calldata order)
     internal
     override
   {
@@ -97,7 +98,7 @@ contract SwingingMarketMaker is CompoundTrader {
 
   function __postHookGetFailure__(
     bytes32 missing,
-    MgvLib.SingleOrder memory order
+    MgvLib.SingleOrder calldata order
   ) internal override {
     emit NotEnoughLiquidity(order.base, uint(missing));
   }
@@ -111,5 +112,17 @@ contract SwingingMarketMaker is CompoundTrader {
         return false;
       }
     }
+  }
+
+  function __get__(IERC20 base, uint amount)
+    internal
+    virtual
+    override
+    returns (uint)
+  {
+    // checks whether `this` contract has enough `base` token
+    uint missingGet = MangroveOffer.__get__(base, amount);
+    // if not tries to fetch missing liquidity on compound using `CompoundTrader`'s strat
+    return super.__get__(base, missingGet);
   }
 }
