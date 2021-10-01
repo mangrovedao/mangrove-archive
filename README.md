@@ -1,62 +1,109 @@
+[![CI](https://github.com/giry-dev/mangrove/actions/workflows/node.js.yml/badge.svg)](https://github.com/giry-dev/mangrove/actions/workflows/node.js.yml)
+
 This is the Mangrove monorepo which contains most of the packages developed for the Mangrove.
 
-Some packages (like `mangrove-dApp`) live in their own, separate repos. The rules for which packages go where are not hard and fast; On the contrary, we are experimenting with different structure, in order to figure out what the pros and cons are in our specific circumstances.
+Some other Mangrove packages (like `mangrove-dApp`) live in their own, separate repos. The rules for which packages go where are not hard and fast; On the contrary, we are experimenting with different structures, in order to figure out what the pros and cons are in our specific circumstances.
 
 # Prerequisites
-You must have Yarn 2 installed, as this monorepo uses [Yarn 2 workspaces](https://yarnpkg.com/features/workspaces) to manage dependencies and run commands on multiple packages.
+You must have [Yarn 2](https://yarnpkg.com/) installed, as this monorepo uses [Yarn 2 workspaces](https://yarnpkg.com/features/workspaces) to manage dependencies and run commands on multiple packages.
+
 
 # Usage
-Whenever you clone or pull, you should run Yarn in the root folder afterwards:
+The following sections describe the most common use cases in this monorepo. For more details on how to use Yarn and Yarn workspaces, see the [Yarn 2 CLI documentation](https://yarnpkg.com/cli/install).
+
+⚠️&nbsp; Be aware that when googling Yarn commands, it's often not clear whether the results pertain to Yarn 1 (aka 'Classic') or Yarn 2. Currently (September 2021), most examples and much tool support is implicitly engineered towards Yarn 1.
+
+
+## Update monorepo after clone, pull etc.
+Whenever you clone, pull, or similar, you should run `yarn build` afterwards, either in the root folder or in a package folder:
 
 ```shell
-$ yarn
+# In ./ or in ./packages/<somePackage>
+$ yarn build
 ```
+
 This will 
 
-- install/update all dependencies
-- set up appropriate symlinks inside the `node_modules` folders of packages that depend on other packages in the monorepo
-- install Husky Git hooks.
+1. Run `yarn install` which:
+    - installs/updates all dependencies in the monorepo
+    - set up appropriate symlinks inside the `node_modules` folders of packages that depend on other packages in the monorepo
+    - installs Husky Git hooks.
+2. Build all relevant packages for the folder you're in
+    - If you're in root, all packages are built
+    - If you're in a package folder, all dependencies of the package and the package itself are built (in topological order).
+
+Your clone is now updated and ready to run :-)
 
 
-Then to build all packages, run
+## Building and testing a single package
+Mostly, you'll only be working on a single package and don't want to build and test the whole monorepo. You just want to build enough such that the current package can be build, tested, and run.
+
+To do this, change into the package directory:
+
+```shell
+$ cd packages/<somePackage>
+```
+
+and then run:
 
 ```shell
 $ yarn build
 ```
-(also in the root folder.)
 
-If you want to run all tests, you can run
+This will update dependencies (using `yarn install`) and recursively build the package and its dependencies in topological order.
+
+To build the package *without updating or building its dependencies*, run
+
+```shell
+$ yarn build-this-package
+```
+
+To test the package, run
 
 ```shell
 $ yarn test
 ```
 
-To run scripts in individual packages, you can either use [`yarn workspace <workspaceName> <commandName>`](https://yarnpkg.com/cli/workspace/#gatsby-focus-wrapper) command *in any folder*, e.g.:
+This will run just the tests in the current package.
+
+If you wish to also run the tests of its dependencies, run
+
+```shell
+$ yarn test-with-dependencies
+```
+
+
+## Building and testing all packages
+To build all packages, run the following in the root folder:
+
+```shell
+$ yarn build
+```
+
+Afterwards, if you want to run all tests for all packages, you can run
+
+```shell
+$ yarn test
+```
+
+
+## Running scripts in a named package
+Regardless of the folder you're in, you can always run a script in a particular package by using the [`yarn workspace <packageName> <commandName>`](https://yarnpkg.com/cli/workspace/#gatsby-focus-wrapper) command. E.g. to run the tests for the `mangrove.js` package, run the following in *any folder*:
 
 ```shell
 $ yarn workspace @giry/mangrove-js test
 ```
 
-or you can simply `cd` into the folder and run the command, e.g.:
-
-```shell
-$ cd packages/mangrove-js; yarn test
-```
-
-Check out the Yarn 2 CLI documentation for more information: https://yarnpkg.com/cli/install .
-
-*NB:* Be aware, that when googling yarn commands, it's often not clear whether the results pertain to Yarn 1 (aka 'Classic') or Yarn 2.
-
 
 ## Commands on multiple packages at once
-You can use [`yarn workspaces foreach <commandName`](https://yarnpkg.com/cli/workspaces/foreach) to run a command on all packages.
+You can use [`yarn workspaces foreach <commandName>`](https://yarnpkg.com/cli/workspaces/foreach) to run a command on all packages.
 
 If the command should be in topological order you can add the flag `--topological-dev`, e.g.:
 
 ```shell
-$ yarn workspaces foreach --topological-dev build
+$ yarn workspaces foreach --topological-dev build-this-package
 ```
-This will only run `build` in a package after its dependencies in the monorepo have been built.
+This will only run `build-this-package` in a package after its dependencies in the monorepo have been built.
 
 
 # Structure and contents of this monorepo
@@ -97,8 +144,8 @@ Each package should have its own `package.json` file based on the following temp
     "prepack": "build",                         // Yarn 2 recommends using the `prepack` lifecycle script for building
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx", // Linting of the specified file types.
     "build-this-package": "<build command(s)>", // This script is called by the `build` script in root
-    "build": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
-                                                // Build dependencies and this package in topological order
+    "build": "yarn install && yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
+                                                // Update and build dependencies and this package in topological order
     "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
                                                 // Test this package and its dependencies in topological order
     "test": "<test command(s)",                 // This script is called by the `test` script in root
@@ -109,24 +156,20 @@ Each package should have its own `package.json` file based on the following temp
                                                 // `prettier` will autoformat the files which we generally prefer.
   },
   "dependencies": {
-    "@giry/mangrove-js": "workspace:*",         // This is an example of a dependency to another package in the monorepo
-                                                // Depending on @giry/mangrove-js is not required :-)
+    "@giry/mangrove-js": "workspace:*"          // This is an example of a run-time dependency to another package in the monorepo
   },
-  "devDependencies": {                          // You probably want the following development dependencies
-                                                // (the version patterns will probably soon be outdated...):
-    "eslint": "^7.32.0",
-    "eslint-config-prettier": "^8.3.0",
+  "devDependencies": {                          
+    "@giry/mangrove-solidity": "workspace:*",   // This is an example of a build-time dependency to another package in the monorepo
+                                                
+    "eslint": "^7.32.0",                        // You probably want this and the following development dependencies
+    "eslint-config-prettier": "^8.3.0",         // (the version patterns will probably soon be outdated...):
     "eslint-plugin-prettier": "^4.0.0",
     "lint-staged": "^11.1.2",
     "prettier": "2.3.2",
-    "prettier-eslint": "^13.0.0",
+    "prettier-eslint": "^13.0.0" 
   }
 }
 ```
-
-
-## Lifecycle scripts
-Yarn 2 deliberately only supports a subset of the lifecycle scripts supported by npm. So when adding/modifying lifecycle scripts, you should consult Yarn 2's documentation on the subject: https://yarnpkg.com/advanced/lifecycle-scripts#gatsby-focus-wrapper .
 
 
 ## Dependencies inside monorepo
@@ -136,11 +179,36 @@ When adding dependencies to another package in the monorepo, you can use `worksp
 "@giry/mangrove-js": "workspace:*"
 ```
 
-Yarn will resolve this dependency amongst the packages in the monorepo and will use a symlink in `node_modules` for the package.
+Yarn will resolve this dependency amongst the packages in the monorepo and will use a symlink in `node_modules` for the package. You can add dependencies as either run-time dependencies, in `"dependencies"` or as a build-time dependency, in `"devDependencies"`.
 
 When publishing (using e.g. `yarn pack` or `yarn npm publish`) Yarn will replace the version range with the current version of the dependency.
 
 There are more options and details which are documented in the Yarn 2 documentation of workspaces: https://yarnpkg.com/features/workspaces .
+
+
+## Scripts
+A few things are important to note regarding `package.json` scripts:
+
+### Lifecycle scripts and Yarn 2
+Yarn 2 deliberately only supports a subset of the lifecycle scripts supported by npm. So when adding/modifying lifecycle scripts, you should consult Yarn 2's documentation on the subject: https://yarnpkg.com/advanced/lifecycle-scripts#gatsby-focus-wrapper .
+
+
+### `yarn build` VS `yarn install`
+A single command should be sufficient for getting a usable repo after updating your clone (e.g. `git clone/pull/merge/...`).
+
+By "usable repo" we mean:
+- Internal + external dependencies should be up-to-date
+- The packages relevant to *your* work are built and ready to run.
+
+Often this is achieved by having a `postinstall` script which runs any required build steps.
+
+If we added such a `postinstall` script to all packages, a single `yarn install` in root or package would both update dependencies and build the packages you care about.
+
+However, there's an issue with this approach: `postinstall` will also be run when other people install our packages. Thus they would also be forced to build the package and `devDependencies` would have to be changed into `dependencies`.
+
+This is why we've opted to instead add `yarn install` to the `build` scripts in root and in all packages.
+
+This allows us to run a single `yarn build` in root or package to both update dependencies and build the packages you care about.
 
 
 # Yarn configuration
@@ -165,4 +233,4 @@ Yarn 2 has introduced an alternative to `node_modules` called "Plug'n'Play". Whi
 # Git hooks and Husky
 We use [Husky](https://typicode.github.io/husky/#/) to manage our Git hooks.
 
-The Git hook script are in the `.husky/` folder. 
+The Git hook scripts are in the `.husky/` folder. 

@@ -4,7 +4,7 @@
     "author": "Mangrove DAO",
     "scripts": {
         "build-this-package": "echo No build here",
-        "build": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
+        "build": "yarn install && yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
         "test": "echo No tests here",
         "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
         "start:mm-bot-v0": "ts-node ./packages/mm-bot-v0/src/mm-bot-v0.ts",
