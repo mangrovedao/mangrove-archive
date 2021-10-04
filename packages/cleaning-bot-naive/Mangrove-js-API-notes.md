@@ -216,3 +216,14 @@ It seems one has to filter the feed oneself.
 I'd like to maintain a cached copy of the order book, so I don't have to read the full order book via MgvReader all the time. It seems that mangrove.js maintains such a cache (`semibook`) - could we expose that to the subscribed listeners?
 
 > ⚠️ Exposing the cached order book would be a nice service.
+
+# Big.js vs Ethers.js BigNumber (BN.js)
+
+It seems we're both using Big and BigNumber in the API which is a bit confusing - couldn't we just use Big?
+If not, could we provide some utils for converting/mixing the two types? Or document why that is not necessary?
+
+> ⚠️ Can we use only Big.js in the API?
+
+Since people will probably use Mangrove.js together with ethers.js (which uses BigNumber) we should make it easy to convert between it and Big.js.
+
+> ⚠️ Can we provide utilities for converting from BigNumber to Big? Or document how to do it?

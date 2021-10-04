@@ -16,7 +16,12 @@ const main = async () => {
   //     - Or is there a performance overhead that is problematic here?
   const provider = mgv._provider; // TODO
   // - Load private key and set up wallet for transaction signing
-  const wallet = new Wallet(process.env["PRIVATE_KEY"] ?? "", provider); // TODO
+  if (!process.env["PRIVATE_KEY_MNEMONIC"]) {
+    logger.error("No mnemonic provided in PRIVATE_KEY_MNEMONIC");
+    throw new Error("No mnemonic provided in PRIVATE_KEY_MNEMONIC");
+  }
+  const mnemonic = process.env["PRIVATE_KEY_MNEMONIC"];
+  const wallet = Wallet.fromMnemonic(mnemonic); // TODO
   // - Connect Mangrove.js via the same provider
   // - Load the environment:
   //   - Addresses of relevant tokens and Mangrove on the chosen network
@@ -27,7 +32,7 @@ const main = async () => {
 
   /* Get global config */
   const mgvConfig = await mgv.config();
-  logger.info("Mangrove config retrieved", mgvConfig);
+  logger.info("Mangrove config retrieved", { data: mgvConfig });
 
   /* TODO Should we subscribe to all open markets & monitor which markets exist and open?
    *

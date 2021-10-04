@@ -2,9 +2,13 @@ import { config } from "./config";
 import { createLogger, format, transports } from "winston";
 const consoleLogFormat = format.printf(
   ({ level, message, timestamp, ...metadata }) => {
-    let msg = `${timestamp} [${level}] : ${message}`;
-    if (Object.keys(metadata).length) {
-      msg += ` | ${JSON.stringify(metadata)}`;
+    let msg = `${timestamp} [${level}] `;
+    if (metadata.market) {
+      msg += `[(${metadata.market.base.name}, ${metadata.market.quote.name})] `;
+    }
+    msg += message;
+    if (metadata.data) {
+      msg += ` | ${JSON.stringify(metadata.data)}`;
     }
     return msg;
   }
