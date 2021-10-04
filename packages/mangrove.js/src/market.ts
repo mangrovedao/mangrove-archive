@@ -482,14 +482,7 @@ export class Market {
       maxOffersLeft = maxOffersLeft - chunkSize;
     } while (maxOffersLeft > 0 && nextId !== 0);
 
-    //clean end of arrays (remove null-offers)
-    let lastIndex = offerIds.findIndex((e) => e.eq(0));
-    lastIndex = lastIndex < 0 ? opts.maxOffers : lastIndex;
-    return [
-      offerIds.slice(0, lastIndex),
-      offers.slice(0, lastIndex),
-      details.slice(0, lastIndex),
-    ];
+    return [offerIds, offers, details];
   }
 
   /**
@@ -542,10 +535,6 @@ export class Market {
     };
 
     for (const [index, offerId] of ids.entries()) {
-      if (offerId.eq(0)) {
-        break;
-      }
-
       if (index === 0) {
         data.best = ids[0].toNumber();
       }
