@@ -88,14 +88,14 @@ contract TestMaker is IMaker, Passthrough {
     }
     emit Execute(
       msg.sender,
-      order.base,
-      order.quote,
+      order.outbound_tkn,
+      order.inbound_tkn,
       order.offerId,
       order.wants,
       order.gives
     );
     if (_shouldFail) {
-      IERC20(order.base).approve(address(_mgv), 0);
+      IERC20(order.outbound_tkn).approve(address(_mgv), 0);
       bytes32[1] memory refuse_msg = [bytes32("testMaker/transferFail")];
       assembly {
         return(refuse_msg, 32)

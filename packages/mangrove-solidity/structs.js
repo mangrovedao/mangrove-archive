@@ -1,12 +1,12 @@
 /* # Mangrove Summary
-   * The Mangrove holds offer books for `base`,`quote` pairs.
+   * The Mangrove holds offer books for `outbound_tkn`,`inbound_tkn` pairs.
    * Offers are sorted in a doubly linked list.
-   * Each offer promises `base` and requests `quote`.
+   * Each offer promises `outbound_tkn` and requests `inbound_tkn`.
    * Each offer has an attached `maker` address.
    * In the normal operation mode (called Mangrove for Maker Mangrove), when an offer is executed, we:
-     1. Flashloan some `quote` to the offer's `maker`.
+     1. Flashloan some `inbound_tkn` to the offer's `maker`.
      2. Call an arbitrary `execute` function on that address.
-     3. Transfer back some `base`.
+     3. Transfer back some `outbound_tkn`.
      4. Call back the `maker` so they can update their offers.
    * There is an inverted operation mode (called InvertedMangrove for Taker Mangrove), the flashloan is reversed (from the maker to the taker).
    * Offer are just promises. They can fail.
@@ -53,11 +53,11 @@ const structs = {
     id_field("prev"),
     /* * `next` points to the immediately worse offer. The worst offer's `next` is 0. _24 bits wide_. */
     id_field("next"),
-    /* * `wants` is the amount of `quote` the offer wants in exchange for `gives`.
+    /* * `wants` is the amount of `inbound_tkn` the offer wants in exchange for `gives`.
      _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
   10 billions. */
     fields.wants,
-    /* * `gives` is the amount of `base` the offer will give if successfully executed.
+    /* * `gives` is the amount of `outbound_tkn` the offer will give if successfully executed.
     _96 bits wide_, so assuming the usual 18 decimals, amounts can only go up to
     10 billions. */
     fields.gives,
@@ -116,13 +116,13 @@ They have the following fields: */
   ],
 
   /* ## Configuration and state
-   Configuration information for a `base`,`quote` pair is split between a `global` struct (common to all pairs) and a `local` struct specific to each pair. Configuration fields are:
+   Configuration information for a `outbound_tkn`,`inbound_tkn` pair is split between a `global` struct (common to all pairs) and a `local` struct specific to each pair. Configuration fields are:
 */
   /* ### Global Configuration */
   global: [
     /* * The `monitor` can provide realtime values for `gasprice` and `density` to the dex, and receive liquidity events notifications. */
     { name: "monitor", bits: 160, type: "address" },
-    /* * If `useOracle` is true, the dex will use the monitor address as an oracle for `gasprice` and `density`, for every base/quote pair. */
+    /* * If `useOracle` is true, the dex will use the monitor address as an oracle for `gasprice` and `density`, for every outbound_tkn/inbound_tkn pair. */
     { name: "useOracle", bits: 8, type: "uint" },
     /* * If `notify` is true, the dex will notify the monitor address after every offer execution. */
     { name: "notify", bits: 8, type: "uint" },
@@ -137,15 +137,15 @@ They have the following fields: */
 
   /* ### Local configuration */
   local: [
-    /* * A `base`,`quote` pair is in`active` by default, but may be activated/deactivated by governance. */
+    /* * A `outbound_tkn`,`inbound_tkn` pair is in`active` by default, but may be activated/deactivated by governance. */
     { name: "active", bits: 8, type: "uint" },
-    /* * `fee`, in basis points, of `base` given to the taker. This fee is sent to the Mangrove. Fee is capped to 5%. */
+    /* * `fee`, in basis points, of `outbound_tkn` given to the taker. This fee is sent to the Mangrove. Fee is capped to 5%. */
     { name: "fee", bits: 16, type: "uint" },
-    /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `base` per gas requested. For instance, if `density == 10`, `offer_gasbase == 5000`, `overhead_gasbase == 0`, an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `base`. */
+    /* * `density` is similar to a 'dust' parameter. We prevent spamming of low-volume offers by asking for a minimum 'density' in `outbound_tkn` per gas requested. For instance, if `density == 10`, `offer_gasbase == 5000`, `overhead_gasbase == 0`, an offer with `gasreq == 30000` must promise at least _10 × (30000 + 5) = 305000_ `outbound_tkn`. */
     { name: "density", bits: 32, type: "uint" },
     /* * `overhead_gasbase` is an overapproximation of the gas overhead consumed by making an order (snipes or market order). Local to a pair because the costs of paying the fee depends on the relevant ERC20 contract. */
     fields.overhead_gasbase,
-    /* * `offer_gasbase` is an overapproximation of the gas overhead associated with processing one offer. The Mangrove considers that a failed offer has used at least `offer_gasbase` gas. Local to a pair because the costs of calling `base` and `quote`'s `transferFrom` are part of `offer_gasbase`. Should only be updated when ERC20 contracts change or when opcode prices change. */
+    /* * `offer_gasbase` is an overapproximation of the gas overhead associated with processing one offer. The Mangrove considers that a failed offer has used at least `offer_gasbase` gas. Local to a pair because the costs of calling `outbound_tkn` and `inbound_tkn`'s `transferFrom` are part of `offer_gasbase`. Should only be updated when ERC20 contracts change or when opcode prices change. */
     fields.offer_gasbase,
     /* * If `lock` is true, orders may not be added nor executed.
 

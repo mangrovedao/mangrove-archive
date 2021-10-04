@@ -55,8 +55,8 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
     }
     emit Execute(
       msg.sender,
-      trade.base,
-      trade.quote,
+      trade.outbound_tkn,
+      trade.inbound_tkn,
       trade.offerId,
       trade.wants,
       trade.gives
@@ -72,8 +72,8 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
     require(msg.sender == address(this));
     called = true;
     mgv.updateOffer(
-      order.base,
-      order.quote,
+      order.outbound_tkn,
+      order.inbound_tkn,
       1 ether,
       1 ether,
       gasreq,
@@ -90,8 +90,8 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
     require(msg.sender == address(this));
     called = true;
     mgv.updateOffer(
-      order.base,
-      order.quote,
+      order.outbound_tkn,
+      order.inbound_tkn,
       1 ether,
       1 ether,
       gasreq,
@@ -148,7 +148,12 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
       );
     }
     TestEvents.check(
-      !TestUtils.hasOffer(mgv, order.base, order.quote, order.offerId),
+      !TestUtils.hasOffer(
+        mgv,
+        order.outbound_tkn,
+        order.inbound_tkn,
+        order.offerId
+      ),
       "Offer was not removed after take"
     );
     bool noRevert;
@@ -512,7 +517,10 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
     MgvLib.OrderResult calldata
   ) external {
     called = true;
-    MgvLib.Config memory cfg = mgv.config(order.base, order.quote);
+    MgvLib.Config memory cfg = mgv.config(
+      order.outbound_tkn,
+      order.inbound_tkn
+    );
     TestEvents.eq(cfg.local.best, ofr, "Incorrect best offer id in posthook");
   }
 
@@ -565,7 +573,10 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
     MgvLib.OrderResult calldata
   ) external {
     called = true;
-    MgvLib.Config memory cfg = mgv.config(order.base, order.quote);
+    MgvLib.Config memory cfg = mgv.config(
+      order.outbound_tkn,
+      order.inbound_tkn
+    );
     TestEvents.eq(cfg.local.last, ofr, "Incorrect last offer id in posthook");
   }
 

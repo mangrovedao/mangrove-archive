@@ -16,8 +16,8 @@ contract MgvOfferMaking is MgvHasOffers {
 
   /* The following structs holds offer creation/update parameters in memory. This frees up stack space for local variables. */
   struct OfferPack {
-    address base;
-    address quote;
+    address outbound_tkn;
+    address inbound_tkn;
     uint wants;
     uint gives;
     uint id;
@@ -30,7 +30,7 @@ contract MgvOfferMaking is MgvHasOffers {
     bytes32 oldOffer;
   }
 
-  /* The function `newOffer` is for market makers only; no match with the existing book is done. A maker specifies how much `quote` it `wants` and how much `base` it `gives`.
+  /* The function `newOffer` is for market makers only; no match with the existing book is done. A maker specifies how much `inbound_tkn` it `wants` and how much `outbound_tkn` it `gives`.
 
      It also specify with `gasreq` how much gas should be given when executing their offer.
 
@@ -40,24 +40,24 @@ contract MgvOfferMaking is MgvHasOffers {
 
   Offers are always inserted at the correct place in the book. This requires walking through offers to find the correct insertion point. As in [Oasis](https://github.com/daifoundation/maker-otc/blob/f2060c5fe12fe3da71ac98e8f6acc06bca3698f5/src/matching_market.sol#L493), the maker should find the id of an offer close to its own and provide it as `pivotId`.
 
-  An offer cannot be inserted in a closed market, nor when a reentrancy lock for `base`,`quote` is on.
+  An offer cannot be inserted in a closed market, nor when a reentrancy lock for `outbound_tkn`,`inbound_tkn` is on.
 
-  No more than $2^{24}-1$ offers can ever be created for one `base`,`quote` pair.
+  No more than $2^{24}-1$ offers can ever be created for one `outbound_tkn`,`inbound_tkn` pair.
 
   The actual contents of the function is in `writeOffer`, which is called by both `newOffer` and `updateOffer`.
   */
   function newOffer(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint wants,
     uint gives,
     uint gasreq,
     uint gasprice,
     uint pivotId
   ) external returns (uint) {
-    /* In preparation for calling `writeOffer`, we read the `base`,`quote` pair configuration, check for reentrancy and market liveness, fill the `OfferPack` struct and increment the `base`,`quote` pair's `last`. */
+    /* In preparation for calling `writeOffer`, we read the `outbound_tkn`,`inbound_tkn` pair configuration, check for reentrancy and market liveness, fill the `OfferPack` struct and increment the `outbound_tkn`,`inbound_tkn` pair's `last`. */
     OfferPack memory ofp;
-    (ofp.global, ofp.local) = _config(base, quote);
+    (ofp.global, ofp.local) = _config(outbound_tkn, inbound_tkn);
     unlockedMarketOnly(ofp.local);
     activeMarketOnly(ofp.global, ofp.local);
 
@@ -66,8 +66,8 @@ contract MgvOfferMaking is MgvHasOffers {
 
     ofp.local = $$(set_local("ofp.local", [["last", "ofp.id"]]));
 
-    ofp.base = base;
-    ofp.quote = quote;
+    ofp.outbound_tkn = outbound_tkn;
+    ofp.inbound_tkn = inbound_tkn;
     ofp.wants = wants;
     ofp.gives = gives;
     ofp.gasreq = gasreq;
@@ -78,7 +78,7 @@ contract MgvOfferMaking is MgvHasOffers {
     writeOffer(ofp, false);
 
     /* Since we locally modified a field of the local configuration (`last`), we save the change to storage. Note that `writeOffer` may have further modified the local configuration by updating the current `best` offer. */
-    locals[ofp.base][ofp.quote] = ofp.local;
+    locals[ofp.outbound_tkn][ofp.inbound_tkn] = ofp.local;
     return ofp.id;
   }
 
@@ -92,13 +92,13 @@ contract MgvOfferMaking is MgvHasOffers {
      Gas use is minimal when:
      1. The offer does not move in the book
      2. The offer does not change its `gasreq`
-     3. The (`base`,`quote`)'s `*_gasbase` has not changed since the offer was last written
+     3. The (`outbound_tkn`,`inbound_tkn`)'s `*_gasbase` has not changed since the offer was last written
      4. `gasprice` has not changed since the offer was last written
      5. `gasprice` is greater than the Mangrove's gasprice estimation
   */
   function updateOffer(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint wants,
     uint gives,
     uint gasreq,
@@ -107,25 +107,25 @@ contract MgvOfferMaking is MgvHasOffers {
     uint offerId
   ) external returns (uint) {
     OfferPack memory ofp;
-    (ofp.global, ofp.local) = _config(base, quote);
+    (ofp.global, ofp.local) = _config(outbound_tkn, inbound_tkn);
     unlockedMarketOnly(ofp.local);
     activeMarketOnly(ofp.global, ofp.local);
-    ofp.base = base;
-    ofp.quote = quote;
+    ofp.outbound_tkn = outbound_tkn;
+    ofp.inbound_tkn = inbound_tkn;
     ofp.wants = wants;
     ofp.gives = gives;
     ofp.id = offerId;
     ofp.gasreq = gasreq;
     ofp.gasprice = gasprice;
     ofp.pivotId = pivotId;
-    ofp.oldOffer = offers[base][quote][offerId];
+    ofp.oldOffer = offers[outbound_tkn][inbound_tkn][offerId];
     // Save local config
     bytes32 oldLocal = ofp.local;
     /* The second argument indicates that we are updating an existing offer, not creating a new one. */
     writeOffer(ofp, true);
     /* We saved the current pair's configuration before calling `writeOffer`, since that function may update the current `best` offer. We now check for any change to the configuration and update it if needed. */
     if (oldLocal != ofp.local) {
-      locals[ofp.base][ofp.quote] = ofp.local;
+      locals[ofp.outbound_tkn][ofp.inbound_tkn] = ofp.local;
     }
     return ofp.id;
   }
@@ -134,15 +134,15 @@ contract MgvOfferMaking is MgvHasOffers {
   //+clear+
   /* `retractOffer` takes the offer `offerId` out of the book. However, `deprovision == true` also refunds the provision associated with the offer. */
   function retractOffer(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint offerId,
     bool deprovision
   ) external {
-    (, bytes32 local) = _config(base, quote);
+    (, bytes32 local) = _config(outbound_tkn, inbound_tkn);
     unlockedMarketOnly(local);
-    bytes32 offer = offers[base][quote][offerId];
-    bytes32 offerDetail = offerDetails[base][quote][offerId];
+    bytes32 offer = offers[outbound_tkn][inbound_tkn][offerId];
+    bytes32 offerDetail = offerDetails[outbound_tkn][inbound_tkn][offerId];
     require(
       msg.sender == $$(offerDetail_maker("offerDetail")),
       "mgv/retractOffer/unauthorized"
@@ -152,19 +152,19 @@ contract MgvOfferMaking is MgvHasOffers {
     if (isLive(offer)) {
       bytes32 oldLocal = local;
       local = stitchOffers(
-        base,
-        quote,
+        outbound_tkn,
+        inbound_tkn,
         $$(offer_prev("offer")),
         $$(offer_next("offer")),
         local
       );
       /* If calling `stitchOffers` has changed the current `best` offer, we update the storage. */
       if (oldLocal != local) {
-        locals[base][quote] = local;
+        locals[outbound_tkn][inbound_tkn] = local;
       }
     }
     /* Set `gives` to 0. Moreover, the last argument depends on whether the user wishes to get their provision back (if true, `gasprice` will be set to 0 as well). */
-    dirtyDeleteOffer(base, quote, offerId, offer, deprovision);
+    dirtyDeleteOffer(outbound_tkn, inbound_tkn, offerId, offer, deprovision);
 
     /* If the user wants to get their provision back, we compute its provision from the offer's `gasprice`, `*_gasbase` and `gasreq`. */
     if (deprovision) {
@@ -176,7 +176,7 @@ contract MgvOfferMaking is MgvHasOffers {
       // credit `balanceOf` and log transfer
       creditWei(msg.sender, provision);
     }
-    emit OfferRetract(base, quote, offerId);
+    emit OfferRetract(outbound_tkn, inbound_tkn, offerId);
   }
 
   /* ## Provisioning
@@ -232,7 +232,7 @@ contract MgvOfferMaking is MgvHasOffers {
     );
     /* * Make sure `gives > 0` -- division by 0 would throw in several places otherwise, and `isLive` relies on it. */
     require(ofp.gives > 0, "mgv/writeOffer/gives/tooLow");
-    /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `base` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `offer_gasbase` to `gasreq`. */
+    /* * Make sure that the maker is posting a 'dense enough' offer: the ratio of `outbound_tkn` offered per gas consumed must be high enough. The actual gas cost paid by the taker is overapproximated by adding `offer_gasbase` to `gasreq`. */
     require(
       ofp.gives >=
         (ofp.gasreq + $$(local_offer_gasbase("ofp.local"))) *
@@ -253,8 +253,8 @@ contract MgvOfferMaking is MgvHasOffers {
 
     /* Log the write offer event. */
     emit OfferWrite(
-      ofp.base,
-      ofp.quote,
+      ofp.outbound_tkn,
+      ofp.inbound_tkn,
       msg.sender,
       ofp.wants,
       ofp.gives,
@@ -267,7 +267,9 @@ contract MgvOfferMaking is MgvHasOffers {
     /* We now write the new `offerDetails` and remember the previous provision (0 by default, for new offers) to balance out maker's `balanceOf`. */
     uint oldProvision;
     {
-      bytes32 offerDetail = offerDetails[ofp.base][ofp.quote][ofp.id];
+      bytes32 offerDetail = offerDetails[ofp.outbound_tkn][ofp.inbound_tkn][
+        ofp.id
+      ];
       if (update) {
         require(
           msg.sender == $$(offerDetail_maker("offerDetail")),
@@ -292,7 +294,7 @@ contract MgvOfferMaking is MgvHasOffers {
       ) {
         uint overhead_gasbase = $$(local_overhead_gasbase("ofp.local"));
         uint offer_gasbase = $$(local_offer_gasbase("ofp.local"));
-        offerDetails[ofp.base][ofp.quote][ofp.id] = $$(
+        offerDetails[ofp.outbound_tkn][ofp.inbound_tkn][ofp.id] = $$(
           make_offerDetail(
             [
               ["maker", "uint(msg.sender)"],
@@ -326,8 +328,11 @@ contract MgvOfferMaking is MgvHasOffers {
     if (!isLive(ofp.oldOffer) || prev != $$(offer_prev("ofp.oldOffer"))) {
       /* * If the offer is not the best one, we update its predecessor; otherwise we update the `best` value. */
       if (prev != 0) {
-        offers[ofp.base][ofp.quote][prev] = $$(
-          set_offer("offers[ofp.base][ofp.quote][prev]", [["next", "ofp.id"]])
+        offers[ofp.outbound_tkn][ofp.inbound_tkn][prev] = $$(
+          set_offer(
+            "offers[ofp.outbound_tkn][ofp.inbound_tkn][prev]",
+            [["next", "ofp.id"]]
+          )
         );
       } else {
         ofp.local = $$(set_local("ofp.local", [["best", "ofp.id"]]));
@@ -335,16 +340,19 @@ contract MgvOfferMaking is MgvHasOffers {
 
       /* * If the offer is not the last one, we update its successor. */
       if (next != 0) {
-        offers[ofp.base][ofp.quote][next] = $$(
-          set_offer("offers[ofp.base][ofp.quote][next]", [["prev", "ofp.id"]])
+        offers[ofp.outbound_tkn][ofp.inbound_tkn][next] = $$(
+          set_offer(
+            "offers[ofp.outbound_tkn][ofp.inbound_tkn][next]",
+            [["prev", "ofp.id"]]
+          )
         );
       }
 
       /* * Recall that in this branch, the offer has changed location, or is not currently in the book. If the offer is not new and already in the book, we must remove it from its previous location by stitching its previous prev/next. */
       if (update && isLive(ofp.oldOffer)) {
         ofp.local = stitchOffers(
-          ofp.base,
-          ofp.quote,
+          ofp.outbound_tkn,
+          ofp.inbound_tkn,
           $$(offer_prev("ofp.oldOffer")),
           $$(offer_next("ofp.oldOffer")),
           ofp.local
@@ -364,7 +372,7 @@ contract MgvOfferMaking is MgvHasOffers {
         ]
       )
     );
-    offers[ofp.base][ofp.quote][ofp.id] = ofr;
+    offers[ofp.outbound_tkn][ofp.inbound_tkn][ofp.id] = ofr;
   }
 
   /* ## Find Position */
@@ -382,12 +390,12 @@ contract MgvOfferMaking is MgvHasOffers {
     /* Get `pivot`, optimizing for the case where pivot info is already known */
     bytes32 pivot = pivotId == ofp.id
       ? ofp.oldOffer
-      : offers[ofp.base][ofp.quote][pivotId];
+      : offers[ofp.outbound_tkn][ofp.inbound_tkn][pivotId];
 
     /* In case pivotId is not an active offer, it is unusable (since it is out of the book). We default to the current best offer. If the book is empty pivot will be 0. That is handled through a test in the `better` comparison function. */
     if (!isLive(pivot)) {
       pivotId = $$(local_best("ofp.local"));
-      pivot = offers[ofp.base][ofp.quote][pivotId];
+      pivot = offers[ofp.outbound_tkn][ofp.inbound_tkn][pivotId];
     }
 
     /* * Pivot is better than `wants/gives`, we follow `next`. */
@@ -395,7 +403,7 @@ contract MgvOfferMaking is MgvHasOffers {
       bytes32 pivotNext;
       while ($$(offer_next("pivot")) != 0) {
         uint pivotNextId = $$(offer_next("pivot"));
-        pivotNext = offers[ofp.base][ofp.quote][pivotNextId];
+        pivotNext = offers[ofp.outbound_tkn][ofp.inbound_tkn][pivotNextId];
         if (better(ofp, pivotNext, pivotNextId)) {
           pivotId = pivotNextId;
           pivot = pivotNext;
@@ -411,7 +419,7 @@ contract MgvOfferMaking is MgvHasOffers {
       bytes32 pivotPrev;
       while ($$(offer_prev("pivot")) != 0) {
         uint pivotPrevId = $$(offer_prev("pivot"));
-        pivotPrev = offers[ofp.base][ofp.quote][pivotPrevId];
+        pivotPrev = offers[ofp.outbound_tkn][ofp.inbound_tkn][pivotPrevId];
         if (better(ofp, pivotPrev, pivotPrevId)) {
           break;
         } else {
@@ -451,7 +459,9 @@ contract MgvOfferMaking is MgvHasOffers {
     uint weight2 = wants2 * gives1;
     if (weight1 == weight2) {
       uint gasreq1 = $$(
-        offerDetail_gasreq("offerDetails[ofp.base][ofp.quote][offerId1]")
+        offerDetail_gasreq(
+          "offerDetails[ofp.outbound_tkn][ofp.inbound_tkn][offerId1]"
+        )
       );
       uint gasreq2 = ofp.gasreq;
       return (gives1 * gasreq2 >= gives2 * gasreq1);

@@ -22,15 +22,15 @@ contract PriceFed is Defensive, AaveLender {
     MgvLib.SingleOrder calldata order
   ) internal override {
     (uint old_wants, uint old_gives, , ) = unpackOfferFromOrder(order);
-    uint price_quote = oracle.getPrice(order.quote);
-    uint price_base = oracle.getPrice(order.base);
+    uint price_quote = oracle.getPrice(order.inbound_tkn);
+    uint price_base = oracle.getPrice(order.outbound_tkn);
 
     uint new_offer_wants = div_(mul_(old_gives, price_base), price_quote);
     emit Slippage(order.offerId, old_wants, new_offer_wants);
     // since offer is persistent it will auto refill if contract does not have enough provision on the Mangrove
     updateOfferInternal(
-      order.base,
-      order.quote,
+      order.outbound_tkn,
+      order.inbound_tkn,
       new_offer_wants,
       old_gives,
       MAXUINT,

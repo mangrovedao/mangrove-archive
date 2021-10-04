@@ -96,8 +96,8 @@ contract PermitHelper is IMaker {
   ) external {
     try
       mgv.permit({
-        base: base,
-        quote: quote,
+        outbound_tkn: base,
+        inbound_tkn: quote,
         owner: msg.sender,
         spender: address(this),
         value: value,
@@ -126,8 +126,8 @@ contract PermitHelper is IMaker {
   ) external {
     try
       mgv.permit({
-        base: base,
-        quote: quote,
+        outbound_tkn: base,
+        inbound_tkn: quote,
         owner: msg.sender,
         spender: address(this),
         value: value,

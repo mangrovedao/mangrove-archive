@@ -22,8 +22,8 @@ contract OfferManager is IMaker, ITaker {
   }
 
   //posthook data:
-  //base: orp.base,
-  // quote: orp.quote,
+  //outbound_tkn: orp.outbound_tkn,
+  // inbound_tkn: orp.inbound_tkn,
   // takerWants: takerWants,
   // takerGives: takerGives,
   // offerId: offerId,
@@ -48,11 +48,11 @@ contract OfferManager is IMaker, ITaker {
   ) external override {
     if (msg.sender == address(invMgv)) {
       //should have received funds by now
-      address owner = owners[msg.sender][_order.base][_order.quote][
-        _order.offerId
-      ];
+      address owner = owners[msg.sender][_order.outbound_tkn][
+        _order.inbound_tkn
+      ][_order.offerId];
       require(owner != address(0), "Unkown owner");
-      IERC20(_order.quote).transfer(owner, _order.gives);
+      IERC20(_order.inbound_tkn).transfer(owner, _order.gives);
     }
   }
 
@@ -73,8 +73,8 @@ contract OfferManager is IMaker, ITaker {
   {
     emit Execute(
       msg.sender,
-      _order.base,
-      _order.quote,
+      _order.outbound_tkn,
+      _order.inbound_tkn,
       _order.offerId,
       _order.wants,
       _order.gives
@@ -82,11 +82,11 @@ contract OfferManager is IMaker, ITaker {
     if (msg.sender == address(mgv)) {
       // if residual of offerId is < dust, offer will be removed and dust lost
       // also freeWeil[this] will increase, offerManager may chose to give it back to owner
-      address owner = owners[address(mgv)][_order.base][_order.quote][
-        _order.offerId
-      ];
+      address owner = owners[address(mgv)][_order.outbound_tkn][
+        _order.inbound_tkn
+      ][_order.offerId];
       require(owner != address(0), "Unkown owner");
-      try IERC20(_order.quote).transfer(owner, _order.gives) {
+      try IERC20(_order.inbound_tkn).transfer(owner, _order.gives) {
         ret = "OfferManager/transferOK";
       } catch {
         ret = "transferToOwnerFail";

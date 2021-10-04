@@ -12,10 +12,10 @@ contract MgvReader {
     mgv = Mangrove(payable(_mgv));
   }
 
-  // Returns the orderbook for the base/quote pair in packed form. First number is id of next offer (0 is we're done). First array is ids, second is offers (as bytes32), third is offerDetails (as bytes32). Array will be of size `maxOffers`. Tail may be 0-filled if order book size is strictly smaller than `maxOffers`.
+  // Returns the orderbook for the outbound_tkn/inbound_tkn pair in packed form. First number is id of next offer (0 is we're done). First array is ids, second is offers (as bytes32), third is offerDetails (as bytes32). Array will be of size `maxOffers`. Tail may be 0-filled if order book size is strictly smaller than `maxOffers`.
   function packedBook(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint fromId,
     uint maxOffers
   )
@@ -34,7 +34,7 @@ contract MgvReader {
 
     uint currentId;
     if (fromId == 0) {
-      currentId = MP.local_unpack_best(mgv.locals(base, quote));
+      currentId = MP.local_unpack_best(mgv.locals(outbound_tkn, inbound_tkn));
     } else {
       currentId = fromId;
     }
@@ -43,8 +43,8 @@ contract MgvReader {
 
     while (currentId != 0 && i < maxOffers) {
       offerIds[i] = currentId;
-      offers[i] = mgv.offers(base, quote, currentId);
-      details[i] = mgv.offerDetails(base, quote, currentId);
+      offers[i] = mgv.offers(outbound_tkn, inbound_tkn, currentId);
+      details[i] = mgv.offerDetails(outbound_tkn, inbound_tkn, currentId);
       currentId = MP.offer_unpack_next(offers[i]);
       i = i + 1;
     }
@@ -58,10 +58,10 @@ contract MgvReader {
     return (currentId, offerIds, offers, details);
   }
 
-  // Returns the orderbook for the base/quote pair in unpacked form. First number is id of next offer (0 if we're done). First array is ids, second is offers (as structs), third is offerDetails (as structs). Array will be of size `maxOffers`. Tail may be 0-filled if order book size is strictly smaller than `maxOffers`.
+  // Returns the orderbook for the outbound_tkn/inbound_tkn pair in unpacked form. First number is id of next offer (0 if we're done). First array is ids, second is offers (as structs), third is offerDetails (as structs). Array will be of size `maxOffers`. Tail may be 0-filled if order book size is strictly smaller than `maxOffers`.
   function book(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint fromId,
     uint maxOffers
   )
@@ -80,7 +80,7 @@ contract MgvReader {
 
     uint currentId;
     if (fromId == 0) {
-      currentId = MP.local_unpack_best(mgv.locals(base, quote));
+      currentId = MP.local_unpack_best(mgv.locals(outbound_tkn, inbound_tkn));
     } else {
       currentId = fromId;
     }
@@ -88,7 +88,11 @@ contract MgvReader {
     uint i = 0;
     while (currentId != 0 && i < maxOffers) {
       offerIds[i] = currentId;
-      (offers[i], details[i]) = mgv.offerInfo(base, quote, currentId);
+      (offers[i], details[i]) = mgv.offerInfo(
+        outbound_tkn,
+        inbound_tkn,
+        currentId
+      );
       currentId = offers[i].next;
       i = i + 1;
     }

@@ -30,34 +30,34 @@ contract MgvRoot is HasMgvEvents {
 
   /* Global mgv configuration, encoded in a 256 bits word. The information encoded is detailed in [`structs.js`](#structs.js). */
   bytes32 public global;
-  /* Configuration mapping for each token pair of the form `base => quote => bytes32`. The structure of each `bytes32` value is detailed in [`structs.js`](#structs.js). */
+  /* Configuration mapping for each token pair of the form `outbound_tkn => inbound_tkn => bytes32`. The structure of each `bytes32` value is detailed in [`structs.js`](#structs.js). */
   mapping(address => mapping(address => bytes32)) public locals;
 
   /* # Configuration Reads */
 
   /* Reading the configuration for a pair involves reading the config global to all pairs and the local one. In addition, a global parameter (`gasprice`) and a local one (`density`) may be read from the oracle. */
-  function _config(address base, address quote)
+  function _config(address outbound_tkn, address inbound_tkn)
     public
     view
     returns (bytes32 _global, bytes32 _local)
   {
     _global = global;
-    _local = locals[base][quote];
+    _local = locals[outbound_tkn][inbound_tkn];
     if ($$(global_useOracle("_global")) > 0) {
       (uint gasprice, uint density) = IMgvMonitor($$(global_monitor("_global")))
-        .read(base, quote);
+        .read(outbound_tkn, inbound_tkn);
       _global = $$(set_global("_global", [["gasprice", "gasprice"]]));
       _local = $$(set_local("_local", [["density", "density"]]));
     }
   }
 
   /* Returns the configuration in an ABI-compatible struct. Should not be called internally, would be a huge memory copying waste. Use `config` instead. */
-  function config(address base, address quote)
+  function config(address outbound_tkn, address inbound_tkn)
     external
     view
     returns (ML.Config memory ret)
   {
-    (bytes32 _global, bytes32 _local) = _config(base, quote);
+    (bytes32 _global, bytes32 _local) = _config(outbound_tkn, inbound_tkn);
     ret.global = ML.Global({
       monitor: $$(global_monitor("_global")),
       useOracle: $$(global_useOracle("_global")) > 0,
@@ -79,8 +79,12 @@ contract MgvRoot is HasMgvEvents {
   }
 
   /* Convenience function to check whether given pair is locked */
-  function locked(address base, address quote) external view returns (bool) {
-    bytes32 local = locals[base][quote];
+  function locked(address outbound_tkn, address inbound_tkn)
+    external
+    view
+    returns (bool)
+  {
+    bytes32 local = locals[outbound_tkn][inbound_tkn];
     return $$(local_lock("local")) > 0;
   }
 
@@ -105,7 +109,7 @@ contract MgvRoot is HasMgvEvents {
     require($$(global_dead("_global")) == 0, "mgv/dead");
   }
 
-  /* When the Mangrove is deployed, all pairs are inactive by default (since `locals[base][quote]` is 0 by default). Offers on inactive pairs cannot be taken or created. They can be updated and retracted. */
+  /* When the Mangrove is deployed, all pairs are inactive by default (since `locals[outbound_tkn][inbound_tkn]` is 0 by default). Offers on inactive pairs cannot be taken or created. They can be updated and retracted. */
   function activeMarketOnly(bytes32 _global, bytes32 _local) internal pure {
     liveMgvOnly(_global);
     require($$(local_active("_local")) > 0, "mgv/inactive");

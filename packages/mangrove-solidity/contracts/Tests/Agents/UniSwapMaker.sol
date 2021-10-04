@@ -59,8 +59,8 @@ contract UniSwapMaker is IMaker {
     require(msg.sender == address(mgv), "Illegal call");
     emit Execute(
       msg.sender,
-      order.base, // takerWants
-      order.quote, // takerGives
+      order.outbound_tkn, // takerWants
+      order.inbound_tkn, // takerGives
       order.offerId,
       order.wants,
       order.gives
@@ -94,14 +94,14 @@ contract UniSwapMaker is IMaker {
   {
     // taker has paid maker
     require(msg.sender == address(mgv)); // may not be necessary
-    uint pool0 = TestToken(order.quote).balanceOf(address(this)); // pool0 has increased
-    uint pool1 = TestToken(order.base).balanceOf(address(this)); // pool1 has decreased
+    uint pool0 = TestToken(order.inbound_tkn).balanceOf(address(this)); // pool0 has increased
+    uint pool1 = TestToken(order.outbound_tkn).balanceOf(address(this)); // pool1 has decreased
 
     (uint newWants, uint newGives) = newPrice(pool0, pool1);
 
     mgv.updateOffer(
-      order.base,
-      order.quote,
+      order.outbound_tkn,
+      order.inbound_tkn,
       newWants,
       newGives,
       gasreq,
@@ -117,8 +117,8 @@ contract UniSwapMaker is IMaker {
 
     (newWants, newGives) = newPrice(pool1, pool0);
     mgv.updateOffer(
-      order.quote,
-      order.base,
+      order.inbound_tkn,
+      order.outbound_tkn,
       newWants,
       newGives,
       gasreq,
