@@ -57,8 +57,8 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     uint density = mgv.config(base, quote).local.density;
     uint offer_gasbase = mgv.config(base, quote).local.offer_gasbase;
     dummy = mgv.newOffer({
-      base: base,
-      quote: quote,
+      outbound_tkn: base,
+      inbound_tkn: quote,
       wants: 1,
       gives: density * (offer_gasbase + 100000),
       gasreq: 100000,

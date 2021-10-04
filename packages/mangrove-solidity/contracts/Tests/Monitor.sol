@@ -141,8 +141,8 @@ contract Monitor_Test {
     _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
 
     ML.SingleOrder memory order = ML.SingleOrder({
-      base: base,
-      quote: quote,
+      outbound_tkn: base,
+      inbound_tkn: quote,
       offerId: ofrId,
       offer: offer,
       wants: 0.04 ether,
@@ -177,8 +177,8 @@ contract Monitor_Test {
     _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
 
     ML.SingleOrder memory order = ML.SingleOrder({
-      base: base,
-      quote: quote,
+      outbound_tkn: base,
+      inbound_tkn: quote,
       offerId: ofrId,
       offer: offer,
       wants: 0.04 ether,

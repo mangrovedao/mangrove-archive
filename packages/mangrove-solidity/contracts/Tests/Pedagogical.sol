@@ -160,8 +160,8 @@ contract Pedagogical_Test {
 
     // activate a market where taker buys BAT using DAI
     mgv.activate({
-      base: address(bat),
-      quote: address(dai),
+      outbound_tkn: address(bat),
+      inbound_tkn: address(dai),
       fee: 0,
       density: 100,
       overhead_gasbase: 30_000,
@@ -251,7 +251,7 @@ contract Maker_basic is TestMaker {
     returns (bytes32 ret)
   {
     ret; // silence compiler warning
-    //ERC20(order.base).transfer({recipient: taker, amount: order.wants});
+    //ERC20(order.outbound_tkn).transfer({recipient: taker, amount: order.wants});
   }
 }
 
@@ -283,10 +283,10 @@ contract Maker_compound is TestMaker {
     returns (bytes32 ret)
   {
     ret; // silence compiler warning
-    _compound.mint({token: ERC20BL(order.quote), amount: order.gives});
+    _compound.mint({token: ERC20BL(order.inbound_tkn), amount: order.gives});
     Display.log("Maker redeems from Compound.");
     _compound.redeem({
-      token: ERC20BL(order.base),
+      token: ERC20BL(order.outbound_tkn),
       amount: order.wants,
       to: address(this)
     });
@@ -311,7 +311,7 @@ contract Maker_callback is TestMaker {
     returns (bytes32 ret)
   {
     ret; // silence compiler warning
-    //ERC20BL(order.base).transfer({recipient: taker, amount: order.wants});
+    //ERC20BL(order.outbound_tkn).transfer({recipient: taker, amount: order.wants});
   }
 
   uint volume = 1 ether;
@@ -325,8 +325,8 @@ contract Maker_callback is TestMaker {
     Display.log("Reinserting offer...");
     AbstractMangrove mgv = AbstractMangrove(msg.sender);
     mgv.updateOffer({
-      base: order.base,
-      quote: order.quote,
+      outbound_tkn: order.outbound_tkn,
+      inbound_tkn: order.inbound_tkn,
       wants: (price * volume) / 100,
       gives: volume,
       gasreq: gasreq,

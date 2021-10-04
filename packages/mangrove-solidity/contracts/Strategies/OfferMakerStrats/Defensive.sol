@@ -31,11 +31,11 @@ abstract contract Defensive is MangroveOffer {
   {
     uint offer_gives_REF = mul_(
       order.wants,
-      oracle.getPrice(order.base) // returns price in oracle base units (i.e ETH or USD)
+      oracle.getPrice(order.outbound_tkn) // returns price in oracle base units (i.e ETH or USD)
     );
     uint offer_wants_REF = mul_(
       order.gives,
-      oracle.getPrice(order.quote) // returns price is oracle base units (i.e ETH or USD)
+      oracle.getPrice(order.inbound_tkn) // returns price is oracle base units (i.e ETH or USD)
     );
     // abort trade if price data is not available
     if (offer_gives_REF == 0 || offer_wants_REF == 0) {

@@ -144,8 +144,8 @@ contract MM1 {
       Display.log(sell_wants, sell_gives);
 
       mgv.updateOffer({
-        base: a_addr,
-        quote: b_addr,
+        outbound_tkn: a_addr,
+        inbound_tkn: b_addr,
         wants: sell_wants,
         gives: sell_gives,
         gasreq: 400_000,
@@ -168,8 +168,8 @@ contract MM1 {
     uint buy_wants = (buy_wants_n / buy_wants_d) << SHF;
 
     mgv.updateOffer({
-      base: b_addr,
-      quote: a_addr,
+      outbound_tkn: b_addr,
+      inbound_tkn: a_addr,
       wants: buy_wants,
       gives: buy_gives,
       gasreq: 400_000,

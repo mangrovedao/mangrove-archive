@@ -9,12 +9,12 @@ import {MgvOfferTaking} from "./MgvOfferTaking.sol";
 abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
   /* Takers may provide allowances on specific pairs, so other addresses can execute orders in their name. Allowance may be set using the usual `approve` function, or through an [EIP712](https://eips.ethereum.org/EIPS/eip-712) `permit`.
 
-  The mapping is `base => quote => owner => spender => allowance` */
+  The mapping is `outbound_tkn => inbound_tkn => owner => spender => allowance` */
   mapping(address => mapping(address => mapping(address => mapping(address => uint))))
     public allowances;
   /* Storing nonces avoids replay attacks. */
   mapping(address => uint) public nonces;
-  /* Following [EIP712](https://eips.ethereum.org/EIPS/eip-712), structured data signing has `keccak256("Permit(address base,address quote,address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")` in its prefix. */
+  /* Following [EIP712](https://eips.ethereum.org/EIPS/eip-712), structured data signing has `keccak256("Permit(address outbound_tkn,address inbound_tkn,address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")` in its prefix. */
   bytes32 public constant PERMIT_TYPEHASH =
     0xb7bf278e51ab1478b10530c0300f911d9ed3562fc93ab5e6593368fe23c077a2;
   /* Initialized in the constructor, `DOMAIN_SEPARATOR` avoids cross-application permit reuse. */
@@ -43,8 +43,8 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
 
   /* Adapted from [Uniswap v2 contract](https://github.com/Uniswap/uniswap-v2-core/blob/55ae25109b7918565867e5c39f1e84b7edd19b2a/contracts/UniswapV2ERC20.sol#L81) */
   function permit(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     address owner,
     address spender,
     uint value,
@@ -63,8 +63,8 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
         keccak256(
           abi.encode(
             PERMIT_TYPEHASH,
-            base,
-            quote,
+            outbound_tkn,
+            inbound_tkn,
             owner,
             spender,
             value,
@@ -80,45 +80,45 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
       "mgv/permit/invalidSignature"
     );
 
-    allowances[base][quote][owner][spender] = value;
-    emit Approval(base, quote, owner, spender, value);
+    allowances[outbound_tkn][inbound_tkn][owner][spender] = value;
+    emit Approval(outbound_tkn, inbound_tkn, owner, spender, value);
   }
 
   function approve(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     address spender,
     uint value
   ) external returns (bool) {
-    allowances[base][quote][msg.sender][spender] = value;
-    emit Approval(base, quote, msg.sender, spender, value);
+    allowances[outbound_tkn][inbound_tkn][msg.sender][spender] = value;
+    emit Approval(outbound_tkn, inbound_tkn, msg.sender, spender, value);
     return true;
   }
 
-  /* The delegate version of `marketOrder` is `marketOrderFor`, which takes a `taker` address as additional argument. Penalties incurred by failed offers will still be sent to `msg.sender`, but exchanged amounts will be transferred from and to the `taker`. If the `msg.sender`'s allowance for the given `base`,`quote` and `taker` are strictly less than the total amount eventually spent by `taker`, the call will fail. */
+  /* The delegate version of `marketOrder` is `marketOrderFor`, which takes a `taker` address as additional argument. Penalties incurred by failed offers will still be sent to `msg.sender`, but exchanged amounts will be transferred from and to the `taker`. If the `msg.sender`'s allowance for the given `outbound_tkn`,`inbound_tkn` and `taker` are strictly less than the total amount eventually spent by `taker`, the call will fail. */
   function marketOrderFor(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint takerWants,
     uint takerGives,
     bool fillWants,
     address taker
   ) external returns (uint takerGot, uint takerGave) {
     (takerGot, takerGave) = generalMarketOrder(
-      base,
-      quote,
+      outbound_tkn,
+      inbound_tkn,
       takerWants,
       takerGives,
       fillWants,
       taker
     );
-    deductSenderAllowance(base, quote, taker, takerGave);
+    deductSenderAllowance(outbound_tkn, inbound_tkn, taker, takerGave);
   }
 
   /* The delegate version of `snipe` is `snipeFor`, which takes a `taker` address as additional argument. */
   function snipeFor(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint offerId,
     uint takerWants,
     uint takerGives,
@@ -134,8 +134,8 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
     )
   {
     (success, takerGot, takerGave) = generalSnipe(
-      base,
-      quote,
+      outbound_tkn,
+      inbound_tkn,
       offerId,
       takerWants,
       takerGives,
@@ -143,13 +143,13 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
       fillWants,
       taker
     );
-    deductSenderAllowance(base, quote, taker, takerGave);
+    deductSenderAllowance(outbound_tkn, inbound_tkn, taker, takerGave);
   }
 
   /* The delegate version of `snipes` is `snipesFor`, which takes a `taker` address as additional argument. */
   function snipesFor(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint[4][] memory targets,
     bool fillWants,
     address taker
@@ -162,26 +162,26 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
     )
   {
     (successes, takerGot, takerGave) = generalSnipes(
-      base,
-      quote,
+      outbound_tkn,
+      inbound_tkn,
       targets,
       fillWants,
       taker
     );
-    deductSenderAllowance(base, quote, taker, takerGave);
+    deductSenderAllowance(outbound_tkn, inbound_tkn, taker, takerGave);
   }
 
   /* # Misc. low-level functions */
 
   /* Used by `*For` functions, its both checks that `msg.sender` was allowed to use the taker's funds, and decreases the former's allowance. */
   function deductSenderAllowance(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     address owner,
     uint amount
   ) internal {
-    uint allowed = allowances[base][quote][owner][msg.sender];
+    uint allowed = allowances[outbound_tkn][inbound_tkn][owner][msg.sender];
     require(allowed >= amount, "mgv/lowAllowance");
-    allowances[base][quote][owner][msg.sender] = allowed - amount;
+    allowances[outbound_tkn][inbound_tkn][owner][msg.sender] = allowed - amount;
   }
 }

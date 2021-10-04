@@ -104,13 +104,13 @@ contract MakerOperations_Test is IMaker, HasMgvEvents {
       "calldata length in execute is incorrect"
     );
 
-    TestEvents.eq(order.base, _base, "wrong base");
-    TestEvents.eq(order.quote, _quote, "wrong quote");
+    TestEvents.eq(order.outbound_tkn, _base, "wrong base");
+    TestEvents.eq(order.inbound_tkn, _quote, "wrong quote");
     TestEvents.eq(order.wants, 0.05 ether, "wrong takerWants");
     TestEvents.eq(order.gives, 0.05 ether, "wrong takerGives");
     TestEvents.eq(
       MgvPack.offer_unpack_gasprice(order.offer),
-      mgv.config(order.base, order.quote).global.gasprice,
+      mgv.config(order.outbound_tkn, order.inbound_tkn).global.gasprice,
       "wrong gasprice"
     );
     TestEvents.eq(

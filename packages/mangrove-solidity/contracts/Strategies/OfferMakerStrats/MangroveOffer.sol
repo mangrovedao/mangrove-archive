@@ -214,8 +214,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     if (!proceed) {
       returnData({drop: true, postHook_switch: PostHook.Reneged});
     }
-    __put__(IERC20(order.quote), order.gives); // specifies what to do with the received funds
-    uint missingGet = __get__(IERC20(order.base), order.wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
+    __put__(IERC20(order.inbound_tkn), order.gives); // specifies what to do with the received funds
+    uint missingGet = __get__(IERC20(order.outbound_tkn), order.wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
     if (missingGet > 0) {
       return
         returnData({
