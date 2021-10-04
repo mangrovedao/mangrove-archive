@@ -90,8 +90,8 @@ contract SwingingMarketMaker is CompoundTrader {
     internal
     override
   {
-    address token0 = order.base;
-    address token1 = order.quote;
+    address token0 = order.outbound_tkn;
+    address token1 = order.inbound_tkn;
     uint offer_received = MgvPack.offer_unpack_wants(order.offer); // in token1
     repostOffer({token0: token1, token1: token0, received: offer_received});
   }
@@ -100,7 +100,7 @@ contract SwingingMarketMaker is CompoundTrader {
     bytes32 missing,
     MgvLib.SingleOrder calldata order
   ) internal override {
-    emit NotEnoughLiquidity(order.base, uint(missing));
+    emit NotEnoughLiquidity(order.outbound_tkn, uint(missing));
   }
 
   function __autoRefill__(uint amount) internal override returns (bool) {

@@ -26,13 +26,13 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -113,13 +113,13 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -168,13 +168,13 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -193,13 +193,13 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -236,13 +236,13 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -297,13 +297,13 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -334,13 +334,13 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -365,13 +365,13 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -390,13 +390,13 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -415,13 +415,13 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -440,13 +440,13 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -586,12 +586,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       }
     ],
@@ -615,12 +615,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -687,12 +687,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -740,12 +740,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       }
     ],
@@ -764,12 +764,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       }
     ],
@@ -874,12 +874,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       }
     ],
@@ -894,12 +894,12 @@
         "components": [
           {
             "internalType": "address",
-            "name": "base",
+            "name": "outbound_tkn",
             "type": "address"
           },
           {
             "internalType": "address",
-            "name": "quote",
+            "name": "inbound_tkn",
             "type": "address"
           },
           {
@@ -1059,12 +1059,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       }
     ],
@@ -1083,12 +1083,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -1127,12 +1127,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -1176,12 +1176,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -1273,12 +1273,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -1385,12 +1385,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -1438,12 +1438,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -1466,12 +1466,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -1489,12 +1489,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -1512,12 +1512,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -1631,12 +1631,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -1690,12 +1690,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -1754,12 +1754,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -1798,12 +1798,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
@@ -1847,12 +1847,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
