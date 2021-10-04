@@ -54,17 +54,55 @@ const main = async () => {
 
   let marketCleanerMap = new Map<TokenPair, MarketCleaner>();
 
-  /* Connect to market */
-  // TODO Move token names to configuration
-  const market = await mgv.market({
-    base: "WETH",
-    quote: "DAI",
-  });
-
-  marketCleanerMap.set(
-    { base: market.base.name, quote: market.quote.name },
-    new MarketCleaner(market, provider, wallet)
+  provider.on("block", async (blockNumber) =>
+    exitIfMangroveIsKilled(mgv, blockNumber)
   );
+
+  /* Connect to market */
+  if (!config.has("markets")) {
+    logger.error("No markets have been configured");
+    return;
+  }
+  const marketsConfig = config.get("markets");
+  if (!Array.isArray(marketsConfig)) {
+    logger.error(
+      "Markets configuration is malformed: Should be an array of pairs",
+      { data: JSON.stringify(marketsConfig) }
+    );
+    return;
+  }
+  for (const marketConfig of marketsConfig) {
+    if (!Array.isArray(marketConfig) || marketConfig.length != 2) {
+      logger.error("Market configuration is malformed: Should be a pair", {
+        data: JSON.stringify(marketConfig),
+      });
+      return;
+    }
+    const [token1, token2] = marketConfig;
+    const market = await mgv.market({
+      base: token1,
+      quote: token2,
+    });
+
+    marketCleanerMap.set(
+      { base: market.base.name, quote: market.quote.name },
+      new MarketCleaner(market, provider, wallet)
+    );
+  }
 };
+
+async function exitIfMangroveIsKilled(
+  mgv: Mangrove,
+  blockNumber: number
+): Promise<void> {
+  const globalConfig = await mgv.config();
+  // FIXME maybe this should be a property/method on Mangrove.
+  if (globalConfig.dead) {
+    logger.warn(
+      `Mangrove is dead at block number ${blockNumber}. Stopping the bot`
+    );
+    process.exit();
+  }
+}
 
 main().catch((e) => logger.error(e));

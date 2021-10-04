@@ -33,10 +33,8 @@ export class MarketCleaner {
     const globalConfig = await this.#market.mgv.config();
     // FIXME maybe this should be a property/method on Mangrove.
     if (globalConfig.dead) {
-      // TODO Move these warnings to top-level to avoid spamming the log with the same message from all cleaners.
-      // TODO Maybe just stop the bot altogether, if the Mangrove dies? It cannot be resurrected...
-      logger.warn(
-        `Mangrove is dead at block number ${blockNumber}. Stopping MarketCleaner for market`,
+      logger.debug(
+        `Mangrove is dead at block number ${blockNumber}. Stopping MarketCleaner`,
         { market: this.#market }
       );
       this.#provider.off("block", this._clean);
@@ -116,10 +114,10 @@ export class MarketCleaner {
     //  - The cleaner contract would have to implement the sourcing strategy
     //  - We don't want to do that in V0.
     for (const { offer, estimates } of profitableCleaningOffers) {
-      logger.info(
-        `Cleaning offer ${offer.id} on ${ba} side of market. Expected profit: ${estimates.netResult} wei`,
-        { market: this.#market }
-      );
+      logger.info(`Cleaning offer ${offer.id} on ${ba} side of market`, {
+        market: this.#market,
+        data: estimates,
+      });
       await this._snipeOffer(offer, ba);
     }
   }
