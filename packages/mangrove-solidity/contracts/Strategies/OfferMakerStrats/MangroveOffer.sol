@@ -64,8 +64,11 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   }
 
   /// trader needs to approve the Mangrove to perform base token transfer at the end of the `makerExecute` function
-  function approveMangrove(address base_erc20, uint amount) external onlyAdmin {
-    require(IERC20(base_erc20).approve(address(MGV), amount));
+  function approveMangrove(address supplyToken, uint amount)
+    external
+    onlyAdmin
+  {
+    require(IERC20(supplyToken).approve(address(MGV), amount));
   }
 
   /// @notice withdraws ETH from the bounty vault of the Mangrove.
@@ -80,145 +83,122 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     (noRevert, ) = receiver.call{value: amount}("");
   }
 
-  function fillOptionalArgs(
+  function newOffer(
+    address supplyToken,
+    address demandToken,
+    uint wants, //wants
+    uint gives, //gives
     uint gasreq,
     uint gasprice,
     uint pivotId
-  )
-    private
-    view
-    returns (
-      uint,
-      uint,
-      uint
-    )
-  {
-    if (gasreq == MAXUINT) {
+  ) external onlyAdmin returns (uint offerId) {
+    if (gasreq == uint(-1)) {
       gasreq = OFR_GASREQ;
     }
-    if (gasprice == MAXUINT) {
+    if (gasprice == uint(-1)) {
       gasprice = OFR_GASPRICE;
     }
-    if (pivotId == MAXUINT) {
-      pivotId = 0;
-    }
-    return (gasreq, gasprice, pivotId);
-  }
-
-  function newOffer(
-    address base,
-    address quote,
-    uint quote_for_promised_base, //wants
-    uint promised_base, //gives
-    uint OPTgasreq,
-    uint OPTgasprice,
-    uint OPTpivotId
-  ) external onlyAdmin returns (uint offerId) {
     offerId = newOfferInternal(
-      base,
-      quote,
-      quote_for_promised_base, //wants
-      promised_base, //gives
-      OPTgasreq,
-      OPTgasprice,
-      OPTpivotId
+      supplyToken,
+      demandToken,
+      wants, //wants
+      gives, //gives
+      gasreq,
+      gasprice,
+      pivotId
     );
   }
 
   function newOfferInternal(
-    address base,
-    address quote,
-    uint quote_for_promised_base, //wants
-    uint promised_base, //gives
-    uint OPTgasreq,
-    uint OPTgasprice,
-    uint OPTpivotId
+    address supplyToken,
+    address demandToken,
+    uint wants, //wants
+    uint gives, //gives
+    uint gasreq,
+    uint gasprice,
+    uint pivotId
   ) internal returns (uint offerId) {
-    (OPTgasreq, OPTgasprice, OPTpivotId) = fillOptionalArgs(
-      OPTgasreq,
-      OPTgasprice,
-      OPTpivotId
+    offerId = MGV.newOffer(
+      supplyToken,
+      demandToken,
+      wants,
+      gives,
+      gasreq,
+      gasprice,
+      pivotId
     );
-    offerId = MGV.newOffer({
-      base: base,
-      quote: quote,
-      gives: promised_base,
-      wants: quote_for_promised_base,
-      gasreq: OPTgasreq,
-      gasprice: OPTgasprice,
-      pivotId: OPTpivotId
-    });
   }
 
   // updates an existing offer on the Mangrove. `update` will throw if offer density is no longer compatible with Mangrove's parameters
   // `update` will also throw if user provision no longer covers for the offer's bounty. `__autoRefill__` function may be use to provide a method to refill automatically.
   function updateOffer(
-    address base_erc20,
-    address quote_erc20,
+    address supplyToken,
+    address demandToken,
     uint wants,
     uint gives,
-    uint OPTgasreq,
-    uint OPTgasprice,
-    uint OPTpivotId,
+    uint gasreq,
+    uint gasprice,
+    uint pivotId,
     uint offerId
   ) external onlyAdmin {
     updateOfferInternal(
-      base_erc20,
-      quote_erc20,
+      supplyToken,
+      demandToken,
       wants,
       gives,
-      OPTgasreq,
-      OPTgasprice,
-      OPTpivotId,
+      gasreq,
+      gasprice,
+      pivotId,
       offerId
     );
   }
 
   function updateOfferInternal(
-    address base_erc20,
-    address quote_erc20,
+    address supplyToken,
+    address demandToken,
     uint wants,
     uint gives,
-    uint OPTgasreq,
-    uint OPTgasprice,
-    uint OPTpivotId,
+    uint gasreq,
+    uint gasprice,
+    uint pivotId,
     uint offerId
   ) internal {
-    (OPTgasreq, OPTgasprice, OPTpivotId) = fillOptionalArgs(
-      OPTgasreq,
-      OPTgasprice,
-      OPTpivotId
-    );
-    uint bounty = getProvision(
-      base_erc20,
-      quote_erc20,
-      MGV,
-      OPTgasreq,
-      OPTgasprice
-    );
+    uint bounty = getProvision(supplyToken, demandToken, MGV, gasreq, gasprice);
     uint provision = MGV.balanceOf(address(this));
-    if (bounty > provision) {
-      __autoRefill__(bounty - provision);
+    bool provisioned = bounty <= provision;
+    if (!provisioned) {
+      provisioned = __autoRefill__(bounty - provision);
     }
-    MGV.updateOffer(
-      base_erc20,
-      quote_erc20,
-      wants,
-      gives,
-      OPTgasreq,
-      OPTgasprice,
-      OPTpivotId,
-      offerId
-    );
+    if (provisioned) {
+      MGV.updateOffer(
+        supplyToken,
+        demandToken,
+        wants,
+        gives,
+        gasreq,
+        gasprice,
+        pivotId,
+        offerId
+      );
+    }
   }
 
-  function retract(
-    address base_erc20,
-    address quote_erc20,
+  function retractOffer(
+    address supplyToken,
+    address demandToken,
     uint offerId,
     bool deprovision
-  ) public onlyAdmin {
-    MGV.retractOffer(base_erc20, quote_erc20, offerId, deprovision);
+  ) external onlyAdmin {
+    retractOfferInternal(supplyToken, demandToken, offerId, deprovision);
+  }
+
+  function retractOfferInternal(
+    address supplyToken,
+    address demandToken,
+    uint offerId,
+    bool deprovision
+  ) internal {
+    MGV.retractOffer(supplyToken, demandToken, offerId, deprovision);
   }
 
   /////// Mandatory callback functions
@@ -237,7 +217,12 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     __put__(IERC20(order.quote), order.gives); // specifies what to do with the received funds
     uint missingGet = __get__(IERC20(order.base), order.wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
     if (missingGet > 0) {
-      return returnData({drop: true, postHook_switch: PostHook.Get});
+      return
+        returnData({
+          drop: true,
+          postHook_switch: PostHook.Get,
+          message: bytes32(missingGet)
+        });
     }
     return returnData({drop: false, postHook_switch: PostHook.Success});
   }
@@ -281,14 +266,18 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
 
   ////// Virtual functions to customize trading strategies
 
-  function __put__(IERC20 quote, uint amount) internal virtual {
+  function __put__(IERC20 demandToken, uint amount) internal virtual {
     /// @notice receive payment is just stored at this address
-    quote;
+    demandToken;
     amount;
   }
 
-  function __get__(IERC20 base, uint amount) internal virtual returns (uint) {
-    uint balance = base.balanceOf(address(this));
+  function __get__(IERC20 supplyToken, uint amount)
+    internal
+    virtual
+    returns (uint)
+  {
+    uint balance = supplyToken.balanceOf(address(this));
     return (balance > amount ? 0 : amount - balance);
   }
 
@@ -301,8 +290,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     return true;
   }
 
-  function __autoRefill__(uint amount) internal virtual {
-    require(amount == 0, "Insufficient provision");
+  function __autoRefill__(uint amount) internal virtual returns (bool) {
+    return (amount == 0);
   }
 
   function __postHookSuccess__(
