@@ -1,5 +1,6 @@
 import { config } from "./util/config";
 import { logger } from "./util/logger";
+import { ErrorWithData } from "./util/errorWithData";
 import { MarketCleaner } from "./MarketCleaner";
 import { TokenPair } from "./mangrove-js-type-aliases";
 // TODO Figure out where mangrove.js get its addresses from and make it configurable
@@ -8,7 +9,7 @@ import { Provider } from "@ethersproject/providers";
 import { Wallet } from "@ethersproject/wallet";
 
 const main = async () => {
-  const mgv = await Mangrove.connect(config.get("jsonRpcUrl"));
+  const mgv = await Mangrove.connect(config.get<string>("jsonRpcUrl"));
   // TODO Initialize:
   // - Connect to Ethereum endpoint (Infura, Alchemy, ...)
   //   - Perhaps the safest is to connect to multiple by using the Ethers Default Provider?
@@ -34,47 +35,18 @@ const main = async () => {
   const mgvConfig = await mgv.config();
   logger.info("Mangrove config retrieved", { data: mgvConfig });
 
-  /* TODO Should we subscribe to all open markets & monitor which markets exist and open?
-   *
-   * Pseudo code:
-   *
-   *   const markets = mgv.getMarkets();
-   *   let marketCleanerMap = new Map<{base: String, quote: String}, MarketCleaner>();
-   *   for (const market in markets) {
-   *     marketCleanerMap.set({base: "A", quote: "B"}, MarketCleaner.create(market));
-   *   }
-   *
-   *   mgv.subscribeToMarketUpdates((marketUpdate) => { add/remove market cleaner });
-   *
-   * NB: How do we ensure that we don't miss any market changes between initialization and subscription?
-   *     Maybe subscribe first and then just buffer updates until initialization has completed?
-   *
-   * Or maybe it's better to just configure the markets we're interested in?
-   */
-
   let marketCleanerMap = new Map<TokenPair, MarketCleaner>();
 
   provider.on("block", async (blockNumber) =>
     exitIfMangroveIsKilled(mgv, blockNumber)
   );
 
-  /* Connect to market */
-  if (!config.has("markets")) {
-    logger.error("No markets have been configured");
-    return;
-  }
-  const marketsConfig = config.get("markets");
-  if (!Array.isArray(marketsConfig)) {
-    logger.error(
-      "Markets configuration is malformed: Should be an array of pairs",
-      { data: JSON.stringify(marketsConfig) }
-    );
-    return;
-  }
-  for (const marketConfig of marketsConfig) {
+  /* Connect to markets */
+  const marketConfigs = getMarketConfigsOrThrow();
+  for (const marketConfig of marketConfigs) {
     if (!Array.isArray(marketConfig) || marketConfig.length != 2) {
       logger.error("Market configuration is malformed: Should be a pair", {
-        data: JSON.stringify(marketConfig),
+        data: marketConfig,
       });
       return;
     }
@@ -105,4 +77,21 @@ async function exitIfMangroveIsKilled(
   }
 }
 
-main().catch((e) => logger.error(e));
+function getMarketConfigsOrThrow() {
+  if (!config.has("markets")) {
+    throw new Error("No markets have been configured");
+  }
+  const marketsConfig = config.get<Array<Array<string>>>("markets");
+  if (!Array.isArray(marketsConfig)) {
+    throw new ErrorWithData(
+      "Markets configuration is malformed, should be an array of pairs",
+      marketsConfig
+    );
+  }
+  return marketsConfig;
+}
+
+main().catch((e) => {
+  logger.exception(e);
+  process.exit(1); // TODO Add exit codes
+});
