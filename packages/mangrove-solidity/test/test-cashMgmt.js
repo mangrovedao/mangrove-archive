@@ -1,7 +1,7 @@
 const { assert } = require("chai");
 //const { parseToken } = require("ethers/lib/utils");
 const { ethers, env, mangrove, network } = require("hardhat");
-const lc = require("../lib/libcommon.js");
+const lc = require("lib/libcommon.js");
 const chalk = require("chalk");
 
 let testSigner = null;

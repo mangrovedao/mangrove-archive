@@ -1,18 +1,12 @@
-// TODO Find better way of doing this...
-function requireFromProjectRoot(pathFromProjectRoot) {
-  return require("./../" + pathFromProjectRoot);
-}
-
 // Add Ethereum environment to Hardhat Runtime Environment
 extendEnvironment((hre) => {
   const config = require("config"); // Reads configuration files from /config/
   let mainnetConfig;
   let networkName;
 
-  
   if (config.has("ethereum")) {
     mainnetConfig = config.get("ethereum");
-    networkName = "ethereum"; 
+    networkName = "ethereum";
   }
 
   if (config.has("polygon")) {
@@ -21,19 +15,19 @@ extendEnvironment((hre) => {
   }
 
   // if no network name is defined, then one is not forking mainnet
-  if(!networkName){
+  if (!networkName) {
     return;
   }
 
   if (!hre.env) {
     hre.env = {};
   }
-    
+
   hre.env.mainnet = {
     network: mainnetConfig.network,
-    name : networkName,
+    name: networkName,
     tokens: getConfiguredTokens(mainnetConfig, networkName, hre),
-    abis: getExtraAbis(mainnetConfig)
+    abis: getExtraAbis(mainnetConfig),
   };
 
   const childChainManager = getChildChainManager(mainnetConfig);
@@ -59,16 +53,20 @@ extendEnvironment((hre) => {
 
 function getChildChainManager(mainnetConfig) {
   if (mainnetConfig.has("ChildChainManager")) {
-    return (mainnetConfig.get("ChildChainManager"));
+    return mainnetConfig.get("ChildChainManager");
   }
 }
 
 function getExtraAbis(mainnetConfig) {
   let abis = {};
   if (mainnetConfig.has("extraAbis")) {
-    abis.stableDebtToken = requireFromProjectRoot(mainnetConfig.get("extraAbis.stableDebtToken"));
-    abis.variableDebtToken = requireFromProjectRoot(mainnetConfig.get("extraAbis.variableDebtToken"));
-    abis.aToken = requireFromProjectRoot(mainnetConfig.get("extraAbis.aToken"));
+    abis.stableDebtToken = require(mainnetConfig.get(
+      "extraAbis.stableDebtToken"
+    ));
+    abis.variableDebtToken = require(mainnetConfig.get(
+      "extraAbis.variableDebtToken"
+    ));
+    abis.aToken = require(mainnetConfig.get("extraAbis.aToken"));
   }
   return abis;
 }
@@ -76,8 +74,10 @@ function getExtraAbis(mainnetConfig) {
 function getConfiguredTokens(mainnetConfig, networkName, hre) {
   let tokens = {};
 
-  if(!mainnetConfig) {
-    console.warn (`No network configuration was loaded, cannot fork ${networkName} mainnet`);
+  if (!mainnetConfig) {
+    console.warn(
+      `No network configuration was loaded, cannot fork ${networkName} mainnet`
+    );
     return;
   }
 
@@ -152,7 +152,13 @@ function getConfiguredTokens(mainnetConfig, networkName, hre) {
   return tokens;
 }
 
-function tryCreateTokenContract(tokenName, configName, mainnetConfig, networkName, hre) {
+function tryCreateTokenContract(
+  tokenName,
+  configName,
+  mainnetConfig,
+  networkName,
+  hre
+) {
   if (!mainnetConfig.has(`tokens.${configName}`)) {
     return null;
   }
@@ -171,11 +177,9 @@ function tryCreateTokenContract(tokenName, configName, mainnetConfig, networkNam
     );
     return null;
   }
-  const tokenAbi = requireFromProjectRoot(tokenConfig.get("abi"));
+  const tokenAbi = require(tokenConfig.get("abi"));
 
-  console.info(
-    `$ token ${tokenName} ABI loaded. Address: ${tokenAddress}`
-  );
+  console.info(`$ token ${tokenName} ABI loaded. Address: ${tokenAddress}`);
   return new hre.ethers.Contract(tokenAddress, tokenAbi, hre.ethers.provider);
 }
 
@@ -198,7 +202,7 @@ function tryGetCompoundEnv(mainnetConfig, networkName, hre) {
     );
     return null;
   }
-  const compAbi = requireFromProjectRoot(compoundConfig.get("unitrollerAbi"));
+  const compAbi = require(compoundConfig.get("unitrollerAbi"));
 
   let compound = {
     contract: new hre.ethers.Contract(
@@ -220,17 +224,18 @@ function tryGetCompoundEnv(mainnetConfig, networkName, hre) {
 }
 
 function tryGetAaveEnv(mainnetConfig, networkName, hre) {
-  
   if (!mainnetConfig.has("aave")) {
     return null;
   }
   const aaveConfig = mainnetConfig.get("aave");
 
-  if (!(
-    aaveConfig.has("addressesProviderAddress")
-    && aaveConfig.has("addressesProviderAbi")
-    && aaveConfig.has("lendingPoolAddress")
-    && aaveConfig.has("lendingPoolAbi"))
+  if (
+    !(
+      aaveConfig.has("addressesProviderAddress") &&
+      aaveConfig.has("addressesProviderAbi") &&
+      aaveConfig.has("lendingPoolAddress") &&
+      aaveConfig.has("lendingPoolAbi")
+    )
   ) {
     console.warn(
       "Config for Aave does not specify an address provider. Aave is therefore not available."
@@ -239,9 +244,9 @@ function tryGetAaveEnv(mainnetConfig, networkName, hre) {
   }
 
   const addressesProviderAddress = aaveConfig.get("addressesProviderAddress");
-  const lendingPoolAddress = aaveConfig.get("lendingPoolAddress")
-  const addressesProviderAbi = requireFromProjectRoot(aaveConfig.get("addressesProviderAbi"));
-  const lendingPoolAbi = requireFromProjectRoot(aaveConfig.get("lendingPoolAbi"));
+  const lendingPoolAddress = aaveConfig.get("lendingPoolAddress");
+  const addressesProviderAbi = require(aaveConfig.get("addressesProviderAbi"));
+  const lendingPoolAbi = require(aaveConfig.get("lendingPoolAbi"));
 
   const addressesProvider = new hre.ethers.Contract(
     addressesProviderAddress,
@@ -257,7 +262,7 @@ function tryGetAaveEnv(mainnetConfig, networkName, hre) {
 
   const aave = {
     lendingPool: lendingPool,
-    addressesProvider: addressesProvider
+    addressesProvider: addressesProvider,
   };
 
   console.info(
@@ -285,7 +290,7 @@ function tryGetMangroveEnv(mainnetConfig, networkName, hre) {
     console.info(
       "Config for Mangrove specifies an abi file, so using that instead of artifacts in .build"
     );
-    const mangroveAbi = requireFromProjectRoot(mangroveConfig.get("abi"));
+    const mangroveAbi = require(mangroveConfig.get("abi"));
     mangrove.contract = new hre.ethers.Contract(
       mangroveAddress,
       mangroveAbi,
@@ -303,6 +308,8 @@ function tryGetMangroveEnv(mainnetConfig, networkName, hre) {
 
   // TODO Can we read the active markets?
 
-  console.info(`${networkName} Mangrove ABI loaded. Address: ${mangroveAddress}`);
+  console.info(
+    `${networkName} Mangrove ABI loaded. Address: ${mangroveAddress}`
+  );
   return mangrove;
 }

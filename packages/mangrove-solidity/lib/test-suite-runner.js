@@ -14,6 +14,7 @@ const argv = require("yargs")
 
 process.env["NODE_APP_INSTANCE"] = argv.network + "-mainnet";
 
+require("app-module-path").addPath(__dirname + "/..");
 require("dotenv-flow").config({ silent: true }); // Reads local environment variables from .env*.local files
 if (!process.env["NODE_CONFIG_DIR"]) {
   process.env["NODE_CONFIG_DIR"] = __dirname + "/../config/";
