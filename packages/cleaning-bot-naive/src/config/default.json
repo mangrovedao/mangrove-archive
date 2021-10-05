@@ -2,5 +2,6 @@
   "jsonRpcUrl": "http://localhost:8546",
   "log": {
     "logLevel": "info"
-  }
+  },
+  "markets": [["WETH", "DAI"]]
 }

@@ -11,8 +11,8 @@
     "format": "prettier --write --ignore-unknown .",
     "build-this-package": "yarn run format && tsc && yarn run copy-static-assets",
     "build": "yarn install && yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
-    "copy-static-assets": "ts-node copyStaticAssets.ts",
-    "start": "ts-node src/index.ts",
+    "copy-static-assets": "ts-node build-scripts/copyStaticAssets.ts",
+    "start": "node dist/nodejs/index.js",
     "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
     "test": "mocha --reporter mocha-multi-reporters --reporter-option configFile=mocha-multi-reporters.json -r ts-node/register 'test/**/*.ts'",
     "local-hardhat:start-node": "hardhat node --no-deploy",
@@ -25,8 +25,11 @@
   ],
   "dependencies": {
     "@giry/mangrove-js": "workspace:*",
+    "@types/big.js": "^6.1.2",
+    "big.js": "^6.1.1",
     "config": "^3.3.6",
     "dotenv-flow": "^3.2.0",
+    "ethers": "^5.4.7",
     "winston": "^3.3.3"
   },
   "devDependencies": {
@@ -47,7 +50,6 @@
     "eslint": "^7.32.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-prettier": "^4.0.0",
-    "ethers": "^5.4.7",
     "hardhat": "^2.6.4",
     "hardhat-deploy": "^0.9.1",
     "husky": "^7.0.2",
