@@ -50,7 +50,6 @@ export class MarketCleaner {
       return;
     }
 
-    // TODO Add market label to logger
     logger.info(`Cleaning market at block number ${blockNumber}`, {
       market: this.#market,
     });

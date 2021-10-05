@@ -93,5 +93,6 @@ function getMarketConfigsOrThrow() {
 
 main().catch((e) => {
   logger.exception(e);
+  // TODO Consider doing graceful shutdown of market cleaners
   process.exit(1); // TODO Add exit codes
 });
