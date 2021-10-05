@@ -10,6 +10,8 @@ import {
 } from "./types";
 import { Mangrove } from "./mangrove";
 
+let canConstructMarket = false;
+
 const DEFAULT_MAX_OFFERS = 50;
 
 /* Note on big.js:
@@ -23,17 +25,11 @@ Big.DP = 20; // precision when dividing
 Big.RM = Big.roundHalfUp; // round to nearest
 
 //TODO Implement maxVolume?:number
+//TODO smeibookMap is an actual map
 type OrderResult = { got: Big; gave: Big };
 type bookOpts = { fromId: number; maxOffers: number; chunkSize?: number };
 const bookOptsDefault: bookOpts = { fromId: 0, maxOffers: DEFAULT_MAX_OFFERS };
 type semibookMap = { offers: { [key: string]: Offer }; best: number };
-
-export type subscribeUtils = {
-  book: () => {
-    asks: ReturnType<typeof mapToArray>;
-    bids: ReturnType<typeof mapToArray>;
-  };
-};
 
 export type Offer = {
   id: number;
@@ -84,6 +80,10 @@ type bookSubscriptionCbArgument = { ba: "asks" | "bids"; offer: Offer } & (
   | { type: "OfferRetract" }
 );
 
+type marketCallback = (event: bookSubscriptionCbArgument) => void;
+//TODO  give correct type
+type subscriptionParam = any;
+
 /**
  * The Market class focuses on a mangrove market.
  * Onchain, market are implemented as two orderbooks,
@@ -98,8 +98,17 @@ export class Market {
   mgv: Mangrove;
   base: { name: string; address: string };
   quote: { name: string; address: string };
+  #subscriptions: Map<marketCallback, subscriptionParam>;
+  #lowLevelCallbacks: null | { asksCallback?: any; bidsCallback?: any };
+  _book: { asks: Offer[]; bids: Offer[] };
 
-  subscriptions: { asksCallback?: any; bidsCallback?: any };
+  static async connect(params: { mgv: Mangrove; base: string; quote: string }) {
+    canConstructMarket = true;
+    const market = new Market(params);
+    canConstructMarket = false;
+    await market.#initialize();
+    return market;
+  }
 
   /**
    * Initialize a new `params.base`:`params.quote` market.
@@ -107,7 +116,13 @@ export class Market {
    * `params.mgv` will be used as mangrove instance
    */
   constructor(params: { mgv: Mangrove; base: string; quote: string }) {
-    this.subscriptions = {};
+    if (!canConstructMarket) {
+      throw Error(
+        "Mangrove Market must be initialized async with Market.connect (constructors cannot be async)"
+      );
+    }
+    this.#subscriptions = new Map();
+    this.#lowLevelCallbacks = null;
     this.mgv = params.mgv;
     this.base = {
       name: params.base,
@@ -118,18 +133,19 @@ export class Market {
       name: params.quote,
       address: this.mgv.getAddress(params.quote),
     };
-  }
-
-  /* Returns whether the market currently calls a user-provided callback on book-related events. */
-  subscribed(): boolean {
-    return Object.keys(this.subscriptions).length > 0;
+    this._book = { asks: [], bids: [] };
   }
 
   /* Stop calling a user-provided function on book-related events. */
-  unsubscribe(): void {
-    if (!this.subscribed()) throw Error("Not subscribed");
+  unsubscribe(cb): void {
+    this.#subscriptions.delete(cb);
+  }
+
+  /* Stop listening to events from mangrove */
+  disconnect(): void {
     const { asksFilter, bidsFilter } = this.#bookFilter();
-    const { asksCallback, bidsCallback } = this.subscriptions;
+    if (!this.#lowLevelCallbacks) return;
+    const { asksCallback, bidsCallback } = this.#lowLevelCallbacks;
     this.mgv.contract.off(asksFilter, asksCallback);
     this.mgv.contract.off(bidsFilter, bidsCallback);
   }
@@ -209,10 +225,28 @@ export class Market {
    * @note Only one subscription may be active at a time.
    */
   async subscribe(
-    cb: (event: bookSubscriptionCbArgument, utils?: subscribeUtils) => void,
+    cb: (event: bookSubscriptionCbArgument) => void,
     opts: Omit<bookOpts, "fromId"> = bookOptsDefault
   ): Promise<void> {
-    if (this.subscribed()) throw Error("Already subscribed.");
+    this.#subscriptions.set(cb, { type: "multiple" });
+  }
+
+  /**
+   *  Returns a promise which is fulfilled after execution of the callback.
+   */
+  async once<T>(
+    cb: (event: bookSubscriptionCbArgument) => T,
+    opts: Omit<bookOpts, "fromId"> = bookOptsDefault
+  ): Promise<T> {
+    return new Promise((ok, ko) => {
+      this.#subscriptions.set(cb, { type: "once", ok, ko });
+    });
+  }
+
+  async #initialize(
+    opts: Omit<bookOpts, "fromId"> = bookOptsDefault
+  ): Promise<void> {
+    if (this.#lowLevelCallbacks) throw Error("Already initialized.");
 
     const config = await this.config();
 
@@ -245,19 +279,16 @@ export class Market {
       ...this.rawToMap("bids", ...rawBids),
     };
 
-    const utils: subscribeUtils = {
-      book: () => {
-        return {
-          asks: mapToArray(asks.best, asks.offers),
-          bids: mapToArray(bids.best, bids.offers),
-        };
-      },
-    };
+    const blockNum = await this.mgv._provider.getBlockNumber();
 
-    const asksCallback = this.#createBookEventCallback(asks, cb, utils);
-    const bidsCallback = this.#createBookEventCallback(bids, cb, utils);
+    const asksCallback = this.#createBookEventCallback(asks);
+    const bidsCallback = this.#createBookEventCallback(bids);
 
-    this.subscriptions = { asksCallback, bidsCallback };
+    this.#lowLevelCallbacks = { asksCallback, bidsCallback };
+
+    // console.log(this.mgv._provider);
+    // this.mgv._provider.on({address:null,topics:null}, (a) => {console.log('****',a)});
+    // this.mgv._provider.on('block', (a) => {console.log('BLOCK',a)});
 
     this.mgv.contract.on(asksFilter, asksCallback);
     this.mgv.contract.on(bidsFilter, bidsCallback);
@@ -506,7 +537,11 @@ export class Market {
    *  Order is from best to worse from taker perspective.
    */
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-  async book(opts: bookOpts = bookOptsDefault) {
+  book(opts: bookOpts = bookOptsDefault) {
+    return this._book;
+  }
+
+  async requestBook(opts: bookOpts = bookOptsDefault) {
     const rawAsks = await this.rawBook(
       this.base.address,
       this.quote.address,
@@ -608,15 +643,27 @@ export class Market {
     };
   }
 
-  #createBookEventCallback(
-    semibook: semibook,
-    cb: (a: bookSubscriptionCbArgument, utils?: subscribeUtils) => void,
-    utils: subscribeUtils
-  ): (...args: any[]) => any {
+  defaultCallback(evt: bookSubscriptionCbArgument, semibook: semibook): void {
+    // console.log("EVT",evt);
+    // console.log("DEFAULT",evt);
+    this._book[semibook.ba] = mapToArray(semibook.best, semibook.offers);
+    for (const [cb, { type, ok, ko }] of this.#subscriptions) {
+      // console.log(cb.toString,type,ok,ko);
+      if (type === "once") {
+        this.#subscriptions.delete(cb);
+        Promise.resolve(cb(evt)).then(ok, ko);
+      } else {
+        cb(evt);
+      }
+    }
+  }
+
+  #createBookEventCallback(semibook: semibook): (...args: any[]) => any {
     return (_evt) => {
       const evt: bookSubscriptionEvent = this.mgv.contract.interface.parseLog(
         _evt
       ) as any;
+      // console.log("_EVT",evt);
 
       // declare const evt: EventTypes.OfferWriteEvent;
       let next;
@@ -639,18 +686,18 @@ export class Market {
 
           insertOffer(semibook, evt.args.id.toNumber(), offer);
 
-          cb(
+          this.defaultCallback(
             {
               type: evt.name,
               offer: offer,
               ba: semibook.ba,
             },
-            utils
+            semibook
           );
           break;
 
         case "OfferFail":
-          cb(
+          this.defaultCallback(
             {
               type: evt.name,
               ba: semibook.ba,
@@ -667,12 +714,12 @@ export class Market {
               statusCode: evt.args.statusCode,
               makerData: evt.args.makerData,
             },
-            utils
+            semibook
           );
           break;
 
         case "OfferSuccess":
-          cb(
+          this.defaultCallback(
             {
               type: evt.name,
               ba: semibook.ba,
@@ -687,18 +734,18 @@ export class Market {
                 evt.args.takerGives.toString()
               ),
             },
-            utils
+            semibook
           );
           break;
 
         case "OfferRetract":
-          cb(
+          this.defaultCallback(
             {
               type: evt.name,
               ba: semibook.ba,
               offer: removeOffer(semibook, evt.args.id.toNumber()),
             },
-            utils
+            semibook
           );
           break;
 
@@ -711,6 +758,51 @@ export class Market {
           throw Error(`Unknown event ${evt}`);
       }
     };
+  }
+
+  /**
+   * Volume estimator, very crude (based on cached book).
+   *
+   * if you say `estimateVolume({given:100,what:"base",to:"buy"})`,
+   *
+   * it will give you an estimate of how much quote token you would have to
+   * spend to get 100 base tokens.
+   *
+   * if you say `estimateVolume({given:10,what:"quote",to:"sell"})`,
+   *
+   * it will given you an estimate of how much base tokens you'd have to buy in
+   * order to spend 10 quote tokens.
+   * */
+  estimateVolume(params: {
+    given: Bigish;
+    what: "base" | "quote";
+    to: "buy" | "sell";
+  }) {
+    const dict = {
+      base: {
+        buy: { book: "asks", drainer: "gives", filler: "wants" },
+        sell: { book: "bids", drainer: "wants", filler: "gives" },
+      },
+      quote: {
+        buy: { book: "bids", drainer: "gives", filler: "wants" },
+        sell: { book: "asks", drainer: "wants", filler: "gives" },
+      },
+    } as const;
+
+    const data = dict[params.what][params.to];
+
+    const book = this.book()[data.book];
+    let draining = Big(params.given);
+    let filling = Big(0);
+    for (const o of book) {
+      const _drainer = o[data.drainer];
+      const drainer = draining.gt(_drainer) ? _drainer : draining;
+      const filler = o[data.filler].times(drainer).div(_drainer);
+      draining = draining.minus(drainer);
+      filling = filling.plus(filler);
+      if (draining.eq(0)) break;
+    }
+    return filling;
   }
 }
 
@@ -774,6 +866,5 @@ const mapToArray = (best: number, offers: any) => {
       latest = offers[latest.next];
     } while (typeof latest !== "undefined");
   }
-
   return ary;
 };
