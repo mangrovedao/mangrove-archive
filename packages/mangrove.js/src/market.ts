@@ -772,7 +772,7 @@ const mapToArray = (best: number, offers: any) => {
     do {
       ary.push(latest);
       latest = offers[latest.next];
-    } while (typeof offers[latest] !== "undefined");
+    } while (typeof latest !== "undefined");
   }
 
   return ary;
