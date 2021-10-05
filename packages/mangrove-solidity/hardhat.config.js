@@ -1,4 +1,4 @@
-//usePlugin("@nomiclabs/buidler-truffle5");
+require("app-module-path/register");
 require("dotenv-flow").config({ silent: true }); // Reads local environment variables from .env*.local files
 if (!process.env["NODE_CONFIG_DIR"]) {
   process.env["NODE_CONFIG_DIR"] = __dirname + "/config/";

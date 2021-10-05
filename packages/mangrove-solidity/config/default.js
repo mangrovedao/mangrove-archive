@@ -3,11 +3,6 @@ var config = {};
 
 var defer = require("config/defer").deferConfig;
 
-// TODO Find better way of doing this...
-function requireFromProjectRoot(pathFromProjectRoot) {
-  return require(__dirname + "/../" + pathFromProjectRoot);
-}
-
 ///////////////////////////
 // Hardhat configuration //
 config.hardhat = {
@@ -39,7 +34,7 @@ config.hardhat = {
     artifacts: "./build/cache/solpp-generated-contracts", // NB This path is a bit weird - can we remove the cache part?
   },
   abiExporter: {
-    path: "./build/exported-abis", // NB I changed this, as we were generating files in one package into a different package
+    path: "./build/exported-abis",
     clear: true,
     flat: true,
     only: [":MgvReader$", ":Mangrove$", ":MgvEvents$", ":IERC20$"],
@@ -47,10 +42,10 @@ config.hardhat = {
     pretty: false,
   },
   testSolidity: {
-    logFormatters: requireFromProjectRoot("./lib/log_formatters"),
+    logFormatters: require("lib/log_formatters"),
   },
   solpp: {
-    defs: requireFromProjectRoot("./structs.js"),
+    defs: require("structs.js"),
   },
   // see github.com/wighawag/hardhat-deploy#1-namedaccounts-ability-to-name-addresses
   namedAccounts: {

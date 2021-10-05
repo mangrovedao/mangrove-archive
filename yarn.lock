@@ -955,6 +955,7 @@ __metadata:
     "@giry/hardhat-test-solidity": ^0.0.10
     "@nomiclabs/hardhat-ethers": ^2.0.2
     adhusson-hardhat-solpp: ^2.0.2
+    app-module-path: ^2.2.0
     chai: ^4.3.4
     chai-events: ^0.0.3
     config: ^3.3.6
@@ -2171,6 +2172,13 @@ __metadata:
     normalize-path: ^3.0.0
     picomatch: ^2.0.4
   checksum: 985163db2292fac9e5a1e072bf99f1b5baccf196e4de25a0b0b81865ebddeb3b3eb4480734ef0a2ac8c002845396b91aa89121f5b84f93981a4658164a9ec6e9
+  languageName: node
+  linkType: hard
+
+"app-module-path@npm:^2.2.0":
+  version: 2.2.0
+  resolution: "app-module-path@npm:2.2.0"
+  checksum: b52aa49cfa809efbad41b514222e8ef3f8ee9e147f5eccf79280b45eddcc61f7aeb302b0049474e3f42072dd53a28348c57dd96f36cd461d2e31cc8ab1ef56b5
   languageName: node
   linkType: hard
 
