@@ -135,7 +135,7 @@ Each package should have its own `package.json` file based on the following temp
   "version": "0.0.1",
   "author": "Mangrove DAO",
   "description": "<description of the package>",
-  "license": "<license",                        // License should be chosen appropriately for the specific package
+  "license": "<license>",                       // License should be chosen appropriately for the specific package
   "scripts": {
     "precommit": "lint-staged",                 // This script is called by the Husky precommit Git hook.
                                                 // We typically use this to autoformat all staged files with `lint-staged`:
@@ -148,7 +148,7 @@ Each package should have its own `package.json` file based on the following temp
                                                 // Update and build dependencies and this package in topological order
     "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
                                                 // Test this package and its dependencies in topological order
-    "test": "<test command(s)",                 // This script is called by the `test` script in root
+    "test": "<test command(s)>"                 // This script is called by the `test` script in root
   },
   "lint-staged": {
     "**/*": "prettier --write --ignore-unknown" // The command that `lint-staged` will run on staged
