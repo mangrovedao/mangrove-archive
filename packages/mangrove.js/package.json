@@ -19,9 +19,9 @@
     "publish_minor": "npm version minor && npm publish --access public",
     "publish_major": "npm version major && npm publish --access public",
     "rollup": "rollup -c rollup.config.ts",
-    "test": "cross-env NODE_ENV=test nyc --reporter=lcov mocha -r ts-node/register ./test/index.js  --timeout 60000 --reporter mocha-multi-reporters --reporter-options configFile=mocha-multi-reporters.json",
+    "test": "cross-env NODE_ENV=test nyc --reporter=lcov mocha -r ts-node/register -r ./test/util/mocha-integration-test-hooks.js \"test/integration/\"  --timeout 60000 --reporter mocha-multi-reporters --reporter-options configFile=mocha-multi-reporters.json",
     "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
-    "clean-typechain": "rimraf 'src/types/typechain/*'; exit 0",
+    "clean-typechain": "rimraf 'src/types/typechain/*' && exit 0",
     "typechain": "yarn run clean-typechain && npx typechain --target=ethers-v5 --out-dir=src/types/typechain \"src/abis/*.json\""
   },
   "files": [

@@ -1,10 +1,10 @@
 const hre = require("hardhat");
-const helpers = require("./helpers");
+const helpers = require("../util/helpers");
 const main = async () => {
   console.log("Mnemonic:");
   console.log(hre.config.networks.hardhat.accounts.mnemonic);
   console.log("");
-  const { Mangrove } = require("../src");
+  const { Mangrove } = require("../../src");
 
   const host = {
     name: "localhost",

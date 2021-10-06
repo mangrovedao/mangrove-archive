@@ -1,10 +1,13 @@
+// Integration tests for Market.ts
+// Must be run in the context of mocha-integration-test-hooks.js
+
 const ethers = require("ethers");
 const BigNumber = ethers.BigNumber;
 
 const assert = require("assert");
-const { Mangrove } = require("../src");
+const { Mangrove } = require("../../src");
 const providerUrl = "http://localhost:8546";
-const helpers = require("./helpers");
+const helpers = require("../util/helpers");
 
 const { Big } = require("big.js");
 //pretty-print when using console.log
@@ -24,7 +27,7 @@ const newOffer = (mgv, base, quote, { wants, gives, gasreq, gasprice }) => {
   );
 };
 
-module.exports = function suite() {
+describe("Market integration tests suite", () => {
   let mgv;
 
   before(async () => {
@@ -223,4 +226,4 @@ module.exports = function suite() {
   it("does market buy", async function () {
     // TODO
   });
-};
+});
