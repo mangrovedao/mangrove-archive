@@ -443,14 +443,14 @@ export class Market {
     gives: Big;
     orderType: "buy" | "sell";
   }): Promise<{ got: Big; gave: Big }> {
-    const [onchainBase, onchainQuote, fillWants] =
+    const [outboundTkn, inboundTkn, fillWants] =
       orderType === "buy"
         ? [this.base, this.quote, true]
         : [this.quote, this.base, false];
 
     const response = await this.mgv.contract.marketOrder(
-      onchainBase.address,
-      onchainQuote.address,
+      outboundTkn.address,
+      inboundTkn.address,
       BigNumber.from(wants.toFixed(0)),
       BigNumber.from(gives.toFixed(0)),
       fillWants
