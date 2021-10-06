@@ -1,9 +1,8 @@
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
+config = require("./src/util/config").config; // FIXME This seems a bit iffy - do we want to use the same config structure for test configuration as for run-time configuration?
 require("hardhat-deploy");
-require("@nomiclabs/hardhat-ethers");
+require("hardhat-deploy-ethers");
 
-module.exports = {
-  solidity: "0.7.3",
-};
+module.exports = config.hardhat;

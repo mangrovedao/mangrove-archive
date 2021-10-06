@@ -5,4 +5,5 @@ if (!process.env["NODE_CONFIG_DIR"]) {
 }
 import config from "config";
 
+export default config;
 export { config };
