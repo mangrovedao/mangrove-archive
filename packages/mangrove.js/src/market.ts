@@ -286,10 +286,6 @@ export class Market {
 
     this.#lowLevelCallbacks = { asksCallback, bidsCallback };
 
-    // console.log(this.mgv._provider);
-    // this.mgv._provider.on({address:null,topics:null}, (a) => {console.log('****',a)});
-    // this.mgv._provider.on('block', (a) => {console.log('BLOCK',a)});
-
     this.mgv.contract.on(asksFilter, asksCallback);
     this.mgv.contract.on(bidsFilter, bidsCallback);
   }
@@ -644,11 +640,8 @@ export class Market {
   }
 
   defaultCallback(evt: bookSubscriptionCbArgument, semibook: semibook): void {
-    // console.log("EVT",evt);
-    // console.log("DEFAULT",evt);
     this._book[semibook.ba] = mapToArray(semibook.best, semibook.offers);
     for (const [cb, { type, ok, ko }] of this.#subscriptions) {
-      // console.log(cb.toString,type,ok,ko);
       if (type === "once") {
         this.#subscriptions.delete(cb);
         Promise.resolve(cb(evt)).then(ok, ko);
@@ -663,7 +656,6 @@ export class Market {
       const evt: bookSubscriptionEvent = this.mgv.contract.interface.parseLog(
         _evt
       ) as any;
-      // console.log("_EVT",evt);
 
       // declare const evt: EventTypes.OfferWriteEvent;
       let next;

@@ -22,7 +22,6 @@ const _eth = require("../src/eth.ts");
 
 const tests = {
   market: require("./market.test.js"),
-  // debug: require("./debug.test.js"),
 };
 
 let snapshot_id = null;
