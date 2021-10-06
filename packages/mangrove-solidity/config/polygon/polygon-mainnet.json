@@ -23,6 +23,10 @@
             "address" : "0x7ef18d0a9C3Fb1A716FF6c3ED0Edf52a2427F716",
             "abi": "config/polygon/abis/CErc20-delegator-abi.json"
         },
+        "usdc":{
+            "address" : "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+            "abi":"config/polygon/abis/UChild-abi.json"
+        },
         "cwMATIC":{
             "address" : "0x3FaE5e5722C51cdb5B0afD8c7082e8a6AF336Ee8",
             "abi": "config/polygon/abis/CErc20-delegator-abi.json"

@@ -16,6 +16,11 @@
             "abi": "config/ethereum/abis/CErc20.json",
             "isCompoundToken": true
         },
+        "usdc":{
+            "address" : "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "abi" : "config/ethereum/abis/usdc-abi.json",
+            "masterMinterAddress": "0xe982615d461dd5cd06575bbea87624fda4e3de17"
+        },
         "cwEth": {
             "address": "0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5",
             "abi": "config/ethereum/abis/CEth.json",

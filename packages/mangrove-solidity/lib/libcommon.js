@@ -3,7 +3,6 @@ const config = require("config");
 const { assert } = require("chai");
 const provider = ethers.provider;
 const chalk = require("chalk");
-
 async function fund(funding_tuples) {
   async function mintNative(recipient, amount) {
     await network.provider.send("hardhat_setBalance", [
@@ -65,7 +64,43 @@ async function fund(funding_tuples) {
           await mintPolygonChildErc(dai, recipient, amount);
           break;
         } else {
-          console.warn(`Unknown network ${env.mainnet.name}`);
+          console.warn(`No method given to mint USDC on ${env.mainnet.name}`);
+          break;
+        }
+      }
+      case "USDC": {
+        let usdc = await getContract("USDC");
+        amount = parseToken(amount, await getDecimals("USDC"));
+        if (env.mainnet.name == "ethereum") {
+          let masterMinter = env.mainnet.tokens.usdc.masterMinter;
+          await network.provider.request({
+            method: "hardhat_impersonateAccount",
+            params: [masterMinter],
+          });
+          let master_signer = provider.getSigner(masterMinter);
+          if ((await master_signer.getBalance()).eq(0)) {
+            await mintNative(masterMinter, parseToken("1.0", 18));
+          }
+          //allowing masterMinter to mint USDC
+          await usdc
+            .connect(master_signer)
+            .configureMinter(masterMinter, ethers.constants.MaxUint256);
+          let mintTx = await usdc
+            .connect(master_signer)
+            .mint(recipient, amount);
+          await mintTx.wait();
+          await network.provider.request({
+            method: "hardhat_stopImpersonatingAccount",
+            params: [masterMinter],
+          });
+          break;
+        }
+        if (env.mainnet.name == "polygon") {
+          await mintPolygonChildErc(usdc, recipient, amount);
+          break;
+        } else {
+          console.warn(`No method given to mint USDC on ${env.mainnet.name}`);
+          break;
         }
       }
       case "WETH": {
@@ -98,7 +133,8 @@ async function fund(funding_tuples) {
           await mintPolygonChildErc(wEth, recipient, amount);
           break;
         } else {
-          console.warn("Unknown network");
+          console.warn(`No method given to mint WETH on ${env.mainnet.name}`);
+          break;
         }
       }
       case "ETH":
@@ -135,6 +171,8 @@ async function getContract(symbol) {
   switch (symbol) {
     case "DAI":
       return net.tokens.dai.contract;
+    case "USDC":
+      return net.tokens.usdc.contract;
     case "CDAI":
       return net.tokens.cDai.contract;
     case "WETH":
@@ -197,12 +235,7 @@ async function getDecimals(symbol) {
     case "MATIC":
     case "ETH":
       return 18;
-    case "DAI":
-    case "WETH":
-    case "CDAI":
-    case "ADAI":
-    case "CWETH":
-    case "AWETH":
+    default:
       const token = await getContract(symbol);
       return await token.decimals();
   }
