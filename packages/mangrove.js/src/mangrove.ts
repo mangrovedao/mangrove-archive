@@ -67,6 +67,10 @@ export class Mangrove {
     canConstructMangrove = false;
     return mgv;
   }
+
+  disconnect(): void {
+    this._provider.removeAllListeners();
+  }
   //TODO types in module namespace with same name as class
   //TODO remove _prefix on public properties
 

@@ -27,7 +27,7 @@ const newOffer = (mgv, base, quote, { wants, gives, gasreq, gasprice }) => {
 module.exports = function suite() {
   let mgv;
 
-  before(async () => {
+  beforeEach(async () => {
     //set mgv object
     mgv = await Mangrove.connect(providerUrl);
 
@@ -35,8 +35,11 @@ module.exports = function suite() {
     mgv._provider.pollingInterval = 250;
   });
 
+  afterEach(async () => {
+    mgv.disconnect();
+  });
+
   it("subscribes", async function () {
-    return;
     const queue = helpers.asyncQueue();
 
     const market = await mgv.market({ base: "TokenA", quote: "TokenB" });
@@ -134,7 +137,6 @@ module.exports = function suite() {
   });
 
   it("updates OB", async function () {
-    return;
     const market = await mgv.market({ base: "TokenA", quote: "TokenB" });
     const addrA = market.base.address;
     const addrB = market.quote.address;
@@ -195,7 +197,6 @@ module.exports = function suite() {
   });
 
   it("gets OB", async function () {
-    return;
     // Initialize A/B market.
     const market = await mgv.market({ base: "TokenA", quote: "TokenB" });
 
@@ -261,7 +262,7 @@ module.exports = function suite() {
 
     /* Start testing */
 
-    const book = market.requestBook({ maxOffers: 3 });
+    const book = await market.requestBook({ maxOffers: 3 });
     // Convert big.js numbers to string for easier debugging
     const stringify = ({ bids, asks }) => {
       const s = (obj) => {
