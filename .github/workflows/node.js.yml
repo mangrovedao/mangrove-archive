@@ -298,6 +298,12 @@ jobs:
         args: unzip -qq mangrove-js-out.zip
         
     # == build == 
+
+    ## TEMP - build also commonlib.js
+    - name: commonlib.js - Build (temporarily here)
+      run: yarn run build-this-package
+      working-directory: packages/commonlib.js
+
     - name: Cleaning Bot Naive - Build
       run: yarn run build-this-package
 
