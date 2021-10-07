@@ -24,12 +24,16 @@ import Big from "big.js";
 Big.DP = 20; // precision when dividing
 Big.RM = Big.roundHalfUp; // round to nearest
 
-//TODO Implement maxVolume?:number
-//TODO smeibookMap is an actual map
 type OrderResult = { got: Big; gave: Big };
 type bookOpts = { fromId: number; maxOffers: number; chunkSize?: number };
 const bookOptsDefault: bookOpts = { fromId: 0, maxOffers: DEFAULT_MAX_OFFERS };
-type semibookMap = { offers: { [key: string]: Offer }; best: number };
+
+type semibookMap = { offers: Map<number, Offer>; best: number };
+
+type semibook = semibookMap & {
+  ba: "bids" | "asks";
+  gasbase: { offer_gasbase: number; overhead_gasbase: number };
+};
 
 export type Offer = {
   id: number;
@@ -59,13 +63,6 @@ type OfferData = {
   gives: BigNumber;
 };
 
-type semibook = {
-  ba: "bids" | "asks";
-  gasbase: { offer_gasbase: number; overhead_gasbase: number };
-  offers: { [key: string]: Offer };
-  best: number;
-};
-
 type bookSubscriptionCbArgument = { ba: "asks" | "bids"; offer: Offer } & (
   | { type: "OfferWrite" }
   | {
@@ -80,9 +77,11 @@ type bookSubscriptionCbArgument = { ba: "asks" | "bids"; offer: Offer } & (
   | { type: "OfferRetract" }
 );
 
-type marketCallback = (event: bookSubscriptionCbArgument) => void;
+type marketCallback = (event: bookSubscriptionCbArgument) => any;
 //TODO  give correct type
-type subscriptionParam = any;
+type subscriptionParam =
+  | { type: "multiple" }
+  | { type: "once"; ok: (...a: any[]) => any; ko: (...a: any[]) => any };
 
 /**
  * The Market class focuses on a mangrove market.
@@ -414,12 +413,6 @@ export class Market {
     wants = this.toUnits("quote", wants);
 
     return this.#marketOrder({ wants, gives, orderType: "sell" });
-    // const resp = await this.#marketOrder({ wants, gives, orderType: "sell" });
-    // const receipt = await resp.wait();
-    // for (const log of receipt.logs)
-    //   const evt: bookSubscriptionEvent = this.mgv.contract.interface.getEvent("OrderComplete"(
-    //     _evt
-    //   ) as any;
   }
 
   /**
@@ -429,6 +422,9 @@ export class Market {
    *
    * If `orderType` is `"sell"`, the quote/base market will be used,
    * with contract function argument `fillWants` set to false.
+   *
+   * Returns a promise for market order result after 1 confirmation.
+   * Will throw on same conditions as ethers.js `transaction.wait`.
    */
   async #marketOrder({
     wants,
@@ -453,7 +449,6 @@ export class Market {
     );
     const receipt = await response.wait();
 
-    //TODO return TransactionResponse and another 'OrderResult' promise
     let result: ethers.Event | undefined;
     //last OrderComplete is ours!
     for (const evt of receipt.events) {
@@ -561,7 +556,7 @@ export class Market {
     details: BookReturns.details
   ): semibookMap {
     const data: semibookMap = {
-      offers: {},
+      offers: new Map(),
       best: 0,
     };
 
@@ -570,11 +565,14 @@ export class Market {
         data.best = ids[0].toNumber();
       }
 
-      data.offers[offerId.toNumber()] = this.#toOfferObject(ba, {
-        id: ids[index],
-        ...offers[index],
-        ...details[index],
-      });
+      data.offers.set(
+        offerId.toNumber(),
+        this.#toOfferObject(ba, {
+          id: ids[index],
+          ...offers[index],
+          ...details[index],
+        })
+      );
     }
 
     return data;
@@ -641,10 +639,10 @@ export class Market {
 
   defaultCallback(evt: bookSubscriptionCbArgument, semibook: semibook): void {
     this._book[semibook.ba] = mapToArray(semibook.best, semibook.offers);
-    for (const [cb, { type, ok, ko }] of this.#subscriptions) {
-      if (type === "once") {
+    for (const [cb, params] of this.#subscriptions) {
+      if (params.type === "once") {
         this.#subscriptions.delete(cb);
-        Promise.resolve(cb(evt)).then(ok, ko);
+        Promise.resolve(cb(evt)).then(params.ok, params.ko);
       } else {
         cb(evt);
       }
@@ -799,19 +797,19 @@ export class Market {
 }
 
 const removeOffer = (semibook, id) => {
-  const ofr = semibook.offers[id];
+  const ofr = semibook.offers.get(id);
   if (ofr) {
     if (ofr.prev === 0) {
       semibook.best = ofr.next;
     } else {
-      semibook.offers[ofr.prev].next = ofr.next;
+      semibook.offers.get(ofr.prev).next = ofr.next;
     }
 
     if (ofr.next !== 0) {
-      semibook.offers[ofr.next].prev = ofr.prev;
+      semibook.offers.get(ofr.next).prev = ofr.prev;
     }
 
-    delete semibook.offers[id];
+    semibook.offers.delete(id);
     return ofr;
   } else {
     return null;
@@ -821,15 +819,15 @@ const removeOffer = (semibook, id) => {
 // Assumes ofr.prev and ofr.next are present in local OB copy.
 // Assumes id is not already in book;
 const insertOffer = (semibook, id, ofr) => {
-  semibook.offers[id] = ofr;
+  semibook.offers.set(id, ofr);
   if (ofr.prev === 0) {
     semibook.best = ofr.id;
   } else {
-    semibook.offers[ofr.prev].next = id;
+    semibook.offers.get(ofr.prev).next = id;
   }
 
   if (ofr.next !== 0) {
-    semibook.offers[ofr.next].prev = id;
+    semibook.offers.get(ofr.next).prev = id;
   }
 };
 
@@ -837,25 +835,25 @@ const getNext = ({ offers, best }: semibook, prev) => {
   if (prev === 0) {
     return best;
   } else {
-    if (!offers[prev]) {
+    if (!offers.get(prev)) {
       throw Error(
         "Trying to get next of an offer absent from local orderbook copy"
       );
     } else {
-      return offers[prev].next;
+      return offers.get(prev).next;
     }
   }
 };
 
 // May stop before endofbook if we only have a prefix
-const mapToArray = (best: number, offers: any) => {
+const mapToArray = (best: number, offers: Map<number, Offer>) => {
   const ary = [];
 
   if (best !== 0) {
-    let latest = offers[best];
+    let latest = offers.get(best);
     do {
       ary.push(latest);
-      latest = offers[latest.next];
+      latest = offers.get(latest.next);
     } while (typeof latest !== "undefined");
   }
   return ary;
