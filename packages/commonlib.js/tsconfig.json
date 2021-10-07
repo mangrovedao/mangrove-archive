@@ -9,11 +9,14 @@
     "noErrorTruncation": true,
     "moduleResolution": "node",
     "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "importHelpers": true,
     "outDir": "dist/nodejs",
     "baseUrl": ".",
     "paths": {
-      "*": ["node_modules/*", "src/*"]
+      "*": ["node_modules/*", "src/types/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts"]
+  "include": ["src/**/*.ts", "dist/**/*.d.ts"]
 }
