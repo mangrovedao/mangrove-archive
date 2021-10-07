@@ -172,16 +172,12 @@ contract InvertedTakerOperations_Test is ITaker, HasMgvEvents {
     address vault = address(1);
     mgv.setVault(vault);
     uint vaultBal = quoteT.balanceOf(vault);
-    (bool success, , ) = mgv.snipe(
-      base,
-      quote,
-      ofr,
-      1 ether,
-      1 ether,
-      50_000,
-      true
-    );
-    TestEvents.check(success, "Trade should succeed");
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 50_000];
+
+    (uint successes, , ) = mgv.snipes(base, quote, targets, true);
+    TestEvents.check(successes == 1, "Trade should succeed");
     TestEvents.eq(
       quoteT.balanceOf(vault) - vaultBal,
       1 ether,
@@ -202,16 +198,15 @@ contract InvertedTakerOperations_Test is ITaker, HasMgvEvents {
   ) external {
     takerTrade_bytes = this.noop.selector;
     skipCheck = true;
-    (bool success, uint totalGot, uint totalGave) = mgv.snipe(
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [uint(2), 0.1 ether, 0.1 ether, 100_000];
+    (uint successes, uint totalGot, uint totalGave) = mgv.snipes(
       _base,
       _quote,
-      2,
-      0.1 ether,
-      0.1 ether,
-      100_000,
+      targets,
       true
     );
-    TestEvents.check(success, "Snipe on reentrancy should succeed");
+    TestEvents.check(successes == 1, "Snipe on reentrancy should succeed");
     TestEvents.eq(totalGot, 0.1 ether, "Incorrect totalGot");
     TestEvents.eq(totalGave, 0.1 ether, "Incorrect totalGave");
   }
@@ -246,7 +241,9 @@ contract InvertedTakerOperations_Test is ITaker, HasMgvEvents {
     uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     uint bal = quoteT.balanceOf(address(this));
     takerTrade_bytes = this.noop.selector;
-    mgv.snipe(base, quote, ofr, 0.05 ether, 0.05 ether, 100_000, true);
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 0.05 ether, 0.05 ether, 100_000];
+    mgv.snipes(base, quote, targets, true);
     TestEvents.eq(
       quoteT.balanceOf(address(this)),
       bal - 0.05 ether,
@@ -258,7 +255,9 @@ contract InvertedTakerOperations_Test is ITaker, HasMgvEvents {
     uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     uint bal = quoteT.balanceOf(address(this));
     takerTrade_bytes = this.noop.selector;
-    mgv.snipe(base, quote, ofr, 0.02 ether, 0.05 ether, 100_000, true);
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 0.02 ether, 0.02 ether, 100_000];
+    mgv.snipes(base, quote, targets, true);
     TestEvents.eq(
       quoteT.balanceOf(address(this)),
       bal - 0.02 ether,

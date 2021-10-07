@@ -32,8 +32,6 @@ export class Mangrove {
   /**
    * Creates an instance of the Mangrove Typescript object
    *
-   * @param {Provider | string} [provider] Optional Ethereum network provider.
-   *     Defaults to Ethers.js fallback mainnet provider.
    * @param {object} [options] Optional provider options.
    *
    * @example
@@ -47,7 +45,7 @@ export class Mangrove {
    * Options:
    * * privateKey: `0x...`
    * * mnemonic: `horse battery ...`
-   * * provider: overriden by first provider object
+   * * provider: url, provider object, or chain string
    *
    * @returns {Mangrove} Returns an instance mangrove.js
    */
@@ -69,6 +67,12 @@ export class Mangrove {
     canConstructMangrove = false;
     return mgv;
   }
+
+  disconnect(): void {
+    this._provider.removeAllListeners();
+  }
+  //TODO types in module namespace with same name as class
+  //TODO remove _prefix on public properties
 
   constructor(params: { signer: Signer; network: ProviderNetwork }) {
     if (!canConstructMangrove) {
@@ -99,10 +103,7 @@ export class Mangrove {
      To set your own token, use `setDecimals` and `setAddress`.
   */
   async market(params: { base: string; quote: string }): Promise<Market> {
-    return new Market({
-      ...params,
-      mgv: this,
-    });
+    return await Market.connect({ ...params, mgv: this });
   }
 
   /**

@@ -127,16 +127,11 @@ contract Monitor_Test {
     mgv.setNotify(true);
     uint ofrId = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     bytes32 offer = mgv.offers(base, quote, ofrId);
-    (bool success, , ) = mgv.snipe(
-      base,
-      quote,
-      ofrId,
-      0.04 ether,
-      0.05 ether,
-      100_000,
-      true
-    );
-    TestEvents.check(success, "snipe should succeed");
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofrId, 0.04 ether, 0.05 ether, 100_000];
+    (uint successes, , ) = mgv.snipes(base, quote, targets, true);
+    TestEvents.check(successes == 1, "snipe should succeed");
     (bytes32 _global, bytes32 _local) = mgv._config(base, quote);
     _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
 
@@ -161,16 +156,11 @@ contract Monitor_Test {
     mgv.setNotify(true);
     uint ofrId = mkr.newOffer(0.1 ether, 0.1 ether, 100_000, 0);
     bytes32 offer = mgv.offers(base, quote, ofrId);
-    (bool success, , ) = mgv.snipe(
-      base,
-      quote,
-      ofrId,
-      0.04 ether,
-      0.05 ether,
-      100_000,
-      true
-    );
-    TestEvents.check(!success, "snipe should fail");
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofrId, 0.04 ether, 0.05 ether, 100_000];
+    (uint successes, , ) = mgv.snipes(base, quote, targets, true);
+    TestEvents.check(successes == 0, "snipe should fail");
 
     (bytes32 _global, bytes32 _local) = mgv._config(base, quote);
     // config sent during maker callback has stale best and, is locked

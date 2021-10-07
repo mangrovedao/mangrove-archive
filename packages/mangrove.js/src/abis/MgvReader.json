@@ -131,6 +131,45 @@
         "type": "uint256"
       }
     ],
+    "name": "offersEndpoints",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "outbound_tkn",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "inbound_tkn",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fromId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxOffers",
+        "type": "uint256"
+      }
+    ],
     "name": "packedBook",
     "outputs": [
       {

@@ -12,7 +12,39 @@ contract MgvReader {
     mgv = Mangrove(payable(_mgv));
   }
 
-  // Returns the orderbook for the outbound_tkn/inbound_tkn pair in packed form. First number is id of next offer (0 is we're done). First array is ids, second is offers (as bytes32), third is offerDetails (as bytes32). Array will be of size `maxOffers`. Tail may be 0-filled if order book size is strictly smaller than `maxOffers`.
+  function offersEndpoints(
+    address outbound_tkn,
+    address inbound_tkn,
+    uint fromId,
+    uint maxOffers
+  ) public view returns (uint, uint) {
+    uint startId;
+
+    if (fromId == 0) {
+      startId = MP.local_unpack_best(mgv.locals(outbound_tkn, inbound_tkn));
+    } else {
+      startId = MP.offer_unpack_gives(
+        mgv.offers(outbound_tkn, inbound_tkn, fromId)
+      ) > 0
+        ? fromId
+        : 0;
+    }
+
+    uint currentId = startId;
+
+    uint i = 0;
+
+    while (currentId != 0 && i < maxOffers) {
+      currentId = MP.offer_unpack_next(
+        mgv.offers(outbound_tkn, inbound_tkn, currentId)
+      );
+      i = i + 1;
+    }
+
+    return (startId, i);
+  }
+
+  // Returns the orderbook for the outbound_tkn/inbound_tkn pair in packed form. First number is id of next offer (0 is we're done). First array is ids, second is offers (as bytes32), third is offerDetails (as bytes32). Array will be of size `min(# of offers in out/in list, maxOffers)`.
   function packedBook(
     address outbound_tkn,
     address inbound_tkn,
@@ -28,20 +60,20 @@ contract MgvReader {
       bytes32[] memory
     )
   {
-    uint[] memory offerIds = new uint[](maxOffers);
-    bytes32[] memory offers = new bytes32[](maxOffers);
-    bytes32[] memory details = new bytes32[](maxOffers);
+    (uint currentId, uint length) = offersEndpoints(
+      outbound_tkn,
+      inbound_tkn,
+      fromId,
+      maxOffers
+    );
 
-    uint currentId;
-    if (fromId == 0) {
-      currentId = MP.local_unpack_best(mgv.locals(outbound_tkn, inbound_tkn));
-    } else {
-      currentId = fromId;
-    }
+    uint[] memory offerIds = new uint[](length);
+    bytes32[] memory offers = new bytes32[](length);
+    bytes32[] memory details = new bytes32[](length);
 
     uint i = 0;
 
-    while (currentId != 0 && i < maxOffers) {
+    while (currentId != 0 && i < length) {
       offerIds[i] = currentId;
       offers[i] = mgv.offers(outbound_tkn, inbound_tkn, currentId);
       details[i] = mgv.offerDetails(outbound_tkn, inbound_tkn, currentId);
@@ -49,16 +81,10 @@ contract MgvReader {
       i = i + 1;
     }
 
-    assembly {
-      mstore(offerIds, i)
-      mstore(offers, i)
-      mstore(details, i)
-    }
-
     return (currentId, offerIds, offers, details);
   }
 
-  // Returns the orderbook for the outbound_tkn/inbound_tkn pair in unpacked form. First number is id of next offer (0 if we're done). First array is ids, second is offers (as structs), third is offerDetails (as structs). Array will be of size `maxOffers`. Tail may be 0-filled if order book size is strictly smaller than `maxOffers`.
+  // Returns the orderbook for the outbound_tkn/inbound_tkn pair in unpacked form. First number is id of next offer (0 if we're done). First array is ids, second is offers (as structs), third is offerDetails (as structs). Array will be of size `min(# of offers in out/in list, maxOffers)`.
   function book(
     address outbound_tkn,
     address inbound_tkn,
@@ -74,19 +100,19 @@ contract MgvReader {
       ML.OfferDetail[] memory
     )
   {
-    uint[] memory offerIds = new uint[](maxOffers);
-    ML.Offer[] memory offers = new ML.Offer[](maxOffers);
-    ML.OfferDetail[] memory details = new ML.OfferDetail[](maxOffers);
+    (uint currentId, uint length) = offersEndpoints(
+      outbound_tkn,
+      inbound_tkn,
+      fromId,
+      maxOffers
+    );
 
-    uint currentId;
-    if (fromId == 0) {
-      currentId = MP.local_unpack_best(mgv.locals(outbound_tkn, inbound_tkn));
-    } else {
-      currentId = fromId;
-    }
+    uint[] memory offerIds = new uint[](length);
+    ML.Offer[] memory offers = new ML.Offer[](length);
+    ML.OfferDetail[] memory details = new ML.OfferDetail[](length);
 
     uint i = 0;
-    while (currentId != 0 && i < maxOffers) {
+    while (currentId != 0 && i < length) {
       offerIds[i] = currentId;
       (offers[i], details[i]) = mgv.offerInfo(
         outbound_tkn,
@@ -95,12 +121,6 @@ contract MgvReader {
       );
       currentId = offers[i].next;
       i = i + 1;
-    }
-
-    assembly {
-      mstore(offerIds, i)
-      mstore(offers, i)
-      mstore(details, i)
     }
 
     return (currentId, offerIds, offers, details);

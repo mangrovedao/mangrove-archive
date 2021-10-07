@@ -455,25 +455,26 @@ async function snipeSuccess(mgv, base_sym, quote_sym, offerId, wants, gives) {
   const base = await getContract(base_sym);
   const quote = await getContract(quote_sym);
 
-  const [success, takerGot, takerGave] = await mgv.callStatic.snipe(
+  const [successes, takerGot, takerGave] = await mgv.callStatic.snipes(
     base.address,
     quote.address,
-    offerId,
-    wants, // wanted quote
-    gives, // giving base
-    ethers.constants.MaxUint256, // max gas
+    [
+      [
+        offerId,
+        wants, // wanted quote
+        gives, // giving base
+        ethers.constants.MaxUint256,
+      ],
+    ], // max gas
     true
   );
 
-  assert(success, "Snipe failed");
+  assert(successes.eq(1), "Snipe failed");
 
-  const snipeTx = await mgv.snipe(
+  const snipeTx = await mgv.snipes(
     base.address,
     quote.address,
-    offerId,
-    wants,
-    gives,
-    ethers.constants.MaxUint256, // max gas
+    [[offerId, wants, gives, ethers.constants.MaxUint256]], // max gas
     true //fillWants
   );
   await snipeTx.wait(0);
@@ -496,25 +497,26 @@ async function snipeFail(mgv, base_sym, quote_sym, offerId, wants, gives) {
   const base = await getContract(base_sym);
   const quote = await getContract(quote_sym);
 
-  const [success, ,] = await mgv.callStatic.snipe(
+  const [successes, ,] = await mgv.callStatic.snipes(
     base.address,
     quote.address,
-    offerId,
-    wants, // wanted quote
-    gives, // giving base
-    ethers.constants.MaxUint256, // max gas
+    [
+      [
+        offerId,
+        wants, // wanted quote
+        gives, // giving base
+        ethers.constants.MaxUint256,
+      ],
+    ], // max gas
     true
   );
 
-  assert(!success, "Snipe should fail");
+  assert(successes.eq(0), "Snipe should fail");
 
-  snipeTx = await mgv.snipe(
+  snipeTx = await mgv.snipes(
     base.address,
     quote.address,
-    offerId,
-    wants,
-    gives,
-    ethers.constants.MaxUint256, // max gas
+    [[offerId, wants, gives, ethers.constants.MaxUint256]], // max gas
     true //fillWants
   );
   console.log(

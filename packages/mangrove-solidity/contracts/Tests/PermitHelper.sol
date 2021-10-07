@@ -76,10 +76,10 @@ contract PermitHelper is IMaker {
   }
 
   function no_allowance() external {
-    try
-      mgv.snipeFor(base, quote, 1, 1 ether, 1 ether, 300_000, true, msg.sender)
-    {
-      revert("snipeFor without allowance should revert");
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [uint(1), 1 ether, 1 ether, 300_000];
+    try mgv.snipesFor(base, quote, targets, true, msg.sender) {
+      revert("snipesFor without allowance should revert");
     } catch Error(string memory reason) {
       if (keccak256(bytes(reason)) != keccak256("mgv/lowAllowance")) {
         revert("revert when no allowance should be due to no allowance");
@@ -168,17 +168,16 @@ contract PermitHelper is IMaker {
       revert("Allowance not set");
     }
 
-    (bool success, uint takerGot, uint takerGave) = mgv.snipeFor(
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [uint(1), 1 ether, 1 ether, 300_000];
+    (uint successes, uint takerGot, uint takerGave) = mgv.snipesFor(
       base,
       quote,
-      1,
-      1 ether,
-      1 ether,
-      300_000,
+      targets,
       true,
       msg.sender
     );
-    if (!success) {
+    if (successes != 0) {
       revert("Snipe should succeed");
     }
     if (takerGot != 1 ether) {

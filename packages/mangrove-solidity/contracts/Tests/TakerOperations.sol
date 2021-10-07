@@ -83,7 +83,10 @@ contract TakerOperations_Test is HasMgvEvents {
     mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
     quoteT.approve(address(mgv), 1 ether);
     quoteT.blacklists(address(this));
-    try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000, true) {
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 100_000];
+    try mgv.snipes(base, quote, targets, true) {
       TestEvents.fail("Snipe should fail");
     } catch Error(string memory errorMsg) {
       TestEvents.eq(
@@ -105,7 +108,10 @@ contract TakerOperations_Test is HasMgvEvents {
     mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
     quoteT.approve(address(mgv), 1 ether);
     baseT.blacklists(address(this));
-    try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000, true) {
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 100_000];
+    try mgv.snipes(base, quote, targets, true) {
       TestEvents.fail("Snipe should fail");
     } catch Error(string memory errorMsg) {
       TestEvents.eq(
@@ -126,10 +132,14 @@ contract TakerOperations_Test is HasMgvEvents {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
     quoteT.approve(address(mgv), 1 ether);
-    try
-      mgv.snipe(base, quote, ofr, 1 ether, 0.5 ether, 100_000, false)
-    returns (bool success, uint got, uint gave) {
-      TestEvents.check(success == false, "Snipe should fail");
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 0.5 ether, 100_000];
+    try mgv.snipes(base, quote, targets, false) returns (
+      uint successes,
+      uint got,
+      uint gave
+    ) {
+      TestEvents.check(successes == 0, "Snipe should fail");
       TestEvents.eq(
         weiBalanceBefore,
         mgv.balanceOf(address(this)),
@@ -148,12 +158,14 @@ contract TakerOperations_Test is HasMgvEvents {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
     quoteT.approve(address(mgv), 1 ether);
-    try mgv.snipe(base, quote, ofr, 0.5 ether, 1 ether, 100_000, true) returns (
-      bool success,
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 0.5 ether, 1 ether, 100_000];
+    try mgv.snipes(base, quote, targets, true) returns (
+      uint successes,
       uint got,
       uint gave
     ) {
-      TestEvents.check(success == true, "Snipe should not fail");
+      TestEvents.check(successes == 1, "Snipe should not fail");
       TestEvents.eq(got, 0.5 ether, "Taker did not get enough");
       TestEvents.eq(gave, 0.5 ether, "Taker did not give enough");
     } catch {
@@ -169,12 +181,15 @@ contract TakerOperations_Test is HasMgvEvents {
     );
     mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
     quoteT.approve(address(mgv), 1 ether);
-    try mgv.snipe(base, quote, ofr, 0, 0, 100_000, true) returns (
-      bool success,
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 0, 0, 100_000];
+    try mgv.snipes(base, quote, targets, true) returns (
+      uint successes,
       uint got,
       uint gave
     ) {
-      TestEvents.check(success == true, "Snipe should not fail");
+      TestEvents.check(successes == 1, "Snipe should not fail");
       TestEvents.eq(got, 0 ether, "Taker had too much");
       TestEvents.eq(gave, 0 ether, "Taker gave too much");
       TestEvents.check(
@@ -194,12 +209,15 @@ contract TakerOperations_Test is HasMgvEvents {
     );
     mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
     quoteT.approve(address(mgv), 1 ether);
-    try mgv.snipe(base, quote, ofr, 0, 0, 100_000, false) returns (
-      bool success,
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 0, 0, 100_000];
+    try mgv.snipes(base, quote, targets, false) returns (
+      uint successes,
       uint got,
       uint gave
     ) {
-      TestEvents.check(success == true, "Snipe should not fail");
+      TestEvents.check(successes == 1, "Snipe should not fail");
       TestEvents.eq(got, 0 ether, "Taker had too much");
       TestEvents.eq(gave, 0 ether, "Taker gave too much");
       TestEvents.check(
@@ -215,10 +233,15 @@ contract TakerOperations_Test is HasMgvEvents {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
     quoteT.approve(address(mgv), 1 ether);
-    try
-      mgv.snipe(base, quote, ofr, 0.5 ether, 1 ether, 100_000, false)
-    returns (bool success, uint got, uint gave) {
-      TestEvents.check(success == true, "Snipe should not fail");
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 0.5 ether, 1 ether, 100_000];
+    try mgv.snipes(base, quote, targets, false) returns (
+      uint successes,
+      uint got,
+      uint gave
+    ) {
+      TestEvents.check(successes == 1, "Snipe should not fail");
       TestEvents.eq(got, 1 ether, "Taker did not get enough");
       TestEvents.eq(gave, 1 ether, "Taker did not get enough");
     } catch {
@@ -299,18 +322,18 @@ contract TakerOperations_Test is HasMgvEvents {
     mkr.expect("mgv/makerTransferFail"); // status visible in the posthook
     uint beforeQuote = quoteT.balanceOf(address(this));
     uint beforeWei = address(this).balance;
-    (bool success, uint takerGot, uint takerGave) = mgv.snipe(
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 100_000];
+    (uint successes, uint takerGot, uint takerGave) = mgv.snipes(
       base,
       quote,
-      ofr,
-      1 ether,
-      1 ether,
-      100_000,
+      targets,
       true
     );
     uint penalty = address(this).balance - beforeWei;
     TestEvents.check(penalty > 0, "Taker should have been compensated");
-    TestEvents.check(!success, "Snipe should fail");
+    TestEvents.check(successes == 0, "Snipe should fail");
     TestEvents.check(
       takerGot == takerGave && takerGave == 0,
       "Incorrect transaction information"
@@ -337,7 +360,10 @@ contract TakerOperations_Test is HasMgvEvents {
     uint ofr = refusemkr.newOffer(1 ether, 1 ether, 50_000, 0);
     refuseReceive = true;
     quoteT.approve(address(mgv), 1 ether);
-    try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 100_000, true) {
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 100_000];
+    try mgv.snipes(base, quote, targets, true) {
       TestEvents.fail(
         "Snipe should fail because taker has reverted on penalty send."
       );
@@ -355,18 +381,18 @@ contract TakerOperations_Test is HasMgvEvents {
     baseT.blacklists(address(mkr));
     uint beforeQuote = quoteT.balanceOf(address(this));
     uint beforeWei = address(this).balance;
-    (bool success, uint takerGot, uint takerGave) = mgv.snipe(
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 100_000];
+    (uint successes, uint takerGot, uint takerGave) = mgv.snipes(
       base,
       quote,
-      ofr,
-      1 ether,
-      1 ether,
-      100_000,
+      targets,
       true
     );
     uint penalty = address(this).balance - beforeWei;
     TestEvents.check(penalty > 0, "Taker should have been compensated");
-    TestEvents.check(!success, "Snipe should fail");
+    TestEvents.check(successes == 0, "Snipe should fail");
     TestEvents.check(
       takerGot == takerGave && takerGave == 0,
       "Incorrect transaction information"
@@ -398,18 +424,18 @@ contract TakerOperations_Test is HasMgvEvents {
     quoteT.blacklists(address(mkr));
     uint beforeQuote = quoteT.balanceOf(address(this));
     uint beforeWei = address(this).balance;
-    (bool success, uint takerGot, uint takerGave) = mgv.snipe(
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 100_000];
+    (uint successes, uint takerGot, uint takerGave) = mgv.snipes(
       base,
       quote,
-      ofr,
-      1 ether,
-      1 ether,
-      100_000,
+      targets,
       true
     );
     uint penalty = address(this).balance - beforeWei;
     TestEvents.check(penalty > 0, "Taker should have been compensated");
-    TestEvents.check(!success, "Snipe should fail");
+    TestEvents.check(successes == 0, "Snipe should fail");
     TestEvents.check(
       takerGot == takerGave && takerGave == 0,
       "Incorrect transaction information"
@@ -437,16 +463,16 @@ contract TakerOperations_Test is HasMgvEvents {
     quoteT.approve(address(mgv), 1 ether);
     uint ofr = failmkr.newOffer(1 ether, 1 ether, 50_000, 0);
     uint beforeWei = address(this).balance;
-    (bool success, uint takerGot, uint takerGave) = mgv.snipe(
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 0, 0, 100_000];
+    (uint successes, uint takerGot, uint takerGave) = mgv.snipes(
       base,
       quote,
-      ofr,
-      0,
-      0,
-      100_000,
+      targets,
       true
     );
-    TestEvents.check(!success, "Snipe should fail");
+    TestEvents.check(successes == 0, "Snipe should fail");
     TestEvents.check(
       takerGot == takerGave && takerGave == 0,
       "Transaction data should be 0"
@@ -463,18 +489,18 @@ contract TakerOperations_Test is HasMgvEvents {
     uint ofr = failmkr.newOffer(1 ether, 1 ether, 50_000, 0);
     uint beforeQuote = quoteT.balanceOf(address(this));
     uint beforeWei = address(this).balance;
-    (bool success, uint takerGot, uint takerGave) = mgv.snipe(
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 100_000];
+    (uint successes, uint takerGot, uint takerGave) = mgv.snipes(
       base,
       quote,
-      ofr,
-      1 ether,
-      1 ether,
-      100_000,
+      targets,
       true
     );
     uint penalty = address(this).balance - beforeWei;
     TestEvents.check(penalty > 0, "Taker should have been compensated");
-    TestEvents.check(!success, "Snipe should fail");
+    TestEvents.check(successes == 0, "Snipe should fail");
     TestEvents.check(
       takerGot == takerGave && takerGave == 0,
       "Incorrect transaction information"
@@ -502,7 +528,10 @@ contract TakerOperations_Test is HasMgvEvents {
     uint balTaker = baseT.balanceOf(address(this));
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
     quoteT.approve(address(mgv), 1 ether);
-    try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000, true) {
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 50_000];
+    try mgv.snipes(base, quote, targets, true) {
       TestEvents.eq(
         baseT.balanceOf(address(this)) - balTaker,
         1 ether,
@@ -517,7 +546,9 @@ contract TakerOperations_Test is HasMgvEvents {
     uint balTaker = baseT.balanceOf(address(this));
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
     quoteT.approve(address(mgv), 1 ether);
-    try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000, true) {
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 50_000];
+    try mgv.snipes(base, quote, targets, true) {
       TestEvents.eq(
         baseT.balanceOf(address(this)) - balTaker,
         1 ether,
@@ -531,7 +562,10 @@ contract TakerOperations_Test is HasMgvEvents {
   function taker_hasnt_approved_quote_fails_order_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
     baseT.approve(address(mgv), 1 ether);
-    try mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000, true) {
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 50_000];
+    try mgv.snipes(base, quote, targets, true) {
       TestEvents.fail("Order should fail when base is not mgv approved");
     } catch Error(string memory r) {
       TestEvents.eq(r, "mgv/takerTransferFail", "wrong revert reason");
@@ -544,12 +578,15 @@ contract TakerOperations_Test is HasMgvEvents {
     quoteT.approve(address(mgv), 10 ether);
     uint balTaker = baseT.balanceOf(address(this));
     uint balMaker = quoteT.balanceOf(address(mkr));
-    try mgv.snipe(base, quote, ofr, 1 ether, 1.1 ether, 50_000, true) returns (
-      bool success,
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1.1 ether, 50_000];
+    try mgv.snipes(base, quote, targets, true) returns (
+      uint successes,
       uint takerGot,
       uint takerGave
     ) {
-      TestEvents.check(success, "Snipe should succeed");
+      TestEvents.check(successes == 1, "Snipe should succeed");
       TestEvents.eq(
         baseT.balanceOf(address(this)) - balTaker,
         1 ether,
@@ -661,15 +698,10 @@ contract TakerOperations_Test is HasMgvEvents {
     mkr.expect("mgv/tradeSuccess");
     quoteT.approve(address(mgv), 10 ether);
 
-    (, uint takerGot, uint takerGave) = mgv.snipe(
-      base,
-      quote,
-      ofr,
-      2 ether,
-      0 ether,
-      300_000,
-      false
-    );
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 2 ether, 0 ether, 300_000];
+
+    (, uint takerGot, uint takerGave) = mgv.snipes(base, quote, targets, false);
     TestEvents.eq(
       takerGave,
       0 ether,
@@ -736,7 +768,10 @@ contract TakerOperations_Test is HasMgvEvents {
 
     quoteT.approve(address(mgv), 100 ether);
     baseT.approve(address(mgv), 1 ether); // not necessary since no fee
-    try mgv.snipe(base, quote, ofr, 2 ether, 100 ether, 100_000, true) {
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 2 ether, 100 ether, 100_000];
+    try mgv.snipes(base, quote, targets, true) {
       TestEvents.fail(
         "Taker does not have enough quote tokens, order should fail"
       );
@@ -751,16 +786,11 @@ contract TakerOperations_Test is HasMgvEvents {
     // getting rid of base tokens
     //mkr.transferToken(baseT,address(this),5 ether);
     quoteT.approve(address(mgv), 0.5 ether);
-    (bool success, , ) = mgv.snipe(
-      base,
-      quote,
-      ofr,
-      50 ether,
-      0.5 ether,
-      100_000,
-      true
-    );
-    TestEvents.check(!success, "order should fail");
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 50 ether, 0.5 ether, 100_000];
+    (uint successes, , ) = mgv.snipes(base, quote, targets, true);
+    TestEvents.check(successes == 0, "order should fail");
     TestEvents.expectFrom(address(mgv));
     emit OfferFail(
       base,
@@ -779,7 +809,9 @@ contract TakerOperations_Test is HasMgvEvents {
     mkr.expect("mgv/makerRevert");
     mkr.shouldRevert(true);
     quoteT.approve(address(mgv), 1 ether);
-    mgv.snipe(base, quote, ofr, 1 ether, 1 ether, 50_000, true);
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 50_000];
+    mgv.snipes(base, quote, targets, true);
     TestEvents.expectFrom(address(mgv));
     emit OfferFail(
       base,
@@ -796,17 +828,12 @@ contract TakerOperations_Test is HasMgvEvents {
   function snipe_on_higher_price_fails_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     quoteT.approve(address(mgv), 0.5 ether);
-    (bool success, , ) = mgv.snipe(
-      base,
-      quote,
-      ofr,
-      1 ether,
-      0.5 ether,
-      100_000,
-      true
-    );
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 0.5 ether, 100_000];
+    (uint successes, , ) = mgv.snipes(base, quote, targets, true);
     TestEvents.check(
-      !success,
+      successes == 0,
       "Order should fail when order price is higher than offer"
     );
   }
@@ -814,17 +841,12 @@ contract TakerOperations_Test is HasMgvEvents {
   function snipe_on_higher_gas_fails_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     quoteT.approve(address(mgv), 1 ether);
-    (bool success, , ) = mgv.snipe(
-      base,
-      quote,
-      ofr,
-      1 ether,
-      1 ether,
-      50_000,
-      true
-    );
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 50_000];
+    (uint successes, , ) = mgv.snipes(base, quote, targets, true);
     TestEvents.check(
-      !success,
+      successes == 0,
       "Order should fail when order gas is higher than offer"
     );
   }
@@ -833,14 +855,13 @@ contract TakerOperations_Test is HasMgvEvents {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     quoteT.approve(address(mgv), 100 ether);
 
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 100_000];
     bytes memory cd = abi.encodeWithSelector(
-      mgv.snipe.selector,
+      mgv.snipes.selector,
       base,
       quote,
-      ofr,
-      1 ether,
-      1 ether,
-      100_000,
+      targets,
       true
     );
 
@@ -860,17 +881,12 @@ contract TakerOperations_Test is HasMgvEvents {
     quoteT.approve(address(mgv), 2 ether);
     uint balTaker = baseT.balanceOf(address(this));
     uint balMaker = quoteT.balanceOf(address(mkr));
-    (bool success, , ) = mgv.snipe(
-      base,
-      quote,
-      ofr,
-      1 ether,
-      2 ether,
-      100_000,
-      true
-    );
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 2 ether, 100_000];
+    (uint successes, , ) = mgv.snipes(base, quote, targets, true);
     TestEvents.check(
-      success,
+      successes == 1,
       "Order should succeed when order price is lower than offer"
     );
     // checking order was executed at Maker's price
@@ -971,8 +987,11 @@ contract TakerOperations_Test is HasMgvEvents {
     quoteT.approve(address(mgv), 1 ether);
     uint mkrBal = baseT.balanceOf(address(mkr));
     uint ofr = mkr.newOffer(0.1 ether, 0.1 ether, 50_000, 0);
-    (bool success, , ) = mgv.snipe(base, quote, ofr, 0, 1 ether, 50_000, true);
-    TestEvents.check(success, "snipe should succeed");
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 0, 1 ether, 50_000];
+    (uint successes, , ) = mgv.snipes(base, quote, targets, true);
+    TestEvents.check(successes == 1, "snipe should succeed");
     TestEvents.eq(mgv.best(base, quote), 0, "offer should be gone");
     TestEvents.eq(
       baseT.balanceOf(address(mkr)),
@@ -985,9 +1004,9 @@ contract TakerOperations_Test is HasMgvEvents {
     mgv.setGasbase(base, quote, 1, 1);
     quoteT.approve(address(mgv), 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 120_000, 0);
-    try
-      mgv.snipe{gas: 120_000}(base, quote, ofr, 1 ether, 1 ether, 120_000, true)
-    {
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1 ether, 1 ether, 120_000];
+    try mgv.snipes{gas: 120_000}(base, quote, targets, true) {
       TestEvents.fail("unsafe gas amount, order should fail");
     } catch Error(string memory r) {
       TestEvents.eq(r, "mgv/notEnoughGasForMakerTrade", "wrong revert reason");

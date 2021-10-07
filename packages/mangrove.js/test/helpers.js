@@ -5,7 +5,6 @@ exports.sleep = (ms) => {
   return new Promise((cb) => setTimeout(cb, ms));
 };
 
-/* Returns a promise with resolve/reject accessible from the outside. */
 exports.asyncQueue = () => {
   const promises = [],
     elements = [];
@@ -25,6 +24,15 @@ exports.asyncQueue = () => {
       }
     },
   };
+};
+
+/* Returns a promise with resolve/reject accessible from the outside. */
+exports.Deferred = () => {
+  let _ok, _ko;
+  const p = new Promise((ok, ko) => ([_ok, _ko] = [ok, ko]));
+  p.ok = _ok;
+  p.ko = _ko;
+  return p;
 };
 
 exports.toWei = (v, u = "ether") => ethers.utils.parseUnits(v.toString(), u);
