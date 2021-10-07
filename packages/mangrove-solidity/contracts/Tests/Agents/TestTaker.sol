@@ -32,16 +32,7 @@ contract TestTaker is ITaker {
 
   function take(uint offerId, uint takerWants) external returns (bool success) {
     //uint taken = TestEvents.min(makerGives, takerWants);
-    (success, , ) = _mgv.snipe(
-      _base,
-      _quote,
-      offerId,
-      takerWants,
-      type(uint96).max, //takergives
-      type(uint48).max, //gasreq
-      true
-    );
-    //return taken;
+    (success, , ) = this.takeWithInfo(offerId, takerWants);
   }
 
   function takeWithInfo(uint offerId, uint takerWants)
@@ -53,16 +44,15 @@ contract TestTaker is ITaker {
     )
   {
     //uint taken = TestEvents.min(makerGives, takerWants);
-    return
-      _mgv.snipe(
-        _base,
-        _quote,
-        offerId,
-        takerWants,
-        type(uint96).max, //takergives
-        type(uint48).max, //gasreq
-        true
-      );
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [offerId, takerWants, type(uint96).max, type(uint48).max];
+    (uint successes, uint got, uint gave) = _mgv.snipes(
+      _base,
+      _quote,
+      targets,
+      true
+    );
+    return (successes == 1, got, gave);
     //return taken;
   }
 
@@ -74,16 +64,11 @@ contract TestTaker is ITaker {
     uint takerWants,
     uint takerGives,
     uint gasreq
-  ) external returns (bool success) {
-    (success, , ) = __mgv.snipe(
-      __base,
-      __quote,
-      offerId,
-      takerWants,
-      takerGives,
-      gasreq,
-      true
-    );
+  ) external returns (bool) {
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [offerId, takerWants, takerGives, gasreq];
+    (uint successes, , ) = __mgv.snipes(__base, __quote, targets, true);
+    return successes == 1;
   }
 
   function takerTrade(
