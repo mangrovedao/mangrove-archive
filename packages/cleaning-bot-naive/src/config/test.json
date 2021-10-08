@@ -5,6 +5,8 @@
   },
   "markets": [["WETH", "DAI"]],
   "FIXME": "Should I copy the Hardhat and Hardhat deploy configuration here or can I somehow include it?",
+  "FIXME2": "node-config has patterns for defining defaults in a module and allowing consumers to override: https://github.com/lorenwest/node-config/wiki/Sub-Module-Configuration",
+  "FIXME3": "node-config also supports having the module configuration defaults in a file, see util.setModuleDefaults: https://github.com/lorenwest/node-config/wiki/Using-Config-Utilities",
   "hardhat": {
     "defaultNetwork": "hardhat",
     "networks": {
