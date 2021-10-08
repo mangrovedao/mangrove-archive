@@ -15,13 +15,15 @@
     "get-mangrove-abis": "cp node_modules/@giry/mangrove-solidity/dist/mangrove-abis/*.json ./src/abis/",
     "copy-static-assets": "ts-node copyStaticAssets.ts",
     "write-test-deployment-file": "ts-node writeTestDeploymentFiles.ts",
+    "clean-this-package": "yarn run clean-typechain && rimraf dist",
+    "clean": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run clean-this-package",
+    "clean-typechain": "rimraf \"src/types/typechain/*\" || exit 0",
     "publish_patch": "npm version patch && npm publish --access public",
     "publish_minor": "npm version minor && npm publish --access public",
     "publish_major": "npm version major && npm publish --access public",
     "rollup": "rollup -c rollup.config.ts",
     "test": "cross-env NODE_ENV=test nyc --reporter=lcov mocha -r ts-node/register ./test/index.js  --timeout 60000 --reporter mocha-multi-reporters --reporter-options configFile=mocha-multi-reporters.json",
     "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
-    "clean-typechain": "rimraf 'src/types/typechain/*'; exit 0",
     "typechain": "yarn run clean-typechain && npx typechain --target=ethers-v5 --out-dir=src/types/typechain \"src/abis/*.json\""
   },
   "files": [

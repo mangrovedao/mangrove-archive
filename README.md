@@ -106,6 +106,24 @@ $ yarn workspaces foreach --topological-dev build-this-package
 This will only run `build-this-package` in a package after its dependencies in the monorepo have been built.
 
 
+## Cleaning build and dist artifacts
+Most of the time, running `yarn build` will generate/update the `build` and/or `dist` folders appropriately. However, sometimes the build system gets confused by artifacts left by previous builds. This can for instance happen after refactorings or when switching git branches.
+Typical symptoms of this are weird build errors that bear no relation to the changes you've made - or if you've made no changes at all!
+
+In this situation, you can use the `clean` commands, that are symmetric to the `build` commands:
+
+```shell
+yarn clean
+```
+
+will clean the current package and its dependencies (if run in a package) or all packages if run in root.
+
+```shell
+yarn clean-this-package
+```
+will clean just the current package.
+
+
 # Structure and contents of this monorepo
 The repo root contains the following folders and files:
 
@@ -131,24 +149,31 @@ Each package should have its own `package.json` file based on the following temp
 
 ```jsonc
 {
-  "name": "@giry/<packageName>",                // All packages should be scope with @giry
+  "name": "@giry/<packageName>",                // All packages should be scoped with @giry.
   "version": "0.0.1",
   "author": "Mangrove DAO",
   "description": "<description of the package>",
-  "license": "<license>",                       // License should be chosen appropriately for the specific package
+  "license": "<license>",                       // License should be chosen appropriately for the specific package.
   "scripts": {
     "precommit": "lint-staged",                 // This script is called by the Husky precommit Git hook.
                                                 // We typically use this to autoformat all staged files with `lint-staged`:
                                                 // lint-staged runs the command specified in the lint-staged section below
                                                 // on the files staged for commit.
-    "prepack": "build",                         // Yarn 2 recommends using the `prepack` lifecycle script for building
+    "prepack": "build",                         // Yarn 2 recommends using the `prepack` lifecycle script for building.
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx", // Linting of the specified file types.
-    "build-this-package": "<build command(s)>", // This script is called by the `build` script in root
+    "build-this-package": "<build command(s)>", // This script should build just this package.
+                                                // It will be called by `build` scripts whenever this package should be build.
     "build": "yarn install && yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
-                                                // Update and build dependencies and this package in topological order
+                                                // Update and build dependencies and this package in topological order.
+    "clean-this-package": "clean commmand(s)>", // This script should clean just this package.
+                                                // It will be called by `clean` scripts whenever this package should be cleaned.
+    "clean": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run clean-this-package",
+                                                // Clean dependencies and this package in topological order.
     "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
-                                                // Test this package and its dependencies in topological order
-    "test": "<test command(s)>"                 // This script is called by the `test` script in root
+                                                // Test this package and its dependencies in topological order.
+    "test": "<test command(s)>"                 // This script should test just this package.
+                                                // It will be called by the `test` script in root and by `test-with-dependencies`
+                                                // whenever this package should be testet.
   },
   "lint-staged": {
     "**/*": "prettier --write --ignore-unknown" // The command that `lint-staged` will run on staged
@@ -158,7 +183,7 @@ Each package should have its own `package.json` file based on the following temp
   "dependencies": {
     "@giry/mangrove-js": "workspace:*"          // This is an example of a run-time dependency to another package in the monorepo
   },
-  "devDependencies": {                          
+  "devDependencies": {
     "@giry/mangrove-solidity": "workspace:*",   // This is an example of a build-time dependency to another package in the monorepo
                                                 
     "eslint": "^7.32.0",                        // You probably want this and the following development dependencies
@@ -166,7 +191,8 @@ Each package should have its own `package.json` file based on the following temp
     "eslint-plugin-prettier": "^4.0.0",
     "lint-staged": "^11.1.2",
     "prettier": "2.3.2",
-    "prettier-eslint": "^13.0.0" 
+    "prettier-eslint": "^13.0.0",
+    "rimraf": "^3.0.2"                          // Cross-platform tool for deleting folders - useful for cleaning.
   }
 }
 ```
