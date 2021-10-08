@@ -10,6 +10,8 @@ import {
 } from "./types";
 import { Mangrove } from "./mangrove";
 
+let canConstructMarket = false;
+
 const DEFAULT_MAX_OFFERS = 50;
 
 /* Note on big.js:
@@ -22,17 +24,15 @@ import Big from "big.js";
 Big.DP = 20; // precision when dividing
 Big.RM = Big.roundHalfUp; // round to nearest
 
-//TODO Implement maxVolume?:number
 type OrderResult = { got: Big; gave: Big };
 type bookOpts = { fromId: number; maxOffers: number; chunkSize?: number };
 const bookOptsDefault: bookOpts = { fromId: 0, maxOffers: DEFAULT_MAX_OFFERS };
-type semibookMap = { offers: { [key: string]: Offer }; best: number };
 
-export type subscribeUtils = {
-  book: () => {
-    asks: ReturnType<typeof mapToArray>;
-    bids: ReturnType<typeof mapToArray>;
-  };
+type semibookMap = { offers: Map<number, Offer>; best: number };
+
+type semibook = semibookMap & {
+  ba: "bids" | "asks";
+  gasbase: { offer_gasbase: number; overhead_gasbase: number };
 };
 
 export type Offer = {
@@ -63,13 +63,6 @@ type OfferData = {
   gives: BigNumber;
 };
 
-type semibook = {
-  ba: "bids" | "asks";
-  gasbase: { offer_gasbase: number; overhead_gasbase: number };
-  offers: { [key: string]: Offer };
-  best: number;
-};
-
 type bookSubscriptionCbArgument = { ba: "asks" | "bids"; offer: Offer } & (
   | { type: "OfferWrite" }
   | {
@@ -83,6 +76,12 @@ type bookSubscriptionCbArgument = { ba: "asks" | "bids"; offer: Offer } & (
   | { type: "OfferSuccess"; taker: string; takerWants: Big; takerGives: Big }
   | { type: "OfferRetract" }
 );
+
+type marketCallback = (event: bookSubscriptionCbArgument) => any;
+//TODO  give correct type
+type subscriptionParam =
+  | { type: "multiple" }
+  | { type: "once"; ok: (...a: any[]) => any; ko: (...a: any[]) => any };
 
 /**
  * The Market class focuses on a mangrove market.
@@ -98,8 +97,17 @@ export class Market {
   mgv: Mangrove;
   base: { name: string; address: string };
   quote: { name: string; address: string };
+  #subscriptions: Map<marketCallback, subscriptionParam>;
+  #lowLevelCallbacks: null | { asksCallback?: any; bidsCallback?: any };
+  _book: { asks: Offer[]; bids: Offer[] };
 
-  subscriptions: { asksCallback?: any; bidsCallback?: any };
+  static async connect(params: { mgv: Mangrove; base: string; quote: string }) {
+    canConstructMarket = true;
+    const market = new Market(params);
+    canConstructMarket = false;
+    await market.#initialize();
+    return market;
+  }
 
   /**
    * Initialize a new `params.base`:`params.quote` market.
@@ -107,7 +115,13 @@ export class Market {
    * `params.mgv` will be used as mangrove instance
    */
   constructor(params: { mgv: Mangrove; base: string; quote: string }) {
-    this.subscriptions = {};
+    if (!canConstructMarket) {
+      throw Error(
+        "Mangrove Market must be initialized async with Market.connect (constructors cannot be async)"
+      );
+    }
+    this.#subscriptions = new Map();
+    this.#lowLevelCallbacks = null;
     this.mgv = params.mgv;
     this.base = {
       name: params.base,
@@ -118,18 +132,19 @@ export class Market {
       name: params.quote,
       address: this.mgv.getAddress(params.quote),
     };
-  }
-
-  /* Returns whether the market currently calls a user-provided callback on book-related events. */
-  subscribed(): boolean {
-    return Object.keys(this.subscriptions).length > 0;
+    this._book = { asks: [], bids: [] };
   }
 
   /* Stop calling a user-provided function on book-related events. */
-  unsubscribe(): void {
-    if (!this.subscribed()) throw Error("Not subscribed");
+  unsubscribe(cb): void {
+    this.#subscriptions.delete(cb);
+  }
+
+  /* Stop listening to events from mangrove */
+  disconnect(): void {
     const { asksFilter, bidsFilter } = this.#bookFilter();
-    const { asksCallback, bidsCallback } = this.subscriptions;
+    if (!this.#lowLevelCallbacks) return;
+    const { asksCallback, bidsCallback } = this.#lowLevelCallbacks;
     this.mgv.contract.off(asksFilter, asksCallback);
     this.mgv.contract.off(bidsFilter, bidsCallback);
   }
@@ -209,10 +224,28 @@ export class Market {
    * @note Only one subscription may be active at a time.
    */
   async subscribe(
-    cb: (event: bookSubscriptionCbArgument, utils?: subscribeUtils) => void,
+    cb: (event: bookSubscriptionCbArgument) => void,
     opts: Omit<bookOpts, "fromId"> = bookOptsDefault
   ): Promise<void> {
-    if (this.subscribed()) throw Error("Already subscribed.");
+    this.#subscriptions.set(cb, { type: "multiple" });
+  }
+
+  /**
+   *  Returns a promise which is fulfilled after execution of the callback.
+   */
+  async once<T>(
+    cb: (event: bookSubscriptionCbArgument) => T,
+    opts: Omit<bookOpts, "fromId"> = bookOptsDefault
+  ): Promise<T> {
+    return new Promise((ok, ko) => {
+      this.#subscriptions.set(cb, { type: "once", ok, ko });
+    });
+  }
+
+  async #initialize(
+    opts: Omit<bookOpts, "fromId"> = bookOptsDefault
+  ): Promise<void> {
+    if (this.#lowLevelCallbacks) throw Error("Already initialized.");
 
     const config = await this.config();
 
@@ -245,19 +278,12 @@ export class Market {
       ...this.rawToMap("bids", ...rawBids),
     };
 
-    const utils: subscribeUtils = {
-      book: () => {
-        return {
-          asks: mapToArray(asks.best, asks.offers),
-          bids: mapToArray(bids.best, bids.offers),
-        };
-      },
-    };
+    const blockNum = await this.mgv._provider.getBlockNumber();
 
-    const asksCallback = this.#createBookEventCallback(asks, cb, utils);
-    const bidsCallback = this.#createBookEventCallback(bids, cb, utils);
+    const asksCallback = this.#createBookEventCallback(asks);
+    const bidsCallback = this.#createBookEventCallback(bids);
 
-    this.subscriptions = { asksCallback, bidsCallback };
+    this.#lowLevelCallbacks = { asksCallback, bidsCallback };
 
     this.mgv.contract.on(asksFilter, asksCallback);
     this.mgv.contract.on(bidsFilter, bidsCallback);
@@ -387,12 +413,6 @@ export class Market {
     wants = this.toUnits("quote", wants);
 
     return this.#marketOrder({ wants, gives, orderType: "sell" });
-    // const resp = await this.#marketOrder({ wants, gives, orderType: "sell" });
-    // const receipt = await resp.wait();
-    // for (const log of receipt.logs)
-    //   const evt: bookSubscriptionEvent = this.mgv.contract.interface.getEvent("OrderComplete"(
-    //     _evt
-    //   ) as any;
   }
 
   /**
@@ -402,6 +422,9 @@ export class Market {
    *
    * If `orderType` is `"sell"`, the quote/base market will be used,
    * with contract function argument `fillWants` set to false.
+   *
+   * Returns a promise for market order result after 1 confirmation.
+   * Will throw on same conditions as ethers.js `transaction.wait`.
    */
   async #marketOrder({
     wants,
@@ -412,21 +435,20 @@ export class Market {
     gives: Big;
     orderType: "buy" | "sell";
   }): Promise<{ got: Big; gave: Big }> {
-    const [onchainBase, onchainQuote, fillWants] =
+    const [outboundTkn, inboundTkn, fillWants] =
       orderType === "buy"
         ? [this.base, this.quote, true]
         : [this.quote, this.base, false];
 
     const response = await this.mgv.contract.marketOrder(
-      onchainBase.address,
-      onchainQuote.address,
+      outboundTkn.address,
+      inboundTkn.address,
       BigNumber.from(wants.toFixed(0)),
       BigNumber.from(gives.toFixed(0)),
       fillWants
     );
     const receipt = await response.wait();
 
-    //TODO return TransactionResponse and another 'OrderResult' promise
     let result: ethers.Event | undefined;
     //last OrderComplete is ours!
     for (const evt of receipt.events) {
@@ -482,14 +504,7 @@ export class Market {
       maxOffersLeft = maxOffersLeft - chunkSize;
     } while (maxOffersLeft > 0 && nextId !== 0);
 
-    //clean end of arrays (remove null-offers)
-    let lastIndex = offerIds.findIndex((e) => e.eq(0));
-    lastIndex = lastIndex < 0 ? opts.maxOffers : lastIndex;
-    return [
-      offerIds.slice(0, lastIndex),
-      offers.slice(0, lastIndex),
-      details.slice(0, lastIndex),
-    ];
+    return [offerIds, offers, details];
   }
 
   /**
@@ -513,7 +528,11 @@ export class Market {
    *  Order is from best to worse from taker perspective.
    */
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-  async book(opts: bookOpts = bookOptsDefault) {
+  book(opts: bookOpts = bookOptsDefault) {
+    return this._book;
+  }
+
+  async requestBook(opts: bookOpts = bookOptsDefault) {
     const rawAsks = await this.rawBook(
       this.base.address,
       this.quote.address,
@@ -537,24 +556,23 @@ export class Market {
     details: BookReturns.details
   ): semibookMap {
     const data: semibookMap = {
-      offers: {},
+      offers: new Map(),
       best: 0,
     };
 
     for (const [index, offerId] of ids.entries()) {
-      if (offerId.eq(0)) {
-        break;
-      }
-
       if (index === 0) {
         data.best = ids[0].toNumber();
       }
 
-      data.offers[offerId.toNumber()] = this.#toOfferObject(ba, {
-        id: ids[index],
-        ...offers[index],
-        ...details[index],
-      });
+      data.offers.set(
+        offerId.toNumber(),
+        this.#toOfferObject(ba, {
+          id: ids[index],
+          ...offers[index],
+          ...details[index],
+        })
+      );
     }
 
     return data;
@@ -619,11 +637,19 @@ export class Market {
     };
   }
 
-  #createBookEventCallback(
-    semibook: semibook,
-    cb: (a: bookSubscriptionCbArgument, utils?: subscribeUtils) => void,
-    utils: subscribeUtils
-  ): (...args: any[]) => any {
+  defaultCallback(evt: bookSubscriptionCbArgument, semibook: semibook): void {
+    this._book[semibook.ba] = mapToArray(semibook.best, semibook.offers);
+    for (const [cb, params] of this.#subscriptions) {
+      if (params.type === "once") {
+        this.#subscriptions.delete(cb);
+        Promise.resolve(cb(evt)).then(params.ok, params.ko);
+      } else {
+        cb(evt);
+      }
+    }
+  }
+
+  #createBookEventCallback(semibook: semibook): (...args: any[]) => any {
     return (_evt) => {
       const evt: bookSubscriptionEvent = this.mgv.contract.interface.parseLog(
         _evt
@@ -650,18 +676,18 @@ export class Market {
 
           insertOffer(semibook, evt.args.id.toNumber(), offer);
 
-          cb(
+          this.defaultCallback(
             {
               type: evt.name,
               offer: offer,
               ba: semibook.ba,
             },
-            utils
+            semibook
           );
           break;
 
         case "OfferFail":
-          cb(
+          this.defaultCallback(
             {
               type: evt.name,
               ba: semibook.ba,
@@ -678,12 +704,12 @@ export class Market {
               statusCode: evt.args.statusCode,
               makerData: evt.args.makerData,
             },
-            utils
+            semibook
           );
           break;
 
         case "OfferSuccess":
-          cb(
+          this.defaultCallback(
             {
               type: evt.name,
               ba: semibook.ba,
@@ -698,18 +724,18 @@ export class Market {
                 evt.args.takerGives.toString()
               ),
             },
-            utils
+            semibook
           );
           break;
 
         case "OfferRetract":
-          cb(
+          this.defaultCallback(
             {
               type: evt.name,
               ba: semibook.ba,
               offer: removeOffer(semibook, evt.args.id.toNumber()),
             },
-            utils
+            semibook
           );
           break;
 
@@ -723,22 +749,67 @@ export class Market {
       }
     };
   }
+
+  /**
+   * Volume estimator, very crude (based on cached book).
+   *
+   * if you say `estimateVolume({given:100,what:"base",to:"buy"})`,
+   *
+   * it will give you an estimate of how much quote token you would have to
+   * spend to get 100 base tokens.
+   *
+   * if you say `estimateVolume({given:10,what:"quote",to:"sell"})`,
+   *
+   * it will given you an estimate of how much base tokens you'd have to buy in
+   * order to spend 10 quote tokens.
+   * */
+  estimateVolume(params: {
+    given: Bigish;
+    what: "base" | "quote";
+    to: "buy" | "sell";
+  }) {
+    const dict = {
+      base: {
+        buy: { book: "asks", drainer: "gives", filler: "wants" },
+        sell: { book: "bids", drainer: "wants", filler: "gives" },
+      },
+      quote: {
+        buy: { book: "bids", drainer: "gives", filler: "wants" },
+        sell: { book: "asks", drainer: "wants", filler: "gives" },
+      },
+    } as const;
+
+    const data = dict[params.what][params.to];
+
+    const book = this.book()[data.book];
+    let draining = Big(params.given);
+    let filling = Big(0);
+    for (const o of book) {
+      const _drainer = o[data.drainer];
+      const drainer = draining.gt(_drainer) ? _drainer : draining;
+      const filler = o[data.filler].times(drainer).div(_drainer);
+      draining = draining.minus(drainer);
+      filling = filling.plus(filler);
+      if (draining.eq(0)) break;
+    }
+    return filling;
+  }
 }
 
 const removeOffer = (semibook, id) => {
-  const ofr = semibook.offers[id];
+  const ofr = semibook.offers.get(id);
   if (ofr) {
     if (ofr.prev === 0) {
       semibook.best = ofr.next;
     } else {
-      semibook.offers[ofr.prev].next = ofr.next;
+      semibook.offers.get(ofr.prev).next = ofr.next;
     }
 
     if (ofr.next !== 0) {
-      semibook.offers[ofr.next].prev = ofr.prev;
+      semibook.offers.get(ofr.next).prev = ofr.prev;
     }
 
-    delete semibook.offers[id];
+    semibook.offers.delete(id);
     return ofr;
   } else {
     return null;
@@ -748,15 +819,15 @@ const removeOffer = (semibook, id) => {
 // Assumes ofr.prev and ofr.next are present in local OB copy.
 // Assumes id is not already in book;
 const insertOffer = (semibook, id, ofr) => {
-  semibook.offers[id] = ofr;
+  semibook.offers.set(id, ofr);
   if (ofr.prev === 0) {
     semibook.best = ofr.id;
   } else {
-    semibook.offers[ofr.prev].next = id;
+    semibook.offers.get(ofr.prev).next = id;
   }
 
   if (ofr.next !== 0) {
-    semibook.offers[ofr.next].prev = id;
+    semibook.offers.get(ofr.next).prev = id;
   }
 };
 
@@ -764,27 +835,26 @@ const getNext = ({ offers, best }: semibook, prev) => {
   if (prev === 0) {
     return best;
   } else {
-    if (!offers[prev]) {
+    if (!offers.get(prev)) {
       throw Error(
         "Trying to get next of an offer absent from local orderbook copy"
       );
     } else {
-      return offers[prev].next;
+      return offers.get(prev).next;
     }
   }
 };
 
 // May stop before endofbook if we only have a prefix
-const mapToArray = (best: number, offers: any) => {
+const mapToArray = (best: number, offers: Map<number, Offer>) => {
   const ary = [];
 
   if (best !== 0) {
-    let latest = offers[best];
+    let latest = offers.get(best);
     do {
       ary.push(latest);
-      latest = offers[latest.next];
-    } while (typeof offers[latest] !== "undefined");
+      latest = offers.get(latest.next);
+    } while (typeof latest !== "undefined");
   }
-
   return ary;
 };

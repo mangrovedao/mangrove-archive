@@ -112,4 +112,33 @@ contract Reader_Test is HasMgvEvents {
     TestEvents.eq(offers[1].wants, 0.9 ether, "wrong wants for offers[0]");
     TestEvents.eq(offers[2].wants, 1 ether, "wrong wants for offers[0]");
   }
+
+  function returns_zero_on_nonexisting_offer_test() public {
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
+    mkr.retractOffer(ofr);
+    (, uint[] memory offerIds, , ) = reader.book(base, quote, ofr, 50);
+    TestEvents.eq(
+      offerIds.length,
+      0,
+      "should have 0 offers since starting point is out of the book"
+    );
+  }
+
+  function no_wasted_time_test() public {
+    reader.book(base, quote, 0, 50); // warming up caches
+
+    uint g = gasleft();
+    reader.book(base, quote, 0, 50);
+    uint used1 = g - gasleft();
+
+    g = gasleft();
+    reader.book(base, quote, 0, 50000000);
+    uint used2 = g - gasleft();
+
+    TestEvents.eq(
+      used1,
+      used2,
+      "gas spent should not depend on maxOffers when offers length < maxOffers"
+    );
+  }
 }

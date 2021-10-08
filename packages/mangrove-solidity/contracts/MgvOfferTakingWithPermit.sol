@@ -115,37 +115,6 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
     deductSenderAllowance(outbound_tkn, inbound_tkn, taker, takerGave);
   }
 
-  /* The delegate version of `snipe` is `snipeFor`, which takes a `taker` address as additional argument. */
-  function snipeFor(
-    address outbound_tkn,
-    address inbound_tkn,
-    uint offerId,
-    uint takerWants,
-    uint takerGives,
-    uint gasreq,
-    bool fillWants,
-    address taker
-  )
-    external
-    returns (
-      bool success,
-      uint takerGot,
-      uint takerGave
-    )
-  {
-    (success, takerGot, takerGave) = generalSnipe(
-      outbound_tkn,
-      inbound_tkn,
-      offerId,
-      takerWants,
-      takerGives,
-      gasreq,
-      fillWants,
-      taker
-    );
-    deductSenderAllowance(outbound_tkn, inbound_tkn, taker, takerGave);
-  }
-
   /* The delegate version of `snipes` is `snipesFor`, which takes a `taker` address as additional argument. */
   function snipesFor(
     address outbound_tkn,

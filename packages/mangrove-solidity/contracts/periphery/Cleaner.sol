@@ -40,9 +40,11 @@ contract Keeper is AccessControlled, CarefulMath {
     uint offerId,
     uint gives
   ) external {
-    (bool success, , ) =
-      MGV.snipe(base, quote, offerId, 0, gives, uint(MAXUINT24), false);
-    require(!success, "Collect failed");
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [offerId, 0, gives, uint(MAXUINT24)];
+
+    (uint successes, , ) = MGV.snipes(base, quote, targets, false);
+    require(successes == 0, "Collect failed");
   }
 
   function transfer(

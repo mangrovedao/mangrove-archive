@@ -30,12 +30,16 @@ const newOffer = (mgv, base, quote, { wants, gives, gasreq, gasprice }) => {
 describe("Market integration tests suite", () => {
   let mgv;
 
-  before(async () => {
+  beforeEach(async () => {
     //set mgv object
     mgv = await Mangrove.connect(providerUrl);
 
     //shorten polling for faster tests
     mgv._provider.pollingInterval = 250;
+  });
+
+  afterEach(async () => {
+    mgv.disconnect();
   });
 
   it("subscribes", async function () {
@@ -47,9 +51,9 @@ describe("Market integration tests suite", () => {
 
     let latestBook;
 
-    const cb = (evt, utils) => {
+    const cb = (evt) => {
       queue.put(evt);
-      latestBook = utils.book();
+      latestBook = market.book();
     };
     await market.subscribe(cb);
 
@@ -132,6 +136,67 @@ describe("Market integration tests suite", () => {
 
     const config = await market.config();
     assert.strictEqual(config.asks.fee, fee, "wrong fee");
+    market.disconnect();
+  });
+
+  it("updates OB", async function () {
+    const market = await mgv.market({ base: "TokenA", quote: "TokenB" });
+    const addrA = market.base.address;
+    const addrB = market.quote.address;
+
+    let pro1 = market.once((evt) => {
+      assert.equal(
+        market.book().asks.length,
+        1,
+        "book should have length 1 by now"
+      );
+    });
+    await newOffer(mgv, addrA, addrB, { wants: "1", gives: "1.2" });
+    await pro1;
+
+    let pro2 = market.once((evt) => {
+      assert.equal(
+        market.book().asks.length,
+        2,
+        "book should have length 2 by now"
+      );
+    });
+    await newOffer(mgv, addrA, addrB, { wants: "1", gives: "1.2" });
+    await pro2;
+
+    let pro3 = market.once((evt) => {
+      assert.equal(
+        market.book().asks.length,
+        3,
+        "book should have length 3 by now"
+      );
+    });
+    await newOffer(mgv, addrA, addrB, { wants: "1", gives: "1.2" });
+    await pro3;
+    market.disconnect();
+    //TODO add to after
+  });
+
+  it("crudely simulates market buy", async function () {
+    const market = await mgv.market({ base: "TokenA", quote: "TokenB" });
+    const addrA = market.base.address;
+    const addrB = market.quote.address;
+    await newOffer(mgv, addrA, addrB, { wants: "1.2", gives: "0.3" });
+    await newOffer(mgv, addrA, addrB, { wants: "1", gives: "0.25" });
+    const done = helpers.Deferred();
+    market.subscribe((evt) => {
+      if (market.book().asks.length === 2) {
+        const estimated = market.estimateVolume({
+          given: "2",
+          what: "quote",
+          to: "sell",
+        });
+        assert.equal(estimated.toFixed(), "0.5");
+        done.ok();
+      }
+    });
+    await done;
+    market.disconnect();
   });
 
   it("gets OB", async function () {
@@ -200,8 +265,7 @@ describe("Market integration tests suite", () => {
 
     /* Start testing */
 
-    const book = await market.book({ maxOffers: 3 });
-
+    const book = await market.requestBook({ maxOffers: 3 });
     // Convert big.js numbers to string for easier debugging
     const stringify = ({ bids, asks }) => {
       const s = (obj) => {

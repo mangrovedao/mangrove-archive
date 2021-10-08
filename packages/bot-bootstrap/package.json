@@ -4,10 +4,12 @@
     "author": "Mangrove DAO",
     "main": "src/populate-market.js",
     "scripts": {
-        "build-this-package": "echo No build here",
+        "build-this-package": "",
         "build": "yarn install && yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
+        "clean-this-package": "",
+        "clean": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run clean-this-package",
         "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
-        "test": "echo No tests here"
+        "test": ""
     },
     "dependencies": {
         "@ethersproject/hardware-wallets": "^5.4.0",

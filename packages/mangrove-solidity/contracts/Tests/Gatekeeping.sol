@@ -523,93 +523,18 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
     );
   }
 
-  function cannot_snipeFor_for_without_allowance_test() public {
-    TestToken(base).mint(address(mkr), 1 ether);
-    mkr.approveMgv(TestToken(base), 1 ether);
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
-    try
-      mgv.snipeFor(
-        base,
-        quote,
-        ofr,
-        1 ether,
-        1 ether,
-        300_000,
-        true,
-        address(tkr)
-      )
-    {
-      TestEvents.fail("snipeFor should fail without allowance");
-    } catch Error(string memory reason) {
-      TestUtils.revertEq(reason, "mgv/lowAllowance");
-    }
-  }
-
-  function can_snipeFor_for_with_allowance_test() public {
-    TestToken(base).mint(address(mkr), 1 ether);
-    mkr.approveMgv(TestToken(base), 1 ether);
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
-    tkr.approveSpender(address(this), 1.2 ether);
-    (bool success, , ) = mgv.snipeFor(
-      base,
-      quote,
-      ofr,
-      1 ether,
-      1 ether,
-      300_000,
-      true,
-      address(tkr)
-    );
-    TestEvents.check(success, "snipeFor should succeed");
-    TestEvents.eq(
-      mgv.allowances(base, quote, address(tkr), address(this)),
-      0.2 ether,
-      "allowance should have correctly reduced"
-    );
-    //Log test
-    TestEvents.expectFrom(address(mgv));
-    emit Approval(
-      address(base),
-      address(quote),
-      address(tkr),
-      address(this),
-      1.2 ether
-    );
-  }
-
   function cannot_snipesFor_for_without_allowance_test() public {
     TestToken(base).mint(address(mkr), 1 ether);
     mkr.approveMgv(TestToken(base), 1 ether);
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
+
     uint[4][] memory targets = new uint[4][](1);
-    targets[0] = [ofr, type(uint96).max, type(uint96).max, type(uint).max];
+    targets[0] = [ofr, 1 ether, 1 ether, 300_000];
     try mgv.snipesFor(base, quote, targets, true, address(tkr)) {
-      TestEvents.fail("snipesFor should fail without allowance");
+      TestEvents.fail("snipeFor should fail without allowance");
     } catch Error(string memory reason) {
       TestUtils.revertEq(reason, "mgv/lowAllowance");
     }
-  }
-
-  function can_snipesFor_for_with_allowance_test() public {
-    TestToken(base).mint(address(mkr), 1 ether);
-    mkr.approveMgv(TestToken(base), 1 ether);
-    uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
-    tkr.approveSpender(address(this), 1.2 ether);
-    uint[4][] memory targets = new uint[4][](1);
-    targets[0] = [ofr, type(uint96).max, type(uint96).max, type(uint).max];
-    (uint successes, , ) = mgv.snipesFor(
-      base,
-      quote,
-      targets,
-      true,
-      address(tkr)
-    );
-    TestEvents.eq(successes, 1, "snipesFor should have 1 success");
-    TestEvents.eq(
-      mgv.allowances(base, quote, address(tkr), address(this)),
-      0.2 ether,
-      "allowance should have correctly reduced"
-    );
   }
 
   function cannot_marketOrderFor_for_without_allowance_test() public {
@@ -886,18 +811,10 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
 
   /* Snipe failure */
 
-  function snipeKO(uint id) external {
-    try
-      mgv.snipe(
-        base,
-        quote,
-        id,
-        1 ether,
-        type(uint96).max,
-        type(uint24).max,
-        true
-      )
-    {
+  function snipesKO(uint id) external {
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [id, 1 ether, type(uint96).max, type(uint48).max];
+    try mgv.snipes(base, quote, targets, true) {
       TestEvents.fail("snipe on same pair should fail");
     } catch Error(string memory reason) {
       TestUtils.revertEq(reason, "mgv/reentrancyLocked");
@@ -906,32 +823,26 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
 
   function snipe_on_reentrancy_fails_test() public {
     uint ofr = mgv.newOffer(base, quote, 1 ether, 1 ether, 60_000, 0, 0);
-    trade_cb = abi.encodeWithSelector(this.snipeKO.selector, ofr);
+    trade_cb = abi.encodeWithSelector(this.snipesKO.selector, ofr);
     require(tkr.take(ofr, 0.1 ether), "take must succeed or test is void");
   }
 
   /* Snipe success */
 
-  function snipeOK(
+  function snipesOK(
     address _base,
     address _quote,
     uint id
   ) external {
-    mgv.snipe(
-      _base,
-      _quote,
-      id,
-      1 ether,
-      type(uint96).max,
-      type(uint24).max,
-      true
-    );
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [id, 1 ether, type(uint96).max, type(uint48).max];
+    mgv.snipes(_base, _quote, targets, true);
   }
 
   function snipes_on_reentrancy_succeeds_test() public {
     uint other_ofr = dual_mkr.newOffer(1 ether, 1 ether, 30_000, 0);
     trade_cb = abi.encodeWithSelector(
-      this.snipeOK.selector,
+      this.snipesOK.selector,
       quote,
       base,
       other_ofr
@@ -945,7 +856,7 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
   function snipes_on_posthook_succeeds_test() public {
     uint other_ofr = mkr.newOffer(1 ether, 1 ether, 30_000, 0);
     posthook_cb = abi.encodeWithSelector(
-      this.snipeOK.selector,
+      this.snipesOK.selector,
       base,
       quote,
       other_ofr
