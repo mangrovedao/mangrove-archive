@@ -1,4 +1,4 @@
-import { winstonCreateLogger, BetterLogger } from "@giry/commonlib-js";
+import { createLogger, BetterLogger } from "@giry/commonlib-js";
 import { format } from "winston";
 import os from "os";
 
@@ -19,6 +19,6 @@ const consoleLogFormat = format.printf(
   }
 );
 
-export const logger: BetterLogger = winstonCreateLogger(consoleLogFormat);
+export const logger: BetterLogger = createLogger(consoleLogFormat);
 
 export default logger;

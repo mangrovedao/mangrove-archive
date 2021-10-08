@@ -1,5 +1,10 @@
 import { config } from "./config";
-import { createLogger, format, transports, Logger } from "winston";
+import {
+  createLogger as winstonCreateLogger,
+  format,
+  transports,
+  Logger,
+} from "winston";
 import os from "os";
 import { ErrorWithData } from "./errorWithData";
 import { Format } from "logform";
@@ -13,8 +18,8 @@ export interface BetterLogger extends Logger {
   exception: (error: Error, data?: Object) => BetterLogger;
 }
 
-export const winstonCreateLogger = (consoleFormatLogger: Format) => {
-  var theLogger = createLogger({
+export const createLogger = (consoleFormatLogger: Format) => {
+  var theLogger = winstonCreateLogger({
     transports: [
       new transports.Console({
         level: config.get("log.logLevel"),
@@ -43,4 +48,4 @@ export const winstonCreateLogger = (consoleFormatLogger: Format) => {
   return theLogger as BetterLogger;
 };
 
-export default winstonCreateLogger;
+export default createLogger;
