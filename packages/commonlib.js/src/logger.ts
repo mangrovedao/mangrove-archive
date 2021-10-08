@@ -5,7 +5,6 @@ import {
   transports,
   Logger,
 } from "winston";
-import os from "os";
 import { ErrorWithData } from "./errorWithData";
 import { Format } from "logform";
 
@@ -34,6 +33,8 @@ export const createLogger = (consoleFormatLogger: Format) => {
     ],
   }) as BetterLogger;
 
+  // Monkey patching Winston because it incorrectly logs `Error` instances even in 2021
+  // Related issue: https://github.com/winstonjs/winston/issues/1498
   theLogger.exception = function (error: Error, data?: Object) {
     const message = error.message;
     const stack = error.stack;
