@@ -1,4 +1,4 @@
-import { logger } from "@giry/commonlib-js/src/logger";
+import { logger } from "./util/cleanbot-logger";
 import { Market, Offer } from "@giry/mangrove-js/dist/nodejs/market";
 import { Provider } from "@ethersproject/providers";
 import { Wallet } from "@ethersproject/wallet";

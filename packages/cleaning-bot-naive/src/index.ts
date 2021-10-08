@@ -1,5 +1,6 @@
-import { config, logger, ErrorWithData } from "@giry/commonlib-js";
+import { config, ErrorWithData } from "@giry/commonlib-js";
 import { MarketCleaner } from "./MarketCleaner";
+import { logger } from "./util/cleanbot-logger";
 import { TokenPair } from "./mangrove-js-type-aliases";
 // TODO Figure out where mangrove.js get its addresses from and make it configurable
 import Mangrove from "@giry/mangrove-js";

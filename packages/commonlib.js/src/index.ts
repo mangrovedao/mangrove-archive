@@ -1,5 +1,5 @@
 import config from "config";
 import { ErrorWithData } from "./errorWithData";
-import logger from "./logger";
+import { BetterLogger, winstonCreateLogger } from "./logger";
 
-export { config, ErrorWithData, logger };
+export { config, ErrorWithData, BetterLogger, winstonCreateLogger };
