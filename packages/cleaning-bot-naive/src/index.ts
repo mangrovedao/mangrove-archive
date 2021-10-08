@@ -6,9 +6,10 @@ import { TokenPair } from "./mangrove-js-type-aliases";
 import Mangrove from "@giry/mangrove-js";
 import { Provider } from "@ethersproject/providers";
 import { Wallet } from "@ethersproject/wallet";
+import path from "path";
 
 if (!process.env["NODE_CONFIG_DIR"]) {
-  process.env["NODE_CONFIG_DIR"] = __dirname + "/../config/";
+  process.env["NODE_CONFIG_DIR"] = path.join(__dirname, "/config/");
 }
 
 const main = async () => {
