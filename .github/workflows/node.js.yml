@@ -60,16 +60,17 @@ jobs:
       run: echo "commonlib_js_built=true" >> $GITHUB_ENV    
 
     # == run and report tests == 
-    - name: commonlib.js - Tests
-      run: yarn run test
+    # NOTE: Uncomment the following two steps, when commonlib.js has tests -->
+    # - name: commonlib.js - Tests
+    #   run: yarn run test
 
-    - name: commonlib.js - Test Report
-      uses: dorny/test-reporter@v1
-      if: ${{ env.commonlib_js_built && (success() || failure()) }}
-      with:
-        name: commonlib.js - Tests                   # Name of the check run which will be created
-        path: packages/commonlib.js/commonlib-js-mocha-test-report.json # Path to test results
-        reporter: mocha-json                               # Format of test results
+    # - name: commonlib.js - Test Report
+    #   uses: dorny/test-reporter@v1
+    #   if: ${{ env.commonlib_js_built && (success() || failure()) }}
+    #   with:
+    #     name: commonlib.js - Tests                   # Name of the check run which will be created
+    #     path: packages/commonlib.js/commonlib-js-mocha-test-report.json # Path to test results
+    #     reporter: mocha-json                               # Format of test results
 
     # save artifacts for later stages
     - name: Zip output
