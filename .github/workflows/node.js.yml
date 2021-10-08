@@ -11,7 +11,80 @@ env:
   working-directory: packages/mangrove-solidity
 
 jobs:
-  # ==== Job: Build and test Mangrove
+  # ==== Job: Build and test commonlib.js ====
+  commonlib-js:
+
+    runs-on: ubuntu-latest
+
+    env:
+      working-directory: packages/commonlib.js
+
+    defaults:
+      run:
+        working-directory: packages/commonlib.js
+
+    strategy:
+      matrix:
+        node-version: [14.x]
+
+    steps:
+
+    # == Git checkout ==
+    - name: Checkout
+      uses: actions/checkout@v2
+      # Workaround for https://github.com/npm/cli/issues/2610
+      with:
+        persist-credentials: false
+
+    - name: Reconfigure git to use HTTP authentication
+      # Workaround for https://github.com/npm/cli/issues/2610    
+      run: >
+        git config --global url."https://github.com/".insteadOf
+        ssh://git@github.com/
+
+    # == yarn setup ==
+    - name: Yarn setup (caching yarn dependencies)
+      uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'yarn'
+        
+    - run: yarn install --immutable
+      working-directory: . # Yarn must run in root to ensure monorepo setup
+
+    # build
+    - name: commonlib.js - Build
+      run: yarn run build-this-package
+
+    - name: Save status of build
+      run: echo "commonlib_js_built=true" >> $GITHUB_ENV    
+
+    # == run and report tests == 
+    # NOTE: Uncomment the following two steps, when commonlib.js has tests -->
+    # - name: commonlib.js - Tests
+    #   run: yarn run test
+
+    # - name: commonlib.js - Test Report
+    #   uses: dorny/test-reporter@v1
+    #   if: ${{ env.commonlib_js_built && (success() || failure()) }}
+    #   with:
+    #     name: commonlib.js - Tests                   # Name of the check run which will be created
+    #     path: packages/commonlib.js/commonlib-js-mocha-test-report.json # Path to test results
+    #     reporter: mocha-json                               # Format of test results
+
+    # save artifacts for later stages
+    - name: Zip output
+      uses: montudor/action-zip@v1
+      with: 
+        args: zip -qq -r commonlib-out.zip ${{env.working-directory}}/dist
+
+    - name: Cache commonlib.js output as artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: commonlib-out.zip
+        path: commonlib-out.zip
+
+  # ==== Job: Build and test Mangrove Core
   mangrove-solidity:
 
     runs-on: ubuntu-latest
@@ -246,7 +319,7 @@ jobs:
         
   # ==== Job: Build and test cleaning-bot-naive ====
   cleaning-bot-naive:
-    needs: mangrove-js
+    needs: [commonlib-js, mangrove-js]
 
     runs-on: ubuntu-latest
 
@@ -286,18 +359,29 @@ jobs:
     - run: yarn install --immutable
       working-directory: . # Yarn must run in root to ensure monorepo setup
 
-    # == download artefact ==
+    # == download and unzip artefacts ==
     - name: Download cached mangrove.js artifact
       uses: actions/download-artifact@v2
       with:
         name: mangrove-js-out.zip
 
-    - name: Unzip artifact
+    - name: Unzip mangrove.js artifact
       uses: montudor/action-zip@v1
       with:
         args: unzip -qq mangrove-js-out.zip
-        
-    # == build == 
+
+    - name: Download cached commonlib.js artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: commonlib-out.zip
+
+    - name: Unzip commonlib.js artifact
+      uses: montudor/action-zip@v1
+      with:
+        args: unzip -qq commonlib-out.zip
+
+    # == build ==
+
     - name: Cleaning Bot Naive - Build
       run: yarn run build-this-package
 
