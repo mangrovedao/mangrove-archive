@@ -66,13 +66,13 @@ library MgvLib {
     bytes32 local;
   }
 
-  /* <a id="MgvLib/OrderResult"></a> `OrderResult` holds additional data for the maker and is given to them _after_ they fulfilled an offer. It gives them their own returned data from the previous call, and an `statusCode` specifying whether the Mangrove encountered an error. */
+  /* <a id="MgvLib/OrderResult"></a> `OrderResult` holds additional data for the maker and is given to them _after_ they fulfilled an offer. It gives them their own returned data from the previous call, and an `mgvData` specifying whether the Mangrove encountered an error. */
 
   struct OrderResult {
     /* `makerdata` holds a message that was either returned by the maker or passed as revert message at the end of the trade execution*/
     bytes32 makerData;
-    /* `statusCode` is an [internal Mangrove status](#MgvOfferTaking/statusCodes) code. */
-    bytes32 statusCode;
+    /* `mgvData` is an [internal Mangrove status](#MgvOfferTaking/statusCodes) code. */
+    bytes32 mgvData;
   }
 }
 
@@ -147,8 +147,8 @@ contract HasMgvEvents {
     address taker,
     uint takerWants,
     uint takerGives,
-    // `statusCode` may only be `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"`
-    bytes32 statusCode,
+    // `mgvData` may only be `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"`
+    bytes32 mgvData,
     bytes32 makerData
   );
 
@@ -210,7 +210,7 @@ contract HasMgvEvents {
 
 /* # IMaker interface */
 interface IMaker {
-  /* Called upon offer execution. If this function reverts, Mangrove will not try to transfer funds. Returned data (truncated to leftmost 32 bytes) can be accessed during the call to `makerPosthook` in the `result.statusCode` field. To revert with a 32 bytes value, use something like:
+  /* Called upon offer execution. If this function reverts, Mangrove will not try to transfer funds. Returned data (truncated to leftmost 32 bytes) can be accessed during the call to `makerPosthook` in the `result.mgvData` field. To revert with a 32 bytes value, use something like:
      ```
      function tradeRevert(bytes32 data) internal pure {
        bytes memory revData = new bytes(32);

@@ -236,8 +236,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint[] memory args;
     bytes32 word;
     if (
-      result.statusCode == "mgv/tradeSuccess" ||
-      result.statusCode == "mgv/makerRevert"
+      result.mgvData == "mgv/tradeSuccess" ||
+      result.mgvData == "mgv/makerRevert"
     ) {
       // if trade was a success or dropped by maker, `makerData` determines the posthook switch
       (postHook_switch, word) = getMakerData(result.makerData);
@@ -259,8 +259,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
       __postHookFallback__(word, order);
       return;
     } else {
-      // if `mgv` rejected trade, `statusCode` is the argument given to fallback posthook
-      __postHookFallback__(result.statusCode, order);
+      // if `mgv` rejected trade, `mgvData` is the argument given to fallback posthook
+      __postHookFallback__(result.mgvData, order);
     }
   }
 
