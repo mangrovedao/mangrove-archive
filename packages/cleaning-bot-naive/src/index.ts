@@ -7,6 +7,10 @@ import Mangrove from "@giry/mangrove-js";
 import { Provider } from "@ethersproject/providers";
 import { Wallet } from "@ethersproject/wallet";
 
+if (!process.env["NODE_CONFIG_DIR"]) {
+  process.env["NODE_CONFIG_DIR"] = __dirname + "/../config/";
+}
+
 const main = async () => {
   const mgv = await Mangrove.connect(config.get<string>("jsonRpcUrl"));
   // TODO Initialize:
