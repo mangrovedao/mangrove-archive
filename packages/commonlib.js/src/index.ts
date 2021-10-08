@@ -1,5 +1,5 @@
 import config from "config";
 import { ErrorWithData } from "./errorWithData";
-import { BetterLogger, createLogger } from "./logger";
+import { BetterLogger, createLogger, format } from "./logger";
 
-export { config, ErrorWithData, BetterLogger, createLogger };
+export { config, ErrorWithData, BetterLogger, createLogger, format };

@@ -1,5 +1,4 @@
-import { createLogger, BetterLogger } from "@giry/commonlib-js";
-import { format } from "winston";
+import { createLogger, BetterLogger, format } from "@giry/commonlib-js";
 import os from "os";
 
 const consoleLogFormat = format.printf(

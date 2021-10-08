@@ -28,8 +28,7 @@
     "@giry/mangrove-js": "workspace:*",
     "@types/big.js": "^6.1.2",
     "big.js": "^6.1.1",
-    "ethers": "^5.4.7",
-    "winston": "^3.3.3"
+    "ethers": "^5.4.7"
   },
   "devDependencies": {
     "@espendk/json-file-reporter": "^1.4.2",

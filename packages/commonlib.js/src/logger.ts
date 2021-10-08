@@ -49,4 +49,6 @@ export const createLogger = (consoleFormatLogger: Format) => {
   return theLogger as BetterLogger;
 };
 
+export { format };
+
 export default createLogger;
