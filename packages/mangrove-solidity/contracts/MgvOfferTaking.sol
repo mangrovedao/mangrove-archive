@@ -137,7 +137,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       uint gasused; // gas used by `makerExecute`
       bytes32 makerData; // data returned by maker
 
-      /* <a id="MgvOfferTaking/statusCodes"></a> `statusCode` is an internal Mangrove status code. It may appear in an [`OrderResult`](#MgvLib/OrderResult). Its possible values are:
+      /* <a id="MgvOfferTaking/statusCodes"></a> `mgvData` is an internal Mangrove status code. It may appear in an [`OrderResult`](#MgvLib/OrderResult). Its possible values are:
       * `"mgv/notExecuted"`: offer was not executed.
       * `"mgv/tradeSuccess"`: offer execution succeeded. Will appear in `OrderResult`.
       * `"mgv/notEnoughGasForMakerTrade"`: cannot give maker close enough to `gasreq`. Triggers a revert of the entire order.
@@ -146,18 +146,18 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       * `"mgv/makerReceiveFail"`: maker could not receive inbound_tkn tokens. Will appear in `OrderResult`.
       * `"mgv/takerTransferFail"`: taker could not send inbound_tkn tokens. Triggers a revert of the entire order.
 
-      `statusCode` should not be exploitable by the maker! */
-      bytes32 statusCode;
+      `mgvData` should not be exploitable by the maker! */
+      bytes32 mgvData;
 
       /* Load additional information about the offer. We don't do it earlier to save one storage read in case `proceed` was false. */
       sor.offerDetail = offerDetails[sor.outbound_tkn][sor.inbound_tkn][
         sor.offerId
       ];
 
-      /* `execute` will adjust `sor.wants`,`sor.gives`, and may attempt to execute the offer if its price is low enough. It is crucial that an error due to `taker` triggers a revert. That way, [`statusCode`](#MgvOfferTaking/statusCodes) not in `["mgv/notExecuted","mgv/tradeSuccess"]` means the failure is the maker's fault. */
+      /* `execute` will adjust `sor.wants`,`sor.gives`, and may attempt to execute the offer if its price is low enough. It is crucial that an error due to `taker` triggers a revert. That way, [`mgvData`](#MgvOfferTaking/statusCodes) not in `["mgv/notExecuted","mgv/tradeSuccess"]` means the failure is the maker's fault. */
       /* Post-execution, `sor.wants`/`sor.gives` reflect how much was sent/taken by the offer. We will need it after the recursive call, so we save it in local variables. Same goes for `offerId`, `sor.offer` and `sor.offerDetail`. */
 
-      (gasused, makerData, statusCode) = execute(mor, sor);
+      (gasused, makerData, mgvData) = execute(mor, sor);
 
       /* Keep cached copy of current `sor` values. */
       uint takerWants = sor.wants;
@@ -167,7 +167,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       bytes32 offerDetail = sor.offerDetail;
 
       /* If an execution was attempted, we move `sor` to the next offer. Note that the current state is inconsistent, since we have not yet updated `sor.offerDetails`. */
-      if (statusCode != "mgv/notExecuted") {
+      if (mgvData != "mgv/notExecuted") {
         sor.wants = mor.initialWants > mor.totalGot
           ? mor.initialWants - mor.totalGot
           : 0;
@@ -186,7 +186,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         mor,
         sor,
         /* `proceed` value for next call. Currently, when an offer did not execute, it's because the offer's price was too high. In that case we interrupt the loop and let the taker leave with less than they asked for (but at a correct price). We could also revert instead of breaking; this could be a configurable flag for the taker to pick. */
-        statusCode != "mgv/notExecuted"
+        mgvData != "mgv/notExecuted"
       );
 
       /* Restore `sor` values from to before recursive call */
@@ -197,8 +197,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       sor.offerDetail = offerDetail;
 
       /* After an offer execution, we may run callbacks and increase the total penalty. As that part is common to market orders and snipes, it lives in its own `postExecute` function. */
-      if (statusCode != "mgv/notExecuted") {
-        postExecute(mor, sor, gasused, makerData, statusCode);
+      if (mgvData != "mgv/notExecuted") {
+        postExecute(mor, sor, gasused, makerData, mgvData);
       }
 
       /* #### Case 2 : End of market order */
@@ -336,7 +336,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       } else {
         uint gasused;
         bytes32 makerData;
-        bytes32 statusCode;
+        bytes32 mgvData;
 
         require(
           uint96(targets[i][1]) == targets[i][1],
@@ -349,12 +349,12 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         sor.wants = targets[i][1];
         sor.gives = targets[i][2];
 
-        /* `execute` will adjust `sor.wants`,`sor.gives`, and may attempt to execute the offer if its price is low enough. It is crucial that an error due to `taker` triggers a revert. That way [`statusCode`](#MgvOfferTaking/statusCodes) not in `["mgv/tradeSuccess","mgv/notExecuted"]` means the failure is the maker's fault. */
+        /* `execute` will adjust `sor.wants`,`sor.gives`, and may attempt to execute the offer if its price is low enough. It is crucial that an error due to `taker` triggers a revert. That way [`mgvData`](#MgvOfferTaking/statusCodes) not in `["mgv/tradeSuccess","mgv/notExecuted"]` means the failure is the maker's fault. */
         /* Post-execution, `sor.wants`/`sor.gives` reflect how much was sent/taken by the offer. We will need it after the recursive call, so we save it in local variables. Same goes for `offerId`, `sor.offer` and `sor.offerDetail`. */
-        (gasused, makerData, statusCode) = execute(mor, sor);
+        (gasused, makerData, mgvData) = execute(mor, sor);
 
         /* In the market order, we were able to avoid stitching back offers after every `execute` since we knew a continuous segment starting at best would be consumed. Here, we cannot do this optimisation since offers in the `targets` array may be anywhere in the book. So we stitch together offers immediately after each `execute`. */
-        if (statusCode != "mgv/notExecuted") {
+        if (mgvData != "mgv/notExecuted") {
           sor.local = stitchOffers(
             sor.outbound_tkn,
             sor.inbound_tkn,
@@ -384,8 +384,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         }
 
         /* After an offer execution, we may run callbacks and increase the total penalty. As that part is common to market orders and snipes, it lives in its own `postExecute` function. */
-        if (statusCode != "mgv/notExecuted") {
-          postExecute(mor, sor, gasused, makerData, statusCode);
+        if (mgvData != "mgv/notExecuted") {
+          postExecute(mor, sor, gasused, makerData, mgvData);
         }
       }
       /* #### Case 2 : End of snipes */
@@ -414,14 +414,14 @@ abstract contract MgvOfferTaking is MgvHasOffers {
      Summary of the meaning of the return values:
     * `gasused` is the gas consumed by the execution
     * `makerData` is the data returned after executing the offer
-    * `statusCode` is an [internal Mangrove status code](#MgvOfferTaking/statusCodes).
+    * `mgvData` is an [internal Mangrove status code](#MgvOfferTaking/statusCodes).
   */
   function execute(MultiOrder memory mor, ML.SingleOrder memory sor)
     internal
     returns (
       uint gasused,
       bytes32 makerData,
-      bytes32 statusCode
+      bytes32 mgvData
     )
   {
     /* #### `Price comparison` */
@@ -478,8 +478,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       mor.successCount += 1;
       /* In case of success, `retdata` encodes the gas used by the offer. */
       gasused = abi.decode(retdata, (uint));
-      /* `StatusCode` indicates trade success */
-      statusCode = bytes32("mgv/tradeSuccess");
+      /* `mgvData` indicates trade success */
+      mgvData = bytes32("mgv/tradeSuccess");
       emit OfferSuccess(
         sor.outbound_tkn,
         sor.inbound_tkn,
@@ -502,12 +502,12 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       mor.totalGave += sor.gives;
     } else {
       /* In case of failure, `retdata` encodes a short [status code](#MgvOfferTaking/statusCodes), the gas used by the offer, and an arbitrary 256 bits word sent by the maker.  */
-      (statusCode, gasused, makerData) = innerDecode(retdata);
+      (mgvData, gasused, makerData) = innerDecode(retdata);
       /* Note that in the `if`s, the literals are bytes32 (stack values), while as revert arguments, they are strings (memory pointers). */
       if (
-        statusCode == "mgv/makerRevert" ||
-        statusCode == "mgv/makerTransferFail" ||
-        statusCode == "mgv/makerReceiveFail"
+        mgvData == "mgv/makerRevert" ||
+        mgvData == "mgv/makerTransferFail" ||
+        mgvData == "mgv/makerReceiveFail"
       ) {
         mor.failCount += 1;
 
@@ -518,7 +518,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
           mor.taker,
           sor.wants,
           sor.gives,
-          statusCode,
+          mgvData,
           makerData
         );
 
@@ -529,10 +529,10 @@ abstract contract MgvOfferTaking is MgvHasOffers {
             mor.taker
           );
         }
-        /* It is crucial that any error code which indicates an error caused by the taker triggers a revert, because functions that call `execute` consider that `statusCode` not in `["mgv/notExecuted","mgv/tradeSuccess"]` should be blamed on the maker. */
-      } else if (statusCode == "mgv/notEnoughGasForMakerTrade") {
+        /* It is crucial that any error code which indicates an error caused by the taker triggers a revert, because functions that call `execute` consider that `mgvData` not in `["mgv/notExecuted","mgv/tradeSuccess"]` should be blamed on the maker. */
+      } else if (mgvData == "mgv/notEnoughGasForMakerTrade") {
         revert("mgv/notEnoughGasForMakerTrade");
-      } else if (statusCode == "mgv/takerTransferFail") {
+      } else if (mgvData == "mgv/takerTransferFail") {
         revert("mgv/takerTransferFail");
       } else {
         /* This code must be unreachable. **Danger**: if a well-crafted offer/maker pair can force a revert of `flashloan`, the Mangrove will be stuck. */
@@ -546,7 +546,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       sor.inbound_tkn,
       sor.offerId,
       sor.offer,
-      statusCode != "mgv/tradeSuccess"
+      mgvData != "mgv/tradeSuccess"
     );
   }
 
@@ -606,7 +606,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     virtual;
 
   /* ## Post execute */
-  /* At this point, we know `statusCode != "mgv/notExecuted"`. After executing an offer (whether in a market order or in snipes), we
+  /* At this point, we know `mgvData != "mgv/notExecuted"`. After executing an offer (whether in a market order or in snipes), we
      1. Call the maker's posthook and sum the total gas used.
      2. If offer failed: sum total penalty due to taker and give remainder to maker.
    */
@@ -615,9 +615,9 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     ML.SingleOrder memory sor,
     uint gasused,
     bytes32 makerData,
-    bytes32 statusCode
+    bytes32 mgvData
   ) internal {
-    if (statusCode == "mgv/tradeSuccess") {
+    if (mgvData == "mgv/tradeSuccess") {
       beforePosthook(sor);
     }
 
@@ -630,9 +630,9 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
     gasused =
       gasused +
-      makerPosthook(sor, gasreq - gasused, makerData, statusCode);
+      makerPosthook(sor, gasreq - gasused, makerData, mgvData);
 
-    if (statusCode != "mgv/tradeSuccess") {
+    if (mgvData != "mgv/tradeSuccess") {
       mor.totalPenalty += applyPenalty(sor, gasused, mor.failCount);
     }
   }
@@ -647,13 +647,13 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     ML.SingleOrder memory sor,
     uint gasLeft,
     bytes32 makerData,
-    bytes32 statusCode
+    bytes32 mgvData
   ) internal returns (uint gasused) {
-    /* At this point, statusCode can only be `"mgv/tradeSuccess"`, `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"` */
+    /* At this point, mgvData can only be `"mgv/tradeSuccess"`, `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"` */
     bytes memory cd = abi.encodeWithSelector(
       IMaker.makerPosthook.selector,
       sor,
-      ML.OrderResult({makerData: makerData, statusCode: statusCode})
+      ML.OrderResult({makerData: makerData, mgvData: mgvData})
     );
 
     address maker = $$(offerDetail_maker("sor.offerDetail"));
@@ -737,7 +737,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       gasused = gasreq;
     }
 
-    /* As an invariant, `applyPenalty` is only called when `statusCode` is not in `["mgv/notExecuted","mgv/tradeSuccess"]`, and thus when `failCount > 0`. */
+    /* As an invariant, `applyPenalty` is only called when `mgvData` is not in `["mgv/notExecuted","mgv/tradeSuccess"]`, and thus when `failCount > 0`. */
     uint penalty = 10**9 *
       $$(global_gasprice("sor.global")) *
       (gasused +
@@ -791,14 +791,14 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     internal
     pure
     returns (
-      bytes32 statusCode,
+      bytes32 mgvData,
       uint gasused,
       bytes32 makerData
     )
   {
-    /* The `data` pointer is of the form `[statusCode,gasused,makerData]` where each array element is contiguous and has size 256 bits. */
+    /* The `data` pointer is of the form `[mgvData,gasused,makerData]` where each array element is contiguous and has size 256 bits. */
     assembly {
-      statusCode := mload(add(data, 32))
+      mgvData := mload(add(data, 32))
       gasused := mload(add(data, 64))
       makerData := mload(add(data, 96))
     }

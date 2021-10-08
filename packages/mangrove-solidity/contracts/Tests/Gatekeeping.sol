@@ -596,7 +596,7 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
     order; // silence compiler warning
     if (posthook_cb.length > 0) {
       (success, ) = address(this).call(posthook_cb);
-      bool tradeResult = (result.statusCode == "mgv/tradeSuccess");
+      bool tradeResult = (result.mgvData == "mgv/tradeSuccess");
       require(success == tradeResult, "makerPosthook callback must work");
     }
   }

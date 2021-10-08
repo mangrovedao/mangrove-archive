@@ -61,8 +61,8 @@ contract TestMaker is IMaker, Passthrough {
     token.approve(address(_mgv), amount);
   }
 
-  function expect(bytes32 statusCode) external {
-    _expectedStatus = statusCode;
+  function expect(bytes32 mgvData) external {
+    _expectedStatus = mgvData;
   }
 
   function transferToken(
@@ -124,7 +124,7 @@ contract TestMaker is IMaker, Passthrough {
 
     if (_expectedStatus != bytes32("")) {
       TestEvents.eq(
-        result.statusCode,
+        result.mgvData,
         _expectedStatus,
         "Incorrect status message"
       );
