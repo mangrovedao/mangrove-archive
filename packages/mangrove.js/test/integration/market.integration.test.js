@@ -5,7 +5,6 @@ const BigNumber = ethers.BigNumber;
 
 const assert = require("assert");
 const { Mangrove } = require("../../src");
-const providerUrl = "http://localhost:8546";
 const helpers = require("../util/helpers");
 
 const { Big } = require("big.js");
@@ -31,7 +30,9 @@ describe("Market integration tests suite", () => {
 
   beforeEach(async () => {
     //set mgv object
-    mgv = await Mangrove.connect(providerUrl);
+    mgv = await Mangrove.connect({
+      provider: this.test?.parent?.parent?.ctx.provider,
+    });
 
     //shorten polling for faster tests
     mgv._provider.pollingInterval = 250;
