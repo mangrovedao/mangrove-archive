@@ -53,7 +53,7 @@ const main = async () => {
   };
 
   const approve = (tkn) => {
-    tkn.contract.mint(user, mgv.toUnits(tkn.name, tkn.amount).toFixed());
+    tkn.contract.mint(user, mgv.toUnits(tkn.amount, tkn.name));
   };
 
   // await activate(TokenA.address,TokenB.address);
