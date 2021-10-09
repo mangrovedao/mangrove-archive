@@ -7,6 +7,7 @@
 
 // Set up hardhat
 const hre = require("hardhat");
+
 const ethers = hre.ethers;
 
 let server; // used to run a localhost server

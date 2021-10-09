@@ -9,6 +9,7 @@ import {
   bookSubscriptionEvent,
 } from "./types";
 import { Mangrove } from "./mangrove";
+import { MgvToken } from "./mgvtoken";
 
 let canConstructMarket = false;
 
@@ -78,7 +79,6 @@ type bookSubscriptionCbArgument = { ba: "asks" | "bids"; offer: Offer } & (
 );
 
 type marketCallback = (event: bookSubscriptionCbArgument) => any;
-//TODO  give correct type
 type subscriptionParam =
   | { type: "multiple" }
   | { type: "once"; ok: (...a: any[]) => any; ko: (...a: any[]) => any };
@@ -95,8 +95,8 @@ type subscriptionParam =
  */
 export class Market {
   mgv: Mangrove;
-  base: { name: string; address: string };
-  quote: { name: string; address: string };
+  base: MgvToken;
+  quote: MgvToken;
   #subscriptions: Map<marketCallback, subscriptionParam>;
   #lowLevelCallbacks: null | { asksCallback?: any; bidsCallback?: any };
   _book: { asks: Offer[]; bids: Offer[] };
@@ -123,15 +123,18 @@ export class Market {
     this.#subscriptions = new Map();
     this.#lowLevelCallbacks = null;
     this.mgv = params.mgv;
-    this.base = {
-      name: params.base,
-      address: this.mgv.getAddress(params.base),
-    };
 
-    this.quote = {
-      name: params.quote,
-      address: this.mgv.getAddress(params.quote),
-    };
+    this.base = this.mgv.token(params.base);
+    this.quote = this.mgv.token(params.quote);
+    // this.base = {
+    //   name: params.base,
+    //   address: this.mgv.getAddress(params.base),
+    // };
+
+    // this.quote = {
+    //   name: params.quote,
+    //   address: this.mgv.getAddress(params.quote),
+    // };
     this._book = { asks: [], bids: [] };
   }
 
@@ -294,7 +297,7 @@ export class Market {
     return {
       active: cfg.local.active,
       fee: cfg.local.fee.toNumber(),
-      density: this.fromUnits(bq, cfg.local.density.toString()),
+      density: this[bq].fromUnits(cfg.local.density),
       overhead_gasbase: cfg.local.overhead_gasbase.toNumber(),
       offer_gasbase: cfg.local.offer_gasbase.toNumber(),
       lock: cfg.local.lock,
@@ -328,40 +331,6 @@ export class Market {
   }
 
   /**
-   * Convert base/quote from public amount to internal contract amount.
-   * Uses each token's `decimals` parameter.
-   *
-   * If `bq` is `"base"`, will convert the base, the quote otherwise.
-   *
-   * @example
-   * ```
-   * const market = await mgv.market({base:"USDC",quote:"DAI"}
-   * market.toUnits("base",10) // 10e6
-   * market.toUnits("quote",100) //10e19
-   * ```
-   */
-  toUnits(bq: "base" | "quote", amount: Bigish): Big {
-    return this.mgv.toUnits(this[bq].name, amount);
-  }
-
-  /**
-   * Convert base/quote from internal amount to public amount.
-   * Uses each token's `decimals` parameter.
-   *
-   * If `bq` is `"base"`, will convert the base, the quote otherwise.
-   *
-   * @example
-   * ```
-   * const market = await mgv.market({base:"USDC",quote:"DAI"}
-   * market.fromUnits("base","1e7") // 10
-   * market.fromUnits("quote",1e18) // 1
-   * ```
-   */
-  fromUnits(bq: "base" | "quote", amount: Bigish): Big {
-    return this.mgv.fromUnits(this[bq].name, amount);
-  }
-
-  /**
    * Market buy order. Will attempt to buy base token using quote tokens.
    * Params can be of the form:
    * - `{volume,price}`: buy `wants` tokens for a max average price of `price`, or
@@ -379,11 +348,12 @@ export class Market {
    * ```
    */
   buy(params: TradeParams): Promise<OrderResult> {
-    let wants = "price" in params ? Big(params.volume) : Big(params.wants);
-    let gives = "price" in params ? wants.mul(params.price) : Big(params.gives);
+    const _wants = "price" in params ? Big(params.volume) : Big(params.wants);
+    const _gives =
+      "price" in params ? _wants.mul(params.price) : Big(params.gives);
 
-    wants = this.toUnits("base", wants);
-    gives = this.toUnits("quote", gives);
+    const wants = this.base.toUnits(_wants);
+    const gives = this.quote.toUnits(_gives);
 
     return this.#marketOrder({ gives, wants, orderType: "buy" });
   }
@@ -406,11 +376,12 @@ export class Market {
    * ```
    */
   sell(params: TradeParams): Promise<OrderResult> {
-    let gives = "price" in params ? Big(params.volume) : Big(params.gives);
-    let wants = "price" in params ? gives.div(params.price) : Big(params.wants);
+    const _gives = "price" in params ? Big(params.volume) : Big(params.gives);
+    const _wants =
+      "price" in params ? _gives.div(params.price) : Big(params.wants);
 
-    gives = this.toUnits("base", gives);
-    wants = this.toUnits("quote", wants);
+    const gives = this.base.toUnits(_gives);
+    const wants = this.quote.toUnits(_wants);
 
     return this.#marketOrder({ wants, gives, orderType: "sell" });
   }
@@ -431,8 +402,8 @@ export class Market {
     gives,
     orderType,
   }: {
-    wants: Big;
-    gives: Big;
+    wants: ethers.BigNumber;
+    gives: ethers.BigNumber;
     orderType: "buy" | "sell";
   }): Promise<{ got: Big; gave: Big }> {
     const [outboundTkn, inboundTkn, fillWants] =
@@ -443,8 +414,8 @@ export class Market {
     const response = await this.mgv.contract.marketOrder(
       outboundTkn.address,
       inboundTkn.address,
-      BigNumber.from(wants.toFixed(0)),
-      BigNumber.from(gives.toFixed(0)),
+      wants,
+      gives,
       fillWants
     );
     const receipt = await response.wait();
@@ -459,15 +430,11 @@ export class Market {
     if (!result) {
       throw Error("market order went wrong");
     }
+    const got_bq = orderType === "buy" ? "base" : "quote";
+    const gave_bq = orderType === "buy" ? "quote" : "base";
     return {
-      got: this.fromUnits(
-        orderType === "buy" ? "base" : "quote",
-        result.args.takerGot.toString()
-      ),
-      gave: this.fromUnits(
-        orderType === "buy" ? "quote" : "base",
-        result.args.takerGave.toString()
-      ),
+      got: this[got_bq].fromUnits(result.args.takerGot),
+      gave: this[gave_bq].fromUnits(result.args.takerGave),
     };
   }
 
@@ -602,14 +569,11 @@ export class Market {
   }
 
   #toOfferObject(ba: "bids" | "asks", raw: OfferData): Offer {
-    const _gives = this.fromUnits(
-      ba === "asks" ? "base" : "quote",
-      raw.gives.toString()
-    );
-    const _wants = this.fromUnits(
-      ba === "asks" ? "quote" : "base",
-      raw.wants.toString()
-    );
+    const gives_bq = ba === "asks" ? "base" : "quote";
+    const wants_bq = ba === "asks" ? "quote" : "base";
+
+    const _gives = this[gives_bq].fromUnits(raw.gives);
+    const _wants = this[wants_bq].fromUnits(raw.wants);
 
     const [baseVolume, quoteVolume] =
       ba === "asks" ? [_gives, _wants] : [_wants, _gives];
@@ -658,6 +622,10 @@ export class Market {
       // declare const evt: EventTypes.OfferWriteEvent;
       let next;
       let offer;
+
+      const takerWants_bq = semibook.ba === "asks" ? "base" : "quote";
+      const takerGives_bq = semibook.ba === "asks" ? "quote" : "base";
+
       switch (evt.name) {
         case "OfferWrite":
           removeOffer(semibook, evt.args.id.toNumber());
@@ -693,14 +661,8 @@ export class Market {
               ba: semibook.ba,
               taker: evt.args.taker,
               offer: removeOffer(semibook, evt.args.id.toNumber()),
-              takerWants: this.fromUnits(
-                semibook.ba === "asks" ? "base" : "quote",
-                evt.args.takerWants.toString()
-              ),
-              takerGives: this.fromUnits(
-                semibook.ba === "asks" ? "quote" : "base",
-                evt.args.takerGives.toString()
-              ),
+              takerWants: this[takerWants_bq].fromUnits(evt.args.takerWants),
+              takerGives: this[takerGives_bq].fromUnits(evt.args.takerGives),
               statusCode: evt.args.statusCode,
               makerData: evt.args.makerData,
             },
@@ -715,14 +677,8 @@ export class Market {
               ba: semibook.ba,
               taker: evt.args.taker,
               offer: removeOffer(semibook, evt.args.id.toNumber()),
-              takerWants: this.fromUnits(
-                semibook.ba === "asks" ? "base" : "quote",
-                evt.args.takerWants.toString()
-              ),
-              takerGives: this.fromUnits(
-                semibook.ba === "asks" ? "quote" : "base",
-                evt.args.takerGives.toString()
-              ),
+              takerWants: this[takerWants_bq].fromUnits(evt.args.takerWants),
+              takerGives: this[takerGives_bq].fromUnits(evt.args.takerGives),
             },
             semibook
           );

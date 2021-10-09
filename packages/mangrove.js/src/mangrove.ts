@@ -10,6 +10,7 @@ import {
   globalConfig,
 } from "./types";
 import * as typechain from "./types/typechain";
+import { MgvToken } from "./mgvtoken";
 
 import Big from "big.js";
 import * as ethers from "ethers";
@@ -45,7 +46,7 @@ export class Mangrove {
    * Options:
    * * privateKey: `0x...`
    * * mnemonic: `horse battery ...`
-   * * provider: url, provider object, or chain string
+   * * provider: url, provider object, or chain strin￼g
    *
    * @returns {Mangrove} Returns an instance mangrove.js
    */
@@ -106,6 +107,11 @@ export class Mangrove {
     return await Market.connect({ ...params, mgv: this });
   }
 
+  /* Return MgvToken instance tied to mangrove object. */
+  token(name: string) {
+    return new MgvToken(name, this);
+  }
+
   /**
    * Read a contract address on the current network.
    */
@@ -144,31 +150,46 @@ export class Mangrove {
 
   /** Convert public token amount to internal token representation.
    *
-   * if not provided, `decimals` are automatically fetched from saved token decimals
+   * if `extra` is a string, it is interpreted as a token name. Otherwise
+   * it is the number of decimals.
    *
    *  @example
    *  ```
-   *  mgv.toUnits("USDC",10) // 10e6
+   *  mgv.toUnits(10,"USDC") // 10e6 as ethers.BigNumber
+   *  mgv.toUnits(10,6) // 10e6 as ethers.BigNumber
    *  ```
    */
-  toUnits(tokenName: string, amount: Bigish, decimals?: number): Big {
-    decimals =
-      typeof decimals === "undefined" ? this.getDecimals(tokenName) : decimals;
-    return Big(amount).mul(Big(10).pow(decimals));
+  toUnits(amount: Bigish, extra: string | number): ethers.BigNumber {
+    let decimals;
+    if (typeof extra === "number") {
+      decimals = extra;
+    } else {
+      decimals = this.getDecimals(extra);
+    }
+    return ethers.BigNumber.from(Big(10).pow(decimals).mul(amount).toFixed(0));
   }
 
   /** Convert internal token amount to public token representation.
    *
-   * if not provided, `decimals` are automatically fetched from saved token decimals
+   * if `extra` is a string, it is interpreted as a token name. Otherwise
+   * it is the number of decimals.
    *
    *  @example
    *  ```
-   *  mgv.toUnits("DAI","1e19") // 10
+   *  mgv.fromUnits("1e19","DAI") // 10
+   *  mgv.fromUnits("1e19",18) // 10
    *  ```
    */
-  fromUnits(tokenName: string, amount: Bigish, decimals?: number): Big {
-    decimals =
-      typeof decimals === "undefined" ? this.getDecimals(tokenName) : decimals;
+  fromUnits(amount: Bigish | ethers.BigNumber, extra: string | number) {
+    let decimals;
+    if (typeof extra === "number") {
+      decimals = extra;
+    } else {
+      decimals = this.getDecimals(extra);
+    }
+    if (amount instanceof ethers.BigNumber) {
+      amount = amount.toString();
+    }
     return Big(amount).div(Big(10).pow(decimals));
   }
 

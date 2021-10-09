@@ -28,7 +28,7 @@ const newOffer = (mgv, base, quote, { wants, gives, gasreq, gasprice }) => {
 describe("Market integration tests suite", () => {
   let mgv;
 
-  beforeEach(async () => {
+  beforeEach(async function () {
     //set mgv object
     mgv = await Mangrove.connect({
       provider: this.test?.parent?.parent?.ctx.provider,
