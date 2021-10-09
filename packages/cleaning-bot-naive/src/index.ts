@@ -1,4 +1,5 @@
-import { config, ErrorWithData } from "@giry/commonlib-js";
+import config from "./util/config";
+import { ErrorWithData } from "@giry/commonlib-js";
 import { MarketCleaner } from "./MarketCleaner";
 import { logger } from "./util/logger";
 import { TokenPair } from "./mangrove-js-type-aliases";

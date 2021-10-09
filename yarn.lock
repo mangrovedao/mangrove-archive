@@ -862,7 +862,9 @@ __metadata:
     big.js: ^6.1.1
     chai: ^4.3.4
     chai-as-promised: ^7.1.1
+    config: ^3.3.6
     cross-env: ^7.0.3
+    dotenv-flow: ^3.2.0
     eslint: ^7.32.0
     eslint-config-prettier: ^8.3.0
     eslint-plugin-prettier: ^4.0.0
