@@ -1,5 +1,4 @@
 // Integration tests for Market.ts
-// Must be run in the context of mocha-integration-test-hooks.js
 
 const ethers = require("ethers");
 const BigNumber = ethers.BigNumber;

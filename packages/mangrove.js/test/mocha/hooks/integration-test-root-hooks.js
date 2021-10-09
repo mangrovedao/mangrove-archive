@@ -16,44 +16,10 @@ const host = {
   port: 8546,
 };
 
-let snapshot_id = null;
-
-async function hreServer({ hostname, port, provider }) {
-  const {
-    TASK_NODE_CREATE_SERVER,
-  } = require("hardhat/builtin-tasks/task-names");
-  const server = await hre.run(TASK_NODE_CREATE_SERVER, {
-    hostname,
-    port,
-    provider,
-  });
-  await server.listen();
-  return server;
-}
-
-async function snapshot() {
-  const res = await hre.network.provider.request({
-    method: "evm_snapshot",
-    params: [],
-  });
-  snapshot_id = res;
-}
-
-async function revert() {
-  await hre.network.provider.request({
-    method: "evm_revert",
-    params: [snapshot_id],
-  });
-}
-
 exports.mochaHooks = {
   async beforeAll() {
     console.log("Running a Hardhat instance...");
-    server = await hreServer({
-      hostname: host.name,
-      port: host.port,
-      provider: hre.network.provider,
-    });
+    server = await hreServer();
 
     this.provider = hre.network.provider;
 
@@ -114,3 +80,33 @@ exports.mochaHooks = {
     }
   },
 };
+
+let snapshot_id = null;
+
+async function hreServer() {
+  const {
+    TASK_NODE_CREATE_SERVER,
+  } = require("hardhat/builtin-tasks/task-names");
+  const server = await hre.run(TASK_NODE_CREATE_SERVER, {
+    hostname: host.name,
+    port: host.port,
+    provider: hre.network.provider,
+  });
+  await server.listen();
+  return server;
+}
+
+async function snapshot() {
+  const res = await hre.network.provider.request({
+    method: "evm_snapshot",
+    params: [],
+  });
+  snapshot_id = res;
+}
+
+async function revert() {
+  await hre.network.provider.request({
+    method: "evm_revert",
+    params: [snapshot_id],
+  });
+}
