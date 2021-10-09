@@ -16,7 +16,7 @@
     "clean": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run clean-this-package",
     "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
     "test": "npm-run-all \"test:*\"",
-    "test:integration": "cross-env NODE_ENV=test mocha -r ts-node/register -r node_modules/@giry/mangrove-js/test/mocha/hooks/integration-test-root-hooks.js --recursive \"test/integration/*.ts\" --timeout 60000 --reporter mocha-multi-reporters --reporter-option configFile=mocha-multi-reporters.json",
+    "test:integration": "cross-env NODE_ENV=test mocha -r ts-node/register -r @giry/mangrove-js/test/mocha/hooks/integration-test-root-hooks.js --recursive \"test/integration/*.ts\" --timeout 60000 --reporter mocha-multi-reporters --reporter-option configFile=mocha-multi-reporters.json",
     "start": "node dist/nodejs/index.js",
     "local-hardhat:start-node": "hardhat node --no-deploy",
     "local-hardhat:deploy-mangrove": "hardhat deploy --network localhost"
