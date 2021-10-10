@@ -317,18 +317,18 @@ jobs:
 
   # ==== End job: mangrove-js ====
         
-  # ==== Job: Build and test cleaning-bot-naive ====
-  cleaning-bot-naive:
+  # ==== Job: Build and test cleaning-bot ====
+  cleaning-bot:
     needs: [commonlib-js, mangrove-js]
 
     runs-on: ubuntu-latest
 
     env:
-      working-directory: packages/cleaning-bot-naive
+      working-directory: packages/cleaning-bot
 
     defaults:
       run:
-        working-directory: packages/cleaning-bot-naive
+        working-directory: packages/cleaning-bot
 
     strategy:
       matrix:
@@ -392,22 +392,22 @@ jobs:
 
     # == build ==
 
-    - name: Cleaning Bot Naive - Build
+    - name: Cleaning Bot - Build
       run: yarn run build-this-package
 
     - name: Save status of build
       run: echo "cleaning_bot_built=true" >> $GITHUB_ENV    
 
     # == run and report tests == 
-    - name: Cleaning Bot Naive - Tests
+    - name: Cleaning Bot - Tests
       run: yarn run test
 
-    - name: Cleaning Bot Naive - Test Report
+    - name: Cleaning Bot - Test Report
       uses: dorny/test-reporter@v1
       if: ${{ env.cleaning_bot_built && (success() || failure()) }}
       with:
-        name: Cleaning Bot Naive - Tests                   # Name of the check run which will be created
-        path: packages/cleaning-bot-naive/integration-tests-report.json # Path to test results
+        name: Cleaning Bot - Tests                   # Name of the check run which will be created
+        path: packages/cleaning-bot/integration-tests-report.json # Path to test results
         reporter: mocha-json                               # Format of test results
 
-  # ==== End job: cleaning-bot-naive ====        
+  # ==== End job: cleaning-bot ====        
