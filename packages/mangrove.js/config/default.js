@@ -3,11 +3,6 @@ var config = {};
 
 var defer = require("config/defer").deferConfig;
 
-// TODO Find better way of doing this...
-function requireFromProjectRoot(pathFromProjectRoot) {
-  return require(__dirname + "/../" + pathFromProjectRoot);
-}
-
 ///////////////////////////
 // Hardhat configuration //
 config.hardhat = {

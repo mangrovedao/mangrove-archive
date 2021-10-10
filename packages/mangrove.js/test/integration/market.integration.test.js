@@ -1,10 +1,11 @@
+// Integration tests for Market.ts
+
 const ethers = require("ethers");
 const BigNumber = ethers.BigNumber;
 
 const assert = require("assert");
-const { Mangrove } = require("../src");
-const providerUrl = "http://localhost:8546";
-const helpers = require("./helpers");
+const { Mangrove } = require("../../src");
+const helpers = require("../util/helpers");
 
 const { Big } = require("big.js");
 //pretty-print when using console.log
@@ -24,12 +25,14 @@ const newOffer = (mgv, base, quote, { wants, gives, gasreq, gasprice }) => {
   );
 };
 
-module.exports = function suite() {
+describe("Market integration tests suite", () => {
   let mgv;
 
-  beforeEach(async () => {
+  beforeEach(async function () {
     //set mgv object
-    mgv = await Mangrove.connect(providerUrl);
+    mgv = await Mangrove.connect({
+      provider: this.test?.parent?.parent?.ctx.provider,
+    });
 
     //shorten polling for faster tests
     mgv._provider.pollingInterval = 250;
@@ -287,4 +290,4 @@ module.exports = function suite() {
   it("does market buy", async function () {
     // TODO
   });
-};
+});

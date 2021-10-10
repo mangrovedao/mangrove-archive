@@ -1,40 +1,32 @@
-// Mangrove Tests
+// Mocha root hooks for integration tests
+// Starts a Hardhat server with Mangrove and related contracts deployed.
+//
+// NB: We use root hooks instead of global test fixtures to allow sharing state (e.g. provider) with tests.
 
-// To run all tests: `npm test`
-// To run a single file's tests: `npm test -- -g './src/eth.ts'`
-// To run a single test: `npm test -- -g 'eth.getBalance'`
+// FIXME Move to mangrove-solidity or separate library
 
 // Set up hardhat
 const hre = require("hardhat");
-const helpers = require("./helpers");
-const ethers = hre.ethers;
-let server; // used to run a localhost server
+const hardhatUtils = require("../../util/hardhat-utils");
 
-// Source Files
-const { Mangrove } = require("../src");
+const ethers = hre.ethers;
+
+let server; // used to run a localhost server
 
 const host = {
   name: "localhost",
   port: 8546,
 };
-const _eth = require("../src/eth.ts");
-// const { start } = require("repl");
 
-const tests = {
-  market: require("./market.test.js"),
-  mgvtoken: require("./mgvtoken.test.js"),
-};
+exports.mochaHooks = {
+  async beforeAll() {
+    this.provider = hre.network.provider;
 
-let snapshot_id = null;
-
-// Main test suite
-describe("mangrove.js", function () {
-  before(async () => {
-    console.log("Running a hardhat instance...");
-    server = await helpers.hreServer({
+    console.log("Running a Hardhat instance...");
+    server = await hardhatUtils.hreServer({
       hostname: host.name,
       port: host.port,
-      provider: hre.network.provider,
+      provider: this.provider,
     });
 
     await hre.network.provider.request({
@@ -42,10 +34,7 @@ describe("mangrove.js", function () {
       params: [],
     });
 
-    // blackbox discovery of network name that will be used during tests
-    const signer = _eth._createSigner({
-      provider: `http://${host.name}:${host.port}`,
-    });
+    const signer = (await ethers.getSigners())[0];
 
     const account = await signer.getAddress();
 
@@ -75,7 +64,6 @@ describe("mangrove.js", function () {
       20000
     );
 
-    // const signer = (await hre.ethers.getSigners())[0];
     await TokenA.mint(account, toWei(10));
     await TokenA.approve(mgvContract.address, toWei(1000));
 
@@ -84,26 +72,22 @@ describe("mangrove.js", function () {
 
     await mgvContract["fund()"]({ value: toWei(10) });
 
-    const network = await _eth.getProviderNetwork(signer.provider);
-
     await snapshot();
-  });
+  },
 
-  beforeEach(async () => {
+  async beforeEach() {
     await revert();
     await snapshot();
-  });
+  },
 
-  after(async () => {
+  async afterAll() {
     if (server) {
       await server.close();
     }
-  });
+  },
+};
 
-  for (const [name, test] of Object.entries(tests)) {
-    describe(name, test.bind(this));
-  }
-});
+let snapshot_id = null;
 
 async function snapshot() {
   const res = await hre.network.provider.request({
@@ -111,11 +95,9 @@ async function snapshot() {
     params: [],
   });
   snapshot_id = res;
-  //console.log("snapshot recorded with id",snapshot_id);
 }
 
 async function revert() {
-  //console.log("reverting to...",snapshot_id);
   await hre.network.provider.request({
     method: "evm_revert",
     params: [snapshot_id],

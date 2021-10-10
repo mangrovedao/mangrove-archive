@@ -126,21 +126,59 @@ TODO include transaction options (see here)[https://github.com/compound-finance/
 
 ## Test
 
-Tests are available in `./test/*.test.js`. The tests are configured in `./test/index.js`. Methods are tested using a forked chain using hardhat. For free archive node access, get a provider URL from [Alchemy](http://alchemy.com/).
+Tests are available in `./test/integration/*.integration.test.js`. Methods are tested using an in-process local chain using [Hardhat](https://hardhat.org/). For free archive node access, get a provider URL from [Alchemy](http://alchemy.com/).
 
 ```
 ## Run all tests
-npm test
+yarn test
 
 ## Run a single test (Mocha JS grep option)
-npm test -- -g 'runs eth.getBalance'
+yarn test -- -g 'subscribes'
+```
+
+### Test configuration and root hooks
+
+Tests are based on [Mocha](https://mochajs.org/). Mocha configuration, Root Hooks, etc. can be found in `./test/mocha/`.
+
+The integration test Root Hooks in `./test/mocha/hooks/integration-test-root-hooks.js` start an in-process Hardhat chain with Mangrove deployed and add a matching `Provider` to the Mocha `Context`.
+
+### Utility test scripts
+
+Scripts to ease testing of your Mangrove.js-based dApp can be found in `./test/scripts/`.
+
+#### `obFiller.js` : Order book filler
+
+The `obFiller.js` script runs a local Hardhat chain where offers are continously added/removed.
+
+The script helpfully prints mnemonic and addresses that you can copy to MetaMask and your dApp:
+
+```shell
+$ ts-node test/scripts/obFiller.js
+Mnemonic:
+test test test test test test test test test test test junk
+
+RPC node
+http://localhost:8546
+
+User/admin
+0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+
+WETH (18 decimals)
+0xDB6BDf95fDb367F2c983167C0f1Ec4a8913694a5
+
+DAI (18 decimals)
+0xE77A0C6E103fB655AAA2F31b892deF9Cf0909158
+
+USDC (6 decimals)
+0x5d268aEd192e6C55a950ccd65Fe209A13F0e338f
+
+Orderbook filler is now running.
 ```
 
 ## Build for Node.js & Web Browser
 
 ```
 git clone ...
-cd mangrove.js
-npm install
-npm run build
+cd packages/mangrove.js
+yarn build
 ```

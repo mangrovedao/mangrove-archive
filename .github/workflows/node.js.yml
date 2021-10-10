@@ -300,7 +300,7 @@ jobs:
       if: ${{ env.mangrove_js_built && (success() || failure()) }}
       with:
         name: Mangrove.js Tests               # Name of the check run which will be created
-        path: ${{env.working-directory}}/mangrovejs-mocha-test-report.json # Path to test results
+        path: ${{env.working-directory}}/integration-tests-report.json # Path to test results
         reporter: mocha-json                  # Format of test results
 
     # save artifacts for later stages
@@ -360,6 +360,16 @@ jobs:
       working-directory: . # Yarn must run in root to ensure monorepo setup
 
     # == download and unzip artefacts ==
+    - name: Download cached mangrove-solidity artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: mangrove-solidity-out.zip
+
+    - name: Unzip artifact
+      uses: montudor/action-zip@v1
+      with:
+        args: unzip -qq mangrove-solidity-out.zip
+
     - name: Download cached mangrove.js artifact
       uses: actions/download-artifact@v2
       with:
@@ -397,7 +407,7 @@ jobs:
       if: ${{ env.cleaning_bot_built && (success() || failure()) }}
       with:
         name: Cleaning Bot Naive - Tests                   # Name of the check run which will be created
-        path: packages/cleaning-bot-naive/cleaning-bot-naive-mocha-test-report.json # Path to test results
+        path: packages/cleaning-bot-naive/integration-tests-report.json # Path to test results
         reporter: mocha-json                               # Format of test results
 
   # ==== End job: cleaning-bot-naive ====        
