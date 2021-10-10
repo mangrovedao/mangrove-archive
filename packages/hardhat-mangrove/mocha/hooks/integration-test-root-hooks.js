@@ -7,7 +7,7 @@
 
 // Set up hardhat
 const hre = require("hardhat");
-const hardhatUtils = require("../../util/hardhat-utils");
+const hardhatUtils = require("../../hardhat-utils");
 
 const ethers = hre.ethers;
 
