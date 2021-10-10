@@ -407,7 +407,7 @@ jobs:
       if: ${{ env.cleaning_bot_built && (success() || failure()) }}
       with:
         name: Cleaning Bot Naive - Tests                   # Name of the check run which will be created
-        path: packages/cleaning-bot-naive/cleaning-bot-naive-mocha-test-report.json # Path to test results
+        path: packages/cleaning-bot-naive/integration-tests-report.json # Path to test results
         reporter: mocha-json                               # Format of test results
 
   # ==== End job: cleaning-bot-naive ====        
