@@ -138,9 +138,9 @@ yarn test -- -g 'subscribes'
 
 ### Test configuration and root hooks
 
-Tests are based on [Mocha](https://mochajs.org/). Mocha configuration, Root Hooks, etc. can be found in `./test/mocha/`.
+Tests are based on [Mocha](https://mochajs.org/). Mocha configuration can be found in `./test/mocha/config`.
 
-The integration test Root Hooks in `./test/mocha/hooks/integration-test-root-hooks.js` start an in-process Hardhat chain with Mangrove deployed and add a matching `Provider` to the Mocha `Context`.
+The integration tests use the Root Hooks provided by `@giry/hardhat-mangrove` which start an in-process Hardhat chain with Mangrove deployed and add a matching `Provider` to the Mocha `Context`.
 
 ### Utility test scripts
 
