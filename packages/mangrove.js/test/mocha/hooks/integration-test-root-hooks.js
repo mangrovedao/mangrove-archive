@@ -1,12 +1,13 @@
 // Mocha root hooks for integration tests
 // Starts a Hardhat server with Mangrove and related contracts deployed.
 //
-// NB: We use root hooks instead of global test fixtures to allow parallel execution of test suites.
+// NB: We use root hooks instead of global test fixtures to allow sharing state (e.g. provider) with tests.
 
 // FIXME Move to mangrove-solidity or separate library
 
 // Set up hardhat
 const hre = require("hardhat");
+const hardhatUtils = require("../../util/hardhat-utils");
 
 const ethers = hre.ethers;
 
@@ -19,10 +20,14 @@ const host = {
 
 exports.mochaHooks = {
   async beforeAll() {
-    console.log("Running a Hardhat instance...");
-    server = await hreServer();
-
     this.provider = hre.network.provider;
+
+    console.log("Running a Hardhat instance...");
+    server = await hardhatUtils.hreServer({
+      hostname: host.name,
+      port: host.port,
+      provider: this.provider,
+    });
 
     await hre.network.provider.request({
       method: "hardhat_reset",
@@ -83,19 +88,6 @@ exports.mochaHooks = {
 };
 
 let snapshot_id = null;
-
-async function hreServer() {
-  const {
-    TASK_NODE_CREATE_SERVER,
-  } = require("hardhat/builtin-tasks/task-names");
-  const server = await hre.run(TASK_NODE_CREATE_SERVER, {
-    hostname: host.name,
-    port: host.port,
-    provider: hre.network.provider,
-  });
-  await server.listen();
-  return server;
-}
 
 async function snapshot() {
   const res = await hre.network.provider.request({

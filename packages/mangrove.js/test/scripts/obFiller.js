@@ -1,5 +1,6 @@
 const hre = require("hardhat");
 const helpers = require("../util/helpers");
+const hardhatUtils = require("../util/hardhat-utils");
 const main = async () => {
   console.log("Mnemonic:");
   console.log(hre.config.networks.hardhat.accounts.mnemonic);
@@ -11,7 +12,7 @@ const main = async () => {
     port: 8546,
   };
 
-  const server = await helpers.hreServer({
+  const server = await hardhatUtils.hreServer({
     hostname: host.name,
     port: host.port,
     provider: hre.network.provider,
