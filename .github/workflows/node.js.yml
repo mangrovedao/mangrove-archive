@@ -300,7 +300,7 @@ jobs:
       if: ${{ env.mangrove_js_built && (success() || failure()) }}
       with:
         name: Mangrove.js Tests               # Name of the check run which will be created
-        path: ${{env.working-directory}}/mangrovejs-mocha-test-report.json # Path to test results
+        path: ${{env.working-directory}}/integration-tests-report.json # Path to test results
         reporter: mocha-json                  # Format of test results
 
     # save artifacts for later stages
