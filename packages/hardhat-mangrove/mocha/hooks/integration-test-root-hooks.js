@@ -3,8 +3,6 @@
 //
 // NB: We use root hooks instead of global test fixtures to allow sharing state (e.g. provider) with tests.
 
-// FIXME Move to mangrove-solidity or separate library
-
 // Set up hardhat
 const hre = require("hardhat");
 const hardhatUtils = require("../../hardhat-utils");
