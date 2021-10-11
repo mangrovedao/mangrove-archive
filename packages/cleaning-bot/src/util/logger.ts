@@ -1,5 +1,6 @@
 import { createLogger, BetterLogger, format } from "@giry/commonlib-js";
 import os from "os";
+import config from "./config";
 
 const consoleLogFormat = format.printf(
   ({ level, message, timestamp, ...metadata }) => {
@@ -18,6 +19,7 @@ const consoleLogFormat = format.printf(
   }
 );
 
-export const logger: BetterLogger = createLogger(consoleLogFormat);
+const logLevel = config.get<string>("log.logLevel");
+export const logger: BetterLogger = createLogger(consoleLogFormat, logLevel);
 
 export default logger;
