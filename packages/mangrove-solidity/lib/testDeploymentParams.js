@@ -54,5 +54,23 @@ module.exports = async () => {
     },
   });
 
-  return [mangrove, tokenA, tokenB, Dai, Usdc, Weth, testMaker, mgvReader];
+  const mgvCleaner = await withAddress({
+    name: "MgvCleaner",
+    options: {
+      from: deployer,
+      args: [mangrove.address],
+    },
+  });
+
+  return [
+    mangrove,
+    tokenA,
+    tokenB,
+    Dai,
+    Usdc,
+    Weth,
+    testMaker,
+    mgvReader,
+    mgvCleaner,
+  ];
 };

@@ -13,18 +13,6 @@ Big.prototype[Symbol.for("nodejs.util.inspect.custom")] = function () {
   return `<Big>${this.toString()}`; // previously just Big.prototype.toString;
 };
 
-const newOffer = (mgv, base, quote, { wants, gives, gasreq, gasprice }) => {
-  return mgv.contract.newOffer(
-    base,
-    quote,
-    helpers.toWei(wants),
-    helpers.toWei(gives),
-    gasreq || 10000,
-    gasprice || 1,
-    0
-  );
-};
-
 describe("Market integration tests suite", () => {
   let mgv;
 
@@ -57,8 +45,8 @@ describe("Market integration tests suite", () => {
     };
     await market.subscribe(cb);
 
-    newOffer(mgv, addrA, addrB, { wants: "1", gives: "1.2" });
-    newOffer(mgv, addrB, addrA, { wants: "1.3", gives: "1.1" });
+    helpers.newOffer(mgv, addrA, addrB, { wants: "1", gives: "1.2" });
+    helpers.newOffer(mgv, addrB, addrA, { wants: "1.3", gives: "1.1" });
 
     const offer1 = {
       id: 1,
@@ -126,7 +114,7 @@ describe("Market integration tests suite", () => {
     assert.equal(offerFail.ba, "bids");
     //TODO test offerRetract, offerfail, setGasbase
 
-    market.unsubscribe();
+    market.disconnect();
   });
 
   it("gets config", async function () {
@@ -151,7 +139,7 @@ describe("Market integration tests suite", () => {
         "book should have length 1 by now"
       );
     });
-    await newOffer(mgv, addrA, addrB, { wants: "1", gives: "1.2" });
+    await helpers.newOffer(mgv, addrA, addrB, { wants: "1", gives: "1.2" });
     await pro1;
 
     let pro2 = market.once((evt) => {
@@ -161,7 +149,7 @@ describe("Market integration tests suite", () => {
         "book should have length 2 by now"
       );
     });
-    await newOffer(mgv, addrA, addrB, { wants: "1", gives: "1.2" });
+    await helpers.newOffer(mgv, addrA, addrB, { wants: "1", gives: "1.2" });
     await pro2;
 
     let pro3 = market.once((evt) => {
@@ -171,7 +159,7 @@ describe("Market integration tests suite", () => {
         "book should have length 3 by now"
       );
     });
-    await newOffer(mgv, addrA, addrB, { wants: "1", gives: "1.2" });
+    await helpers.newOffer(mgv, addrA, addrB, { wants: "1", gives: "1.2" });
     await pro3;
     market.disconnect();
     //TODO add to after
@@ -181,8 +169,8 @@ describe("Market integration tests suite", () => {
     const market = await mgv.market({ base: "TokenA", quote: "TokenB" });
     const addrA = market.base.address;
     const addrB = market.quote.address;
-    await newOffer(mgv, addrA, addrB, { wants: "1.2", gives: "0.3" });
-    await newOffer(mgv, addrA, addrB, { wants: "1", gives: "0.25" });
+    await helpers.newOffer(mgv, addrA, addrB, { wants: "1.2", gives: "0.3" });
+    await helpers.newOffer(mgv, addrA, addrB, { wants: "1", gives: "0.25" });
     const done = helpers.Deferred();
     market.subscribe((evt) => {
       if (market.book().asks.length === 2) {
@@ -221,8 +209,8 @@ describe("Market integration tests suite", () => {
      * so we create offers through ethers.js generic API */
     const addrA = mgv.getAddress("TokenA");
     const addrB = mgv.getAddress("TokenB");
-    for (const ask of asks) await newOffer(mgv, addrA, addrB, ask);
-    for (const bid of bids) await newOffer(mgv, addrB, addrA, bid);
+    for (const ask of asks) await helpers.newOffer(mgv, addrA, addrB, ask);
+    for (const bid of bids) await helpers.newOffer(mgv, addrB, addrA, bid);
 
     /* Now we create the orderbook we expect to get back so we can compare them */
 

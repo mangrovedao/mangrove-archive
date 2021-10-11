@@ -5,7 +5,7 @@ import "../Mangrove.sol";
 import "../Strategies/lib/CarefulMath.sol";
 import "../MgvLib.sol";
 
-contract Keeper is AccessControlled, CarefulMath {
+contract MgvCleaner is AccessControlled, CarefulMath {
   Mangrove immutable MGV;
 
   constructor(Mangrove _MGV) {

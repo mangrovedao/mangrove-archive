@@ -149,7 +149,7 @@
       {
         "indexed": false,
         "internalType": "bytes32",
-        "name": "statusCode",
+        "name": "mgvData",
         "type": "bytes32"
       },
       {

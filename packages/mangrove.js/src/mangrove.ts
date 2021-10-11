@@ -28,6 +28,7 @@ export class Mangrove {
   _address: string;
   contract: typechain.Mangrove;
   readerContract: typechain.MgvReader;
+  cleanerContract: typechain.MgvCleaner;
   static typechain = typechain;
 
   /**
@@ -93,6 +94,14 @@ export class Mangrove {
     const readerAddress = Mangrove.getAddress("MgvReader", this._network.name);
     this.readerContract = typechain.MgvReader__factory.connect(
       readerAddress,
+      this._signer
+    );
+    const cleanerAddress = Mangrove.getAddress(
+      "MgvCleaner",
+      this._network.name
+    );
+    this.cleanerContract = typechain.MgvCleaner__factory.connect(
+      cleanerAddress,
       this._signer
     );
   }

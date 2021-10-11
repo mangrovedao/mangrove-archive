@@ -35,3 +35,15 @@ exports.Deferred = () => {
 };
 
 exports.toWei = (v, u = "ether") => ethers.utils.parseUnits(v.toString(), u);
+
+exports.newOffer = (mgv, base, quote, { wants, gives, gasreq, gasprice }) => {
+  return mgv.contract.newOffer(
+    base,
+    quote,
+    exports.toWei(wants),
+    exports.toWei(gives),
+    gasreq || 10000,
+    gasprice || 1,
+    0
+  );
+};
