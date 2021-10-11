@@ -260,4 +260,3 @@ Yarn 2 has introduced an alternative to `node_modules` called "Plug'n'Play". Whi
 We use [Husky](https://typicode.github.io/husky/#/) to manage our Git hooks.
 
 The Git hook scripts are in the `.husky/` folder.
- 
