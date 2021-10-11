@@ -1,4 +1,3 @@
-import { config } from "./config";
 import {
   createLogger as winstonCreateLogger,
   format,
@@ -17,11 +16,11 @@ export interface BetterLogger extends Logger {
   exception: (error: Error, data?: Object) => BetterLogger;
 }
 
-export const createLogger = (consoleFormatLogger: Format) => {
+export const createLogger = (consoleFormatLogger: Format, logLevel: string) => {
   var theLogger = winstonCreateLogger({
     transports: [
       new transports.Console({
-        level: config.get("log.logLevel"),
+        level: logLevel,
         handleExceptions: true,
         format: format.combine(
           format.colorize(),
