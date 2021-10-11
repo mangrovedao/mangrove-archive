@@ -11,7 +11,8 @@ packages/mangrove-solidity/doc/specs.txt
 .vscode/settings.json
 .env.local
 .env.*.local
-*mocha-test-report.json
+*test-report.json
+*tests-report.json
 *.code-workspace
 
 # Yarn

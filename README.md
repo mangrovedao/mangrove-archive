@@ -185,7 +185,7 @@ Each package should have its own `package.json` file based on the following temp
   },
   "devDependencies": {
     "@giry/mangrove-solidity": "workspace:*",   // This is an example of a build-time dependency to another package in the monorepo
-                                                
+
     "eslint": "^7.32.0",                        // You probably want this and the following development dependencies
     "eslint-config-prettier": "^8.3.0",         // (the version patterns will probably soon be outdated...):
     "eslint-plugin-prettier": "^4.0.0",
@@ -259,4 +259,4 @@ Yarn 2 has introduced an alternative to `node_modules` called "Plug'n'Play". Whi
 # Git hooks and Husky
 We use [Husky](https://typicode.github.io/husky/#/) to manage our Git hooks.
 
-The Git hook scripts are in the `.husky/` folder. 
+The Git hook scripts are in the `.husky/` folder.
