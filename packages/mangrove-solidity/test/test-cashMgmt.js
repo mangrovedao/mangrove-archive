@@ -458,33 +458,28 @@ describe("Deploy strategies", function () {
     assert(cfg.local.active, "Market is inactive");
   });
 
-  // it("Pure lender strat on compound", async function () {
-  //   const makerContract = await deployStrat("SimpleCompoundRetail", mgv);
-  //   await execLenderStrat(makerContract, mgv, "compound");
-  // });
+  it("Pure lender strat on compound", async function () {
+    const makerContract = await deployStrat("SimpleCompoundRetail", mgv);
+    await execLenderStrat(makerContract, mgv, "compound");
+  });
 
-  // it("Lender/borrower strat on compound", async function () {
-  //   const makerContract = await deployStrat("AdvancedCompoundRetail", mgv);
-  //   await execTraderStrat(makerContract, mgv, "compound");
-  // });
+  it("Lender/borrower strat on compound", async function () {
+    const makerContract = await deployStrat("AdvancedCompoundRetail", mgv);
+    await execTraderStrat(makerContract, mgv, "compound");
+  });
 
-  // it("Pure lender strat on aave", async function () {
-  //   const makerContract = await deployStrat("SimpleAaveRetail", mgv);
-  //   await execLenderStrat(makerContract, mgv, "aave");
-  // });
+  it("Pure lender strat on aave", async function () {
+    const makerContract = await deployStrat("SimpleAaveRetail", mgv);
+    await execLenderStrat(makerContract, mgv, "aave");
+  });
 
-  // it("Lender/borrower strat on aave", async function () {
-  //   const makerContract = await deployStrat("AdvancedAaveRetail", mgv);
-  //   await execTraderStrat(makerContract, mgv, "aave");
-  // });
+  it("Lender/borrower strat on aave", async function () {
+    const makerContract = await deployStrat("AdvancedAaveRetail", mgv);
+    await execTraderStrat(makerContract, mgv, "aave");
+  });
 
-  // it("Price fed strat", async function () {
-  //   const makerContract = await deployStrat("PriceFed", mgv);
-  //   await execPriceFedStrat(makerContract, mgv, "aave");
-  // });
-
-  // it("Swinging market maker strat", async function () {
-  //   const makerContract = await deployStrat("SwingingMarketMaker", mgv);
-  //   await execSwingerStrat(makerContract, mgv, "compound");
-  // });
+  it("Price fed strat", async function () {
+    const makerContract = await deployStrat("PriceFed", mgv);
+    await execPriceFedStrat(makerContract, mgv, "aave");
+  });
 });

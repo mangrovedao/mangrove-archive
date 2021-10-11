@@ -179,6 +179,8 @@ async function getContract(symbol) {
       return net.tokens.wEth.contract;
     case "CWETH":
       return net.tokens.cwEth.contract;
+    case "CUSDC":
+      return net.tokens.cUsdc.contract;
     case "ADAI":
     case "AWETH": {
       const underlying = await getContract(getUnderlyingSymbol(symbol));
@@ -256,6 +258,8 @@ function getCompoundToken(symbol) {
       return env.mainnet.tokens.cDai.contract;
     case "WETH":
       return env.mainnet.tokens.cwEth.contract;
+    case "USDC":
+      return env.mainnet.tokens.cUsdc.contract;
     default:
       console.warn("No compound token for: ", symbol);
   }
@@ -565,6 +569,7 @@ async function snipeFail(mgv, base_sym, quote_sym, offerId, wants, gives) {
   // console.log(receipt.gasUsed.toString());
 }
 
+//TODO density should depend on some price and take decimals into account
 async function deployMangrove() {
   const Mangrove = await ethers.getContractFactory("Mangrove");
   const MangroveReader = await ethers.getContractFactory("MgvReader");
@@ -586,7 +591,7 @@ async function deployMangrove() {
 
 async function activateMarket(mgv, aTokenAddress, bTokenAddress) {
   fee = 30; // setting fees to 0.03%
-  density = 10000;
+  density = 100; // very low to make sure tests pass
   overhead_gasbase = 20000;
   offer_gasbase = 20000;
   activateTx = await mgv.activate(
@@ -693,8 +698,8 @@ async function logOrderBook([, offerIds, offers], base, quote) {
       console.log(
         chalk.blue(offerId.toString()),
         ":",
-        formatToken(offer.gives, qd),
-        formatToken(offer.wants, bd)
+        formatToken(offer.gives, bd),
+        formatToken(offer.wants, qd)
       );
     }
   });

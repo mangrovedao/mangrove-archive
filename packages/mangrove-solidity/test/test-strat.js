@@ -54,22 +54,28 @@ describe("Running tests...", function () {
       wEth.address
     );
 
-    const filter_MissingPrice = makerContract.filters.MissingPrice();
-    makerContract.once(filter_MissingPrice, (token0, token1, event) => {
-      console.log("No price was defined for ", token0, token1);
-      console.log();
-    });
-    const usdc_in_eth = lc.parseToken("0.0004", 18); // 1/2500
-    const eth_in_usdc = lc.parseToken("2510", 18); // 2510
+    // const filter_MissingPrice = makerContract.filters.MissingPrice();
+    // makerContract.once(filter_MissingPrice, (token0, token1, event) => {
+    //   console.log("No price was defined for ", token0, token1);
+    //   console.log();
+    // });
+    const eth_for_one_usdc = lc.parseToken("0.0004", 18); // 1/2500 ethers
+    const usdc_for_one_eth = lc.parseToken("2510", await usdc.decimals()); // 2510 $
 
     await makerContract
       .connect(testSigner)
-      .setPrice(wEth.address, usdc.address, eth_in_usdc);
+      .setPrice(wEth.address, usdc.address, eth_for_one_usdc);
     await makerContract
       .connect(testSigner)
-      .setPrice(usdc.address, wEth.address, usdc_in_eth);
+      .setPrice(usdc.address, wEth.address, usdc_for_one_eth);
 
-    await lc.fund([["ETH", "1.0", makerContract.address]]);
+    await lc.fund([
+      ["ETH", "1.0", makerContract.address],
+      ["WETH", "10.0", testSigner.address],
+    ]);
+    await wEth
+      .connect(testSigner)
+      .approve(mgv.address, ethers.constants.MaxUint256);
 
     let overrides = { value: lc.parseToken("2.0", 18) };
     const tx = await mgv["fund(address)"](makerContract.address, overrides);
@@ -80,7 +86,7 @@ describe("Running tests...", function () {
 
     await makerContract
       .connect(testSigner)
-      .startStrat(usdc.address, wEth.address, amount);
+      .startStrat(usdc.address, wEth.address, amount); // gives 1000 $
 
     // putting ethers on compound
     await wEth
@@ -97,8 +103,24 @@ describe("Running tests...", function () {
     await makerContract.connect(testSigner).mint(cwEth.address, wethAmount);
     await makerContract.connect(testSigner).enterMarkets([cwEth.address]);
     await lc.logLenderStatus(makerContract, "compound", ["WETH"]);
+
     let book01 = await mgv.reader.book(usdc.address, wEth.address, 0, 1);
     let book10 = await mgv.reader.book(wEth.address, usdc.address, 0, 1);
+    await lc.logOrderBook(book01, usdc, wEth);
+    await lc.logOrderBook(book10, wEth, usdc);
+
+    // market order
+    await lc.marketOrder(
+      mgv,
+      "USDC",
+      "WETH",
+      lc.parseToken("1000", await usdc.decimals()),
+      lc.parseToken("0.4", 18)
+    );
+
+    await lc.logLenderStatus(makerContract, lenderName, ["USDC", "WETH"]);
+    book01 = await mgv.reader.book(usdc.address, wEth.address, 0, 1);
+    book10 = await mgv.reader.book(wEth.address, usdc.address, 0, 1);
     await lc.logOrderBook(book01, usdc, wEth);
     await lc.logOrderBook(book10, wEth, usdc);
   });
