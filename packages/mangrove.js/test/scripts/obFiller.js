@@ -95,16 +95,22 @@ const main = async () => {
 
   await mgvContract["fund()"]({ value: toWei(100) });
 
-  const newOffer = (base, quote, { wants, gives, gasreq, gasprice }) => {
-    return mgv.contract.newOffer(
-      base,
-      quote,
-      helpers.toWei(wants),
-      helpers.toWei(gives),
-      gasreq || 100000,
-      gasprice || 1,
-      0
-    );
+  const newOffer = async (base, quote, { wants, gives, gasreq, gasprice }) => {
+    try {
+      await mgv.contract.newOffer(
+        base,
+        quote,
+        helpers.toWei(wants),
+        helpers.toWei(gives),
+        gasreq || 100000,
+        gasprice || 1,
+        0
+      );
+    } catch (e) {
+      console.warn(
+        `Posting offer failed - base=${base}, quote=${quote}, wants=${wants}, gives=${gives}, gasreq=${gasreq}, gasprice=${gasprice}`
+      );
+    }
   };
 
   const retractOffer = async (base, quote, offerId) => {
@@ -158,11 +164,14 @@ const main = async () => {
     const buffer = book[ba].length > 30 ? 5000 : 0;
     // console.log(`${ba} length`, book[ba].length);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       // console.log(`pushing offer to ${ba}`);
       const wants = 1 + between(0, 3);
       const gives = wants * between(1.001, 4);
-      newOffer(market[base].address, market[quote].address, { wants, gives });
+      await newOffer(market[base].address, market[quote].address, {
+        wants,
+        gives,
+      });
       pushOffer(market, ba);
     }, between(1000 + buffer, 3000 + buffer));
   };
