@@ -2,7 +2,7 @@
  * Test that integration test infrastructure is working.
  */
 import { describe, it } from "mocha";
-import chai from "chai";
+import * as chai from "chai";
 const { expect } = chai;
 import chaiAsPromised from "chai-as-promised";
 chai.use(chaiAsPromised);
