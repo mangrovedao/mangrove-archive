@@ -18,6 +18,10 @@ config.hardhat = {
       url: "http://127.0.0.1:8545",
     },
   },
+  paths: {
+    artifacts:
+      "node_modules/@giry/mangrove-solidity/build/cache/solpp-generated-contracts",
+  },
   external: {
     contracts: [
       {
