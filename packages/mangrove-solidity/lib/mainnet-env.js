@@ -150,6 +150,22 @@ function getConfiguredTokens(mainnetConfig, networkName, ethers) {
       };
     }
   }
+  // CUSDC
+  if (mainnetConfig.has("tokens.cUsdc")) {
+    const cUsdcContract = tryCreateTokenContract(
+      "CUSDC",
+      "cUsdc",
+      mainnetConfig,
+      networkName,
+      ethers
+    );
+    if (cUsdcContract) {
+      tokens.cUsdc = {
+        contract: cUsdcContract,
+        isCompoundToken: true,
+      };
+    }
+  }
 
   // CETH
   if (mainnetConfig.has("tokens.cwEth")) {
