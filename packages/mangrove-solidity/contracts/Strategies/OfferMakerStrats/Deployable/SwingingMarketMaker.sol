@@ -10,7 +10,7 @@ contract SwingingMarketMaker is CompoundTrader {
   event NotEnoughProvision(uint amount);
 
   // price[B][A] : price of A in B
-  mapping(address => mapping(address => uint)) private price; // 18 decimals precision
+  mapping(address => mapping(address => uint)) private price; // price[tk0][tk1] is in tk0 precision
   mapping(address => mapping(address => uint)) private offers;
 
   constructor(
@@ -62,7 +62,7 @@ contract SwingingMarketMaker is CompoundTrader {
       mul_(p_10, gives), // p(base|quote).(gives:quote) : base
       10**(IERC20(outbound_tkn).decimals())
     ); // in base units
-    uint offerId = offers[inbound_tkn][outbound_tkn];
+    uint offerId = offers[outbound_tkn][inbound_tkn];
     if (offerId == 0) {
       offerId = newOfferInternal(
         outbound_tkn,
@@ -76,14 +76,15 @@ contract SwingingMarketMaker is CompoundTrader {
       offers[outbound_tkn][inbound_tkn] = offerId;
     } else {
       updateOfferInternal(
-        inbound_tkn,
         outbound_tkn,
+        inbound_tkn,
         wants,
         gives,
-        offerId,
-        offerId, // offerId is already on the book so a good pivot
+        // offerId is already on the book so a good pivot
         OFR_GASREQ, // default value
-        OFR_GASPRICE // default value
+        OFR_GASPRICE, // default value
+        offerId,
+        offerId
       );
     }
     return true;
@@ -96,18 +97,27 @@ contract SwingingMarketMaker is CompoundTrader {
     address token0 = order.outbound_tkn;
     address token1 = order.inbound_tkn;
     uint offer_received = MgvPack.offer_unpack_wants(order.offer); // amount with token1.decimals() decimals
-    repostOffer({
-      outbound_tkn: token1,
-      inbound_tkn: token0,
-      gives: offer_received
-    });
+    if (
+      repostOffer({
+        outbound_tkn: token1,
+        inbound_tkn: token0,
+        gives: offer_received
+      })
+    ) {
+      return;
+    } else {
+      returnData(true, bytes32("swinging/failRepost"));
+    }
   }
 
-  function __postHookGetFailure__(
-    bytes32 missing,
-    MgvLib.SingleOrder calldata order
-  ) internal override {
-    emit NotEnoughLiquidity(order.outbound_tkn, uint(missing));
+  function __postHookGetFailure__(bytes32, MgvLib.SingleOrder calldata order)
+    internal
+    override
+  {
+    uint missing = order.wants -
+      IERC20(order.outbound_tkn).balanceOf(address(this));
+
+    emit NotEnoughLiquidity(order.outbound_tkn, missing);
   }
 
   function __autoRefill__(uint amount) internal override returns (bool) {

@@ -60,7 +60,7 @@ abstract contract CompoundTrader is CompoundLender {
     return sub_(amount, toBorrow);
   }
 
-  /// @notice user need to have approved `quote` overlying in order to repay borrow
+  /// @notice contract need to have approved `quote` overlying in order to repay borrow
   function __put__(IERC20 quote, uint amount) internal virtual override {
     //optim
     if (amount == 0 || !isPooled(address(quote))) {
