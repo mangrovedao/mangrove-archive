@@ -9,7 +9,7 @@ contract SwingingMarketMaker is CompoundTrader {
   event MissingPrice(address token0, address token1);
   event NotEnoughProvision(uint amount);
 
-  // price[B][A] : price of A in B
+  // price[B][A] : price of A in B = p(B|A) = volume of B obtained/volume of A given
   mapping(address => mapping(address => uint)) private price; // price[tk0][tk1] is in tk0 precision
   mapping(address => mapping(address => uint)) private offers;
 
