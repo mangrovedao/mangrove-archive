@@ -4,7 +4,7 @@ import "../lib/AccessControlled.sol";
 import "../lib/Exponential.sol";
 import "../lib/TradeHandler.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 // SPDX-License-Identifier: MIT
 
@@ -118,15 +118,21 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint gasprice,
     uint pivotId
   ) internal returns (uint offerId) {
-    offerId = MGV.newOffer(
-      supplyToken,
-      demandToken,
-      wants,
-      gives,
-      gasreq,
-      gasprice,
-      pivotId
-    );
+    try
+      MGV.newOffer(
+        supplyToken,
+        demandToken,
+        wants,
+        gives,
+        gasreq,
+        gasprice,
+        pivotId
+      )
+    returns (uint id) {
+      offerId = id;
+    } catch Error(string memory message) {
+      returnData(true, bytes(message));
+    }
   }
 
   // updates an existing offer on the Mangrove. `update` will throw if offer density is no longer compatible with Mangrove's parameters
@@ -170,16 +176,20 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
       provisioned = __autoRefill__(bounty - provision);
     }
     if (provisioned) {
-      MGV.updateOffer(
-        supplyToken,
-        demandToken,
-        wants,
-        gives,
-        gasreq,
-        gasprice,
-        pivotId,
-        offerId
-      );
+      try
+        MGV.updateOffer(
+          supplyToken,
+          demandToken,
+          wants,
+          gives,
+          gasreq,
+          gasprice,
+          pivotId,
+          offerId
+        )
+      {} catch Error(string memory reason) {
+        returnData(true, bytes(reason));
+      }
     }
   }
 
@@ -215,13 +225,13 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
       returnData({drop: true, postHook_switch: PostHook.Reneged});
     }
     __put__(IERC20(order.inbound_tkn), order.gives); // specifies what to do with the received funds
-    uint missingGet = __get__(IERC20(order.outbound_tkn), order.wants); // fetches `offer_gives` amount of `base` token as specified by the withdraw function
+    uint missingGet = __get__(IERC20(order.outbound_tkn), order.wants); // fetches `offer_gives` amount of `outbound_tkn` token as specified by the withdraw function
     if (missingGet > 0) {
       return
         returnData({
           drop: true,
           postHook_switch: PostHook.Get,
-          message: bytes32(missingGet)
+          message: "mgvOffer/missingGet"
         });
     }
     return returnData({drop: false, postHook_switch: PostHook.Success});

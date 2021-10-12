@@ -125,4 +125,26 @@ contract MgvReader {
 
     return (currentId, offerIds, offers, details);
   }
+
+  function getProvision(
+    address outbound_tkn,
+    address inbound_tkn,
+    uint ofr_gasreq,
+    uint ofr_gasprice
+  ) external view returns (uint) {
+    bytes32 localData = mgv.locals(outbound_tkn, inbound_tkn);
+    uint _gp;
+    uint global_gasprice = MP.global_unpack_gasprice(mgv.global());
+    if (global_gasprice > ofr_gasprice) {
+      _gp = global_gasprice;
+    } else {
+      _gp = ofr_gasprice;
+    }
+    return
+      (ofr_gasreq +
+        MP.local_unpack_overhead_gasbase(localData) +
+        MP.local_unpack_offer_gasbase(localData)) *
+      _gp *
+      10**9;
+  }
 }

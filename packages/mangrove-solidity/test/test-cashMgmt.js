@@ -482,9 +482,4 @@ describe("Deploy strategies", function () {
     const makerContract = await deployStrat("PriceFed", mgv);
     await execPriceFedStrat(makerContract, mgv, "aave");
   });
-
-  it("Swinging market maker strat", async function () {
-    const makerContract = await deployStrat("SwingingMarketMaker", mgv);
-    await execSwingerStrat(makerContract, mgv, "compound");
-  });
 });

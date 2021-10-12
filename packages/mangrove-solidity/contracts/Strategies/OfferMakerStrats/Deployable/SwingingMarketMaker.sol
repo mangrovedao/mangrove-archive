@@ -10,7 +10,7 @@ contract SwingingMarketMaker is CompoundTrader {
   event NotEnoughProvision(uint amount);
 
   // price[B][A] : price of A in B
-  mapping(address => mapping(address => uint)) private price; // 18 decimals precision
+  mapping(address => mapping(address => uint)) private price; // price[tk0][tk1] is in tk0 precision
   mapping(address => mapping(address => uint)) private offers;
 
   constructor(
@@ -28,13 +28,13 @@ contract SwingingMarketMaker is CompoundTrader {
     address tk1,
     uint p
   ) external onlyAdmin {
-    price[tk0][tk1] = p;
+    price[tk0][tk1] = p; // has tk0.decimals() decimals
   }
 
   function startStrat(
     address tk0,
     address tk1,
-    uint gives
+    uint gives // amount of tk0 (with tk0.decimals() decimals)
   ) external onlyAdmin returns (bool) {
     bool success = repostOffer(tk0, tk1, gives);
     if (success) {
@@ -46,42 +46,46 @@ contract SwingingMarketMaker is CompoundTrader {
 
   // at this stage contract has `received` amount in token0
   function repostOffer(
-    address token0,
-    address token1,
-    uint received
+    address outbound_tkn,
+    address inbound_tkn,
+    uint gives // in outbound_tkn
   ) internal returns (bool) {
-    uint p_10 = price[token1][token0];
+    // computing how much inbound_tkn one should ask for `gives` amount of outbound tokens
+    // NB p_10 has inbound_tkn.decimals() number of decimals
+    uint p_10 = price[inbound_tkn][outbound_tkn];
     if (p_10 == 0) {
-      emit MissingPrice(token0, token1);
+      // ! p_10 has the decimals of inbound_tkn
+      emit MissingPrice(inbound_tkn, outbound_tkn);
       return false;
     }
     uint wants = div_(
-      mul_(p_10, received), // p(base|quote).(gives:quote) : base
-      10**18
+      mul_(p_10, gives), // p(base|quote).(gives:quote) : base
+      10**(IERC20(outbound_tkn).decimals())
     ); // in base units
-    uint offerId = offers[token0][token1];
+    uint offerId = offers[outbound_tkn][inbound_tkn];
     if (offerId == 0) {
-      offerId = newOfferInternal({
-        supplyToken: token0,
-        demandToken: token1,
-        wants: wants,
-        gives: received,
-        gasreq: OFR_GASREQ,
-        gasprice: OFR_GASPRICE,
-        pivotId: 0
-      });
-      offers[token0][token1] = offerId;
+      offerId = newOfferInternal(
+        outbound_tkn,
+        inbound_tkn,
+        wants,
+        gives,
+        OFR_GASREQ,
+        OFR_GASPRICE,
+        0
+      );
+      offers[outbound_tkn][inbound_tkn] = offerId;
     } else {
-      updateOfferInternal({
-        supplyToken: token0,
-        demandToken: token1,
-        wants: wants,
-        gives: received,
-        offerId: offerId,
-        pivotId: offerId, // offerId is already on the book so a good pivot
-        gasreq: OFR_GASREQ, // default value
-        gasprice: OFR_GASPRICE // default value
-      });
+      updateOfferInternal(
+        outbound_tkn,
+        inbound_tkn,
+        wants,
+        gives,
+        // offerId is already on the book so a good pivot
+        OFR_GASREQ, // default value
+        OFR_GASPRICE, // default value
+        offerId,
+        offerId
+      );
     }
     return true;
   }
@@ -92,15 +96,28 @@ contract SwingingMarketMaker is CompoundTrader {
   {
     address token0 = order.outbound_tkn;
     address token1 = order.inbound_tkn;
-    uint offer_received = MgvPack.offer_unpack_wants(order.offer); // in token1
-    repostOffer({token0: token1, token1: token0, received: offer_received});
+    uint offer_received = MgvPack.offer_unpack_wants(order.offer); // amount with token1.decimals() decimals
+    if (
+      repostOffer({
+        outbound_tkn: token1,
+        inbound_tkn: token0,
+        gives: offer_received
+      })
+    ) {
+      return;
+    } else {
+      returnData(true, bytes32("swinging/failRepost"));
+    }
   }
 
-  function __postHookGetFailure__(
-    bytes32 missing,
-    MgvLib.SingleOrder calldata order
-  ) internal override {
-    emit NotEnoughLiquidity(order.outbound_tkn, uint(missing));
+  function __postHookGetFailure__(bytes32, MgvLib.SingleOrder calldata order)
+    internal
+    override
+  {
+    uint missing = order.wants -
+      IERC20(order.outbound_tkn).balanceOf(address(this));
+
+    emit NotEnoughLiquidity(order.outbound_tkn, missing);
   }
 
   function __autoRefill__(uint amount) internal override returns (bool) {
