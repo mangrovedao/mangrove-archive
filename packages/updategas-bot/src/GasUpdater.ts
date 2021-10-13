@@ -19,7 +19,7 @@ export class GasUpdater {
     );
   }
 
-  public async _checkSetGasprice(blocknumber: any) {
+  private async _checkSetGasprice(blocknumber: any) {
     const globalConfig = await this.#mangrove.config();
     // FIXME: (common func) move to a property/method on Mangrove
     if (globalConfig.dead) {
