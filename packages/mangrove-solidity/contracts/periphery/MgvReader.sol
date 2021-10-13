@@ -21,7 +21,7 @@ contract MgvReader {
     uint startId;
 
     if (fromId == 0) {
-      startId = MP.local_unpack_best(mgv.locals(outbound_tkn, inbound_tkn));
+      startId = mgv.best(outbound_tkn, inbound_tkn);
     } else {
       startId = MP.offer_unpack_gives(
         mgv.offers(outbound_tkn, inbound_tkn, fromId)
@@ -132,9 +132,9 @@ contract MgvReader {
     uint ofr_gasreq,
     uint ofr_gasprice
   ) external view returns (uint) {
-    bytes32 localData = mgv.locals(outbound_tkn, inbound_tkn);
+    (bytes32 global, bytes32 local) = mgv._config(outbound_tkn, inbound_tkn);
     uint _gp;
-    uint global_gasprice = MP.global_unpack_gasprice(mgv.global());
+    uint global_gasprice = MP.global_unpack_gasprice(global);
     if (global_gasprice > ofr_gasprice) {
       _gp = global_gasprice;
     } else {
@@ -142,8 +142,8 @@ contract MgvReader {
     }
     return
       (ofr_gasreq +
-        MP.local_unpack_overhead_gasbase(localData) +
-        MP.local_unpack_offer_gasbase(localData)) *
+        MP.local_unpack_overhead_gasbase(local) +
+        MP.local_unpack_offer_gasbase(local)) *
       _gp *
       10**9;
   }
