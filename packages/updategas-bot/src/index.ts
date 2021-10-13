@@ -1,4 +1,4 @@
-import config from "./util/config";
+import { config } from "./util/config";
 import { logger } from "./util/logger";
 
 import Mangrove from "@giry/mangrove-js";
@@ -11,6 +11,10 @@ const main = async () => {
   // TODO:
   const provider = mgv._provider;
 
+  const acceptableGasGapToOracle = config.get<number>(
+    "acceptableGasGapToOracle"
+  );
+
   /* Get global config */
   const mgvConfig = await mgv.config();
   logger.info("Mangrove config retrieved", { data: mgvConfig });
@@ -19,7 +23,7 @@ const main = async () => {
     exitIfMangroveIsKilled(mgv, blockNumber)
   );
 
-  const gasUpdater = new GasUpdater(mgv, provider);
+  const gasUpdater = new GasUpdater(mgv, provider, acceptableGasGapToOracle);
   gasUpdater.start();
 };
 
