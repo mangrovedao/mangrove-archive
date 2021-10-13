@@ -12,14 +12,21 @@ contract MgvReader {
     mgv = Mangrove(payable(_mgv));
   }
 
+  /*
+   * Returns two uints.
+   *
+   * `startId` is the id of the best live offer with id equal or greater than
+   * `fromId`, 0 if there is no such offer.
+   *
+   * `length` is 0 if `startId == 0`. Other it is the number of live offers as good or worse than the offer with
+   * id `startId`.
+   */
   function offersEndpoints(
     address outbound_tkn,
     address inbound_tkn,
     uint fromId,
     uint maxOffers
-  ) public view returns (uint, uint) {
-    uint startId;
-
+  ) public view returns (uint startId, uint length) {
     if (fromId == 0) {
       startId = mgv.best(outbound_tkn, inbound_tkn);
     } else {
@@ -32,16 +39,14 @@ contract MgvReader {
 
     uint currentId = startId;
 
-    uint i = 0;
-
-    while (currentId != 0 && i < maxOffers) {
+    while (currentId != 0 && length < maxOffers) {
       currentId = MP.offer_unpack_next(
         mgv.offers(outbound_tkn, inbound_tkn, currentId)
       );
-      i = i + 1;
+      length = length + 1;
     }
 
-    return (startId, i);
+    return (startId, length);
   }
 
   // Returns the orderbook for the outbound_tkn/inbound_tkn pair in packed form. First number is id of next offer (0 is we're done). First array is ids, second is offers (as bytes32), third is offerDetails (as bytes32). Array will be of size `min(# of offers in out/in list, maxOffers)`.
