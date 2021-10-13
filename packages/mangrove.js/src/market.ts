@@ -4,7 +4,7 @@ import {
   TradeParams,
   BookReturns,
   Bigish,
-  internalConfig,
+  rawConfig,
   localConfig,
   bookSubscriptionEvent,
 } from "./types";
@@ -292,7 +292,7 @@ export class Market {
     this.mgv.contract.on(bidsFilter, bidsCallback);
   }
 
-  #mapConfig(ba: "bids" | "asks", cfg: internalConfig): localConfig {
+  #mapConfig(ba: "bids" | "asks", cfg: rawConfig): localConfig {
     const bq = ba === "asks" ? "base" : "quote";
     return {
       active: cfg.local.active,
@@ -315,7 +315,7 @@ export class Market {
    * density is converted to public token units per gas used
    * fee *remains* in basis points of the token being bought
    */
-  async config(): Promise<{ asks: localConfig; bids: localConfig }> {
+  async rawConfig(): Promise<{ asks: rawConfig; bids: rawConfig }> {
     const rawAskConfig = await this.mgv.contract.config(
       this.base.address,
       this.quote.address
@@ -325,8 +325,16 @@ export class Market {
       this.base.address
     );
     return {
-      asks: this.#mapConfig("asks", rawAskConfig),
-      bids: this.#mapConfig("bids", rawBidsConfig),
+      asks: rawAskConfig,
+      bids: rawBidsConfig,
+    };
+  }
+
+  async config(): Promise<{ asks: localConfig; bids: localConfig }> {
+    const { bids, asks } = await this.rawConfig();
+    return {
+      asks: this.#mapConfig("asks", asks),
+      bids: this.#mapConfig("bids", bids),
     };
   }
 
@@ -411,12 +419,14 @@ export class Market {
         ? [this.base, this.quote, true]
         : [this.quote, this.base, false];
 
+    const gasLimit = await this.estimateGas(orderType, wants);
     const response = await this.mgv.contract.marketOrder(
       outboundTkn.address,
       inboundTkn.address,
       wants,
       gives,
-      fillWants
+      fillWants,
+      { gasLimit }
     );
     const receipt = await response.wait();
 
@@ -495,7 +505,7 @@ export class Market {
    *  Order is from best to worse from taker perspective.
    */
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-  book(opts: bookOpts = bookOptsDefault) {
+  book() {
     return this._book;
   }
 
@@ -704,6 +714,12 @@ export class Market {
           throw Error(`Unknown event ${evt}`);
       }
     };
+  }
+
+  async estimateGas(bs: "buy" | "sell", volume: BigNumber): Promise<BigNumber> {
+    const rawConfig = await this.rawConfig();
+    const ba = bs === "buy" ? "asks" : "bids";
+    return rawConfig[ba].local.density.mul(volume);
   }
 
   /**
