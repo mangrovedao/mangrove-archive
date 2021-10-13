@@ -7,7 +7,7 @@ const chalk = require("chalk");
 let testSigner = null;
 
 describe("Running tests...", function () {
-  this.timeout(100_000); // Deployment is slow so timeout is increased
+  this.timeout(200_000); // Deployment is slow so timeout is increased
   let mgv = null;
   let dai = null;
   let usdc = null;
@@ -70,6 +70,7 @@ describe("Running tests...", function () {
       .approve(mgv.address, ethers.constants.MaxUint256);
 
     // maker premices
+
     //1. approve lender for c[DAI|WETH|USDC] minting
     await makerContract
       .connect(testSigner)
@@ -80,10 +81,12 @@ describe("Running tests...", function () {
     await makerContract
       .connect(testSigner)
       .approveLender(cDai.address, ethers.constants.MaxUint256);
+
     // 2. entering markets to be allowed to borrow USDC and WETH on DAI collateral
     await makerContract.connect(testSigner).enterMarkets([cwEth.address]);
     await makerContract.connect(testSigner).enterMarkets([cUsdc.address]);
     await makerContract.connect(testSigner).enterMarkets([cDai.address]);
+
     // 3. pushing DAIs on compound to be used as collateral
     // 3.1 sending DAIs to makerContract to be used as collateral
     await lc.fund([["DAI", "100000.0", makerContract.address]]);
@@ -110,6 +113,7 @@ describe("Running tests...", function () {
       let takerGot;
       let takerGave;
       if (i % 2 == 0) {
+        // every even events, taker buys USDC
         [takerGot, takerGave] = await lc.marketOrder(
           mgv,
           "USDC",
@@ -122,6 +126,7 @@ describe("Running tests...", function () {
           chalk.red(lc.formatToken(takerGave, 18))
         );
       } else {
+        // every odd events taker buys WETH
         [takerGot, takerGave] = await lc.marketOrder(
           mgv,
           "WETH",
