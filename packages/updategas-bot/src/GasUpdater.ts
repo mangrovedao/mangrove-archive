@@ -20,6 +20,8 @@ export class GasUpdater {
   }
 
   private async _checkSetGasprice(blocknumber: any) {
+    //TODO: Suitable protection against reentrancy
+
     const globalConfig = await this.#mangrove.config();
     // FIXME: (common func) move to a property/method on Mangrove
     if (globalConfig.dead) {
