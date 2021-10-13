@@ -69,7 +69,6 @@ export class MgvToken {
     if (typeof params.spender === "undefined") {
       params.spender = this.mgv._address;
     }
-    console.log("allowance:params", params);
     const amount = await this.contract.allowance(params.owner, params.spender);
     return this.fromUnits(amount);
   }
@@ -82,8 +81,6 @@ export class MgvToken {
     if (typeof spender === "undefined") {
       spender = await this.mgv._address;
     }
-    console.log("approve:spender", spender);
-    console.log("converted amount", this.toUnits(amount).toString());
     return this.contract.approve(spender, this.toUnits(amount));
   }
 }

@@ -43,10 +43,8 @@ describe("MGV Token integration tests suite", () => {
   it("reads allowance", async function () {
     const usdc = mgv.token("USDC");
     const allowance = await usdc.allowance();
-    console.log(allowance);
     const resp = await usdc.approve(100);
     await resp.wait(1);
     const all = await usdc.allowance();
-    console.log(all);
   });
 });
