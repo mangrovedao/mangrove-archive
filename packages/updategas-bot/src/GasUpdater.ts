@@ -35,6 +35,11 @@ export class GasUpdater {
     );
 
     const currentMangroveGasPrice = Big(globalConfig.gasprice);
+
+    logger.debug(
+      `Current Mangrove gas price in config is: ${currentMangroveGasPrice}`
+    );
+
     const oracleGasPriceEstimate = await this._getGasPriceEstimateFromOracle();
 
     const [shouldUpdateGasPrice, newGasPrice] =
@@ -52,8 +57,7 @@ export class GasUpdater {
     //TODO: stub implementation
     const oracleGasPrice = Big(2);
     logger.debug(
-      "_getGasPriceEstimateFromOracle not implemented yet. Getting gas price from oracle in - using stub price:" +
-        oracleGasPrice
+      `_getGasPriceEstimateFromOracle not implemented yet. Getting gas price from oracle in - using stub price: ${oracleGasPrice}`
     );
     return oracleGasPrice;
   }
