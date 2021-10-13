@@ -10,14 +10,16 @@ export class GasUpdater {
   constructor(mangrove: Mangrove, provider: Provider) {
     this.#mangrove = mangrove;
     this.#provider = provider;
+  }
 
+  public start() {
     // TODO: Each block is definitely too often - what is a good setting here?
     this.#provider.on("block", async (blocknumber) =>
       this._checkSetGasprice(blocknumber)
     );
   }
 
-  private async _checkSetGasprice(blocknumber: any) {
+  public async _checkSetGasprice(blocknumber: any) {
     const globalConfig = await this.#mangrove.config();
     // FIXME: (common func) move to a property/method on Mangrove
     if (globalConfig.dead) {
@@ -60,7 +62,7 @@ export class GasUpdater {
     currentGasPrice: Big,
     oracleGasPrice: Big
   ): Promise<[Boolean, Big]> {
-    //TODO: stub implementation
+    //TODO: stub implementation - if entirely local calc, may be sync
     logger.debug("_shouldUpdateMangroveGasPrice not implemented yet.");
 
     if (currentGasPrice.eq(oracleGasPrice)) {
@@ -71,7 +73,7 @@ export class GasUpdater {
   }
 
   private async _updateMangroveGasPrice(oracleGasPriceEstimate: Big) {
-    //TODO:
+    //TODO: Not implemented yet
     logger.debug("_updateMangroveGasPrice not implemented yet.");
     throw new Error("Function not implemented.");
   }
