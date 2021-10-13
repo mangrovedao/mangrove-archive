@@ -58,7 +58,7 @@ const main = async () => {
 
     marketCleanerMap.set(
       { base: market.base.name, quote: market.quote.name },
-      new MarketCleaner(market, provider, wallet)
+      new MarketCleaner(market, provider)
     );
   }
 };

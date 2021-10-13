@@ -19,16 +19,18 @@ type OfferCleaningEstimates = {
 export class MarketCleaner {
   #market: Market;
   #provider: Provider;
-  #wallet: Wallet;
   #isCleaning: boolean;
 
-  constructor(market: Market, provider: Provider, wallet: Wallet) {
+  constructor(market: Market, provider: Provider) {
     this.#market = market;
     this.#provider = provider;
-    this.#wallet = wallet;
     this.#isCleaning = false;
     this.#provider.on("block", async (blockNumber) => this.#clean(blockNumber));
     logger.info("MarketCleaner started", { market: market });
+  }
+
+  public async cleanNow() {
+    this.#clean(-1);
   }
 
   async #clean(blockNumber: number) {
@@ -68,7 +70,7 @@ export class MarketCleaner {
     const gasPrice = this.#estimateGasPrice(this.#provider);
     const minerTipPerGas = this.#estimateMinerTipPerGas(this.#provider);
 
-    const { asks, bids } = await this.#market.book();
+    const { asks, bids } = await this.#market.requestBook();
     logger.info(`Order book retrieved`, {
       market: this.#market,
       data: {
@@ -113,7 +115,7 @@ export class MarketCleaner {
           market: this.#market,
           bookSide: bookSide,
           offer: offer,
-          data: estimates,
+          data: { estimates },
         });
         // TODO Do we have the liquidity to do the snipe?
         //    - If we're trading 0 (zero) this is just the gas, right?
