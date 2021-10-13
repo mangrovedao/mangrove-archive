@@ -5,8 +5,8 @@ import config from "./config";
 const consoleLogFormat = format.printf(
   ({ level, message, timestamp, ...metadata }) => {
     let msg = `${timestamp} [${level}] `;
-    if (metadata.market) {
-      msg += `[(${metadata.market.base.name}, ${metadata.market.quote.name})] `;
+    if (metadata.base && metadata.quote) {
+      msg += `[(${metadata.base}, ${metadata.quote})] `;
     }
     if (metadata.bookSide) {
       msg += `[${metadata.bookSide}`;
@@ -27,14 +27,6 @@ const consoleLogFormat = format.printf(
 );
 
 const logLevel = config.get<string>("log.logLevel");
-// export const logger: BetterLogger = createLogger(consoleLogFormat, logLevel);
-// FIXME logging somehow causes an out of memory exception when running under test - this needs fixing
-export const logger = {
-  info: (...args: any[]) => {},
-  warn: (...args: any[]) => {},
-  debug: (...args: any[]) => {},
-  error: (...args: any[]) => {},
-  exception: (...args: any[]) => {},
-};
+export const logger: BetterLogger = createLogger(consoleLogFormat, logLevel);
 
 export default logger;
