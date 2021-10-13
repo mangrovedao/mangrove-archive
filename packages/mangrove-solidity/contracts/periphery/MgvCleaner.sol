@@ -37,7 +37,6 @@ contract MgvCleaner {
       fillWants,
       msg.sender
     );
-    console.log("successes", successes);
     require(successes == 0, "mgvCleaner/anOfferDidNotFail");
     bal = address(this).balance;
     msg.sender.send(bal);
