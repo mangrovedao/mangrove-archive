@@ -2,7 +2,7 @@ import { logger } from "./util/logger";
 import { Market, Offer } from "@giry/mangrove-js/dist/nodejs/market";
 import { Provider } from "@ethersproject/providers";
 import { Wallet } from "@ethersproject/wallet";
-import { BA } from "./mangrove-js-type-aliases";
+import { BookSide } from "./mangrove-js-type-aliases";
 import Big from "big.js";
 Big.DP = 20; // precision when dividing
 Big.RM = Big.roundHalfUp; // round to nearest
@@ -89,68 +89,42 @@ export class MarketCleaner {
   }
 
   async #cleanOfferList(
-    offers: Offer[],
-    bookSide: BA,
+    offerList: Offer[],
+    bookSide: BookSide,
     gasPrice: Big,
     minerTipPerGas: Big
   ) {
     // TODO Figure out criteria for when to snipe:
     //  - Offer will/is likely to fail
-    for (const offer of offers) {
+    for (const offer of offerList) {
       let willOfferFail = await this.#willOfferFail(offer, bookSide);
       if (!willOfferFail) {
         continue;
       }
 
-      let estimates = this.#estimateProfitability(
+      let estimates = this.#estimateCostsAndGains(
         offer,
         bookSide,
         gasPrice,
         minerTipPerGas
       );
       if (estimates.netResult.gt(0)) {
+        logger.info("Identified offer that is profitable to clean", {
+          market: this.#market,
+          bookSide: bookSide,
+          offer: offer,
+          data: estimates,
+        });
+        // TODO Do we have the liquidity to do the snipe?
+        //    - If we're trading 0 (zero) this is just the gas, right?
         await this.#snipeOffer(offer, bookSide);
       }
     }
-    // const candidateFailingOffers = offers.filter(this.#willOfferFail);
-    // logger.debug(
-    //   `Identified ${candidateFailingOffers.length} offers that may fail on ${bookSide} side of market`,
-    //   { market: this.#market }
-    // );
-    // //  - What is the potential gross gain, i.e. the bounty ?
-    // //  - How much gas will be required for the transaction?
-    // //  - How big a tip should we give the miner?
-    // //  - What is the net gain, if any?
-    // const offersWithCleaningEstimates = candidateFailingOffers.map((o) => ({
-    //   offer: o,
-    //   estimates: this.#estimateProfitability(o, gasPrice, minerTipPerGas),
-    // }));
-    // const profitableCleaningOffers = offersWithCleaningEstimates.filter((oe) =>
-    //   oe.estimates.netResult.gt(0)
-    // );
-    // logger.debug(
-    //   `Identified ${profitableCleaningOffers.length} offers that will be profitable to clean on ${bookSide} side of market`,
-    //   { market: this.#market }
-    // );
-    // // TODO Do we have the liquidity to do the snipe?
-    // //    - If we're trading 0 (zero) this is just the gas, right?
-    // // TODO How do source liquidity for the snipes?
-    // //  - Can we just trade 0 (zero) ?
-    // //  - If not, we must implement strategies for sourcing and calculate the costs, incl. gas
-    // //  - The cleaner contract would have to implement the sourcing strategy
-    // //  - We don't want to do that in V0.
-    // for (const { offer, estimates } of profitableCleaningOffers) {
-    //   logger.info(`Cleaning offer ${offer.id} on ${bookSide} side of market`, {
-    //     market: this.#market,
-    //     data: estimates,
-    //   });
-    //   await this.#snipeOffer(offer, bookSide);
-    // }
   }
 
-  #estimateProfitability(
+  #estimateCostsAndGains(
     offer: Offer,
-    bookSide: BA,
+    bookSide: BookSide,
     gasPrice: Big,
     minerTipPerGas: Big
   ): OfferCleaningEstimates {
@@ -187,16 +161,16 @@ export class MarketCleaner {
     return Big(1);
   }
 
-  #estimateBounty(offer: Offer, bookSide: BA): Big {
+  #estimateBounty(offer: Offer, bookSide: BookSide): Big {
     // TODO Implement
     logger.debug(
-      "Using hard bounty estimate (10) because #estimateBounty is not implemented",
+      "Using hard coded bounty estimate (10) because #estimateBounty is not implemented",
       { market: this.#market, bookSide: bookSide, offer: offer }
     );
     return Big(10);
   }
 
-  #estimateGas(offer: Offer, bookSide: BA): Big {
+  #estimateGas(offer: Offer, bookSide: BookSide): Big {
     // TODO Implement
     logger.debug(
       "Using hard coded gas estimate (1) because #estimateGas is not implemented",
@@ -205,15 +179,17 @@ export class MarketCleaner {
     return Big(1);
   }
 
-  async #willOfferFail(offer: Offer, bookSide: BA): Promise<boolean> {
+  async #willOfferFail(offer: Offer, bookSide: BookSide): Promise<boolean> {
     // TODO This is clunky - can we make a nice abstraction?
-    const base = bookSide === "asks" ? this.#market.base : this.#market.quote;
-    const quote = bookSide === "asks" ? this.#market.quote : this.#market.base;
+    const inboundToken =
+      bookSide === "asks" ? this.#market.base : this.#market.quote;
+    const outboundToken =
+      bookSide === "asks" ? this.#market.quote : this.#market.base;
     try {
       // FIXME move to mangrove.js API
       await this.#market.mgv.cleanerContract.callStatic.touchAndCollect(
-        base.address,
-        quote.address,
+        inboundToken.address,
+        outboundToken.address,
         offer.id,
         0
       );
@@ -234,20 +210,27 @@ export class MarketCleaner {
     return true;
   }
 
-  async #snipeOffer(offer: Offer, bookSide: BA) {
+  // TODO How do source liquidity for the snipes?
+  //  - Can we just trade 0 (zero) ? That's the current approach
+  //  - If not, we must implement strategies for sourcing and calculate the costs, incl. gas
+  //  - The cleaner contract would have to implement the sourcing strategy
+  //  - We don't want to do that in V0.
+  async #snipeOffer(offer: Offer, bookSide: BookSide) {
     logger.debug(`Sniping offer ${offer.id} from ${bookSide} on market`, {
       market: this.#market,
       bookSide: bookSide,
       offer: offer,
     });
     // TODO This is clunky - can we make a nice abstraction?
-    const base = bookSide === "asks" ? this.#market.base : this.#market.quote;
-    const quote = bookSide === "asks" ? this.#market.quote : this.#market.base;
+    const inboundToken =
+      bookSide === "asks" ? this.#market.base : this.#market.quote;
+    const outboundToken =
+      bookSide === "asks" ? this.#market.quote : this.#market.base;
     try {
       // FIXME move to mangrove.js API
       await this.#market.mgv.cleanerContract.touchAndCollect(
-        base.address,
-        quote.address,
+        inboundToken.address,
+        outboundToken.address,
         offer.id,
         0
       );
