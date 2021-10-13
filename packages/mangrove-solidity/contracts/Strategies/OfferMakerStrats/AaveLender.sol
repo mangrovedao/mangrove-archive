@@ -127,9 +127,9 @@ abstract contract AaveLender is MangroveOffer {
     // unless account doesn't have enough collateral in asset token (hence the min())
 
     uint maxRedeemableUnderlying = div_( // in 10**underlying.decimals
-        account.redeemPower * 10**(underlying.decimals) * 10**4,
-        mul_(underlying.liquidationThreshold, underlying.price)
-      );
+      account.redeemPower * 10**(underlying.decimals) * 10**4,
+      mul_(underlying.liquidationThreshold, underlying.price)
+    );
 
     maxRedeemableUnderlying = min(
       maxRedeemableUnderlying,
@@ -153,16 +153,16 @@ abstract contract AaveLender is MangroveOffer {
     }
 
     uint maxBorrowAfterRedeemInUnderlying = sub_( // max borrow power in underlying after max redeem has been withdrawn
-        borrowPowerInUnderlying,
-        borrowPowerImpactOfRedeemInUnderlying
-      );
+      borrowPowerInUnderlying,
+      borrowPowerImpactOfRedeemInUnderlying
+    );
     return (maxRedeemableUnderlying, maxBorrowAfterRedeemInUnderlying);
   }
 
-  ///@notice method to get `base` during makerExecute
-  ///@param base address of the ERC20 managing `base` token
+  ///@notice method to get `outbound_tkn` during makerExecute
+  ///@param outbound_tkn address of the ERC20 managing `outbound_tkn` token
   ///@param amount of token that the trade is still requiring
-  function __get__(IERC20 base, uint amount)
+  function __get__(IERC20 outbound_tkn, uint amount)
     internal
     virtual
     override
@@ -171,11 +171,11 @@ abstract contract AaveLender is MangroveOffer {
     (
       uint redeemable, /*maxBorrowAfterRedeem*/
 
-    ) = maxGettableUnderlying(base);
+    ) = maxGettableUnderlying(outbound_tkn);
 
     uint redeemAmount = min(redeemable, amount);
 
-    if (aaveRedeem(base, redeemAmount) == 0) {
+    if (aaveRedeem(outbound_tkn, redeemAmount) == 0) {
       // redeemAmount was transfered to `this`
       return (amount - redeemAmount);
     }
@@ -203,26 +203,31 @@ abstract contract AaveLender is MangroveOffer {
     }
   }
 
-  function __put__(IERC20 quote, uint amount) internal virtual override {
+  function __put__(IERC20 inbound_tkn, uint amount) internal virtual override {
     //optim
     if (amount == 0) {
       return;
     }
-    aaveMint(quote, amount);
+    aaveMint(inbound_tkn, amount);
   }
 
   // adapted from https://medium.com/compound-finance/supplying-assets-to-the-compound-protocol-ec2cf5df5aa#afff
   // utility to supply erc20 to compound
   // NB `ctoken` contract MUST be approved to perform `transferFrom token` by `this` contract.
   /// @notice user need to approve ctoken in order to mint
-  function aaveMint(IERC20 quote, uint amount) internal {
+  function aaveMint(IERC20 inbound_tkn, uint amount) internal {
     // contract must haveallowance()to spend funds on behalf ofmsg.sender for at-leastamount for the asset being deposited. This can be done via the standard ERC20 approve() method.
     try
-      lendingPool.deposit(address(quote), amount, address(this), referralCode)
+      lendingPool.deposit(
+        address(inbound_tkn),
+        amount,
+        address(this),
+        referralCode
+      )
     {
       return;
     } catch {
-      emit ErrorOnMint(address(quote), amount);
+      emit ErrorOnMint(address(inbound_tkn), amount);
     }
   }
 }
