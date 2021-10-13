@@ -71,9 +71,34 @@ contract TradeHandler {
     w = bytes32(x);
   }
 
-  function tradeRevertWithBytes(bytes memory data) private pure {
+  function revertWithBytes(bytes memory data) private pure {
     assembly {
       revert(add(data, 32), 32)
+    }
+  }
+
+  function returnData(bool drop, bytes memory message)
+    internal
+    pure
+    returns (bytes32 w)
+  {
+    if (drop) {
+      revertWithBytes(message);
+    } else {
+      w = wordOfBytes(message);
+    }
+  }
+
+  function returnData(bool drop, bytes32 message)
+    internal
+    pure
+    returns (bytes32 w)
+  {
+    bytes memory data = bytesOfWord(message);
+    if (drop) {
+      revertWithBytes(data);
+    } else {
+      w = wordOfBytes(data);
     }
   }
 
@@ -84,7 +109,7 @@ contract TradeHandler {
   {
     bytes memory data = abi.encodePacked(postHook_switch);
     if (drop) {
-      tradeRevertWithBytes(data);
+      revertWithBytes(data);
     } else {
       w = wordOfBytes(data);
     }
@@ -97,7 +122,7 @@ contract TradeHandler {
   ) internal pure returns (bytes32 w) {
     bytes memory data = abi.encodePacked(postHook_switch, message);
     if (drop) {
-      tradeRevertWithBytes(data);
+      revertWithBytes(data);
     } else {
       w = wordOfBytes(data);
     }

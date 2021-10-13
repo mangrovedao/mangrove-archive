@@ -100,6 +100,25 @@ function getConfiguredTokens(mainnetConfig, networkName, ethers) {
     }
   }
 
+  // USDC
+  if (mainnetConfig.has("tokens.usdc")) {
+    const usdcContract = tryCreateTokenContract(
+      "USDC",
+      "usdc",
+      mainnetConfig,
+      networkName,
+      ethers
+    );
+    if (usdcContract) {
+      tokens.usdc = { contract: usdcContract };
+
+      const usdcConfig = mainnetConfig.get("tokens.usdc");
+      if (usdcConfig.has("masterMinterAddress")) {
+        tokens.usdc.masterMinter = usdcConfig.get("masterMinterAddress"); // to give mint allowance
+      }
+    }
+  }
+
   // WETH
   if (mainnetConfig.has("tokens.wEth")) {
     const wEthContract = tryCreateTokenContract(
@@ -127,6 +146,22 @@ function getConfiguredTokens(mainnetConfig, networkName, ethers) {
     if (cDaiContract) {
       tokens.cDai = {
         contract: cDaiContract,
+        isCompoundToken: true,
+      };
+    }
+  }
+  // CUSDC
+  if (mainnetConfig.has("tokens.cUsdc")) {
+    const cUsdcContract = tryCreateTokenContract(
+      "CUSDC",
+      "cUsdc",
+      mainnetConfig,
+      networkName,
+      ethers
+    );
+    if (cUsdcContract) {
+      tokens.cUsdc = {
+        contract: cUsdcContract,
         isCompoundToken: true,
       };
     }
