@@ -35,7 +35,8 @@ contract SwingingMarketMaker is CompoundTrader {
     address tk0,
     address tk1,
     uint gives // amount of tk0 (with tk0.decimals() decimals)
-  ) external onlyAdmin returns (bool) {
+  ) external payable onlyAdmin returns (bool) {
+    MGV.fund{value: msg.value}();
     bool success = repostOffer(tk0, tk1, gives);
     if (success) {
       IERC20(tk0).approve(address(MGV), uint(-1)); // approving MGV for tk0 transfer
