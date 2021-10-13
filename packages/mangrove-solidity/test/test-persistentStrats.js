@@ -17,8 +17,7 @@ describe("Running tests...", function () {
   let cUsdc = null;
 
   before(async function () {
-    // 1. mint (1000 dai, 1000 eth, 1000 weth) for testSigner
-    // 2. activates (dai,weth) market
+    // fetches all token contracts
     dai = await lc.getContract("DAI");
     wEth = await lc.getContract("WETH");
     usdc = await lc.getContract("USDC");
@@ -26,18 +25,11 @@ describe("Running tests...", function () {
     cUsdc = await lc.getContract("CUSDC");
     cDai = await lc.getContract("CDAI");
 
+    // setting testRunner signer
     [testSigner] = await ethers.getSigners();
 
-    await lc.fund([
-      ["ETH", "10000.0", testSigner.address],
-      ["WETH", "1000.0", testSigner.address],
-      ["USDC", "1000000.0", testSigner.address],
-      //      ["DAI", "10000.0", testSigner.address]
-    ]);
-
+    // deploying mangrove and opening WETH/USDC market.
     mgv = await lc.deployMangrove();
-    await lc.activateMarket(mgv, dai.address, wEth.address);
-    await lc.activateMarket(mgv, dai.address, usdc.address);
     await lc.activateMarket(mgv, wEth.address, usdc.address);
   });
 
@@ -55,6 +47,7 @@ describe("Running tests...", function () {
     const eth_for_one_usdc = lc.parseToken("0.0004", 18); // 1/2500 ethers
     const usdc_for_one_eth = lc.parseToken("2510", 6); // 2510 $
 
+    // setting p(WETH|USDC) and p(USDC|WETH) s.t p(WETH|USDC)*p(USDC|WETH) > 1
     await makerContract
       .connect(testSigner)
       .setPrice(wEth.address, usdc.address, eth_for_one_usdc);
@@ -62,31 +55,22 @@ describe("Running tests...", function () {
       .connect(testSigner)
       .setPrice(usdc.address, wEth.address, usdc_for_one_eth);
 
+    // taker premices (approving Mgv on inbound erc20 for taker orders)
+    // 1. test runner will need to sell weth and usdc so getting some...
     await lc.fund([
-      ["ETH", "1.0", makerContract.address], // sending gas to makerContract
-      ["DAI", "100000.0", makerContract.address], // sending DAIs to makerContract
+      ["WETH", "1000.0", testSigner.address],
+      ["USDC", "1000000.0", testSigner.address],
     ]);
+    // 2. sending WETH and USDC to mangrove requires approval
     await wEth
       .connect(testSigner)
       .approve(mgv.address, ethers.constants.MaxUint256);
     await usdc
       .connect(testSigner)
       .approve(mgv.address, ethers.constants.MaxUint256);
-    await dai
-      .connect(testSigner)
-      .approve(mgv.address, ethers.constants.MaxUint256);
 
-    let overrides = { value: lc.parseToken("2.0", 18) };
-    const tx = await mgv["fund(address)"](makerContract.address, overrides);
-    await tx.wait();
-
-    const amount = lc.parseToken("1000.0", 6);
-
-    await makerContract
-      .connect(testSigner)
-      .startStrat(usdc.address, wEth.address, amount); // gives 1000 $
-
-    // putting dai on compound
+    // maker premices
+    //1. approve lender for c[DAI|WETH|USDC] minting
     await makerContract
       .connect(testSigner)
       .approveLender(cwEth.address, ethers.constants.MaxUint256);
@@ -96,13 +80,23 @@ describe("Running tests...", function () {
     await makerContract
       .connect(testSigner)
       .approveLender(cDai.address, ethers.constants.MaxUint256);
-
+    // 2. entering markets to be allowed to borrow USDC and WETH on DAI collateral
     await makerContract.connect(testSigner).enterMarkets([cwEth.address]);
     await makerContract.connect(testSigner).enterMarkets([cUsdc.address]);
     await makerContract.connect(testSigner).enterMarkets([cDai.address]);
-
+    // 3. pushing DAIs on compound to be used as collateral
+    // 3.1 sending DAIs to makerContract to be used as collateral
+    await lc.fund([["DAI", "100000.0", makerContract.address]]);
+    // 3.2 asking maker contract to mint cDAIs
     const daiAmount = lc.parseToken("100000.0", 18);
     await makerContract.connect(testSigner).mint(cDai.address, daiAmount);
+
+    // starting strategy by offering 1000 USDC on the book
+    const overrides = { value: lc.parseToken("2.0", 18) };
+    const gives_amount = lc.parseToken("1000.0", 6);
+    await makerContract
+      .connect(testSigner)
+      .startStrat(usdc.address, wEth.address, gives_amount, overrides); // gives 1000 $
 
     await lc.logLenderStatus(makerContract, "compound", ["WETH"]);
 
