@@ -26,6 +26,7 @@ jobs:
 
   # ==== Job: Build and test commonlib.js ====
   commonlib-js:
+    needs: cleanup-runs
 
     runs-on: ubuntu-latest
 
@@ -100,6 +101,7 @@ jobs:
 
   # ==== Job: Build and test Mangrove Core
   mangrove-solidity:
+    needs: cleanup-runs  
 
     runs-on: ubuntu-latest
 
