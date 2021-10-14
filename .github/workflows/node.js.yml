@@ -3,14 +3,27 @@ name: CI
 on:
   push:
     branches: [ master, feature/**, issue/** ]
+    paths-ignore: 
+      - '**.md'
   pull_request:
     branches: [ master ]
+    paths-ignore: 
+      - '**.md'
 
 env:
   NODE_ENV: test
   working-directory: packages/mangrove-solidity
 
 jobs:
+  # ==== Job: Stops older workflows on same branch (except master) ====
+  cleanup-runs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: rokroskar/workflow-run-cleanup-action@master
+      env:
+        GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    if: "!startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/master'"
+
   # ==== Job: Build and test commonlib.js ====
   commonlib-js:
 
