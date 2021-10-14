@@ -5,8 +5,15 @@ import config from "./config";
 const consoleLogFormat = format.printf(
   ({ level, message, timestamp, ...metadata }) => {
     let msg = `${timestamp} [${level}] `;
-    if (metadata.market) {
-      msg += `[(${metadata.market.base.name}, ${metadata.market.quote.name})] `;
+    if (metadata.base && metadata.quote) {
+      msg += `[(${metadata.base}, ${metadata.quote})] `;
+    }
+    if (metadata.bookSide) {
+      msg += `[${metadata.bookSide}`;
+      if (metadata.offer) {
+        msg += `#${metadata.offer.id}`;
+      }
+      msg += "] ";
     }
     if (metadata.bookSide) {
       msg += `[${metadata.bookSide}`;
