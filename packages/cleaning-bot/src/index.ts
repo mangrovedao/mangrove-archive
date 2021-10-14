@@ -67,7 +67,7 @@ const main = async () => {
     // FIXME maybe this should be a property/method on Mangrove.
     exitIfMangroveIsKilled(mgv, blockNumber);
 
-    logger.info(`Cleaning at block number ${blockNumber}`);
+    logger.debug(`Cleaning at block number ${blockNumber}`);
     let cleaningPromises = [];
     for (const marketCleaner of marketCleanerMap.values()) {
       cleaningPromises.push(marketCleaner.clean(blockNumber));

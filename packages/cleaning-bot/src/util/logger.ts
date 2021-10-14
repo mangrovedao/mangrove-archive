@@ -6,16 +6,19 @@ const consoleLogFormat = format.printf(
   ({ level, message, timestamp, ...metadata }) => {
     let msg = `${timestamp} [${level}] `;
     if (metadata.base && metadata.quote) {
-      msg += `[(${metadata.base}, ${metadata.quote})] `;
-    }
-    if (metadata.bookSide) {
-      msg += `[${metadata.bookSide}`;
-      if (metadata.offer) {
-        msg += `#${metadata.offer.id}`;
+      msg += `[(${metadata.base},${metadata.quote})`;
+      if (metadata.bookSide) {
+        msg += ` ${metadata.bookSide}`;
+        if (metadata.offer) {
+          msg += ` #${metadata.offer.id}`;
+        }
       }
       msg += "] ";
     }
     msg += message;
+    if (metadata.offer) {
+      msg += ` | offer: ${JSON.stringify(metadata.offer)}`;
+    }
     if (metadata.data !== undefined) {
       msg += ` | data: ${JSON.stringify(metadata.data)}`;
     }

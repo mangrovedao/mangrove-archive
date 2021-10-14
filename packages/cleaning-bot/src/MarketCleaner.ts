@@ -1,5 +1,6 @@
 import { logger } from "./util/logger";
 import { Market, Offer } from "@giry/mangrove-js/dist/nodejs/market";
+import { MgvToken } from "@giry/mangrove-js/dist/nodejs/mgvtoken";
 import { Provider } from "@ethersproject/providers";
 import { Wallet } from "@ethersproject/wallet";
 import { BookSide } from "./mangrove-js-type-aliases";
@@ -56,7 +57,7 @@ export class MarketCleaner {
     });
 
     // TODO I think this is not quite EIP-1559 terminology - should fix
-    const gasPrice = this.#estimateGasPrice(this.#provider);
+    const gasPrice = await this.#estimateGasPrice(this.#provider);
     const minerTipPerGas = this.#estimateMinerTipPerGas(this.#provider);
 
     const { asks, bids } = await this.#market.requestBook();
@@ -92,7 +93,7 @@ export class MarketCleaner {
         continue;
       }
 
-      let estimates = this.#estimateCostsAndGains(
+      let estimates = await this.#estimateCostsAndGains(
         offer,
         bookSide,
         gasPrice,
@@ -108,19 +109,19 @@ export class MarketCleaner {
         });
         // TODO Do we have the liquidity to do the snipe?
         //    - If we're trading 0 (zero) this is just the gas, right?
-        await this.#snipeOffer(offer, bookSide);
+        await this.#cleanOffer(offer, bookSide);
       }
     }
   }
 
-  #estimateCostsAndGains(
+  async #estimateCostsAndGains(
     offer: Offer,
     bookSide: BookSide,
     gasPrice: Big,
     minerTipPerGas: Big
-  ): OfferCleaningEstimates {
+  ): Promise<OfferCleaningEstimates> {
     const bounty = this.#estimateBounty(offer, bookSide);
-    const gas = this.#estimateGas(offer, bookSide);
+    const gas = await this.#estimateGas(offer, bookSide);
     const totalCost = gas.mul(gasPrice.plus(minerTipPerGas));
     const netResult = bounty.minus(totalCost);
     return {
@@ -133,14 +134,9 @@ export class MarketCleaner {
     };
   }
 
-  #estimateGasPrice(provider: Provider): Big {
-    // TODO Implement
-    logger.debug(
-      "Using hard coded gas price estimate (1) because #estimateGasPrice is not implemented",
-      { base: this.#market.base.name, quote: this.#market.quote.name }
-    );
-    return Big(1);
-    //return Big((await provider.getGasPrice()).);
+  async #estimateGasPrice(provider: Provider): Promise<Big> {
+    const gasPrice = await provider.getGasPrice();
+    return Big(gasPrice.toString());
   }
 
   #estimateMinerTipPerGas(provider: Provider): Big {
@@ -155,7 +151,7 @@ export class MarketCleaner {
   #estimateBounty(offer: Offer, bookSide: BookSide): Big {
     // TODO Implement
     logger.debug(
-      "Using hard coded bounty estimate (10) because #estimateBounty is not implemented",
+      "Using hard coded bounty estimate because #estimateBounty is not implemented",
       {
         base: this.#market.base.name,
         quote: this.#market.quote.name,
@@ -163,29 +159,23 @@ export class MarketCleaner {
         offer: offer,
       }
     );
-    return Big(10);
+    return Big(1e18);
   }
 
-  #estimateGas(offer: Offer, bookSide: BookSide): Big {
-    // TODO Implement
-    logger.debug(
-      "Using hard coded gas estimate (1) because #estimateGas is not implemented",
-      {
-        base: this.#market.base.name,
-        quote: this.#market.quote.name,
-        bookSide: bookSide,
-        offer: offer,
-      }
-    );
-    return Big(1);
+  async #estimateGas(offer: Offer, bookSide: BookSide): Promise<Big> {
+    const { inboundToken, outboundToken } = this.#getTokens(bookSide);
+    const gasEstimate =
+      await this.#market.mgv.cleanerContract.estimateGas.touchAndCollect(
+        inboundToken.address,
+        outboundToken.address,
+        offer.id,
+        0
+      );
+    return Big(gasEstimate.toString());
   }
 
   async #willOfferFail(offer: Offer, bookSide: BookSide): Promise<boolean> {
-    // TODO This is clunky - can we make a nice abstraction?
-    const inboundToken =
-      bookSide === "asks" ? this.#market.base : this.#market.quote;
-    const outboundToken =
-      bookSide === "asks" ? this.#market.quote : this.#market.base;
+    const { inboundToken, outboundToken } = this.#getTokens(bookSide);
     try {
       // FIXME move to mangrove.js API
       await this.#market.mgv.cleanerContract.callStatic.touchAndCollect(
@@ -218,18 +208,14 @@ export class MarketCleaner {
   //  - If not, we must implement strategies for sourcing and calculate the costs, incl. gas
   //  - The cleaner contract would have to implement the sourcing strategy
   //  - We don't want to do that in V0.
-  async #snipeOffer(offer: Offer, bookSide: BookSide) {
-    logger.debug(`Sniping offer`, {
+  async #cleanOffer(offer: Offer, bookSide: BookSide) {
+    logger.debug("Cleaning offer", {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
       bookSide: bookSide,
       offer: offer,
     });
-    // TODO This is clunky - can we make a nice abstraction?
-    const inboundToken =
-      bookSide === "asks" ? this.#market.base : this.#market.quote;
-    const outboundToken =
-      bookSide === "asks" ? this.#market.quote : this.#market.base;
+    const { inboundToken, outboundToken } = this.#getTokens(bookSide);
     try {
       // FIXME move to mangrove.js API
       const collectTx = await this.#market.mgv.cleanerContract.touchAndCollect(
@@ -240,8 +226,6 @@ export class MarketCleaner {
       );
       // TODO Maybe don't want to wait for the transaction to be mined?
       const txReceipt = await collectTx.wait();
-      console.log("MarketCleaner snipe - receipt:");
-      console.dir(txReceipt);
     } catch (e) {
       logger.warn("Cleaning of offer failed", {
         base: this.#market.base.name,
@@ -259,5 +243,18 @@ export class MarketCleaner {
       offer: offer,
     });
     return true;
+  }
+
+  // FIXME move/integrate into Market API?
+  #getTokens(bookSide: BookSide): {
+    inboundToken: MgvToken;
+    outboundToken: MgvToken;
+  } {
+    return {
+      inboundToken:
+        bookSide === "asks" ? this.#market.base : this.#market.quote,
+      outboundToken:
+        bookSide === "asks" ? this.#market.quote : this.#market.base,
+    };
   }
 }
