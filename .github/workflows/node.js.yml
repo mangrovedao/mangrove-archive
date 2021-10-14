@@ -15,7 +15,7 @@ env:
   working-directory: packages/mangrove-solidity
 
 jobs:
-  # ==== Job: Stops older workflows on same branch (except master) ====
+  # ==== Job: Stops older workflows on same branch (except on branch master) ====
   cleanup-runs:
     runs-on: ubuntu-latest
     steps:
