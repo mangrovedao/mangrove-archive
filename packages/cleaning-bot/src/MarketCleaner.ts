@@ -250,12 +250,14 @@ export class MarketCleaner {
       bookSide === "asks" ? this.#market.quote : this.#market.base;
     try {
       // FIXME move to mangrove.js API
-      await this.#market.mgv.cleanerContract.touchAndCollect(
+      const collectTx = await this.#market.mgv.cleanerContract.touchAndCollect(
         inboundToken.address,
         outboundToken.address,
         offer.id,
         0
       );
+      // TODO Maybe don't want to wait for the transaction to be mined?
+      await collectTx.wait();
     } catch (e) {
       logger.debug("touchAndCollect of offer failed", {
         base: this.#market.base.name,

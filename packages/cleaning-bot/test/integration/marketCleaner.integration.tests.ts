@@ -1,25 +1,38 @@
 /**
  * Integration tests of MarketCleaner.ts.
  */
-import { afterEach, beforeEach, describe, it } from "mocha";
+import { afterEach, before, beforeEach, describe, it } from "mocha";
 import * as chai from "chai";
 const { expect } = chai;
 import chaiAsPromised from "chai-as-promised";
 chai.use(chaiAsPromised);
 import { Mangrove, Market, MgvToken } from "@giry/mangrove-js";
-import { newOffer, sleep } from "../util/helpers";
+import * as typechain from "@giry/mangrove-js/dist/nodejs/types/typechain";
+import { newOffer, toWei } from "../util/helpers";
 import { Provider } from "@ethersproject/abstract-provider";
 import { MarketCleaner } from "../../src/MarketCleaner";
+import * as hre from "hardhat";
+import "hardhat-deploy-ethers/dist/src/type-extensions";
 
 describe("MarketCleaner integration tests", () => {
   let provider: Provider;
   let mgv: Mangrove;
   let market: Market;
+  let testMakerContract: typechain.TestMaker;
 
   beforeEach(async function () {
     provider = this.test?.parent?.parent?.ctx.provider;
     mgv = await Mangrove.connect({ provider });
-    market = await mgv.market({ base: "WETH", quote: "DAI" });
+    market = await mgv.market({ base: "TokenA", quote: "TokenB" });
+
+    const testMakerAddress = Mangrove.getAddress(
+      "TestMaker",
+      mgv._network.name
+    );
+    testMakerContract = typechain.TestMaker__factory.connect(
+      testMakerAddress,
+      mgv._signer
+    );
   });
 
   afterEach(async function () {
@@ -41,45 +54,38 @@ describe("MarketCleaner integration tests", () => {
     //   - Do we need to set up any token approvals?
     //     - For ERC-20 tokens, I think both Maker acct and Cleaner acct need to be approved?
     //     - NB: MgvToken has utility function for approving
+    //   - Maker must be provisioned
     // - Open market
+    //   - NB: Market (TokenA, TokenB) is already opened by the integration-test-root-hooks
     //   - TODO which account - deployer?
     //   - NB: There's no Mangrove.js API for opening markets, right?
-    const feeInBasisPoints = 5;
-    const density = 0;
-    const overhead_gasbase = 1;
-    const offer_gasbase = 2;
-    await mgv.contract.activate(
-      market.base.address,
-      market.quote.address,
-      feeInBasisPoints,
-      density,
-      overhead_gasbase,
-      offer_gasbase
-    );
-    // FIXME We must activate the other side of the market even though we don't use it - that's counter-intuitive
-    await mgv.contract.activate(
-      market.quote.address,
-      market.base.address,
-      feeInBasisPoints,
-      density,
-      overhead_gasbase,
-      offer_gasbase
-    );
     console.log((await market.config()).asks.active);
     // - Add offer to order book - using Mangrove.js if possible
     //   - Must be failing
     //   - Must not be persistent
     //   - Cleaning it must be profitable
-    // TODO which account is use for this transaction - deployer, right?
-    const newOfferTx = await newOffer(mgv, market.base, market.quote, {
-      wants: "1",
-      gives: "1.2",
-      gasreq: 10000,
-      gasprice: 1,
-    });
-    console.dir(newOfferTx);
-    const newOfferTxReceipt = await newOfferTx.wait();
-    console.dir(newOfferTxReceipt);
+    // TODO which account is used for this transaction - deployer, right?
+    // FIXME ----------------- commented out for merge
+    // const setShouldFailTx = await testMakerContract.shouldFail(true);
+    // await setShouldFailTx.wait();
+    // const provisionTx = await testMakerContract.provisionMgv(toWei("1"));
+    // await provisionTx.wait();
+    // const newOfferTx = await testMakerContract[
+    //   "newOffer(address,address,uint256,uint256,uint256,uint256)"
+    // ](market.base.address, market.quote.address, 1, 1000000, 100, 1);
+    // console.dir(newOfferTx);
+    // const newOfferTxReceipt = await newOfferTx.wait();
+    // console.dir(newOfferTxReceipt);
+    // FIXME ---------------- end
+    // const newOfferTx = await newOffer(mgv, market.base, market.quote, {
+    //   wants: "1",
+    //   gives: "1.2",
+    //   gasreq: 10000,
+    //   gasprice: 1,
+    // });
+    // console.dir(newOfferTx);
+    // const newOfferTxReceipt = await newOfferTx.wait();
+    // console.dir(newOfferTxReceipt);
 
     // Act
     // - Create MarketCleaner for the market

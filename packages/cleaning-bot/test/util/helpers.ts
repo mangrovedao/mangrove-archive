@@ -5,10 +5,6 @@ import { Mangrove, MgvToken } from "@giry/mangrove-js";
 
 export const toWei = (v: string, u = "ether") => utils.parseUnits(v, u);
 
-export const sleep = (ms: number) => {
-  return new Promise((cb) => setTimeout(cb, ms));
-};
-
 export interface EoaOfferSpec {
   wants: string;
   gives: string;
