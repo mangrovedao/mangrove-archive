@@ -36,20 +36,6 @@ async function deployStrat(strategy, mgv) {
       // aave rejects market entering if underlying balance is 0 (will self enter at first deposit)
       enterMarkets = false;
       break;
-    case "PriceFed":
-      SimpleOracle = await ethers.getContractFactory("SimpleOracle");
-      oracle = await SimpleOracle.deploy();
-      await oracle.deployed();
-      makerContract = await Strat.deploy(
-        oracle.address,
-        aave.address,
-        mgv.address
-      );
-      market = [wEth.address, dai.address];
-      // aave rejects market entering if underlying balance is 0 (will self enter at first deposit)
-      enterMarkets = false;
-      await makerContract.setSlippage(300); // 3% slippage allowed
-      break;
     default:
       console.warn("Undefined strategy " + strategy);
   }
@@ -117,18 +103,6 @@ async function deployStrat(strategy, mgv) {
 
   await lc.synch(mkrTxs);
 
-  /***********************************************************************/
-  if (oracle) {
-    await oracle.setReader(makerContract.address); // maker Contract is the only one to be able to read data from oracle
-    try {
-      const oracleTx = await oracle.getPrice(dai.address); // should fail
-      assert(false, "Reading price should have failed");
-    } catch {
-      await oracle.setPrice(dai.address, lc.parseToken("1.0", 6)); // sets DAI price to 1 USD (6 decimals)
-      await oracle.setPrice(wEth.address, lc.parseToken("3000.0", 6)); // sets ETH price to 3K USD (6 decimals)
-      makerContract.oracle = oracle;
-    }
-  }
   return makerContract;
 }
 
@@ -175,71 +149,6 @@ async function execLenderStrat(makerContract, mgv, lenderName) {
     ["WETH", takerGave, zero, 8],
   ]);
   await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
-}
-
-async function execPriceFedStrat(makerContract, mgv, lenderName) {
-  const dai = await lc.getContract("DAI");
-  const wEth = await lc.getContract("WETH");
-
-  await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
-
-  // // posting new offer on Mangrove via the MakerContract `post` method
-  let offerId = await lc.newOffer(
-    mgv,
-    makerContract,
-    "DAI", //base
-    "WETH", //quote
-    lc.parseToken("0.2", await lc.getDecimals("WETH")), // required WETH
-    lc.parseToken("1000.0", await lc.getDecimals("DAI")) // promised DAI
-  );
-  const filter_slippage = makerContract.filters.Slippage();
-  makerContract.once(filter_slippage, (id, old_wants, new_wants, event) => {
-    assert(
-      id.eq(offerId),
-      `Reneging on wrong offer Id (${id} \u2260 ${offerId})`
-    );
-    lc.assertEqualBN(old_wants, lc.parseToken("0.2", 18), "Invalid old price");
-    assert(old_wants.lt(new_wants), "Invalid new price");
-    console.log(
-      "    " +
-        chalk.green(`\u2713`) +
-        chalk.grey(` Verified logged event `) +
-        chalk.yellow(`(${event.event})`)
-    );
-    console.log();
-  });
-
-  // snipe should fail because offer will renege trade (price too low)
-  await lc.snipeFail(
-    mgv,
-    "DAI", // maker base
-    "WETH", // maker quote
-    offerId,
-    lc.parseToken("1000.0", await lc.getDecimals("DAI")), // taker wants 1000 DAI
-    lc.parseToken("0.2", await lc.getDecimals("WETH")) // but 0.2. is not market price (should be >= 0,3334)
-  );
-
-  // new offer should have been put on the book with the correct price (same offer ID)
-  let [takerGot, takerGave] = await lc.snipeSuccess(
-    mgv,
-    "DAI", // maker base
-    "WETH", // maker quote
-    offerId,
-    lc.parseToken("1000.0", await lc.getDecimals("DAI")),
-    lc.parseToken("0.3334", await lc.getDecimals("WETH"))
-  );
-
-  lc.assertEqualBN(
-    takerGot,
-    lc.netOf(lc.parseToken("1000.0", await lc.getDecimals("DAI")), fee),
-    "Incorrect received amount"
-  );
-
-  await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
-  await lc.expectAmountOnLender(makerContract, lenderName, [
-    ["DAI", zero, zero, 4], // no DAI remaining
-    ["WETH", takerGave, zero, 8], // should have received 0.3334 WETH
-  ]);
 }
 
 /// start with 900 DAIs on lender and 100 DAIs locally
@@ -416,10 +325,5 @@ describe("Deploy strategies", function () {
   it("Lender/borrower strat on aave", async function () {
     const makerContract = await deployStrat("AdvancedAaveRetail", mgv);
     await execTraderStrat(makerContract, mgv, "aave");
-  });
-
-  it("Price fed strat", async function () {
-    const makerContract = await deployStrat("PriceFed", mgv);
-    await execPriceFedStrat(makerContract, mgv, "aave");
   });
 });
