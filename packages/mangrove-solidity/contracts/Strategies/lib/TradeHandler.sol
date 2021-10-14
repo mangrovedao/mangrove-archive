@@ -34,9 +34,9 @@ contract TradeHandler {
   }
 
   function getProvision(
+    Mangrove mgv,
     address base,
     address quote,
-    Mangrove mgv,
     uint gasreq,
     uint gasprice
   ) internal returns (uint) {
