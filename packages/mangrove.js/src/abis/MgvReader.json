@@ -169,12 +169,12 @@
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "startId",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "length",
         "type": "uint256"
       }
     ],

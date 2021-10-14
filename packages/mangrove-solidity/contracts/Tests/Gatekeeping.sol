@@ -561,7 +561,6 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
       true,
       address(tkr)
     );
-    console.log(takerGot);
     TestEvents.eq(
       mgv.allowances(base, quote, address(tkr), address(this)),
       0.2 ether,

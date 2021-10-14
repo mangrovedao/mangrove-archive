@@ -62,14 +62,15 @@ export class MgvToken {
    * If `owner` is not specified, defaults to current signer.
    * If `spender` is not specified, defaults to Mangrove instance.
    */
-  async allowance(params: { owner?: string; spender?: string } = {}) {
+  async allowance(
+    params: { owner?: string; spender?: string } = {}
+  ): Promise<Big> {
     if (typeof params.owner === "undefined") {
       params.owner = await this.mgv._signer.getAddress();
     }
     if (typeof params.spender === "undefined") {
       params.spender = this.mgv._address;
     }
-    console.log("allowance:params", params);
     const amount = await this.contract.allowance(params.owner, params.spender);
     return this.fromUnits(amount);
   }
@@ -78,12 +79,13 @@ export class MgvToken {
    * Set approval for `spender` on `amount`.
    * If `spender` is not specified, defaults to Mangrove instance.
    */
-  async approve(amount: Bigish, spender?: string) {
+  async approve(
+    amount: Bigish,
+    spender?: string
+  ): Promise<ethers.ContractTransaction> {
     if (typeof spender === "undefined") {
       spender = await this.mgv._address;
     }
-    console.log("approve:spender", spender);
-    console.log("converted amount", this.toUnits(amount).toString());
     return this.contract.approve(spender, this.toUnits(amount));
   }
 }

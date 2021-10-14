@@ -15,6 +15,13 @@ const consoleLogFormat = format.printf(
       }
       msg += "] ";
     }
+    if (metadata.bookSide) {
+      msg += `[${metadata.bookSide}`;
+      if (metadata.offer) {
+        msg += `#${metadata.offer.id}`;
+      }
+      msg += "] ";
+    }
     msg += message;
     if (metadata.data !== undefined) {
       msg += ` | data: ${JSON.stringify(metadata.data)}`;

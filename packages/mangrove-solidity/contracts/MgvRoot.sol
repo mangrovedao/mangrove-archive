@@ -29,12 +29,11 @@ contract MgvRoot is HasMgvEvents {
   address public vault;
 
   /* Global mgv configuration, encoded in a 256 bits word. The information encoded is detailed in [`structs.js`](#structs.js). */
-  bytes32 public global;
+  bytes32 internal global;
   /* Configuration mapping for each token pair of the form `outbound_tkn => inbound_tkn => bytes32`. The structure of each `bytes32` value is detailed in [`structs.js`](#structs.js). */
-  mapping(address => mapping(address => bytes32)) public locals;
+  mapping(address => mapping(address => bytes32)) internal locals;
 
   /* # Configuration Reads */
-
   /* Reading the configuration for a pair involves reading the config global to all pairs and the local one. In addition, a global parameter (`gasprice`) and a local one (`density`) may be read from the oracle. */
   function _config(address outbound_tkn, address inbound_tkn)
     public

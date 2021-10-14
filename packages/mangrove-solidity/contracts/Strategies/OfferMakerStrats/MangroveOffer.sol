@@ -23,7 +23,10 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
 
   // Offer constructor (caller will be admin)
   constructor(address _MGV) {
-    bytes32 global_pack = Mangrove(payable(_MGV)).global();
+    (bytes32 global_pack, ) = Mangrove(payable(_MGV))._config(
+      address(0),
+      address(0)
+    );
     (, , , uint __gasprice, uint __gasmax, uint __dead) = MgvPack.global_unpack(
       global_pack
     );
@@ -45,7 +48,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
 
   //queries the mangrove to get current gasprice (considered to compute bounty)
   function getCurrentGasPrice() public view returns (uint) {
-    bytes32 global_pack = Mangrove(MGV).global();
+    (bytes32 global_pack, ) = Mangrove(MGV)._config(address(0), address(0));
     (, , , uint __gasprice, , ) = MgvPack.global_unpack(global_pack);
     return __gasprice;
   }

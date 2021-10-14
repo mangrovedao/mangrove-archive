@@ -4,6 +4,7 @@ import { Provider } from "@ethersproject/providers";
 import { Wallet } from "@ethersproject/wallet";
 import { BookSide } from "./mangrove-js-type-aliases";
 import Big from "big.js";
+import { BigNumber } from "ethers";
 Big.DP = 20; // precision when dividing
 Big.RM = Big.roundHalfUp; // round to nearest
 
@@ -24,6 +25,7 @@ export class MarketCleaner {
   constructor(market: Market, provider: Provider) {
     this.#market = market;
     this.#provider = provider;
+
     this.#isCleaning = false;
     this.#provider.on("block", async (blockNumber) => this.#clean(blockNumber));
     logger.info("MarketCleaner started", {
@@ -42,6 +44,7 @@ export class MarketCleaner {
       logger.debug(`Already cleaning so skipping block number ${blockNumber}`, {
         base: this.#market.base.name,
         quote: this.#market.quote.name,
+
       });
       return;
     }
@@ -79,6 +82,7 @@ export class MarketCleaner {
     logger.info(`Order book retrieved`, {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
+
       data: {
         asksCount: asks.length,
         bidsCount: bids.length,
@@ -99,6 +103,7 @@ export class MarketCleaner {
   async #cleanOfferList(
     offerList: Offer[],
     bookSide: BookSide,
+
     gasPrice: Big,
     minerTipPerGas: Big
   ) {
@@ -199,6 +204,7 @@ export class MarketCleaner {
   }
 
   async #willOfferFail(offer: Offer, bookSide: BookSide): Promise<boolean> {
+    /* Temporarily disable those tests
     // TODO This is clunky - can we make a nice abstraction?
     const inboundToken =
       bookSide === "asks" ? this.#market.base : this.#market.quote;
@@ -206,7 +212,7 @@ export class MarketCleaner {
       bookSide === "asks" ? this.#market.quote : this.#market.base;
     try {
       // FIXME move to mangrove.js API
-      await this.#market.mgv.cleanerContract.callStatic.touchAndCollect(
+      await this.#market.mgv.cleanerContract.callStatic.collect(
         inboundToken.address,
         outboundToken.address,
         offer.id,
@@ -228,7 +234,9 @@ export class MarketCleaner {
       bookSide: bookSide,
       offer: offer,
     });
+    */
     return true;
+    
   }
 
   // TODO How do source liquidity for the snipes?
@@ -237,6 +245,8 @@ export class MarketCleaner {
   //  - The cleaner contract would have to implement the sourcing strategy
   //  - We don't want to do that in V0.
   async #snipeOffer(offer: Offer, bookSide: BookSide) {
+        /* Temporarily disable those tests
+
     logger.debug(`Sniping offer ${offer.id} from ${bookSide} on market`, {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
@@ -274,5 +284,6 @@ export class MarketCleaner {
       bookSide: bookSide,
       offer: offer,
     });
+    */
   }
 }

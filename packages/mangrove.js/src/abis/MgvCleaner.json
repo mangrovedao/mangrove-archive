@@ -2,7 +2,7 @@
   {
     "inputs": [
       {
-        "internalType": "contract Mangrove",
+        "internalType": "address payable",
         "name": "_MGV",
         "type": "address"
       }
@@ -14,108 +14,31 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "quote",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "approveMgv",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "base",
+        "name": "outbound_tkn",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "quote",
+        "name": "inbound_tkn",
         "type": "address"
       },
       {
-        "internalType": "uint256[]",
-        "name": "offers",
-        "type": "uint256[]"
+        "internalType": "uint256[4][]",
+        "name": "targets",
+        "type": "uint256[4][]"
+      },
+      {
+        "internalType": "bool",
+        "name": "fillWants",
+        "type": "bool"
       }
     ],
     "name": "collect",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_admin",
-        "type": "address"
-      }
-    ],
-    "name": "setAdmin",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "base",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "quote",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "offerId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "gives",
-        "type": "uint256"
-      }
-    ],
-    "name": "touchAndCollect",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "erc",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "recipient",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "transfer",
     "outputs": [
       {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
+        "internalType": "uint256",
+        "name": "bal",
+        "type": "uint256"
       }
     ],
     "stateMutability": "nonpayable",

@@ -4,7 +4,7 @@ import {
   TradeParams,
   BookReturns,
   Bigish,
-  internalConfig,
+  rawConfig,
   localConfig,
   bookSubscriptionEvent,
 } from "./types";
@@ -14,6 +14,7 @@ import { MgvToken } from "./mgvtoken";
 let canConstructMarket = false;
 
 const DEFAULT_MAX_OFFERS = 50;
+const MAX_MARKET_ORDER_GAS = 1500000;
 
 /* Note on big.js:
 ethers.js's BigNumber (actually BN.js) only handles integers
@@ -29,9 +30,9 @@ type OrderResult = { got: Big; gave: Big };
 type bookOpts = { fromId: number; maxOffers: number; chunkSize?: number };
 const bookOptsDefault: bookOpts = { fromId: 0, maxOffers: DEFAULT_MAX_OFFERS };
 
-type semibookMap = { offers: Map<number, Offer>; best: number };
+type offerList = { offers: Map<number, Offer>; best: number };
 
-type semibook = semibookMap & {
+type semibook = offerList & {
   ba: "bids" | "asks";
   gasbase: { offer_gasbase: number; overhead_gasbase: number };
 };
@@ -292,7 +293,7 @@ export class Market {
     this.mgv.contract.on(bidsFilter, bidsCallback);
   }
 
-  #mapConfig(ba: "bids" | "asks", cfg: internalConfig): localConfig {
+  #mapConfig(ba: "bids" | "asks", cfg: rawConfig): localConfig {
     const bq = ba === "asks" ? "base" : "quote";
     return {
       active: cfg.local.active,
@@ -315,7 +316,7 @@ export class Market {
    * density is converted to public token units per gas used
    * fee *remains* in basis points of the token being bought
    */
-  async config(): Promise<{ asks: localConfig; bids: localConfig }> {
+  async rawConfig(): Promise<{ asks: rawConfig; bids: rawConfig }> {
     const rawAskConfig = await this.mgv.contract.config(
       this.base.address,
       this.quote.address
@@ -325,8 +326,16 @@ export class Market {
       this.base.address
     );
     return {
-      asks: this.#mapConfig("asks", rawAskConfig),
-      bids: this.#mapConfig("bids", rawBidsConfig),
+      asks: rawAskConfig,
+      bids: rawBidsConfig,
+    };
+  }
+
+  async config(): Promise<{ asks: localConfig; bids: localConfig }> {
+    const { bids, asks } = await this.rawConfig();
+    return {
+      asks: this.#mapConfig("asks", asks),
+      bids: this.#mapConfig("bids", bids),
     };
   }
 
@@ -411,12 +420,14 @@ export class Market {
         ? [this.base, this.quote, true]
         : [this.quote, this.base, false];
 
+    const gasLimit = await this.estimateGas(orderType, wants);
     const response = await this.mgv.contract.marketOrder(
       outboundTkn.address,
       inboundTkn.address,
       wants,
       gives,
-      fillWants
+      fillWants,
+      { gasLimit }
     );
     const receipt = await response.wait();
 
@@ -495,7 +506,7 @@ export class Market {
    *  Order is from best to worse from taker perspective.
    */
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-  book(opts: bookOpts = bookOptsDefault) {
+  book() {
     return this._book;
   }
 
@@ -521,8 +532,8 @@ export class Market {
     ids: BookReturns.indices,
     offers: BookReturns.offers,
     details: BookReturns.details
-  ): semibookMap {
-    const data: semibookMap = {
+  ): offerList {
+    const data: offerList = {
       offers: new Map(),
       best: 0,
     };
@@ -706,6 +717,17 @@ export class Market {
     };
   }
 
+  async estimateGas(bs: "buy" | "sell", volume: BigNumber): Promise<BigNumber> {
+    const rawConfig = await this.rawConfig();
+    const ba = bs === "buy" ? "asks" : "bids";
+    const estimation = volume.div(rawConfig[ba].local.density);
+    if (estimation.gt(MAX_MARKET_ORDER_GAS)) {
+      return BigNumber.from(MAX_MARKET_ORDER_GAS);
+    } else {
+      return estimation;
+    }
+  }
+
   /**
    * Volume estimator, very crude (based on cached book).
    *
@@ -726,21 +748,21 @@ export class Market {
   }) {
     const dict = {
       base: {
-        buy: { book: "asks", drainer: "gives", filler: "wants" },
-        sell: { book: "bids", drainer: "wants", filler: "gives" },
+        buy: { offers: "asks", drainer: "gives", filler: "wants" },
+        sell: { offers: "bids", drainer: "wants", filler: "gives" },
       },
       quote: {
-        buy: { book: "bids", drainer: "gives", filler: "wants" },
-        sell: { book: "asks", drainer: "wants", filler: "gives" },
+        buy: { offers: "bids", drainer: "gives", filler: "wants" },
+        sell: { offers: "asks", drainer: "wants", filler: "gives" },
       },
     } as const;
 
     const data = dict[params.what][params.to];
 
-    const book = this.book()[data.book];
+    const offers = this.book()[data.offers];
     let draining = Big(params.given);
     let filling = Big(0);
-    for (const o of book) {
+    for (const o of offers) {
       const _drainer = o[data.drainer];
       const drainer = draining.gt(_drainer) ? _drainer : draining;
       const filler = o[data.filler].times(drainer).div(_drainer);
@@ -752,7 +774,7 @@ export class Market {
   }
 }
 
-const removeOffer = (semibook, id) => {
+const removeOffer = (semibook: semibook, id: number) => {
   const ofr = semibook.offers.get(id);
   if (ofr) {
     if (ofr.prev === 0) {
@@ -774,7 +796,7 @@ const removeOffer = (semibook, id) => {
 
 // Assumes ofr.prev and ofr.next are present in local OB copy.
 // Assumes id is not already in book;
-const insertOffer = (semibook, id, ofr) => {
+const insertOffer = (semibook: semibook, id: number, ofr: Offer) => {
   semibook.offers.set(id, ofr);
   if (ofr.prev === 0) {
     semibook.best = ofr.id;
@@ -787,7 +809,7 @@ const insertOffer = (semibook, id, ofr) => {
   }
 };
 
-const getNext = ({ offers, best }: semibook, prev) => {
+const getNext = ({ offers, best }: semibook, prev: number) => {
   if (prev === 0) {
     return best;
   } else {

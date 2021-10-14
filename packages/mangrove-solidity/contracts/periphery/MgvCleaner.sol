@@ -1,57 +1,44 @@
-pragma solidity ^0.7.0;
-pragma abicoder v2;
-import "../Strategies/lib/AccessControlled.sol";
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.7.6;
 import "../Mangrove.sol";
-import "../Strategies/lib/CarefulMath.sol";
-import "../MgvLib.sol";
 
-contract MgvCleaner is AccessControlled, CarefulMath {
+/* The purpose of the Cleaner contract is to execute failing offers and collect
+ * their associated bounty. It takes an array of offers with same definition as
+ * `Mangrove.snipes` and expects them all to fail or not execute. */
+
+/* How to use:
+   1) Ensure *your* address approved Mangrove for the token you will provide to the offer (`inbound_tkn`).
+   2) Run `collect` on the offers that you detected were failing.
+
+   You can adjust takerWants/takerGives and gasreq as needed.
+
+   Note: in the current version you do not need to set MgvCleaner's allowance in Mangrove.
+   TODO: add `collectWith` with an additional `taker` argument.
+*/
+contract MgvCleaner {
   Mangrove immutable MGV;
 
-  constructor(Mangrove _MGV) {
-    MGV = _MGV;
+  constructor(address payable _MGV) {
+    MGV = Mangrove(_MGV);
   }
 
-  receive() external payable {
-    (bool success, ) = admin.call{value: msg.value}(""); // to collect the bounty
-    require(success, "Bounty transfer failure");
-  }
-
-  function approveMgv(address quote, uint amount) public onlyAdmin {
-    IERC20(quote).approve(address(MGV), amount);
-  }
+  receive() external payable {}
 
   function collect(
-    address base,
-    address quote,
-    uint[] memory offers
-  ) external {
-    uint[4][] memory args = new uint[4][](offers.length);
-    for (uint i = 0; i < offers.length; i++) {
-      args[i] = [offers[i], 0, uint(MAXUINT96), uint(MAXUINT24)]; //offerId,takerWants,takerGives,gasreq
-    }
-    (uint successes, , ) = MGV.snipes(base, quote, args, false); //fillGives to try and take the whole volume
-    require(successes == 0, "Some offer collection failed");
-  }
-
-  function touchAndCollect(
-    address base,
-    address quote,
-    uint offerId,
-    uint gives
-  ) external {
-    uint[4][] memory targets = new uint[4][](1);
-    targets[0] = [offerId, 0, gives, uint(MAXUINT24)];
-
-    (uint successes, , ) = MGV.snipes(base, quote, targets, false);
-    require(successes == 0, "Collect failed");
-  }
-
-  function transfer(
-    address erc,
-    address recipient,
-    uint amount
-  ) external onlyAdmin returns (bool) {
-    return IERC20(erc).transfer(recipient, amount);
+    address outbound_tkn,
+    address inbound_tkn,
+    uint[4][] calldata targets,
+    bool fillWants
+  ) external returns (uint bal) {
+    (uint successes, , ) = MGV.snipesFor(
+      outbound_tkn,
+      inbound_tkn,
+      targets,
+      fillWants,
+      msg.sender
+    );
+    require(successes == 0, "mgvCleaner/anOfferDidNotFail");
+    bal = address(this).balance;
+    msg.sender.send(bal);
   }
 }
