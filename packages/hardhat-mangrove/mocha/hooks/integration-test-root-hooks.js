@@ -16,6 +16,11 @@ const host = {
   port: 8546,
 };
 
+const awaitTransaction = async (contractTransactionPromise) => {
+  let tx = await contractTransactionPromise;
+  let txReceipt = await tx.wait();
+};
+
 exports.mochaHooks = {
   async beforeAll() {
     this.provider = hre.network.provider;
@@ -44,31 +49,27 @@ exports.mochaHooks = {
     const mgvReader = await hre.ethers.getContract("MgvReader");
     const TokenA = await hre.ethers.getContract("TokenA");
     const TokenB = await hre.ethers.getContract("TokenB");
+    const testMakerContract = await hre.ethers.getContract("TestMaker");
 
-    await mgvContract.activate(
-      TokenA.address,
-      TokenB.address,
-      0,
-      10,
-      80000,
-      20000
+    await awaitTransaction(
+      mgvContract.activate(TokenA.address, TokenB.address, 0, 10, 80000, 20000)
     );
-    await mgvContract.activate(
-      TokenB.address,
-      TokenA.address,
-      0,
-      10,
-      80000,
-      20000
+    await awaitTransaction(
+      mgvContract.activate(TokenB.address, TokenA.address, 0, 10, 80000, 20000)
     );
 
-    await TokenA.mint(account, toWei(10));
-    await TokenA.approve(mgvContract.address, toWei(1000));
+    await awaitTransaction(TokenA.mint(account, toWei(10)));
+    await awaitTransaction(TokenA.approve(mgvContract.address, toWei(1000)));
 
-    await TokenB.mint(account, toWei(10));
-    await TokenB.approve(mgvContract.address, toWei(1000));
+    await awaitTransaction(TokenB.mint(account, toWei(10)));
+    await awaitTransaction(TokenB.approve(mgvContract.address, toWei(1000)));
 
-    await mgvContract["fund()"]({ value: toWei(10) });
+    await awaitTransaction(mgvContract["fund()"]({ value: toWei(10) }));
+    await awaitTransaction(
+      mgvContract["fund(address)"](testMakerContract.address, {
+        value: toWei(10),
+      })
+    );
 
     await snapshot();
   },
