@@ -18,6 +18,11 @@ const host = {
 
 exports.mochaHooks = {
   async beforeAll() {
+    process.on("unhandledRejection", function (reason, p) {
+      console.log("Unhandled Rejection at: Promise ", p, " reason: ", reason);
+      // application specific logging, throwing an error, or other logic here
+    });
+
     this.provider = hre.network.provider;
 
     console.log("Running a Hardhat instance...");
