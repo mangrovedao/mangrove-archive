@@ -13,8 +13,9 @@ contract MgvCleaner is AccessControlled, CarefulMath {
   }
 
   receive() external payable {
-    (bool success, ) = admin.call{value: msg.value}(""); // to collect the bounty
-    require(success, "Bounty transfer failure");
+    // FIXME Temporarily disable transfer to admin as it doesn't work for EOA's
+    // (bool success, ) = admin.call{value: msg.value}(""); // to collect the bounty
+    // require(success, "Bounty transfer failure");
   }
 
   function approveMgv(address quote, uint amount) public onlyAdmin {
