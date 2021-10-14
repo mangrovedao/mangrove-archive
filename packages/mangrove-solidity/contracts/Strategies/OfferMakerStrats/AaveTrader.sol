@@ -15,10 +15,10 @@ abstract contract AaveTrader is AaveLender {
   event ErrorOnBorrow(address cToken, uint amount, string errorCode);
   event ErrorOnRepay(address cToken, uint amount);
 
-  ///@notice method to get `base` during makerExecute
-  ///@param base address of the ERC20 managing `base` token
+  ///@notice method to get `outbound_tkn` during makerExecute
+  ///@param outbound_tkn address of the ERC20 managing `outbound_tkn` token
   ///@param amount of token that the trade is still requiring
-  function __get__(IERC20 base, uint amount)
+  function __get__(IERC20 outbound_tkn, uint amount)
     internal
     virtual
     override
@@ -26,13 +26,13 @@ abstract contract AaveTrader is AaveLender {
   {
     // 1. Computing total borrow and redeem capacities of underlying asset
     (uint redeemable, uint liquidity_after_redeem) = maxGettableUnderlying(
-      base
+      outbound_tkn
     );
 
     // 2. trying to redeem liquidity from Compound
     uint toRedeem = min(redeemable, amount);
 
-    uint notRedeemed = aaveRedeem(base, toRedeem);
+    uint notRedeemed = aaveRedeem(outbound_tkn, toRedeem);
     if (notRedeemed > 0 && toRedeem > 0) {
       // => notRedeemed == toRedeem
       // this should not happen unless compound is out of cash, thus no need to try to borrow
@@ -48,7 +48,7 @@ abstract contract AaveTrader is AaveLender {
     // 3. trying to borrow missing liquidity
     try
       lendingPool.borrow(
-        address(base),
+        address(outbound_tkn),
         toBorrow,
         interestRateMode,
         referralCode,
@@ -57,20 +57,20 @@ abstract contract AaveTrader is AaveLender {
     {
       return sub_(amount, toBorrow);
     } catch Error(string memory errorCode) {
-      emit ErrorOnBorrow(address(base), toBorrow, errorCode);
+      emit ErrorOnBorrow(address(outbound_tkn), toBorrow, errorCode);
       return amount; // unable to borrow requested amount
     }
   }
 
-  /// @notice user need to have approved `quote` overlying in order to repay borrow
-  function __put__(IERC20 quote, uint amount) internal virtual override {
+  /// @notice user need to have approved `inbound_tkn` overlying in order to repay borrow
+  function __put__(IERC20 inbound_tkn, uint amount) internal virtual override {
     //optim
     if (amount == 0) {
       return;
     }
-    // trying to repay debt if user is in borrow position for quote token
+    // trying to repay debt if user is in borrow position for inbound_tkn token
     DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(
-      address(quote)
+      address(inbound_tkn)
     );
 
     uint debtOfUnderlying;
@@ -89,7 +89,7 @@ abstract contract AaveTrader is AaveLender {
     uint toMint;
     try
       lendingPool.repay(
-        address(quote),
+        address(inbound_tkn),
         toRepay,
         interestRateMode,
         address(this)
@@ -97,9 +97,9 @@ abstract contract AaveTrader is AaveLender {
     {
       toMint = sub_(amount, toRepay);
     } catch {
-      emit ErrorOnRepay(address(quote), toRepay);
+      emit ErrorOnRepay(address(inbound_tkn), toRepay);
       toMint = amount;
     }
-    aaveMint(quote, toMint);
+    aaveMint(inbound_tkn, toMint);
   }
 }

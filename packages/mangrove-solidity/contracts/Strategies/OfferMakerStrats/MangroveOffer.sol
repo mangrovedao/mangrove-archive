@@ -64,11 +64,11 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   }
 
   /// trader needs to approve the Mangrove to perform base token transfer at the end of the `makerExecute` function
-  function approveMangrove(address supplyToken, uint amount)
+  function approveMangrove(address outbound_tkn, uint amount)
     external
     onlyAdmin
   {
-    require(IERC20(supplyToken).approve(address(MGV), amount));
+    require(IERC20(outbound_tkn).approve(address(MGV), amount));
   }
 
   /// @notice withdraws ETH from the bounty vault of the Mangrove.
@@ -84,8 +84,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   }
 
   function newOffer(
-    address supplyToken,
-    address demandToken,
+    address outbound_tkn,
+    address inbound_tkn,
     uint wants, //wants
     uint gives, //gives
     uint gasreq,
@@ -99,8 +99,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
       gasprice = OFR_GASPRICE;
     }
     offerId = newOfferInternal(
-      supplyToken,
-      demandToken,
+      outbound_tkn,
+      inbound_tkn,
       wants, //wants
       gives, //gives
       gasreq,
@@ -110,8 +110,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   }
 
   function newOfferInternal(
-    address supplyToken,
-    address demandToken,
+    address outbound_tkn,
+    address inbound_tkn,
     uint wants, //wants
     uint gives, //gives
     uint gasreq,
@@ -120,8 +120,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   ) internal returns (uint offerId) {
     try
       MGV.newOffer(
-        supplyToken,
-        demandToken,
+        outbound_tkn,
+        inbound_tkn,
         wants,
         gives,
         gasreq,
@@ -138,8 +138,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   // updates an existing offer on the Mangrove. `update` will throw if offer density is no longer compatible with Mangrove's parameters
   // `update` will also throw if user provision no longer covers for the offer's bounty. `__autoRefill__` function may be use to provide a method to refill automatically.
   function updateOffer(
-    address supplyToken,
-    address demandToken,
+    address outbound_tkn,
+    address inbound_tkn,
     uint wants,
     uint gives,
     uint gasreq,
@@ -148,8 +148,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint offerId
   ) external onlyAdmin {
     updateOfferInternal(
-      supplyToken,
-      demandToken,
+      outbound_tkn,
+      inbound_tkn,
       wants,
       gives,
       gasreq,
@@ -160,8 +160,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   }
 
   function updateOfferInternal(
-    address supplyToken,
-    address demandToken,
+    address outbound_tkn,
+    address inbound_tkn,
     uint wants,
     uint gives,
     uint gasreq,
@@ -169,7 +169,13 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint pivotId,
     uint offerId
   ) internal {
-    uint bounty = getProvision(supplyToken, demandToken, MGV, gasreq, gasprice);
+    uint bounty = getProvision(
+      outbound_tkn,
+      inbound_tkn,
+      MGV,
+      gasreq,
+      gasprice
+    );
     uint provision = MGV.balanceOf(address(this));
     bool provisioned = bounty <= provision;
     if (!provisioned) {
@@ -178,8 +184,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     if (provisioned) {
       try
         MGV.updateOffer(
-          supplyToken,
-          demandToken,
+          outbound_tkn,
+          inbound_tkn,
           wants,
           gives,
           gasreq,
@@ -194,21 +200,21 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   }
 
   function retractOffer(
-    address supplyToken,
-    address demandToken,
+    address outbound_tkn,
+    address inbound_tkn,
     uint offerId,
     bool deprovision
   ) external onlyAdmin {
-    retractOfferInternal(supplyToken, demandToken, offerId, deprovision);
+    retractOfferInternal(outbound_tkn, inbound_tkn, offerId, deprovision);
   }
 
   function retractOfferInternal(
-    address supplyToken,
-    address demandToken,
+    address outbound_tkn,
+    address inbound_tkn,
     uint offerId,
     bool deprovision
   ) internal {
-    MGV.retractOffer(supplyToken, demandToken, offerId, deprovision);
+    MGV.retractOffer(outbound_tkn, inbound_tkn, offerId, deprovision);
   }
 
   /////// Mandatory callback functions
@@ -276,18 +282,18 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
 
   ////// Virtual functions to customize trading strategies
 
-  function __put__(IERC20 demandToken, uint amount) internal virtual {
+  function __put__(IERC20 inbound_tkn, uint amount) internal virtual {
     /// @notice receive payment is just stored at this address
-    demandToken;
+    inbound_tkn;
     amount;
   }
 
-  function __get__(IERC20 supplyToken, uint amount)
+  function __get__(IERC20 outbound_tkn, uint amount)
     internal
     virtual
     returns (uint)
   {
-    uint balance = supplyToken.balanceOf(address(this));
+    uint balance = outbound_tkn.balanceOf(address(this));
     return (balance > amount ? 0 : amount - balance);
   }
 
