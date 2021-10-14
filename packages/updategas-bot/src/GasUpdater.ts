@@ -97,13 +97,13 @@ export class GasUpdater {
   }
 
   private async _updateMangroveGasPrice(newGasPrice: number) {
-    //TODO: Not implemented yet
+    //TODO: First implementation going through mangrove.js -> gas-update-contract
     logger.debug(
-      "_updateMangroveGasPrice: Stub implementation - calling mangrove contract directly."
+      "_updateMangroveGasPrice: First implementation going through mangrove.js -> contract."
     );
 
     try {
-      await this.#mangrove.contract.setGasprice(
+      await this.#mangrove.gasUpdaterContract.setGasPrice(
         ethers.BigNumber.from(newGasPrice)
       );
     } catch (e) {
@@ -111,6 +111,8 @@ export class GasUpdater {
         mangrove: this.#mangrove,
         data: e,
       });
+
+      return;
     }
 
     logger.info(

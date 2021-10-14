@@ -43,6 +43,7 @@ config.hardhat = {
       ":MgvReader$",
       ":MgvCleaner$",
       ":TestMaker$",
+      ":MgvGasUpdater$",
       ":IERC20$",
     ],
     spacing: 2,
