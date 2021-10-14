@@ -65,18 +65,19 @@ describe("MarketCleaner integration tests", () => {
     //   - Must not be persistent
     //   - Cleaning it must be profitable
     // TODO which account is used for this transaction - deployer, right?
-    // FIXME ----------------- commented out for merge
-    // const setShouldFailTx = await testMakerContract.shouldFail(true);
-    // await setShouldFailTx.wait();
+    const setShouldFailTx = await testMakerContract.shouldFail(true);
+    await setShouldFailTx.wait();
+    // console.log("Calling TestMaker.provisionMgv(...)");
     // const provisionTx = await testMakerContract.provisionMgv(toWei("1"));
-    // await provisionTx.wait();
-    // const newOfferTx = await testMakerContract[
-    //   "newOffer(address,address,uint256,uint256,uint256,uint256)"
-    // ](market.base.address, market.quote.address, 1, 1000000, 100, 1);
+    // // console.dir(provisionTx);
+    // const provisionTxReceipt = await provisionTx.wait();
+    // // console.dir(provisionTxReceipt);
+    const newOfferTx = await testMakerContract[
+      "newOffer(address,address,uint256,uint256,uint256,uint256)"
+    ](market.base.address, market.quote.address, 1, 1000000, 100, 1);
     // console.dir(newOfferTx);
-    // const newOfferTxReceipt = await newOfferTx.wait();
+    const newOfferTxReceipt = await newOfferTx.wait();
     // console.dir(newOfferTxReceipt);
-    // FIXME ---------------- end
     // const newOfferTx = await newOffer(mgv, market.base, market.quote, {
     //   wants: "1",
     //   gives: "1.2",
@@ -92,7 +93,7 @@ describe("MarketCleaner integration tests", () => {
     //   - Must use the right account
     // - Wait for it to complete cleaning - HOW?
     const marketCleaner = new MarketCleaner(market, provider);
-    await marketCleaner.cleanNow();
+    await marketCleaner.clean(0);
 
     // Assert
     return Promise.all([

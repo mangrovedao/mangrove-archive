@@ -8,6 +8,10 @@ import Mangrove from "@giry/mangrove-js";
 import { Provider } from "@ethersproject/providers";
 import { Wallet } from "@ethersproject/wallet";
 
+process.on("unhandledRejection", function (reason, p) {
+  logger.warn("Unhandled Rejection at: Promise ", p, " reason: ", reason);
+});
+
 const main = async () => {
   const mgv = await Mangrove.connect(config.get<string>("jsonRpcUrl"));
   // TODO Initialize:
@@ -37,10 +41,6 @@ const main = async () => {
 
   let marketCleanerMap = new Map<TokenPair, MarketCleaner>();
 
-  provider.on("block", async (blockNumber) =>
-    exitIfMangroveIsKilled(mgv, blockNumber)
-  );
-
   /* Connect to markets */
   const marketConfigs = getMarketConfigsOrThrow();
   for (const marketConfig of marketConfigs) {
@@ -61,6 +61,19 @@ const main = async () => {
       new MarketCleaner(market, provider)
     );
   }
+
+  provider.on("block", async function (blockNumber) {
+    const globalConfig = await mgv.config();
+    // FIXME maybe this should be a property/method on Mangrove.
+    exitIfMangroveIsKilled(mgv, blockNumber);
+
+    logger.info(`Cleaning at block number ${blockNumber}`);
+    let cleaningPromises = [];
+    for (const marketCleaner of marketCleanerMap.values()) {
+      cleaningPromises.push(marketCleaner.clean(blockNumber));
+    }
+    await Promise.allSettled(cleaningPromises);
+  });
 };
 
 async function exitIfMangroveIsKilled(

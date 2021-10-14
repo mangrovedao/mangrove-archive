@@ -25,48 +25,32 @@ export class MarketCleaner {
     this.#market = market;
     this.#provider = provider;
     this.#isCleaning = false;
-    this.#provider.on("block", async (blockNumber) => this.#clean(blockNumber));
-    logger.info("MarketCleaner started", {
-      base: market.base.name,
-      quote: market.quote.name,
-    });
   }
 
-  public async cleanNow() {
-    this.#clean(-1);
-  }
-
-  async #clean(blockNumber: number) {
+  public async clean(blockNumber: number) {
     // TODO non-thread safe reentrancy lock - is this is an issue in JS?
     if (this.#isCleaning) {
-      logger.debug(`Already cleaning so skipping block number ${blockNumber}`, {
-        base: this.#market.base.name,
-        quote: this.#market.quote.name,
-      });
+      logger.debug(
+        `Already cleaning so ignoring request to clean at block #${blockNumber}`,
+        {
+          base: this.#market.base.name,
+          quote: this.#market.quote.name,
+        }
+      );
       return;
     }
     this.#isCleaning = true;
-    const globalConfig = await this.#market.mgv.config();
-    // FIXME maybe this should be a property/method on Mangrove.
-    if (globalConfig.dead) {
-      logger.debug(
-        `Mangrove is dead at block number ${blockNumber}. Stopping MarketCleaner`,
-        { base: this.#market.base.name, quote: this.#market.quote.name }
-      );
-      this.#provider.off("block", this.#clean);
-      return;
-    }
 
     // FIXME this should be a property/method on Market
     if (!(await this.#isMarketOpen())) {
       logger.warn(
-        `Market is closed at block number ${blockNumber}. Waiting for next block.`,
+        `Market is closed at block #${blockNumber}. Waiting for next block.`,
         { base: this.#market.base.name, quote: this.#market.quote.name }
       );
       return;
     }
 
-    logger.info(`Cleaning market at block number ${blockNumber}`, {
+    logger.info(`Cleaning market at block #${blockNumber}`, {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
     });
@@ -102,8 +86,6 @@ export class MarketCleaner {
     gasPrice: Big,
     minerTipPerGas: Big
   ) {
-    // TODO Figure out criteria for when to snipe:
-    //  - Offer will/is likely to fail
     for (const offer of offerList) {
       let willOfferFail = await this.#willOfferFail(offer, bookSide);
       if (!willOfferFail) {
@@ -237,7 +219,7 @@ export class MarketCleaner {
   //  - The cleaner contract would have to implement the sourcing strategy
   //  - We don't want to do that in V0.
   async #snipeOffer(offer: Offer, bookSide: BookSide) {
-    logger.debug(`Sniping offer ${offer.id} from ${bookSide} on market`, {
+    logger.debug(`Sniping offer`, {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
       bookSide: bookSide,
@@ -257,9 +239,11 @@ export class MarketCleaner {
         0
       );
       // TODO Maybe don't want to wait for the transaction to be mined?
-      await collectTx.wait();
+      const txReceipt = await collectTx.wait();
+      console.log("MarketCleaner snipe - receipt:");
+      console.dir(txReceipt);
     } catch (e) {
-      logger.debug("touchAndCollect of offer failed", {
+      logger.warn("Cleaning of offer failed", {
         base: this.#market.base.name,
         quote: this.#market.quote.name,
         bookSide: bookSide,
@@ -274,5 +258,6 @@ export class MarketCleaner {
       bookSide: bookSide,
       offer: offer,
     });
+    return true;
   }
 }
