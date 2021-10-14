@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "module": "CommonJS",
+    "esModuleInterop": true,
     "outDir": "dist/nodejs/",
     "lib": ["ES2020", "dom"],
     "resolveJsonModule": true,

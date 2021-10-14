@@ -22,7 +22,6 @@ async function deployStrat(strategy, mgv) {
   switch (strategy) {
     case "SimpleCompoundRetail":
     case "AdvancedCompoundRetail":
-    case "SwingingMarketMaker":
       makerContract = await Strat.deploy(
         comp.address,
         mgv.address,
@@ -131,64 +130,6 @@ async function deployStrat(strategy, mgv) {
     }
   }
   return makerContract;
-}
-
-async function execSwingerStrat(makerContract, mgv, lenderName) {
-  const dai = await lc.getContract("DAI");
-  const wEth = await lc.getContract("WETH");
-
-  await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
-  await makerContract.setPrice(
-    dai.address,
-    wEth.address,
-    lc.parseToken("3000.0", 18)
-  );
-  await makerContract.setPrice(
-    wEth.address,
-    dai.address,
-    lc.parseToken("0.000334", 18)
-  );
-
-  await makerContract.startStrat(
-    dai.address,
-    wEth.address,
-    lc.parseToken("1000.0", 18)
-  );
-
-  let book01 = await mgv.reader.book(dai.address, wEth.address, 0, 1);
-  let book10 = await mgv.reader.book(wEth.address, dai.address, 0, 1);
-  await lc.logOrderBook(book01, dai, wEth);
-  await lc.logOrderBook(book10, wEth, dai);
-
-  // market order
-  await lc.marketOrder(
-    mgv,
-    "DAI",
-    "WETH",
-    lc.parseToken("1000", 18),
-    lc.parseToken("0.34", 18)
-  );
-  await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
-
-  book01 = await mgv.reader.book(dai.address, wEth.address, 0, 1);
-  book10 = await mgv.reader.book(wEth.address, dai.address, 0, 1);
-  await lc.logOrderBook(book01, dai, wEth);
-  await lc.logOrderBook(book10, wEth, dai);
-
-  // market order
-  await lc.marketOrder(
-    mgv,
-    "WETH",
-    "DAI",
-    lc.parseToken("0.334", 18),
-    lc.parseToken("1100", 18)
-  );
-  await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
-
-  book01 = await mgv.reader.book(dai.address, wEth.address, 0, 1);
-  book10 = await mgv.reader.book(wEth.address, dai.address, 0, 1);
-  await lc.logOrderBook(book01, dai, wEth);
-  await lc.logOrderBook(book10, wEth, dai);
 }
 
 async function execLenderStrat(makerContract, mgv, lenderName) {
@@ -423,7 +364,7 @@ async function execTraderStrat(makerContract, mgv, lenderName) {
 }
 
 describe("Deploy strategies", function () {
-  this.timeout(100_000); // Deployment is slow so timeout is increased
+  this.timeout(200_000); // Deployment is slow so timeout is increased
   let mgv = null;
 
   before(async function () {
@@ -434,7 +375,6 @@ describe("Deploy strategies", function () {
     [testSigner] = await ethers.getSigners();
 
     await lc.fund([
-      ["ETH", "1000.0", testSigner.address],
       ["WETH", "10.0", testSigner.address],
       ["DAI", "10000.0", testSigner.address],
     ]);
@@ -481,10 +421,5 @@ describe("Deploy strategies", function () {
   it("Price fed strat", async function () {
     const makerContract = await deployStrat("PriceFed", mgv);
     await execPriceFedStrat(makerContract, mgv, "aave");
-  });
-
-  it("Swinging market maker strat", async function () {
-    const makerContract = await deployStrat("SwingingMarketMaker", mgv);
-    await execSwingerStrat(makerContract, mgv, "compound");
   });
 });

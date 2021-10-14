@@ -139,7 +139,7 @@ abstract contract CompoundLender is MangroveOffer {
       return (0, 0);
     }
 
-    // max amount of Base token than can be borrowed
+    // max amount of outbound_Tkn token than can be borrowed
     (
       heap.errCode,
       heap.liquidity, // is USD:18 decimals
@@ -147,7 +147,7 @@ abstract contract CompoundLender is MangroveOffer {
 
     ) = comptroller.getAccountLiquidity(address(this)); // underapprox
 
-    // to get liquidity expressed in base token instead of USD
+    // to get liquidity expressed in outbound_Tkn token instead of USD
     (heap.mErr, heap.underlyingLiquidity) = divScalarByExpTruncate(
       heap.liquidity,
       Exp({mantissa: heap.priceMantissa})
@@ -166,7 +166,7 @@ abstract contract CompoundLender is MangroveOffer {
       return (heap.balanceOfUnderlying, heap.underlyingLiquidity);
     }
 
-    // maxRedeem:[underlying] = liquidity:[USD / 18 decimals ] / (price(Base):[USD.underlying^-1 / 18 decimals] * collateralFactor(Base): [0-1] 18 decimals)
+    // maxRedeem:[underlying] = liquidity:[USD / 18 decimals ] / (price(outbound_tkn):[USD.underlying^-1 / 18 decimals] * collateralFactor(outbound_tkn): [0-1] 18 decimals)
     (heap.mErr, heap.maxRedeemable) = divScalarByExpTruncate(
       heap.liquidity,
       mul_(
@@ -191,61 +191,61 @@ abstract contract CompoundLender is MangroveOffer {
     );
   }
 
-  ///@notice method to get `base` during makerExecute
-  ///@param base address of the ERC20 managing `base` token
+  ///@notice method to get `outbound_tkn` during makerExecute
+  ///@param outbound_tkn address of the ERC20 managing `outbound_tkn` token
   ///@param amount of token that the trade is still requiring
-  function __get__(IERC20 base, uint amount)
+  function __get__(IERC20 outbound_tkn, uint amount)
     internal
     virtual
     override
     returns (uint)
   {
-    if (!isPooled(address(base))) {
+    if (!isPooled(address(outbound_tkn))) {
       // if flag says not to fetch liquidity on compound
       return amount;
     }
-    // if base == weth, overlying will return cEth
-    IcERC20 base_cErc20 = IcERC20(overlyings[base]); // this is 0x0 if base is not compound sourced.
-    if (address(base_cErc20) == address(0)) {
+    // if outbound_tkn == weth, overlying will return cEth
+    IcERC20 outbound_cTkn = IcERC20(overlyings[outbound_tkn]); // this is 0x0 if outbound_tkn is not compound sourced.
+    if (address(outbound_cTkn) == address(0)) {
       return amount;
     }
-    base_cErc20.accrueInterest();
-    (uint redeemable, ) = maxGettableUnderlying(address(base_cErc20));
+    outbound_cTkn.accrueInterest();
+    (uint redeemable, ) = maxGettableUnderlying(address(outbound_cTkn));
 
     uint redeemAmount = min(redeemable, amount);
 
-    if (compoundRedeem(base_cErc20, redeemAmount) == 0) {
+    if (compoundRedeem(outbound_cTkn, redeemAmount) == 0) {
       // redeemAmount was transfered to `this`
       return (amount - redeemAmount);
     }
     return amount;
   }
 
-  function compoundRedeem(IcERC20 cBase, uint amountToRedeem)
+  function compoundRedeem(IcERC20 coutbound_tkn, uint amountToRedeem)
     internal
     returns (uint)
   {
-    uint errorCode = cBase.redeemUnderlying(amountToRedeem); // accrues interests
+    uint errorCode = coutbound_tkn.redeemUnderlying(amountToRedeem); // accrues interests
     if (errorCode == 0) {
       //compound redeem was a success
       // if ETH was redeemed, one needs to convert them into wETH
-      if (isCeth(cBase)) {
+      if (isCeth(coutbound_tkn)) {
         weth.deposit{value: amountToRedeem}();
       }
       return 0;
     } else {
       //compound redeem failed
-      emit ErrorOnRedeem(address(cBase), amountToRedeem, errorCode);
+      emit ErrorOnRedeem(address(coutbound_tkn), amountToRedeem, errorCode);
       return amountToRedeem;
     }
   }
 
-  function __put__(IERC20 quote, uint amount) internal virtual override {
+  function __put__(IERC20 inbound_tkn, uint amount) internal virtual override {
     //optim
-    if (amount == 0 || !isPooled(address(quote))) {
+    if (amount == 0 || !isPooled(address(inbound_tkn))) {
       return;
     }
-    IcERC20 ctoken = IcERC20(overlyings[quote]);
+    IcERC20 ctoken = IcERC20(overlyings[inbound_tkn]);
     if (address(ctoken) != address(0)) {
       compoundMint(ctoken, amount);
     }
