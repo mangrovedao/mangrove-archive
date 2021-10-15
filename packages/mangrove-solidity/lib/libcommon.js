@@ -276,17 +276,9 @@ function assertEqualBN(value1, value2, msg) {
   assert(value1.eq(value2), errorMsg);
 }
 
-async function nextOfferId(base, quote, ctr) {
-  let offerId = await ctr.callStatic.newOffer(
-    base,
-    quote,
-    0, // wants
-    parseToken("1.0", 18), // gives
-    0,
-    0,
-    0
-  );
-  return offerId;
+async function nextOfferId(base, quote, mgv) {
+  const [, local] = await mgv.config(base, quote);
+  return local.last.add(1);
 }
 
 async function synch(promises) {
@@ -434,7 +426,19 @@ async function newOffer(mgv, contract, base_sym, quote_sym, wants, gives) {
   const base = await getContract(base_sym);
   const quote = await getContract(quote_sym);
 
-  const offerId = await nextOfferId(base.address, quote.address, contract);
+  const prov = await mgv.reader.getProvision(
+    base.address,
+    quote.address,
+    await contract.OFR_GASREQ(),
+    0
+  );
+  const bal = await mgv.balanceOf(contract.address);
+  if (prov.gt(bal)) {
+    let overrides = { value: prov.mul(10) };
+    await mgv["fund(address)"](contract.address, overrides);
+  }
+  const offerId = await nextOfferId(base.address, quote.address, mgv);
+  let check = await mgv.balanceOf(contract.address);
   const offerTx = await contract.newOffer(
     base.address,
     quote.address,

@@ -3,6 +3,7 @@ pragma abicoder v2;
 import "../lib/AccessControlled.sol";
 import "../lib/Exponential.sol";
 import "../lib/TradeHandler.sol";
+import {MgvReader as MR} from "../../periphery/MgvReader.sol";
 
 import "hardhat/console.sol";
 
@@ -18,8 +19,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   receive() external payable {}
 
   // default values
-  uint OFR_GASREQ = 1_000_000;
-  uint OFR_GASPRICE;
+  uint public OFR_GASREQ = 1_000_000;
+  uint public OFR_GASPRICE;
 
   // Offer constructor (caller will be admin)
   constructor(address _MGV) {
@@ -121,7 +122,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint gasprice,
     uint pivotId
   ) internal returns (uint offerId) {
-    try
+    return
       MGV.newOffer(
         outbound_tkn,
         inbound_tkn,
@@ -130,12 +131,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
         gasreq,
         gasprice,
         pivotId
-      )
-    returns (uint id) {
-      offerId = id;
-    } catch Error(string memory message) {
-      returnData(true, bytes(message));
-    }
+      );
   }
 
   // updates an existing offer on the Mangrove. `update` will throw if offer density is no longer compatible with Mangrove's parameters
@@ -173,9 +169,9 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint offerId
   ) internal {
     uint bounty = getProvision(
+      MGV,
       outbound_tkn,
       inbound_tkn,
-      MGV,
       gasreq,
       gasprice
     );
@@ -196,8 +192,10 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
           pivotId,
           offerId
         )
-      {} catch Error(string memory reason) {
-        returnData(true, bytes(reason));
+      {} catch Error(string memory message) {
+        console.log(message); //todo emit abort bytes32(message)
+      } catch {
+        console.log("OOPS"); // todo emit abort bytes32(default)
       }
     }
   }
