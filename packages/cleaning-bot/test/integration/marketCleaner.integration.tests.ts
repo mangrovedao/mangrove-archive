@@ -6,14 +6,14 @@ import * as chai from "chai";
 const { expect } = chai;
 import chaiAsPromised from "chai-as-promised";
 chai.use(chaiAsPromised);
+
 import { Mangrove, Market, MgvToken } from "@giry/mangrove-js";
 import * as typechain from "@giry/mangrove-js/dist/nodejs/types/typechain";
-import { newOffer, toWei } from "../util/helpers";
-import { Provider } from "@ethersproject/abstract-provider";
-import { MarketCleaner } from "../../dist/nodejs/MarketCleaner";
-import * as hre from "hardhat";
-import "hardhat-deploy-ethers/dist/src/type-extensions";
 import { BookSide } from "../../src/mangrove-js-type-aliases";
+import ethers from "ethers";
+import { Provider } from "@ethersproject/abstract-provider";
+
+import { MarketCleaner } from "../../dist/nodejs/MarketCleaner";
 
 const bookSides: BookSide[] = ["asks", "bids"];
 
@@ -30,8 +30,11 @@ describe("MarketCleaner integration tests", () => {
   };
 
   beforeEach(async function () {
-    provider = this.test?.parent?.parent?.ctx.provider;
-    mgv = await Mangrove.connect({ provider });
+    // FIXME the hre.network.provider is not a full ethers Provider, e.g. it doesn't have getBalance() and getGasPrice()
+    // FIXME for now we therefore use the provider constructed by Mangrove
+    // provider = this.test?.parent?.parent?.ctx.provider;
+    mgv = await Mangrove.connect(this.test?.parent?.parent?.ctx.providerUrl);
+    provider = mgv._provider;
     market = await mgv.market({ base: "TokenA", quote: "TokenB" });
 
     const testMakerAddress = Mangrove.getAddress(
@@ -85,6 +88,10 @@ describe("MarketCleaner integration tests", () => {
       //   - Must use the right account
       const marketCleaner = new MarketCleaner(market, provider);
 
+      const cleanerBalanceBefore = await provider.getBalance(
+        mgv.cleanerContract.address
+      );
+
       // Act
       await marketCleaner.clean(0);
 
@@ -95,6 +102,11 @@ describe("MarketCleaner integration tests", () => {
           .is.empty,
         // - Cleaner acct has more ether than before
         //   - Can we calculate exactly what the balance should be?
+        expect(
+          provider.getBalance(mgv.cleanerContract.address)
+        ).to.eventually.satisfy((balanceAfter: ethers.BigNumber) =>
+          balanceAfter.gt(cleanerBalanceBefore)
+        ),
       ]);
     });
   });
