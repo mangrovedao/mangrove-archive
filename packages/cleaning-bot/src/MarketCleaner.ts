@@ -134,13 +134,9 @@ export class MarketCleaner {
     };
   }
 
-  #estimateGasPrice(provider: Provider): Big {
-    // TODO Implement - provider.getGasPrice() for some reason does not work
-    logger.debug(
-      "Using hard coded gas price estimate (1) because #estimateGasPrice is not implemented",
-      { base: this.#market.base.name, quote: this.#market.quote.name }
-    );
-    return Big(1);
+  async #estimateGasPrice(provider: Provider): Promise<Big> {
+    const gasPrice = await provider.getGasPrice();
+    return Big(gasPrice.toString());
   }
 
   #estimateMinerTipPerGas(provider: Provider): Big {
