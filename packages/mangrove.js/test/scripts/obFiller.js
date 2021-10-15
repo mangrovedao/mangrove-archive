@@ -1,6 +1,12 @@
 const hre = require("hardhat");
 const helpers = require("../util/helpers");
 const hardhatUtils = require("@giry/hardhat-mangrove/hardhat-utils");
+const seed =
+  Math.random().toString(36).substring(2, 15) +
+  Math.random().toString(36).substring(2, 15);
+console.log(`random seed: ${seed}`);
+const rng = require("seedrandom")(seed);
+
 const main = async () => {
   console.log("Mnemonic:");
   console.log(hre.config.networks.hardhat.accounts.mnemonic);
@@ -135,7 +141,7 @@ const main = async () => {
     return mgv.contract.retractOffer(base, quote, offerId, true);
   };
 
-  const between = (a, b) => a + Math.random() * (b - a);
+  const between = (a, b) => a + rng() * (b - a);
 
   for (const t of tkns) {
     console.log(`${t.name} (${mgv.getDecimals(t.name)} decimals)`);
@@ -188,7 +194,7 @@ const main = async () => {
 
     if (book[ba].length !== 0) {
       // const offer = book[ba].shift();
-      const pulledIndex = Math.floor(Math.random() * book[ba].length);
+      const pulledIndex = Math.floor(rng() * book[ba].length);
       const offer = book[ba][pulledIndex];
       await retractOffer(market[base].address, market[quote].address, offer.id);
     }

@@ -25,9 +25,10 @@ export namespace BookReturns {
   export type details = _bookReturns[3];
 }
 
-export type internalConfig = Awaited<
+export type rawConfig = Awaited<
   ReturnType<Mangrove["functions"]["config"]>
 >["ret"];
+
 export type localConfig = {
   active: boolean;
   fee: number;

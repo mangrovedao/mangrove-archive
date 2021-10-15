@@ -23,6 +23,11 @@ const awaitTransaction = async (contractTransactionPromise) => {
 
 exports.mochaHooks = {
   async beforeAll() {
+    process.on("unhandledRejection", function (reason, p) {
+      console.log("Unhandled Rejection at: Promise ", p, " reason: ", reason);
+      // application specific logging, throwing an error, or other logic here
+    });
+
     this.provider = hre.network.provider;
     // FIXME the hre.network.provider is not a full ethers Provider, e.g. it doesn't have getBalance() and getGasPrice()
     // FIXME we therefore introduce a workaround where tests can construct an appropriate provider themselves from a URL.

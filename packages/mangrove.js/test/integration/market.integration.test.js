@@ -113,8 +113,6 @@ describe("Market integration tests suite", () => {
     assert.equal(offerFail.type, "OfferSuccess");
     assert.equal(offerFail.ba, "bids");
     //TODO test offerRetract, offerfail, setGasbase
-
-    market.disconnect();
   });
 
   it("gets config", async function () {
@@ -124,7 +122,6 @@ describe("Market integration tests suite", () => {
 
     const config = await market.config();
     assert.strictEqual(config.asks.fee, fee, "wrong fee");
-    market.disconnect();
   });
 
   it("updates OB", async function () {
@@ -161,7 +158,6 @@ describe("Market integration tests suite", () => {
     });
     await helpers.newOffer(mgv, addrA, addrB, { wants: "1", gives: "1.2" });
     await pro3;
-    market.disconnect();
     //TODO add to after
   });
 
@@ -184,7 +180,6 @@ describe("Market integration tests suite", () => {
       }
     });
     await done;
-    market.disconnect();
   });
 
   it("gets OB", async function () {

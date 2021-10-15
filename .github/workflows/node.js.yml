@@ -1,10 +1,15 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [ master, feature/**, issue/** ]
+    paths-ignore: 
+      - '**.md'
   pull_request:
     branches: [ master ]
+    paths-ignore: 
+      - '**.md'
 
 env:
   NODE_ENV: test
@@ -13,7 +18,6 @@ env:
 jobs:
   # ==== Job: Build and test commonlib.js ====
   commonlib-js:
-
     runs-on: ubuntu-latest
 
     env:
@@ -87,7 +91,6 @@ jobs:
 
   # ==== Job: Build and test Mangrove Core
   mangrove-solidity:
-
     runs-on: ubuntu-latest
 
     defaults:

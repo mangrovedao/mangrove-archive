@@ -979,6 +979,7 @@ __metadata:
     rimraf: ^3.0.2
     rollup: ^2.57.0
     rollup-plugin-terser: ^7.0.2
+    seedrandom: ^3.0.5
     shelljs: ^0.8.4
     ts-essentials: ^8.1.0
     ts-node: ^9.1.1
@@ -8289,6 +8290,13 @@ resolve@1.17.0:
     node-gyp: latest
     node-gyp-build: ^4.2.0
   checksum: 0d0d42e8033aee5aec5caaaa26d90fcaec4bf5e24dc4652552ddaa60734c2d95e90f7d95697b521fe833363c629d5ff623227961de86686c7a0ed5b5ffc1ebd0
+  languageName: node
+  linkType: hard
+
+"seedrandom@npm:^3.0.5":
+  version: 3.0.5
+  resolution: "seedrandom@npm:3.0.5"
+  checksum: 728b56bc3bc1b9ddeabd381e449b51cb31bdc0aa86e27fcd0190cea8c44613d5bcb2f6bb63ed79f78180cbe791c20b8ec31a9627f7b7fc7f476fd2bdb7e2da9f
   languageName: node
   linkType: hard
 
