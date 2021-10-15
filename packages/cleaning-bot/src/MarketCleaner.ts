@@ -2,7 +2,7 @@ import { logger } from "./util/logger";
 import { Market, Offer } from "@giry/mangrove-js/dist/nodejs/market";
 import { MgvToken } from "@giry/mangrove-js/dist/nodejs/mgvtoken";
 import { Provider } from "@ethersproject/providers";
-import { Signer } from "ethers";
+import { Signer, BigNumber, BigNumberish } from "ethers";
 import { BookSide } from "./mangrove-js-type-aliases";
 import Big from "big.js";
 Big.DP = 20; // precision when dividing
@@ -16,6 +16,10 @@ type OfferCleaningEstimates = {
   totalCost: Big; // wei
   netResult: Big; // wei
 };
+
+// FIXME move to Mangrove.js
+const maxWants = BigNumber.from(2).pow(96).sub(1);
+const maxGasReq = BigNumber.from(2).pow(256).sub(1);
 
 export class MarketCleaner {
   #market: Market;
@@ -165,11 +169,11 @@ export class MarketCleaner {
   async #estimateGas(offer: Offer, bookSide: BookSide): Promise<Big> {
     const { inboundToken, outboundToken } = this.#getTokens(bookSide);
     const gasEstimate =
-      await this.#market.mgv.cleanerContract.estimateGas.touchAndCollect(
+      await this.#market.mgv.cleanerContract.estimateGas.collect(
         inboundToken.address,
         outboundToken.address,
-        offer.id,
-        0
+        [this.#createTargetForCollect(offer)],
+        true
       );
     return Big(gasEstimate.toString());
   }
@@ -178,11 +182,11 @@ export class MarketCleaner {
     const { inboundToken, outboundToken } = this.#getTokens(bookSide);
     try {
       // FIXME move to mangrove.js API
-      await this.#market.mgv.cleanerContract.callStatic.touchAndCollect(
+      await this.#market.mgv.cleanerContract.callStatic.collect(
         inboundToken.address,
         outboundToken.address,
-        offer.id,
-        0
+        [this.#createTargetForCollect(offer)],
+        true
       );
     } catch (e) {
       logger.debug("Static touchAndCollect of offer failed", {
@@ -218,11 +222,11 @@ export class MarketCleaner {
     const { inboundToken, outboundToken } = this.#getTokens(bookSide);
     try {
       // FIXME move to mangrove.js API
-      const collectTx = await this.#market.mgv.cleanerContract.touchAndCollect(
+      const collectTx = await this.#market.mgv.cleanerContract.collect(
         inboundToken.address,
         outboundToken.address,
-        offer.id,
-        0
+        [this.#createTargetForCollect(offer)],
+        true
       );
       // TODO Maybe don't want to wait for the transaction to be mined?
       const txReceipt = await collectTx.wait();
@@ -256,5 +260,11 @@ export class MarketCleaner {
       outboundToken:
         bookSide === "asks" ? this.#market.quote : this.#market.base,
     };
+  }
+
+  #createTargetForCollect(
+    offer: Offer
+  ): [BigNumberish, BigNumberish, BigNumberish, BigNumberish] {
+    return [offer.id, 0, maxWants, maxGasReq];
   }
 }
