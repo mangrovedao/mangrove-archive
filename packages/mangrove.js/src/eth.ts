@@ -98,7 +98,7 @@ export function _createSigner(options: CallOptions = {}): Signer {
     }
   } else if (options.mnemonic) {
     signer = new ethers.Wallet(
-      ethers.Wallet.fromMnemonic(options.mnemonic),
+      ethers.Wallet.fromMnemonic(options.mnemonic, options.path),
       provider
     );
   } else if (!signer) {
