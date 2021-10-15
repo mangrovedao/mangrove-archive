@@ -218,11 +218,33 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     return true;
   }
 
+  // Post-hook tries to repost residual offer (if any) at the same price
+  // Logs MangroveRevert if the context prevents reposting (i.e offer is not provisioned or does not comply with density requirements)
   function __postHookSuccess__(MgvLib.SingleOrder calldata order)
     internal
     virtual
   {
-    order; //shh
+    uint new_gives = MP.offer_unpack_gives(order.offer) - order.wants;
+    uint new_wants = MP.offer_unpack_wants(order.offer) - order.gives;
+    try
+      this.updateOffer(
+        order.outbound_tkn,
+        order.inbound_tkn,
+        new_wants,
+        new_gives,
+        MP.offerDetail_unpack_gasreq(order.offerDetail),
+        MP.offer_unpack_gasprice(order.offer),
+        MP.offer_unpack_next(order.offer),
+        order.offerId
+      )
+    {} catch Error(string memory message) {
+      emit MangroveRevert(
+        order.outbound_tkn,
+        order.inbound_tkn,
+        order.offerId,
+        message
+      );
+    }
   }
 
   function __postHookGetFailure__(MgvLib.SingleOrder calldata order)
