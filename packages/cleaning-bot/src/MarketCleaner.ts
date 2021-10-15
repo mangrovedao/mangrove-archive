@@ -167,29 +167,21 @@ export class MarketCleaner {
   }
 
   async #estimateGas(offer: Offer, bookSide: BookSide): Promise<Big> {
-    const { inboundToken, outboundToken } = this.#getTokens(bookSide);
     const gasEstimate =
       await this.#market.mgv.cleanerContract.estimateGas.collect(
-        inboundToken.address,
-        outboundToken.address,
-        [this.#createTargetForCollect(offer)],
-        true
+        ...this.#createCollectParams(bookSide, offer)
       );
     return Big(gasEstimate.toString());
   }
 
   async #willOfferFail(offer: Offer, bookSide: BookSide): Promise<boolean> {
-    const { inboundToken, outboundToken } = this.#getTokens(bookSide);
     try {
       // FIXME move to mangrove.js API
       await this.#market.mgv.cleanerContract.callStatic.collect(
-        inboundToken.address,
-        outboundToken.address,
-        [this.#createTargetForCollect(offer)],
-        true
+        ...this.#createCollectParams(bookSide, offer)
       );
     } catch (e) {
-      logger.debug("Static touchAndCollect of offer failed", {
+      logger.debug("Static collect of offer failed", {
         base: this.#market.base.name,
         quote: this.#market.quote.name,
         bookSide: bookSide,
@@ -198,7 +190,7 @@ export class MarketCleaner {
       });
       return false;
     }
-    logger.debug("Static touchAndCollect of offer succeeded", {
+    logger.debug("Static collect of offer succeeded", {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
       bookSide: bookSide,
@@ -219,14 +211,10 @@ export class MarketCleaner {
       bookSide: bookSide,
       offer: offer,
     });
-    const { inboundToken, outboundToken } = this.#getTokens(bookSide);
     try {
       // FIXME move to mangrove.js API
       const collectTx = await this.#market.mgv.cleanerContract.collect(
-        inboundToken.address,
-        outboundToken.address,
-        [this.#createTargetForCollect(offer)],
-        true
+        ...this.#createCollectParams(bookSide, offer)
       );
       // TODO Maybe don't want to wait for the transaction to be mined?
       const txReceipt = await collectTx.wait();
@@ -249,6 +237,24 @@ export class MarketCleaner {
     return true;
   }
 
+  #createCollectParams(
+    bookSide: BookSide,
+    offer: Offer
+  ): [
+    string,
+    string,
+    [BigNumberish, BigNumberish, BigNumberish, BigNumberish][],
+    boolean
+  ] {
+    const { inboundToken, outboundToken } = this.#getTokens(bookSide);
+    return [
+      inboundToken.address,
+      outboundToken.address,
+      [[offer.id, 0, maxWants, maxGasReq]],
+      false,
+    ];
+  }
+
   // FIXME move/integrate into Market API?
   #getTokens(bookSide: BookSide): {
     inboundToken: MgvToken;
@@ -260,11 +266,5 @@ export class MarketCleaner {
       outboundToken:
         bookSide === "asks" ? this.#market.quote : this.#market.base,
     };
-  }
-
-  #createTargetForCollect(
-    offer: Offer
-  ): [BigNumberish, BigNumberish, BigNumberish, BigNumberish] {
-    return [offer.id, 0, maxWants, maxGasReq];
   }
 }
