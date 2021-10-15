@@ -10,7 +10,7 @@ import { Mangrove, Market, MgvToken } from "@giry/mangrove-js";
 import * as typechain from "@giry/mangrove-js/dist/nodejs/types/typechain";
 import { newOffer, toWei } from "../util/helpers";
 import { Provider } from "@ethersproject/abstract-provider";
-import { MarketCleaner } from "../../src/MarketCleaner";
+import { MarketCleaner } from "../../dist/nodejs/MarketCleaner";
 import * as hre from "hardhat";
 import "hardhat-deploy-ethers/dist/src/type-extensions";
 import { BookSide } from "../../src/mangrove-js-type-aliases";
@@ -22,6 +22,12 @@ describe("MarketCleaner integration tests", () => {
   let mgv: Mangrove;
   let market: Market;
   let testMakerContract: typechain.TestMaker;
+  let tokens = (bookSide: BookSide) => {
+    return {
+      inboundToken: bookSide === "asks" ? market.base : market.quote,
+      outboundToken: bookSide === "asks" ? market.quote : market.base,
+    };
+  };
 
   beforeEach(async function () {
     provider = this.test?.parent?.parent?.ctx.provider;
@@ -68,18 +74,18 @@ describe("MarketCleaner integration tests", () => {
       //   - Must not be persistent
       //   - Cleaning it must be profitable
       // TODO which account is used for this transaction - deployer, right?
+      const { inboundToken, outboundToken } = tokens(bookSide);
       const setShouldFailTx = await testMakerContract.shouldFail(true);
       await setShouldFailTx.wait();
       const newOfferTx = await testMakerContract[
         "newOffer(address,address,uint256,uint256,uint256,uint256)"
-      ](market.base.address, market.quote.address, 1, 1000000, 100, 1);
+      ](inboundToken.address, outboundToken.address, 1, 1000000, 100, 1);
       const newOfferTxReceipt = await newOfferTx.wait();
-
-      // Act
       // - Create MarketCleaner for the market
       //   - Must use the right account
-      // - Wait for it to complete cleaning - HOW?
       const marketCleaner = new MarketCleaner(market, provider);
+
+      // Act
       await marketCleaner.clean(0);
 
       // Assert
