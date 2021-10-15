@@ -122,15 +122,16 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint gasprice,
     uint pivotId
   ) internal returns (uint offerId) {
-    MGV.newOffer(
-      outbound_tkn,
-      inbound_tkn,
-      wants,
-      gives,
-      gasreq,
-      gasprice,
-      pivotId
-    );
+    return
+      MGV.newOffer(
+        outbound_tkn,
+        inbound_tkn,
+        wants,
+        gives,
+        gasreq,
+        gasprice,
+        pivotId
+      );
   }
 
   // updates an existing offer on the Mangrove. `update` will throw if offer density is no longer compatible with Mangrove's parameters
