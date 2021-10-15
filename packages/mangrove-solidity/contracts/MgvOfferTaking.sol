@@ -500,6 +500,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       }
 
       /* We update the totals in the multiorder based on the adjusted `sor.wants`/`sor.gives`. */
+      /* overflow: sor.{wants,gives} are on 96bits, sor.total{Got,Gave} are on 256 bits. */
       mor.totalGot += sor.wants;
       mor.totalGave += sor.gives;
     } else {
