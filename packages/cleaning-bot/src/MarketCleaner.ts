@@ -2,7 +2,7 @@ import { logger } from "./util/logger";
 import { Market, Offer } from "@giry/mangrove-js/dist/nodejs/market";
 import { MgvToken } from "@giry/mangrove-js/dist/nodejs/mgvtoken";
 import { Provider } from "@ethersproject/providers";
-import { Wallet } from "@ethersproject/wallet";
+import { Signer } from "ethers";
 import { BookSide } from "./mangrove-js-type-aliases";
 import Big from "big.js";
 Big.DP = 20; // precision when dividing

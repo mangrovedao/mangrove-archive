@@ -17,12 +17,18 @@ import { MarketCleaner } from "../../dist/nodejs/MarketCleaner";
 
 const bookSides: BookSide[] = ["asks", "bids"];
 
+const awaitTransactionAndReceipt = async (
+  contractTransactionPromise: Promise<ethers.ContractTransaction>
+) => {
+  let tx = await contractTransactionPromise.then((tx) => tx.wait());
+};
+
 describe("MarketCleaner integration tests", () => {
   let provider: Provider;
   let mgv: Mangrove;
   let market: Market;
   let testMakerContract: typechain.TestMaker;
-  let tokens = (bookSide: BookSide) => {
+  let getTokens = (bookSide: BookSide) => {
     return {
       inboundToken: bookSide === "asks" ? market.base : market.quote,
       outboundToken: bookSide === "asks" ? market.quote : market.base,
@@ -57,9 +63,10 @@ describe("MarketCleaner integration tests", () => {
       // Arrange
       // - Set up accounts
       //   - Which do we need?
-      //     - MGV admin account for opening market
-      //     - Maker account for creating offer
-      //       - Could perhaps be the same as MGV admin?
+      //     - (MGV admin account for opening market)
+      //       - Market is already opened in the integration test hooks using (await ethers.getSigners())[0] - which I think is the 'deployer' account?
+      //     - (Maker account for creating offer)
+      //       - Could perhaps be the same as MGV admin? YES, doesn't matter for the tests, we only care about the cleaner and its account(s)
       //     - Cleaner account for sending transactions
       //   - What funding do the accounts need?
       //     - Plenty of ether for gas - we're not testing out of gas here
@@ -77,15 +84,16 @@ describe("MarketCleaner integration tests", () => {
       //   - Must not be persistent
       //   - Cleaning it must be profitable
       // TODO which account is used for this transaction - deployer, right?
-      const { inboundToken, outboundToken } = tokens(bookSide);
-      const setShouldFailTx = await testMakerContract.shouldFail(true);
-      await setShouldFailTx.wait();
-      const newOfferTx = await testMakerContract[
-        "newOffer(address,address,uint256,uint256,uint256,uint256)"
-      ](inboundToken.address, outboundToken.address, 1, 1000000, 100, 1);
-      const newOfferTxReceipt = await newOfferTx.wait();
+      const { inboundToken, outboundToken } = getTokens(bookSide);
+      await awaitTransactionAndReceipt(testMakerContract.shouldFail(true));
+      await awaitTransactionAndReceipt(
+        testMakerContract[
+          "newOffer(address,address,uint256,uint256,uint256,uint256)"
+        ](inboundToken.address, outboundToken.address, 1, 1000000, 100, 1)
+      );
       // - Create MarketCleaner for the market
       //   - Must use the right account
+      // FIXME must ensure that the right Signer is attached to the provider as TXs to the MgvCleaner contract must be signed
       const marketCleaner = new MarketCleaner(market, provider);
 
       const cleanerBalanceBefore = await provider.getBalance(

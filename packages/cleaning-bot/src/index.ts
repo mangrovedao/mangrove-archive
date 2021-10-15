@@ -5,28 +5,28 @@ import { logger } from "./util/logger";
 import { TokenPair } from "./mangrove-js-type-aliases";
 // TODO Figure out where mangrove.js get its addresses from and make it configurable
 import Mangrove from "@giry/mangrove-js";
-import { Provider } from "@ethersproject/providers";
-import { Wallet } from "@ethersproject/wallet";
 
 process.on("unhandledRejection", function (reason, p) {
   logger.warn("Unhandled Rejection at: Promise ", p, " reason: ", reason);
 });
 
 const main = async () => {
-  const mgv = await Mangrove.connect(config.get<string>("jsonRpcUrl"));
   // TODO Initialize:
   // - Connect to Ethereum endpoint (Infura, Alchemy, ...)
   //   - Perhaps the safest is to connect to multiple by using the Ethers Default Provider?
   //     - https://docs.ethers.io/v5/api/providers/#providers-getDefaultProvider
   //     - Or is there a performance overhead that is problematic here?
-  const provider = mgv._provider; // TODO
   // - Load private key and set up wallet for transaction signing
   if (!process.env["PRIVATE_KEY_MNEMONIC"]) {
     logger.error("No mnemonic provided in PRIVATE_KEY_MNEMONIC");
     throw new Error("No mnemonic provided in PRIVATE_KEY_MNEMONIC");
   }
   const mnemonic = process.env["PRIVATE_KEY_MNEMONIC"];
-  const wallet = Wallet.fromMnemonic(mnemonic); // TODO
+  const mgv = await Mangrove.connect({
+    provider: config.get<string>("jsonRpcUrl"),
+    mnemonic: mnemonic,
+  });
+  const provider = mgv._provider; // TODO
   // - Connect Mangrove.js via the same provider
   // - Load the environment:
   //   - Addresses of relevant tokens and Mangrove on the chosen network
