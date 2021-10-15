@@ -1,15 +1,23 @@
 import { logger } from "./util/logger";
-import Mangrove from "@giry/mangrove-js";
+import Mangrove, { ethers } from "@giry/mangrove-js";
 import { Provider } from "@ethersproject/providers";
 import Big from "big.js";
+Big.DP = 20; // precision when dividing
+Big.RM = Big.roundHalfUp; // round to nearest
 
 export class GasUpdater {
   #mangrove: Mangrove;
   #provider: Provider;
+  #acceptableGasGapToOracle: number;
 
-  constructor(mangrove: Mangrove, provider: Provider) {
+  constructor(
+    mangrove: Mangrove,
+    provider: Provider,
+    acceptableGasGapToOracle: number
+  ) {
     this.#mangrove = mangrove;
     this.#provider = provider;
+    this.#acceptableGasGapToOracle = acceptableGasGapToOracle;
   }
 
   public start() {
@@ -20,6 +28,8 @@ export class GasUpdater {
   }
 
   private async _checkSetGasprice(blocknumber: any) {
+    //TODO: Probably suitable protection against reentrancy
+
     const globalConfig = await this.#mangrove.config();
     // FIXME: (common func) move to a property/method on Mangrove
     if (globalConfig.dead) {
@@ -34,7 +44,7 @@ export class GasUpdater {
       `Checking whether Mangrove gas price needs updating at block number ${blocknumber}`
     );
 
-    const currentMangroveGasPrice = Big(globalConfig.gasprice);
+    const currentMangroveGasPrice = globalConfig.gasprice;
 
     logger.debug(
       `Current Mangrove gas price in config is: ${currentMangroveGasPrice}`
@@ -53,32 +63,60 @@ export class GasUpdater {
     }
   }
 
-  private async _getGasPriceEstimateFromOracle(): Promise<Big> {
+  private async _getGasPriceEstimateFromOracle(): Promise<number> {
     //TODO: stub implementation
-    const oracleGasPrice = Big(2);
+    const oracleGasPrice = 2;
     logger.debug(
-      `_getGasPriceEstimateFromOracle not implemented yet. Getting gas price from oracle in - using stub price: ${oracleGasPrice}`
+      `_getGasPriceEstimateFromOracle: Stub implementation - using constant: ${oracleGasPrice}`
     );
     return oracleGasPrice;
   }
 
   private async _shouldUpdateMangroveGasPrice(
-    currentGasPrice: Big,
-    oracleGasPrice: Big
-  ): Promise<[Boolean, Big]> {
-    //TODO: stub implementation - if entirely local calc, may be sync
-    logger.debug("_shouldUpdateMangroveGasPrice not implemented yet.");
+    currentGasPrice: number,
+    oracleGasPrice: number
+  ): Promise<[Boolean, number]> {
+    //TODO: stub implementation - also, if entirely local calc, may be sync
 
-    if (currentGasPrice.eq(oracleGasPrice)) {
+    logger.debug("_shouldUpdateMangroveGasPrice: Naive stub implementation.");
+    const shouldUpdate =
+      Math.abs(currentGasPrice - oracleGasPrice) >
+      this.#acceptableGasGapToOracle;
+
+    if (shouldUpdate) {
+      logger.debug(
+        `_shouldUpdateMangroveGasPrice: Determined update needed - to ${oracleGasPrice}`
+      );
       return [true, oracleGasPrice];
     } else {
+      logger.debug(
+        `_shouldUpdateMangroveGasPrice: Determined no update needed.`
+      );
       return [false, oracleGasPrice];
     }
   }
 
-  private async _updateMangroveGasPrice(oracleGasPriceEstimate: Big) {
-    //TODO: Not implemented yet
-    logger.debug("_updateMangroveGasPrice not implemented yet.");
-    throw new Error("Function not implemented.");
+  private async _updateMangroveGasPrice(newGasPrice: number) {
+    //TODO: First implementation going through mangrove.js -> gas-update-contract
+    logger.debug(
+      "_updateMangroveGasPrice: First implementation going through mangrove.js -> contract."
+    );
+
+    try {
+      await this.#mangrove.gasUpdaterContract.setGasPrice(
+        ethers.BigNumber.from(newGasPrice)
+      );
+    } catch (e) {
+      logger.error("setGasprice failed", {
+        mangrove: this.#mangrove,
+        data: e,
+      });
+
+      return;
+    }
+
+    logger.info(
+      `Succesfully set Mangrove gas price. New gas price ${newGasPrice}.`
+    );
   }
 }

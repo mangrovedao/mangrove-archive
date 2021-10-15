@@ -1,7 +1,7 @@
 {
   "jsonRpcUrl": "http://localhost:8546",
   "log": {
-    "logLevel": "info"
+    "logLevel": "debug"
   },
-  "markets": [["WETH", "DAI"]]
+  "acceptableGasGapToOracle": 0.5
 }

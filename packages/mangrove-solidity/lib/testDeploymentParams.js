@@ -62,6 +62,14 @@ module.exports = async () => {
     },
   });
 
+  const mgvGasUpdater = await withAddress({
+    name: "MgvGasUpdater",
+    options: {
+      from: deployer,
+      args: [mangrove.address],
+    },
+  });
+
   return [
     mangrove,
     tokenA,
@@ -72,5 +80,6 @@ module.exports = async () => {
     testMaker,
     mgvReader,
     mgvCleaner,
+    mgvGasUpdater,
   ];
 };
