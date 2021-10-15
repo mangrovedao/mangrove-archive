@@ -173,6 +173,8 @@ contract TakerOperations_Test is HasMgvEvents {
     }
   }
 
+  event Transfer(address indexed from, address indexed to, uint value);
+
   function snipe_fillWants_zero_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     TestEvents.check(
@@ -196,6 +198,9 @@ contract TakerOperations_Test is HasMgvEvents {
         !TestUtils.hasOffer(mgv, base, quote, ofr),
         "Offer should not be in the book"
       );
+      TestEvents.expectFrom(address(quote));
+      emit Transfer(address(this), address(mgv), 0);
+      emit Transfer(address(mgv), address(mkr), 0);
     } catch {
       TestEvents.fail("Transaction should not revert");
     }
