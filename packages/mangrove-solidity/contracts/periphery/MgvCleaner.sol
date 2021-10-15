@@ -16,10 +16,10 @@ import "../Mangrove.sol";
    TODO: add `collectWith` with an additional `taker` argument.
 */
 contract MgvCleaner {
-  Mangrove immutable MGV;
+  AbstractMangrove immutable MGV;
 
-  constructor(address payable _MGV) {
-    MGV = Mangrove(_MGV);
+  constructor(AbstractMangrove _MGV) {
+    MGV = _MGV;
   }
 
   receive() external payable {}
