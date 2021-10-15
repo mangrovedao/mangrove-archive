@@ -39,6 +39,6 @@ contract MgvCleaner {
     );
     require(successes == 0, "mgvCleaner/anOfferDidNotFail");
     bal = address(this).balance;
-    msg.sender.send(bal);
+    msg.sender.call{value: bal}("");
   }
 }
