@@ -16,19 +16,8 @@ env:
   working-directory: packages/mangrove-solidity
 
 jobs:
-  # ==== Job: Stops older workflows on same branch (except on branch master) ====
-  cleanup-runs:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: rokroskar/workflow-run-cleanup-action@master
-      env:
-        GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-    if: "!startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/master'"
-
   # ==== Job: Build and test commonlib.js ====
   commonlib-js:
-    needs: cleanup-runs
-
     runs-on: ubuntu-latest
 
     env:
@@ -102,8 +91,6 @@ jobs:
 
   # ==== Job: Build and test Mangrove Core
   mangrove-solidity:
-    needs: cleanup-runs  
-
     runs-on: ubuntu-latest
 
     defaults:
