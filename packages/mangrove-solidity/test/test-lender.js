@@ -2,7 +2,10 @@ const { assert } = require("chai");
 //const { parseToken } = require("ethers/lib/utils");
 const { ethers, env, mangrove, network } = require("hardhat");
 const lc = require("lib/libcommon.js");
-const chalk = require("chalk");
+// const chalk = require("chalk");
+// const config = require ("config");
+// const url = config.hardhat.networks.hardhat.forking.url;
+// const blockNumber = config.hardhat.networks.hardhat.forking.blockNumber;
 
 let testSigner = null;
 const zero = lc.parseToken("0.0", 18);
@@ -283,17 +286,20 @@ describe("Deploy strategies", function () {
     const wEth = await lc.getContract("WETH");
     [testSigner] = await ethers.getSigners();
 
+    let daiBal = await dai.balanceOf(testSigner.address);
+    let wethBal = await wEth.balanceOf(testSigner.address);
     await lc.fund([
       ["WETH", "10.0", testSigner.address],
       ["DAI", "10000.0", testSigner.address],
     ]);
 
-    const daiBal = await dai.balanceOf(testSigner.address);
-    const wethBal = await wEth.balanceOf(testSigner.address);
+    daiBal = (await dai.balanceOf(testSigner.address)).sub(daiBal);
+    wethBal = (await wEth.balanceOf(testSigner.address)).sub(wethBal);
 
     lc.assertEqualBN(
       daiBal,
-      lc.parseToken("10000.0", await lc.getDecimals("DAI"))
+      lc.parseToken("10000.0", await lc.getDecimals("DAI")),
+      "Minting DAI failed"
     );
     lc.assertEqualBN(
       wethBal,

@@ -461,7 +461,6 @@ async function newOffer(mgv, contract, base_sym, quote_sym, wants, gives) {
 async function marketOrder(mgv, base_sym, quote_sym, wants, gives) {
   const base = await getContract(base_sym);
   const quote = await getContract(quote_sym);
-  await contract.approveMangrove(base.address, ethers.constants.MaxUint256);
 
   const [takerGot, takerGave] = await mgv.callStatic.marketOrder(
     base.address,
