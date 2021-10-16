@@ -82,9 +82,9 @@ contract Gas_Test is IMaker {
     external
     pure
     override
-    returns (bytes32 ret)
+    returns (bytes32)
   {
-    ret; // silence unused function parameter
+    return "mgvOffer/proceed"; // silence unused function parameter
   }
 
   function makerPosthook(

@@ -65,6 +65,7 @@ contract UniSwapMaker is IMaker {
       order.wants,
       order.gives
     );
+    return "mgvOffer/proceed";
   }
 
   // newPrice(makerWants,makerGives)

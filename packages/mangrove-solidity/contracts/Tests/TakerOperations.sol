@@ -355,8 +355,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerTransferFail",
-      "testMaker/transferFail"
+      "mgv/makerTransferFail"
     );
     emit Credit(address(refusemkr), mkr_provision - penalty);
   }
@@ -414,8 +413,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerTransferFail",
-      ""
+      "mgv/makerTransferFail"
     );
     emit Credit(address(mkr), mkr_provision - penalty);
   }
@@ -458,8 +456,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerReceiveFail",
-      ""
+      "mgv/makerReceiveFail"
     );
     emit Credit(address(mkr), mkr_provision - penalty);
   }
@@ -522,8 +519,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerRevert",
-      "testMaker/revert"
+      "mgv/makerRevert"
     );
     emit Credit(address(failmkr), mkr_provision - penalty);
   }
@@ -804,8 +800,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       50 ether,
       0.5 ether,
-      "mgv/makerTransferFail",
-      ""
+      "mgv/makerTransferFail"
     );
   }
 
@@ -825,8 +820,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerRevert",
-      "testMaker/revert"
+      "mgv/makerRevert"
     );
   }
 

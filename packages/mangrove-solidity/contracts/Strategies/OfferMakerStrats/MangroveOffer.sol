@@ -254,6 +254,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     bytes32 word;
     if (
       result.mgvData == "mgv/tradeSuccess" ||
+      result.mgvData == "mgv/makerAbort" ||
       result.mgvData == "mgv/makerRevert"
     ) {
       // if trade was a success or dropped by maker, `makerData` determines the posthook switch
