@@ -5,6 +5,9 @@ pragma abicoder v2;
 import {IERC20, HasMgvEvents, IMaker, IMgvMonitor, MgvLib as ML} from "./MgvLib.sol";
 import {MgvHasOffers} from "./MgvHasOffers.sol";
 
+bytes32 constant MGV_OFFER_PROCEED = "mgvOffer/proceed";
+uint constant MGV_OFFER_PROCEED_BITS = 16 * 8;
+
 abstract contract MgvOfferTaking is MgvHasOffers {
   /* # MultiOrder struct */
   /* The `MultiOrder` struct is used by market orders and snipes. Some of its fields are only used by market orders (`initialWants, initialGives`, `fillWants`), and others only by snipes (`successCount`). We need a common data structure for both since low-level calls are shared between market orders and snipes. The struct is helpful in decreasing stack use. */
@@ -142,6 +145,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       * `"mgv/tradeSuccess"`: offer execution succeeded. Will appear in `OrderResult`.
       * `"mgv/notEnoughGasForMakerTrade"`: cannot give maker close enough to `gasreq`. Triggers a revert of the entire order.
       * `"mgv/makerRevert"`: execution of `makerExecute` reverted. Will appear in `OrderResult`.
+      * `"mgv/makerAbort"`: execution of `makerExecute` returned normally, but returndata did not start with `bytes32("mgvOffer/proceed")`. Will appear in `OrderResult`.
       * `"mgv/makerTransferFail"`: maker could not send outbound_tkn tokens. Will appear in `OrderResult`.
       * `"mgv/makerReceiveFail"`: maker could not receive inbound_tkn tokens. Will appear in `OrderResult`.
       * `"mgv/takerTransferFail"`: taker could not send inbound_tkn tokens. Triggers a revert of the entire order.
@@ -509,6 +513,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       /* Note that in the `if`s, the literals are bytes32 (stack values), while as revert arguments, they are strings (memory pointers). */
       if (
         mgvData == "mgv/makerRevert" ||
+        mgvData == "mgv/makerAbort" ||
         mgvData == "mgv/makerTransferFail" ||
         mgvData == "mgv/makerReceiveFail"
       ) {
@@ -588,6 +593,16 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       innerRevert([bytes32("mgv/makerRevert"), bytes32(gasused), makerData]);
     }
 
+    /* Successful execution must have a returndata that begins with bytes
+       `"mgvOffer/proceed"`.
+    */
+    if (
+      ((makerData >> MGV_OFFER_PROCEED_BITS) << MGV_OFFER_PROCEED_BITS) !=
+      MGV_OFFER_PROCEED
+    ) {
+      innerRevert([bytes32("mgv/makerAbort"), bytes32(gasused), makerData]);
+    }
+
     bool transferSuccess = transferTokenFrom(
       sor.outbound_tkn,
       maker,
@@ -652,7 +667,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     bytes32 makerData,
     bytes32 mgvData
   ) internal returns (uint gasused) {
-    /* At this point, mgvData can only be `"mgv/tradeSuccess"`, `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"` */
+    /* At this point, mgvData can only be `"mgv/tradeSuccess"`, `"mgv/makerAbort"`, `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"` */
     bytes memory cd = abi.encodeWithSelector(
       IMaker.makerPosthook.selector,
       sor,
