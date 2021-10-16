@@ -4,7 +4,7 @@
  */
 
 import { ethers, Signer } from "ethers";
-import { CallOptions, Provider, ProviderNetwork } from "./types";
+import { CreateSignerOptions, Provider, ProviderNetwork } from "./types";
 
 /**
  * This helps the mangrove.js constructor discover which Ethereum network the
@@ -51,18 +51,22 @@ export async function getProviderNetwork(
 /**
  * Creates an Ethereum network provider object.
  *
- * @param {CallOptions} options The call options of a pending Ethereum
- *     transaction.
+ * @param {CreateSignerOptions} options
  *
  * options.provider can be:
  * - a string (url or ethers.js network name)
  * - an EIP-1193 provider object (eg window.ethereum)
  *
+ * Signing info can be provided by
+ * - `options.provider`, then you can specify `options.signerIndex` to get the nth account, or
+ * - `options.privateKey`, or
+ * - `options.mnemonic`, then you can specify the derivation with `options.path`.
+ *
  * @hidden
  *
  * @returns {object} Returns a valid Ethereum network signer object with an attached provider.
  */
-export function _createSigner(options: CallOptions = {}): Signer {
+export function _createSigner(options: CreateSignerOptions = {}): Signer {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let provider: any = options.provider;
   const isADefaultProvider = !!ethers.providers.getNetwork(provider.toString());
@@ -81,14 +85,14 @@ export function _createSigner(options: CallOptions = {}): Signer {
   }
 
   if (provider.getSigner) {
-    signer = provider.getSigner();
+    signer = provider.getSigner(options.signerIndex || 0);
   }
 
   if (
     signer &&
     (!!options.privateKey || !!options.mnemonic || !!options.signer)
   ) {
-    console.warn("Signing info provided will override default signer.");
+    console.warn("Signer info provided will override default signer.");
   }
 
   // Add an explicit signer
@@ -99,14 +103,22 @@ export function _createSigner(options: CallOptions = {}): Signer {
     }
   } else if (options.privateKey) {
     signer = new ethers.Wallet(options.privateKey, provider);
+    if (options.signerIndex) {
+      console.warn("options.signerIndex not applicable to private keys");
+    }
     if (options.mnemonic) {
       console.warn("options.privateKey overrides mnemonic.");
     }
   } else if (options.mnemonic) {
     signer = new ethers.Wallet(
-      ethers.Wallet.fromMnemonic(options.mnemonic),
+      ethers.Wallet.fromMnemonic(options.mnemonic, options.path),
       provider
     );
+    if (options.signerIndex) {
+      console.warn(
+        "options.signerIndex not applicable to mnemonic, use options.path instead."
+      );
+    }
   } else if (!signer) {
     throw Error(
       "Must provide private key or mnemonic, selected provider has no signer info."

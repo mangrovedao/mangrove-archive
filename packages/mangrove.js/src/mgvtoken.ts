@@ -76,16 +76,18 @@ export class MgvToken {
   }
 
   /**
-   * Set approval for `spender` on `amount`.
-   * If `spender` is not specified, defaults to Mangrove instance.
+   * Set approval for Mangrove on `amount`.
    */
-  async approve(
-    amount: Bigish,
-    spender?: string
+  async approveMgv(amount: Bigish): Promise<ethers.ContractTransaction> {
+    return this.approve(await this.mgv._address, amount);
+  }
+  /**
+   * Set approval for `spender` on `amount`.
+   */
+  approve(
+    spender: string,
+    amount: Bigish
   ): Promise<ethers.ContractTransaction> {
-    if (typeof spender === "undefined") {
-      spender = await this.mgv._address;
-    }
     return this.contract.approve(spender, this.toUnits(amount));
   }
 }
