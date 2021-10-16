@@ -580,7 +580,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       innerRevert([bytes32("mgv/notEnoughGasForMakerTrade"), "", ""]);
     }
 
-    (bool callSuccess, bytes32 makerData) = restrictedCall(maker, gasreq, cd);
+    (bool callSuccess, bytes32 makerData) = controlledCall(maker, gasreq, cd);
 
     gasused = oldGas - gasleft();
 
@@ -667,7 +667,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       revert("mgv/notEnoughGasForMakerPosthook");
     }
 
-    (bool callSuccess, bytes32 postHookData) = restrictedCall(
+    (bool callSuccess, bytes32 postHookData) = controlledCall(
       maker,
       gasLeft,
       cd
@@ -685,9 +685,9 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     }
   }
 
-  /* ## `restrictedCall` */
+  /* ## `controlledCall` */
   /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + overhead_gasbase/n + offer_gasbase` where `n` is the number of failing offers. This yul call only retrieves the first 32 bytes of the maker's `returndata`. */
-  function restrictedCall(
+  function controlledCall(
     address callee,
     uint gasreq,
     bytes memory cd
