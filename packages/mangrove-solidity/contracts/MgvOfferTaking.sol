@@ -526,8 +526,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
           mor.taker,
           sor.wants,
           sor.gives,
-          mgvData,
-          makerData
+          mgvData
         );
 
         /* If configured to do so, the Mangrove notifies an external contract that a failed trade has taken place. */
@@ -682,21 +681,12 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       revert("mgv/notEnoughGasForMakerPosthook");
     }
 
-    (bool callSuccess, bytes32 postHookData) = restrictedCall(
-      maker,
-      gasLeft,
-      cd
-    );
+    (bool callSuccess, ) = restrictedCall(maker, gasLeft, cd);
 
     gasused = oldGas - gasleft();
 
     if (!callSuccess) {
-      emit PosthookFail(
-        sor.outbound_tkn,
-        sor.inbound_tkn,
-        sor.offerId,
-        postHookData
-      );
+      emit PosthookFail(sor.outbound_tkn, sor.inbound_tkn, sor.offerId);
     }
   }
 
