@@ -5,7 +5,6 @@ import "../Defensive.sol";
 import "../AaveLender.sol";
 
 //import "hardhat/console.sol";
-import "../../lib/consolerr/consolerr.sol";
 
 contract PriceFed is Defensive, AaveLender {
   constructor(
@@ -17,10 +16,10 @@ contract PriceFed is Defensive, AaveLender {
   event Slippage(uint indexed offerId, uint old_wants, uint new_wants);
 
   // reposts only if offer was reneged due to a price slippage
-  function __postHookReneged__(
-    bytes32 message,
-    MgvLib.SingleOrder calldata order
-  ) internal override {
+  function __postHookReneged__(MgvLib.SingleOrder calldata order)
+    internal
+    override
+  {
     (uint old_wants, uint old_gives, , ) = unpackOfferFromOrder(order);
     uint price_quote = oracle.getPrice(order.inbound_tkn);
     uint price_base = oracle.getPrice(order.outbound_tkn);
@@ -28,31 +27,25 @@ contract PriceFed is Defensive, AaveLender {
     uint new_offer_wants = div_(mul_(old_gives, price_base), price_quote);
     emit Slippage(order.offerId, old_wants, new_offer_wants);
     // since offer is persistent it will auto refill if contract does not have enough provision on the Mangrove
-    updateOfferInternal(
-      order.outbound_tkn,
-      order.inbound_tkn,
-      new_offer_wants,
-      old_gives,
-      OFR_GASREQ,
-      OFR_GASPRICE,
-      0,
-      order.offerId
-    );
-  }
-
-  function __autoRefill__(uint amount) internal override returns (bool) {
-    if (address(this).balance < amount) {
-      return false;
+    try
+      this.updateOffer(
+        order.outbound_tkn,
+        order.inbound_tkn,
+        new_offer_wants,
+        old_gives,
+        OFR_GASREQ,
+        OFR_GASPRICE,
+        0,
+        order.offerId
+      )
+    {} catch Error(string memory message) {
+      emit MangroveRevert(
+        order.outbound_tkn,
+        order.inbound_tkn,
+        order.offerId,
+        message
+      );
     }
-    MGV.fund{value: amount}();
-    return true;
-  }
-
-  function __postHookFallback__(
-    bytes32 message,
-    MgvLib.SingleOrder calldata order
-  ) internal override {
-    consolerr.errorBytes32("Fallback posthook", message);
   }
 
   // Closing diamond inheritance for solidity compiler
