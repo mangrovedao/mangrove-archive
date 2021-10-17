@@ -169,6 +169,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   }
 
   // not a virtual function to make sure it is only MGV callable
+  // TODO deal properly with posthook selection
   function makerPosthook(
     MgvLib.SingleOrder calldata order,
     MgvLib.OrderResult calldata result
@@ -176,20 +177,19 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     if (result.mgvData == "mgv/tradeSuccess") {
       // if trade was a success
       __postHookSuccess__(order);
+      return;
     }
-    if (result.mgvData == "mgv/makerFail") {
-      // trade reverted unexpectedly
-      __postHookFallback__(order);
-    }
+    // if trade was cancelled by offer maker
     if (result.makerData == OUTOFLIQUIDITY) {
       __postHookGetFailure__(order);
+      return;
     }
     if (result.makerData == RENEGED) {
       __postHookReneged__(order);
-    } else {
-      // makerData is not readable, although execution did not revert
-      emit PostHookError(order.outbound_tkn, order.inbound_tkn, order.offerId);
+      return;
     }
+    __postHookFallback__(order, result);
+    return;
   }
 
   ////// Virtual functions to customize trading strategies
@@ -261,10 +261,11 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     order; //shh
   }
 
-  function __postHookFallback__(MgvLib.SingleOrder calldata order)
-    internal
-    virtual
-  {
+  function __postHookFallback__(
+    MgvLib.SingleOrder calldata order,
+    MgvLib.OrderResult calldata result
+  ) internal virtual {
     order; //shh
+    result;
   }
 }

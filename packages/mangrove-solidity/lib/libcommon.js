@@ -507,7 +507,7 @@ async function snipeSuccess(mgv, base_sym, quote_sym, offerId, wants, gives) {
         ethers.constants.MaxUint256,
       ],
     ], // max gas
-    true
+    true //fillwants
   );
 
   assert(successes.eq(1), "Snipe failed");
