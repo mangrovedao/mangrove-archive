@@ -173,6 +173,8 @@ contract TakerOperations_Test is HasMgvEvents {
     }
   }
 
+  event Transfer(address indexed from, address indexed to, uint value);
+
   function snipe_fillWants_zero_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     TestEvents.check(
@@ -196,6 +198,9 @@ contract TakerOperations_Test is HasMgvEvents {
         !TestUtils.hasOffer(mgv, base, quote, ofr),
         "Offer should not be in the book"
       );
+      TestEvents.expectFrom(address(quote));
+      emit Transfer(address(this), address(mgv), 0);
+      emit Transfer(address(mgv), address(mkr), 0);
     } catch {
       TestEvents.fail("Transaction should not revert");
     }
@@ -350,8 +355,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerTransferFail",
-      "testMaker/transferFail"
+      "mgv/makerTransferFail"
     );
     emit Credit(address(refusemkr), mkr_provision - penalty);
   }
@@ -409,8 +413,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerTransferFail",
-      ""
+      "mgv/makerTransferFail"
     );
     emit Credit(address(mkr), mkr_provision - penalty);
   }
@@ -453,8 +456,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerReceiveFail",
-      ""
+      "mgv/makerReceiveFail"
     );
     emit Credit(address(mkr), mkr_provision - penalty);
   }
@@ -517,8 +519,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerRevert",
-      "testMaker/revert"
+      "mgv/makerRevert"
     );
     emit Credit(address(failmkr), mkr_provision - penalty);
   }
@@ -799,8 +800,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       50 ether,
       0.5 ether,
-      "mgv/makerTransferFail",
-      ""
+      "mgv/makerTransferFail"
     );
   }
 
@@ -820,8 +820,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerRevert",
-      "testMaker/revert"
+      "mgv/makerRevert"
     );
   }
 

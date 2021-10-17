@@ -32,7 +32,9 @@ contract PermitHelper is IMaker {
     external
     override
     returns (bytes32)
-  {}
+  {
+    return "mgvOffer/proceed";
+  }
 
   function makerPosthook(ML.SingleOrder calldata, ML.OrderResult calldata)
     external

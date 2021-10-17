@@ -585,6 +585,7 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
       (success, ) = address(this).call(trade_cb);
       require(success, "makerExecute callback must work");
     }
+    return "mgvOffer/proceed";
   }
 
   function makerPosthook(

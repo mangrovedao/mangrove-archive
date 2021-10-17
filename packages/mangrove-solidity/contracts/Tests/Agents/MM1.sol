@@ -45,7 +45,9 @@ contract MM1 {
     doMakerPosthook();
   }
 
-  function makerExecute(DC.SingleOrder calldata) external {}
+  function makerExecute(DC.SingleOrder calldata) external returns (bytes32) {
+    return "mgvOffer/proceed";
+  }
 
   function makerPosthook(DC.SingleOrder calldata, DC.OrderResult calldata)
     external

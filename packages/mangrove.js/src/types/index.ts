@@ -111,6 +111,7 @@ export interface CallOptions {
   nonce?: number;
   privateKey?: string;
   mnemonic?: string;
+  signer?: any;
   mantissa?: boolean;
   blockTag?: number | string;
   // blockNumber?: string;

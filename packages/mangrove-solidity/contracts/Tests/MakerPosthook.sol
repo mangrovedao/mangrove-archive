@@ -23,6 +23,8 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
   uint _gasprice = 50; // will cover for a gasprice of 50 gwei/gas uint
   uint weiBalMaker;
   bool abort = false;
+  bool willFail = false;
+  bool makerRevert = false;
   bool called;
 
   event Execute(
@@ -50,8 +52,11 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
     returns (bytes32)
   {
     require(msg.sender == address(mgv));
-    if (abort) {
+    if (makerRevert) {
       tradeRevert("NOK");
+    }
+    if (abort) {
+      return "NOK";
     }
     emit Execute(
       msg.sender,
@@ -62,7 +67,7 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
       trade.gives
     );
     //MakerTrade.returnWithData("OK");
-    return "OK";
+    return "mgvOffer/proceed";
   }
 
   function renew_offer_at_posthook(
@@ -133,14 +138,28 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
   ) external override {
     require(msg.sender == address(mgv));
     bool success = (result.mgvData == "mgv/tradeSuccess");
-    TestEvents.eq(success, !abort, "incorrect success flag");
-    if (abort) {
-      TestEvents.eq(result.mgvData, "mgv/makerRevert", "incorrect mgvData");
+    TestEvents.eq(
+      success,
+      !(abort || makerRevert || willFail),
+      "incorrect success flag"
+    );
+    if (makerRevert) {
+      TestEvents.eq(
+        result.mgvData,
+        "mgv/makerRevert",
+        "mgvData should be makerRevert"
+      );
+    } else if (abort) {
+      TestEvents.eq(
+        result.mgvData,
+        "mgv/makerAbort",
+        "mgvData should be makerAbort"
+      );
     } else {
       TestEvents.eq(
         result.mgvData,
         bytes32("mgv/tradeSuccess"),
-        "incorrect mgvData"
+        "mgvData should be tradeSuccess"
       );
     }
     TestEvents.check(
@@ -343,8 +362,7 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
       address(tkr),
       1 ether,
       1 ether,
-      "mgv/makerRevert",
-      "NOK"
+      "mgv/makerAbort"
     );
   }
 
@@ -488,8 +506,7 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
       address(tkr),
       1 ether,
       1 ether,
-      "mgv/makerRevert",
-      "NOK"
+      "mgv/makerAbort"
     );
     emit OfferRetract(base, quote, ofr);
     emit Credit(address(this), mkr_provision - penalty);
@@ -620,11 +637,26 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
       address(tkr),
       1 ether,
       1 ether,
-      "mgv/makerRevert",
-      "NOK"
+      "mgv/makerAbort"
     );
     emit OfferRetract(base, quote, ofr);
     emit Credit(address(this), refund);
+  }
+
+  function makerRevert_is_logged_test() public {
+    ofr = mgv.newOffer(base, quote, 1 ether, 1 ether, gasreq, _gasprice, 0);
+    makerRevert = true; // maker should fail
+    bool success = tkr.take(ofr, 2 ether);
+    TestEvents.expectFrom(address(mgv));
+    emit OfferFail(
+      base,
+      quote,
+      ofr,
+      address(tkr),
+      1 ether,
+      1 ether,
+      "mgv/makerRevert"
+    );
   }
 
   function reverting_posthook(

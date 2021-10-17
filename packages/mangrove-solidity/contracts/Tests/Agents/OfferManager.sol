@@ -87,7 +87,7 @@ contract OfferManager is IMaker, ITaker {
       ][_order.offerId];
       require(owner != address(0), "Unkown owner");
       try IERC20(_order.inbound_tkn).transfer(owner, _order.gives) {
-        ret = "OfferManager/transferOK";
+        ret = "mgvOffer/proceed";
       } catch {
         ret = "transferToOwnerFail";
       }

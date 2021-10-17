@@ -84,17 +84,23 @@ export function _createSigner(options: CallOptions = {}): Signer {
     signer = provider.getSigner();
   }
 
-  if (signer && (!!options.privateKey || !!options.mnemonic)) {
+  if (
+    signer &&
+    (!!options.privateKey || !!options.mnemonic || !!options.signer)
+  ) {
     console.warn("Signing info provided will override default signer.");
   }
 
   // Add an explicit signer
-  if (options.privateKey) {
+  if (options.signer) {
+    signer = options.signer;
+    if (options.mnemonic || options.privateKey) {
+      console.warn("options.signer overrides mnemonic and privateKey.");
+    }
+  } else if (options.privateKey) {
     signer = new ethers.Wallet(options.privateKey, provider);
     if (options.mnemonic) {
-      console.warn(
-        "Both private key and mnemonic were specified. Using privateKey."
-      );
+      console.warn("options.privateKey overrides mnemonic.");
     }
   } else if (options.mnemonic) {
     signer = new ethers.Wallet(
