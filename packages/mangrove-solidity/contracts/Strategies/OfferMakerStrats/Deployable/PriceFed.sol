@@ -34,7 +34,7 @@ contract PriceFed is Defensive, AaveLender {
         new_offer_wants,
         old_gives,
         OFR_GASREQ,
-        OFR_GASPRICE,
+        0,
         0,
         order.offerId
       )

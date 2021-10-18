@@ -59,15 +59,7 @@ contract SwingingMarketMaker is CompoundTrader {
     uint offerId = offers[outbound_tkn][inbound_tkn];
     if (offerId == 0) {
       try
-        this.newOffer(
-          outbound_tkn,
-          inbound_tkn,
-          wants,
-          gives,
-          OFR_GASREQ,
-          OFR_GASPRICE,
-          0
-        )
+        this.newOffer(outbound_tkn, inbound_tkn, wants, gives, OFR_GASREQ, 0, 0)
       returns (uint id) {
         offers[outbound_tkn][inbound_tkn] = id;
         return true;
@@ -84,7 +76,7 @@ contract SwingingMarketMaker is CompoundTrader {
           gives,
           // offerId is already on the book so a good pivot
           OFR_GASREQ, // default value
-          OFR_GASPRICE, // default value
+          0, // default value
           offerId,
           offerId
         )
