@@ -73,7 +73,6 @@ type bookSubscriptionCbArgument = { ba: "asks" | "bids"; offer: Offer } & (
       takerWants: Big;
       takerGives: Big;
       mgvData: string;
-      makerData: string;
     }
   | { type: "OfferSuccess"; taker: string; takerWants: Big; takerGives: Big }
   | { type: "OfferRetract" }
@@ -206,7 +205,7 @@ export class Market {
    * `"OfferSuccess"` only): address of the taker who executed the offer as well
    * as the volumes that were requested by the taker.
    *
-   * * `mgvData`, `makerData` : extra data from mangrove and the maker
+   * * `mgvData` : extra data from mangrove and the maker
    * contract. See the [Mangrove contracts documentation](#TODO) for the list of possible status codes.
    *
    * `opts` may specify the maximum of offers to read initially, and the chunk
@@ -675,7 +674,6 @@ export class Market {
               takerWants: this[takerWants_bq].fromUnits(evt.args.takerWants),
               takerGives: this[takerGives_bq].fromUnits(evt.args.takerGives),
               mgvData: evt.args.mgvData,
-              makerData: evt.args.makerData,
             },
             semibook
           );

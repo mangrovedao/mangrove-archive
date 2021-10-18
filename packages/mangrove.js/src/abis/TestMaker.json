@@ -438,7 +438,7 @@
     "outputs": [
       {
         "internalType": "bytes32",
-        "name": "avoid_compilation_warning",
+        "name": "",
         "type": "bytes32"
       }
     ],
@@ -699,7 +699,33 @@
         "type": "bool"
       }
     ],
+    "name": "shouldAbort",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bool",
+        "name": "should",
+        "type": "bool"
+      }
+    ],
     "name": "shouldFail",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bool",
+        "name": "should",
+        "type": "bool"
+      }
+    ],
+    "name": "shouldReturnExtra",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
