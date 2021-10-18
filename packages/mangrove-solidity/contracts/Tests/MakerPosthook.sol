@@ -67,7 +67,7 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
       trade.gives
     );
     //MakerTrade.returnWithData("OK");
-    return "mgvOffer/proceed";
+    return "";
   }
 
   function renew_offer_at_posthook(

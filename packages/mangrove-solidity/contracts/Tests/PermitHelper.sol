@@ -33,7 +33,7 @@ contract PermitHelper is IMaker {
     override
     returns (bytes32)
   {
-    return "mgvOffer/proceed";
+    return "";
   }
 
   function makerPosthook(ML.SingleOrder calldata, ML.OrderResult calldata)

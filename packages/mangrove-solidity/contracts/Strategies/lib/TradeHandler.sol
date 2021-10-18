@@ -10,7 +10,7 @@ import "../../MgvLib.sol";
 
 contract TradeHandler {
   // bytes32 messages that signify success to Mangrove
-  bytes32 constant PROCEED = "mgvOffer/proceed"; // successful exec
+  bytes32 constant PROCEED = ""; // successful exec
 
   // internal bytes32 to select appropriate posthook
   bytes32 constant RENEGED = "mgvOffer/reneged";

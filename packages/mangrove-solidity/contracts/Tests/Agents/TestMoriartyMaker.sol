@@ -33,7 +33,7 @@ contract TestMoriartyMaker is IMaker, Passthrough {
       succeed = false;
     }
     if (_succeed) {
-      ret = "mgvOffer/proceed";
+      ret = "";
     } else {
       assert(false);
     }

@@ -250,7 +250,7 @@ contract Maker_basic is TestMaker {
     override
     returns (bytes32)
   {
-    return "mgvOffer/proceed";
+    return "";
     //ERC20(order.outbound_tkn).transfer({recipient: taker, amount: order.wants});
   }
 }
@@ -289,7 +289,7 @@ contract Maker_compound is TestMaker {
       amount: order.wants,
       to: address(this)
     });
-    return "mgvOffer/proceed";
+    return "";
   }
 }
 
@@ -310,7 +310,7 @@ contract Maker_callback is TestMaker {
     override
     returns (bytes32)
   {
-    return "mgvOffer/proceed";
+    return "";
     //ERC20BL(order.outbound_tkn).transfer({recipient: taker, amount: order.wants});
   }
 

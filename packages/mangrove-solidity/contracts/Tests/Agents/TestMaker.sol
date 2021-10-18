@@ -14,8 +14,7 @@ contract TestMaker is IMaker, Passthrough {
   address _base;
   address _quote;
   bool _shouldFail; // will set mgv allowance to 0
-  bool _shouldAbort; // will not return mgvOffer/proceed
-  bool _shouldReturnExtra; // will return mgvOffer/proceed/blabla
+  bool _shouldAbort; // will not return bytes32("")
   bool _shouldRevert; // will revert
   bytes32 _expectedStatus;
 
@@ -61,10 +60,6 @@ contract TestMaker is IMaker, Passthrough {
 
   function shouldAbort(bool should) external {
     _shouldAbort = should;
-  }
-
-  function shouldReturnExtra(bool should) external {
-    _shouldReturnExtra = should;
   }
 
   function approveMgv(IERC20 token, uint amount) public {
@@ -113,10 +108,8 @@ contract TestMaker is IMaker, Passthrough {
     }
     if (_shouldAbort) {
       return "abort";
-    } else if (_shouldReturnExtra) {
-      return "mgvOffer/proceed/blabla";
     } else {
-      return "mgvOffer/proceed";
+      return "";
     }
   }
 

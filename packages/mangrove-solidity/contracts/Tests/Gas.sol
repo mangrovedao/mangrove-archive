@@ -84,7 +84,7 @@ contract Gas_Test is IMaker {
     override
     returns (bytes32)
   {
-    return "mgvOffer/proceed"; // silence unused function parameter
+    return ""; // silence unused function parameter
   }
 
   function makerPosthook(

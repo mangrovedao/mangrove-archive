@@ -208,7 +208,7 @@ contract HasMgvEvents {
 
 /* # IMaker interface */
 interface IMaker {
-  /* Called upon offer execution. If the call returns normally with the first 32 bytes equal to `bytes32("mgvOffer/proceed")`, Mangrove will try to transfer funds; otherwise not. Returned data (truncated to leftmost 32 bytes) can be accessed during the call to `makerPosthook` in the `result.mgvData` field. To revert with a 32 bytes value, use something like:
+  /* Called upon offer execution. If the call returns normally with the first 32 bytes are 0, Mangrove will try to transfer funds; otherwise not. Returned data (truncated to leftmost 32 bytes) can be accessed during the call to `makerPosthook` in the `result.mgvData` field. To revert with a 32 bytes value, use something like:
      ```
      function tradeRevert(bytes32 data) internal pure {
        bytes memory revData = new bytes(32);

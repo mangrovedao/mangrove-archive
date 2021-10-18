@@ -101,13 +101,13 @@ contract OfferManager is IMaker, ITaker {
     if (!inverted) {
       try IERC20(_order.inbound_tkn).transfer(owner, _order.gives) {
         console.log("Success");
-        ret = "mgvOffer/proceed";
+        ret = "";
       } catch Error(string memory message) {
         console.log(message);
         ret = "mgvOffer/transferToOwnerFail";
       }
     } else {
-      ret = "mgvOffer/proceed";
+      ret = "";
     }
   }
 
