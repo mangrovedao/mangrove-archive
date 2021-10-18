@@ -240,7 +240,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   function snipes(
     address outbound_tkn,
     address inbound_tkn,
-    uint[4][] memory targets,
+    uint[4][] calldata targets,
     bool fillWants
   )
     external
@@ -261,7 +261,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   function generalSnipes(
     address outbound_tkn,
     address inbound_tkn,
-    uint[4][] memory targets,
+    uint[4][] calldata targets,
     bool fillWants,
     address taker
   )
@@ -318,7 +318,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   function internalSnipes(
     MultiOrder memory mor,
     ML.SingleOrder memory sor,
-    uint[4][] memory targets,
+    uint[4][] calldata targets,
     uint i
   ) internal {
     /* #### Case 1 : continuation of snipes */
