@@ -448,10 +448,10 @@ abstract contract MgvOfferTaking is MgvHasOffers {
          Conversely, if `fillWants` is false, we want the taker to give as much as they can. So if the offer does not take enough, we completely consume it. 
 
          Finally, if the offer has price 0 (`offerWants == 0`), we completely consume it. This avoids a division by 0 below where `fillWants` is false and we adjust `sor.wants`  (currently impossible to trigger a) snipes always have `fillWants == true`, and b) taking that branch under a price of 0 implies `takerGives == 0`, but market orders stop when `takerGives == 0`); it does not change the result in the other cases. */
+      /* Prices are rounded up to ensure maker is not drained on small amounts. It's economically unlikely, but `density` protects the taker from being drained anyway so it is better to default towards protecting the maker here. */
       if (
         (mor.fillWants && offerGives < takerWants) ||
-        (!mor.fillWants && offerWants < takerGives) ||
-        offerWants == 0
+        (!mor.fillWants && offerWants < takerGives)
       ) {
         sor.wants = offerGives;
         sor.gives = offerWants;
@@ -460,11 +460,19 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         /* If `fillWants` is true, we give `takerWants` to the taker and adjust how much they give based on the offer's price. Note that we round down how much the taker will give. */
         if (mor.fillWants) {
           /* **Note**: We know statically that the offer is live (`offer.gives > 0`) since market orders only traverse live offers and `internalSnipes` check for offer liveness before executing. */
-          sor.gives = (offerWants * takerWants) / offerGives;
+          uint product = offerWants * takerWants;
+          sor.gives =
+            product /
+            offerGives +
+            (product % offerGives == 0 ? 0 : 1);
           /* If `fillWants` is false, we take `takerGives` from the taker and adjust how much they get based on the offer's price. Note that we round down how much the taker will get.*/
         } else {
-          /* **Note**: We know statically by outer `else` branch that `offerWants > 0`. */
-          sor.wants = (offerGives * takerGives) / offerWants;
+          if (offerWants == 0) {
+            // implies takerGives == 0 by the outer `else` branch.
+            sor.wants = offerGives;
+          } else {
+            sor.wants = (offerGives * takerGives) / offerWants;
+          }
         }
       }
     }
