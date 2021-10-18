@@ -11,16 +11,15 @@ import "hardhat/console.sol";
 
 /// MangroveOffer is the basic building block to implement a reactive offer that interfaces with the Mangrove
 contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
-  Mangrove immutable MGV;
-  uint immutable MGV_GASMAX;
-
-  event PostHookError(address outbound_tkn, address inbound_tkn, uint offerId);
-
-  receive() external payable {}
+  Mangrove immutable MGV; // Address of the deployed Mangrove contract
 
   // default values
   uint public OFR_GASREQ = 1_000_000;
   uint public OFR_GASPRICE;
+
+  event PostHookError(address outbound_tkn, address inbound_tkn, uint offerId);
+
+  receive() external payable {}
 
   // Offer constructor (caller will be admin)
   constructor(address _MGV) {
@@ -28,13 +27,9 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
       address(0),
       address(0)
     );
-    (, , , uint __gasprice, uint __gasmax, uint __dead) = MP.global_unpack(
-      global_pack
-    );
-    require(__dead == 0, "Mangrove contract is permanently disabled"); //sanity check
+    uint dead = MP.global_unpack_dead(global_pack);
+    require(dead == 0, "Mangrove contract is permanently disabled"); //sanity check
     MGV = Mangrove(payable(_MGV));
-    MGV_GASMAX = __gasmax;
-    OFR_GASPRICE = __gasprice;
   }
 
   /// transfers token stored in `this` contract to some recipient address
@@ -44,19 +39,6 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint amount
   ) external onlyAdmin returns (bool success) {
     success = IERC20(token).transfer(recipient, amount);
-  }
-
-  // updates state variables
-  function updateGasPrice(uint gasprice) external onlyAdmin {
-    OFR_GASPRICE = gasprice;
-  }
-
-  function updateGasPrice() external onlyAdmin {
-    OFR_GASPRICE = getCurrentGasPrice(MGV);
-  }
-
-  function updateGasReq(uint gasreq) external onlyAdmin {
-    OFR_GASREQ = gasreq;
   }
 
   /// trader needs to approve the Mangrove to perform base token transfer at the end of the `makerExecute` function
@@ -93,9 +75,6 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   ) external internalOrAdmin returns (uint offerId) {
     if (gasreq == uint(-1)) {
       gasreq = OFR_GASREQ;
-    }
-    if (gasprice == uint(-1)) {
-      gasprice = OFR_GASPRICE;
     }
     return
       MGV.newOffer(

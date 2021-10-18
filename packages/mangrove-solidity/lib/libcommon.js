@@ -444,9 +444,9 @@ async function newOffer(mgv, contract, base_sym, quote_sym, wants, gives) {
     quote.address,
     wants,
     gives,
-    ethers.constants.MaxUint256,
-    ethers.constants.MaxUint256,
-    ethers.constants.MaxUint256
+    ethers.constants.MaxUint256, // use offer gasreq
+    0, // use mangrove gasprice
+    0 // use best as pivot
   );
   await offerTx.wait();
   const [offer] = await mgv.offerInfo(base.address, quote.address, offerId);
