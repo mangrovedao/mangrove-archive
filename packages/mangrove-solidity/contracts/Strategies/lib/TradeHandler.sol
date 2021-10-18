@@ -24,6 +24,8 @@ contract TradeHandler {
     string message
   );
 
+  event NotEnoughLiquidity(address token, uint amountMissing);
+
   /// @notice extracts old offer from the order that is received from the Mangrove
   function unpackOfferFromOrder(MgvLib.SingleOrder calldata order)
     internal
@@ -61,8 +63,8 @@ contract TradeHandler {
   }
 
   //queries the mangrove to get current gasprice (considered to compute bounty)
-  function getCurrentGasPrice() internal view returns (uint) {
-    (bytes32 global_pack, ) = Mangrove(MGV)._config(address(0), address(0));
+  function getCurrentGasPrice(Mangrove mgv) internal view returns (uint) {
+    (bytes32 global_pack, ) = mgv._config(address(0), address(0));
     return MP.global_unpack_gasprice(global_pack);
   }
 
