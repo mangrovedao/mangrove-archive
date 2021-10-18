@@ -154,6 +154,18 @@ contract TakerOperations_Test is HasMgvEvents {
     }
   }
 
+  function taker_cannot_drain_maker_test() public {
+    mgv.setDensity(base, quote, 0);
+    quoteT.approve(address(mgv), 1 ether);
+    uint ofr = mkr.newOffer(9, 10, 100_000, 0);
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1, 15 ether, 100_000];
+    uint oldBal = quoteT.balanceOf(address(this));
+    mgv.snipes(base, quote, targets, true);
+    uint newBal = quoteT.balanceOf(address(this));
+    TestEvents.more(oldBal, newBal, "oldBal should be strictly higher");
+  }
+
   function snipe_fillWants_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
