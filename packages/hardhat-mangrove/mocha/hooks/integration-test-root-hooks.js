@@ -37,18 +37,23 @@ exports.mochaHooks = {
       params: [],
     });
 
-    const signer = (await ethers.getSigners())[0];
+    const deployer = (await ethers.getNamedSigners()).deployer;
+    const signerAddress = await deployer.getAddress();
 
-    const account = await signer.getAddress();
+    // const account = (await await signer.getAddress();
+
+    const tester = (await ethers.getSigners())[0];
+    const testerAddress = await tester.getAddress();
+    // console.log("account address",account);
 
     const toWei = (v, u = "ether") => ethers.utils.parseUnits(v.toString(), u);
 
     const deployments = await hre.deployments.run("TestingSetup");
 
-    const mgvContract = await hre.ethers.getContract("Mangrove");
-    const mgvReader = await hre.ethers.getContract("MgvReader");
-    const TokenA = await hre.ethers.getContract("TokenA");
-    const TokenB = await hre.ethers.getContract("TokenB");
+    const mgvContract = await hre.ethers.getContract("Mangrove", deployer);
+    const mgvReader = await hre.ethers.getContract("MgvReader", deployer);
+    const TokenA = await hre.ethers.getContract("TokenA", deployer);
+    const TokenB = await hre.ethers.getContract("TokenB", deployer);
 
     await mgvContract.activate(
       TokenA.address,
@@ -67,13 +72,9 @@ exports.mochaHooks = {
       20000
     );
 
-    await TokenA.mint(account, toWei(10));
-    await TokenA.approve(mgvContract.address, toWei(1000));
+    await TokenA.mint(testerAddress, toWei(10));
 
-    await TokenB.mint(account, toWei(10));
-    await TokenB.approve(mgvContract.address, toWei(1000));
-
-    await mgvContract["fund()"]({ value: toWei(10) });
+    await TokenB.mint(testerAddress, toWei(10));
 
     await snapshot();
   },

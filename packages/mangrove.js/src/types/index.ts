@@ -118,6 +118,15 @@ export interface CallOptions {
   // id?: number;
 }
 
+export interface CreateSignerOptions {
+  provider?: Provider | string;
+  privateKey?: string;
+  mnemonic?: string;
+  signer?: any;
+  signerIndex?: number;
+  path?: string;
+}
+
 export interface Connection {
   url?: string;
 }
