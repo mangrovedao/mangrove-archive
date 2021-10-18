@@ -4,7 +4,6 @@ import "../CompoundTrader.sol";
 import "hardhat/console.sol";
 
 contract SwingingMarketMaker is CompoundTrader {
-  event NotEnoughLiquidity(address token, uint amountMissing);
   event MissingPriceConverter(address token0, address token1);
   event NotEnoughProvision(uint amount);
 
@@ -110,15 +109,6 @@ contract SwingingMarketMaker is CompoundTrader {
       inbound_tkn: token0,
       gives: offer_received
     });
-  }
-
-  function __postHookGetFailure__(MgvLib.SingleOrder calldata order)
-    internal
-    override
-  {
-    uint missing = order.wants -
-      IERC20(order.outbound_tkn).balanceOf(address(this));
-    emit NotEnoughLiquidity(order.outbound_tkn, missing);
   }
 
   function __get__(IERC20 base, uint amount)

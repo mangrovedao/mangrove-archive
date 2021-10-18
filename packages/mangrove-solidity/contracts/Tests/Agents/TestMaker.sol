@@ -13,8 +13,9 @@ contract TestMaker is IMaker, Passthrough {
   AbstractMangrove _mgv;
   address _base;
   address _quote;
-  bool _shouldFail;
-  bool _shouldRevert;
+  bool _shouldFail; // will set mgv allowance to 0
+  bool _shouldAbort; // will not return bytes32("")
+  bool _shouldRevert; // will revert
   bytes32 _expectedStatus;
 
   constructor(
@@ -57,6 +58,10 @@ contract TestMaker is IMaker, Passthrough {
     _shouldFail = should;
   }
 
+  function shouldAbort(bool should) external {
+    _shouldAbort = should;
+  }
+
   function approveMgv(IERC20 token, uint amount) public {
     token.approve(address(_mgv), amount);
   }
@@ -77,9 +82,8 @@ contract TestMaker is IMaker, Passthrough {
     public
     virtual
     override
-    returns (bytes32 avoid_compilation_warning)
+    returns (bytes32)
   {
-    avoid_compilation_warning;
     if (_shouldRevert) {
       bytes32[1] memory revert_msg = [bytes32("testMaker/revert")];
       assembly {
@@ -96,11 +100,16 @@ contract TestMaker is IMaker, Passthrough {
     );
     if (_shouldFail) {
       IERC20(order.outbound_tkn).approve(address(_mgv), 0);
-      bytes32[1] memory refuse_msg = [bytes32("testMaker/transferFail")];
-      assembly {
-        return(refuse_msg, 32)
-      }
+      // bytes32[1] memory refuse_msg = [bytes32("testMaker/transferFail")];
+      // assembly {
+      //   return(refuse_msg, 32)
+      // }
       //revert("testMaker/fail");
+    }
+    if (_shouldAbort) {
+      return "abort";
+    } else {
+      return "";
     }
   }
 

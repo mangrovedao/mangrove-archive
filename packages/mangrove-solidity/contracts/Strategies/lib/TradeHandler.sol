@@ -10,7 +10,7 @@ import "../../MgvLib.sol";
 
 contract TradeHandler {
   // bytes32 messages that signify success to Mangrove
-  bytes32 constant PROCEED = "mgvOffer/proceed"; // successful exec
+  bytes32 constant PROCEED = ""; // successful exec
 
   // internal bytes32 to select appropriate posthook
   bytes32 constant RENEGED = "mgvOffer/reneged";
@@ -23,6 +23,8 @@ contract TradeHandler {
     uint offerId,
     string message
   );
+
+  event NotEnoughLiquidity(address token, uint amountMissing);
 
   /// @notice extracts old offer from the order that is received from the Mangrove
   function unpackOfferFromOrder(MgvLib.SingleOrder calldata order)
@@ -60,21 +62,24 @@ contract TradeHandler {
       10**9);
   }
 
+  //queries the mangrove to get current gasprice (considered to compute bounty)
+  function getCurrentGasPrice(Mangrove mgv) internal view returns (uint) {
+    (bytes32 global_pack, ) = mgv._config(address(0), address(0));
+    return MP.global_unpack_gasprice(global_pack);
+  }
+
   //truncate some bytes into a byte32 word
-  function wordOfBytes(bytes memory data) internal pure returns (bytes32 w) {
+  function returnTruncatedBytes(bytes memory data)
+    internal
+    pure
+    returns (bytes32 w)
+  {
     assembly {
       w := mload(add(data, 32))
     }
   }
 
-  function bytesOfWord(bytes32 w) internal pure returns (bytes memory data) {
-    data = new bytes(32);
-    assembly {
-      mstore(add(data, 32), w)
-    }
-  }
-
-  function wordOfUint(uint x) internal pure returns (bytes32 w) {
+  function returnUint(uint x) internal pure returns (bytes32 w) {
     w = bytes32(x);
   }
 }

@@ -46,19 +46,13 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     success = IERC20(token).transfer(recipient, amount);
   }
 
-  //queries the mangrove to get current gasprice (considered to compute bounty)
-  function getCurrentGasPrice() public view returns (uint) {
-    (bytes32 global_pack, ) = Mangrove(MGV)._config(address(0), address(0));
-    return MP.global_unpack_gasprice(global_pack);
-  }
-
   // updates state variables
-  function udpateGasPrice(uint gasprice) external onlyAdmin {
+  function updateGasPrice(uint gasprice) external onlyAdmin {
     OFR_GASPRICE = gasprice;
   }
 
-  function udpateGasPrice() external onlyAdmin {
-    OFR_GASPRICE = getCurrentGasPrice();
+  function updateGasPrice() external onlyAdmin {
+    OFR_GASPRICE = getCurrentGasPrice(MGV);
   }
 
   function updateGasReq(uint gasreq) external onlyAdmin {
@@ -251,7 +245,9 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     internal
     virtual
   {
-    order; //shh
+    uint missing = order.wants -
+      IERC20(order.outbound_tkn).balanceOf(address(this));
+    emit NotEnoughLiquidity(order.outbound_tkn, missing);
   }
 
   function __postHookReneged__(MgvLib.SingleOrder calldata order)
