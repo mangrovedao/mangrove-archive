@@ -3,8 +3,6 @@ pragma abicoder v2;
 import "../lib/AccessControlled.sol";
 import "../lib/Exponential.sol";
 import "../lib/TradeHandler.sol";
-import {MgvReader as MR} from "../../periphery/MgvReader.sol";
-
 import "hardhat/console.sol";
 
 // SPDX-License-Identifier: MIT
@@ -15,9 +13,6 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
 
   // default values
   uint public OFR_GASREQ = 1_000_000;
-  uint public OFR_GASPRICE;
-
-  event PostHookError(address outbound_tkn, address inbound_tkn, uint offerId);
 
   receive() external payable {}
 
@@ -41,7 +36,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     success = IERC20(token).transfer(recipient, amount);
   }
 
-  /// trader needs to approve the Mangrove to perform base token transfer at the end of the `makerExecute` function
+  /// trader needs to approve Mangrove to let it perform outbound token transfer at the end of the `makerExecute` function
   function approveMangrove(address outbound_tkn, uint amount)
     external
     onlyAdmin
@@ -52,8 +47,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     );
   }
 
-  /// @notice withdraws ETH from the bounty vault of the Mangrove.
-  /// @notice `Mangrove.fund` function need not be called by `this` so is not included here.
+  /// withdraws ETH from the bounty vault of the Mangrove.
+  /// NB: `Mangrove.fund` function need not be called by `this` so is not included here.
   function withdraw(address receiver, uint amount)
     external
     onlyAdmin
@@ -64,32 +59,39 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     (noRevert, ) = receiver.call{value: amount}("");
   }
 
+  // Posting a new offer on the (`outbound_tkn,inbound_tkn`) Offer List of Mangrove.
+  // NB #1: Offer maker MUST:
+  // * Approve Mangrove for at least `gives` amount of `outbound_tkn`.
+  // * Make sure that offer maker has enough WEI provision on Mangrove to cover for the new offer bounty
+  // * Make sure that `gasreq` and `gives` yield a sufficient offer density
+  // NB #2: This function may revert when the above points are not met, it is thus made external only so that it can be encapsulated when called during `makerExecute`.
   function newOffer(
-    address outbound_tkn,
-    address inbound_tkn,
-    uint wants, //wants
-    uint gives, //gives
-    uint gasreq,
-    uint gasprice,
-    uint pivotId
+    address outbound_tkn, // address of the ERC20 contract managing outbound tokens
+    address inbound_tkn, // address of the ERC20 contract managing outbound tokens
+    uint wants, // amount of `inbound_tkn` required for full delivery
+    uint gives, // max amount of `outbound_tkn` promised by the offer
+    uint gasreq, // max gas required by the offer when called. If maxUint256 is used here, default `OFR_GASREQ` will be considered instead
+    uint gasprice, // gasprice that should be consider to compute the bounty (Mangrove's gasprice will be used if this value is lower)
+    uint pivotId // identifier of an offer in the (`outbound_tkn,inbound_tkn`) Offer List after which the new offer should be inserted (gas cost of insertion will increase if the `pivotId` is far from the actual position of the new offer)
   ) external internalOrAdmin returns (uint offerId) {
-    if (gasreq == uint(-1)) {
+    if (gasreq == type(uint).max) {
       gasreq = OFR_GASREQ;
     }
     return
       MGV.newOffer(
         outbound_tkn,
         inbound_tkn,
-        wants, //wants
-        gives, //gives
+        wants,
+        gives,
         gasreq,
         gasprice,
         pivotId
       );
   }
 
-  // updates an existing offer on the Mangrove. `update` will throw if offer density is no longer compatible with Mangrove's parameters
-  // `update` will also throw if user provision no longer covers for the offer's bounty. `__autoRefill__` function may be use to provide a method to refill automatically.
+  //  Updates an existing `offerId` on the Mangrove. `updateOffer` rely on the same offer requirements as `newOffer` and may throw if they are not met.
+  //  Additionally `updateOffer` will thow if `this` contract is not the owner of `offerId`.
+  //  The `__autoRefill__` hook may be overridden to provide a method to refill offer provision automatically.
   function updateOffer(
     address outbound_tkn,
     address inbound_tkn,
@@ -100,6 +102,10 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint pivotId,
     uint offerId
   ) external internalOrAdmin {
+    require(
+      __autoRefill__(outbound_tkn, inbound_tkn, gasprice, gasreq, offerId),
+      "mgvOffer/insufficientFunds"
+    );
     MGV.updateOffer(
       outbound_tkn,
       inbound_tkn,
@@ -112,18 +118,40 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     );
   }
 
+  // Retracts `offerId` from the (`outbound_tkn`,`inbound_tkn`) Offer list of Mangrove. Function call will throw if `this` contract is not the owner of `offerId`.
   function retractOffer(
     address outbound_tkn,
     address inbound_tkn,
     uint offerId,
-    bool deprovision
+    bool deprovision // if set to `true`, `this` contract will receive the remaining provision (in WEI) associated to `offerId`.
   ) external internalOrAdmin {
     MGV.retractOffer(outbound_tkn, inbound_tkn, offerId, deprovision);
   }
 
+  function getMissingProvision(
+    address outbound_tkn,
+    address inbound_tkn,
+    uint gasreq,
+    uint gasprice,
+    uint offerId
+  ) public view returns (uint) {
+    return
+      getMissingProvision(
+        MGV,
+        outbound_tkn,
+        inbound_tkn,
+        gasreq,
+        gasprice,
+        offerId
+      );
+  }
+
   /////// Mandatory callback functions
 
-  // not a virtual function to make sure it is only MGV callable
+  // `makerExecute` is the callback function to execute all offers that were posted on Mangrove by `this` contract.
+  // it may not be overriden although it can be customized using `__lastLook__`, `__put__` and `__get__` hooks.
+  // NB #1: Offer Maker SHOULD make sure the overriden hooks do not revert in order to be able to post logs in case of bad executions.
+  // NB #2: if `makerExecute` does revert, the offer will be considered to be refusing the trade.
   function makerExecute(MgvLib.SingleOrder calldata order)
     external
     override
@@ -131,41 +159,59 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     returns (bytes32)
   {
     if (!__lastLook__(order)) {
+      // hook to check order details and decide whether `this` contract should renege on the offer.
       return RENEGED;
     }
-    __put__(IERC20(order.inbound_tkn), order.gives); // specifies what to do with the received funds
-    uint missingGet = __get__(IERC20(order.outbound_tkn), order.wants); // fetches `offer_gives` amount of `outbound_tkn` token as specified by the withdraw function
+    __put__(IERC20(order.inbound_tkn), order.gives); // hook to specify what should be done with the liquidity that is flashswapped by the offer taker to `this` contract
+    uint missingGet = __get__(IERC20(order.outbound_tkn), order.wants); // hook to describe how `this` contract should make the outbound tokens available
     if (missingGet > 0) {
       return OUTOFLIQUIDITY;
     }
-    return PROCEED;
+    return bytes32(""); // proceed with trade
   }
 
-  // not a virtual function to make sure it is only MGV callable
-  // TODO deal properly with posthook selection
+  // `makerPosthook` is the callback function that is called by Mangrove *after* the offer execution.
+  // it may not be overriden although it can be customized using `__lastLook__`, `__put__` and `__get__` hooks.
+  // NB #1: Offer Maker SHOULD make sure the overriden hooks do not revert in order to be able to post logs in case of bad executions.
+  // NB #2: if `makerExecute` does revert, the offer will be considered to be refusing the trade.
   function makerPosthook(
     MgvLib.SingleOrder calldata order,
     MgvLib.OrderResult calldata result
   ) external override onlyCaller(address(MGV)) {
     if (result.mgvData == "mgv/tradeSuccess") {
       // if trade was a success
-      __postHookSuccess__(order);
+      __posthookSuccess__(order);
       return;
     }
     // if trade was cancelled by offer maker
     if (result.makerData == OUTOFLIQUIDITY) {
-      __postHookGetFailure__(order);
+      __posthookGetFailure__(order);
       return;
     }
     if (result.makerData == RENEGED) {
-      __postHookReneged__(order);
+      __posthookReneged__(order);
       return;
     }
-    __postHookFallback__(order, result);
+    __posthookFallback__(order, result);
     return;
   }
 
-  ////// Virtual functions to customize trading strategies
+  ////// Hooks
+
+  function __autoRefill__(
+    address outbound_tkn,
+    address inbound_tkn,
+    uint gasreq,
+    uint gasprice,
+    uint offerId
+  ) internal virtual returns (bool) {
+    outbound_tkn; //shh
+    inbound_tkn;
+    gasreq;
+    gasprice;
+    offerId;
+    return true;
+  }
 
   function __put__(IERC20 inbound_tkn, uint amount) internal virtual {
     /// @notice receive payment is just stored at this address
@@ -191,36 +237,14 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     return true;
   }
 
-  // Post-hook tries to repost residual offer (if any) at the same price
-  // Logs MangroveRevert if the context prevents reposting (i.e offer is not provisioned or does not comply with density requirements)
-  function __postHookSuccess__(MgvLib.SingleOrder calldata order)
+  function __posthookSuccess__(MgvLib.SingleOrder calldata order)
     internal
     virtual
   {
-    uint new_gives = MP.offer_unpack_gives(order.offer) - order.wants;
-    uint new_wants = MP.offer_unpack_wants(order.offer) - order.gives;
-    try
-      this.updateOffer(
-        order.outbound_tkn,
-        order.inbound_tkn,
-        new_wants,
-        new_gives,
-        MP.offerDetail_unpack_gasreq(order.offerDetail),
-        MP.offer_unpack_gasprice(order.offer),
-        MP.offer_unpack_next(order.offer),
-        order.offerId
-      )
-    {} catch Error(string memory message) {
-      emit MangroveRevert(
-        order.outbound_tkn,
-        order.inbound_tkn,
-        order.offerId,
-        message
-      );
-    }
+    order; // shh
   }
 
-  function __postHookGetFailure__(MgvLib.SingleOrder calldata order)
+  function __posthookGetFailure__(MgvLib.SingleOrder calldata order)
     internal
     virtual
   {
@@ -229,14 +253,14 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     emit NotEnoughLiquidity(order.outbound_tkn, missing);
   }
 
-  function __postHookReneged__(MgvLib.SingleOrder calldata order)
+  function __posthookReneged__(MgvLib.SingleOrder calldata order)
     internal
     virtual
   {
     order; //shh
   }
 
-  function __postHookFallback__(
+  function __posthookFallback__(
     MgvLib.SingleOrder calldata order,
     MgvLib.OrderResult calldata result
   ) internal virtual {

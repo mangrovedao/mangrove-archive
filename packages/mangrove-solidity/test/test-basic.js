@@ -29,19 +29,49 @@ describe("Running tests...", function () {
     await lc.activateMarket(mgv, dai.address, usdc.address);
   });
 
-  it("Trivial offer", async function () {
+  it("Basic offer", async function () {
     // Provisioning mangrove
-    const MgvOffer = await ethers.getContractFactory("MangroveOffer");
+    const MgvOffer = await ethers.getContractFactory("Basic");
+    const filter_Credit = mgv.filters.Credit();
+    mgv.on(filter_Credit, (maker, amount, event) => {
+      console.log(
+        "Crediting ",
+        maker,
+        " for ",
+        lc.formatToken(amount, 18),
+        "ethers"
+      );
+    });
 
     // deploying strat
     const makerContract = await MgvOffer.deploy(mgv.address);
-    const overrides = { value: lc.parseToken("1.0", 18) };
+    const filter_Fail = makerContract.filters.PosthookFail();
+    makerContract.on(
+      filter_Fail,
+      (outbound_tkn, inbound_tkn, offerId, message, event) => {
+        console.log("Posthook failed with ", message);
+      }
+    );
+
+    const makerWants = lc.parseToken("1000", await usdc.decimals());
+    const makerGives = lc.parseToken("1000", await dai.decimals());
+    const gasreq = await makerContract.OFR_GASREQ();
+    await mgv.setGasprice(100);
+    const bounty = await makerContract.getMissingProvision(
+      dai.address,
+      usdc.address,
+      gasreq,
+      big(0),
+      big(0)
+    );
+    const overrides = { value: bounty };
     // provision makerContract
     await mgv["fund(address)"](makerContract.address, overrides);
     // gives 1000 DAI to makerContract
     await lc.fund([
       ["DAI", "1000", makerContract.address],
       ["USDC", "1000", testSigner.address],
+      ["ETH", "2.0", makerContract.address],
     ]);
     // approve dai for Mangrove
     await makerContract.approveMangrove(
@@ -57,9 +87,12 @@ describe("Running tests...", function () {
       makerContract,
       "DAI",
       "USDC",
-      lc.parseToken("1000", await usdc.decimals()),
-      lc.parseToken("1000", await dai.decimals())
+      makerWants,
+      makerGives
     );
+
+    await mgv.setGasprice(500);
+
     const [takerGot, takerGave] = await lc.snipeSuccess(
       mgv,
       "DAI",
