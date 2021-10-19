@@ -1,8 +1,8 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import "../CompoundLender.sol";
+import "../../CompoundTrader.sol";
 
-contract SimpleCompoundRetail is CompoundLender {
+contract AdvancedCompoundRetail is CompoundTrader {
   constructor(
     address _unitroller,
     address payable _MGV,
@@ -16,11 +16,16 @@ contract SimpleCompoundRetail is CompoundLender {
     override
     returns (uint)
   {
+    // checks whether `this` contract has enough `base` token
     uint missingGet = MangroveOffer.__get__(base, amount);
+    // if not tries to fetch missing liquidity on compound using `CompoundTrader`'s strat
     return super.__get__(base, missingGet);
   }
 
   function __put__(IERC20 quote, uint amount) internal virtual override {
+    // should check here if `this` contract has enough funds in `quote` token
+    // TODO
+    // transfers the remainder on compound
     super.__put__(quote, amount);
   }
 }

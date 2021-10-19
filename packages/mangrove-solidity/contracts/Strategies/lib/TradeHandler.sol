@@ -6,18 +6,15 @@ import {MgvPack as MP} from "../../MgvPack.sol";
 import "../../Mangrove.sol";
 import "../../MgvLib.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract TradeHandler {
-  // bytes32 messages that signify success to Mangrove
-  bytes32 constant PROCEED = ""; // successful exec
-
   // internal bytes32 to select appropriate posthook
   bytes32 constant RENEGED = "mgvOffer/reneged";
   bytes32 constant OUTOFLIQUIDITY = "mgvOffer/outOfLiquidity";
 
   // to wrap potentially reverting calls to mangrove
-  event MangroveRevert(
+  event PosthookFail(
     address indexed outbound_tkn,
     address indexed inbound_tkn,
     uint offerId,
@@ -25,6 +22,7 @@ contract TradeHandler {
   );
 
   event NotEnoughLiquidity(address token, uint amountMissing);
+  event PostHookError(address outbound_tkn, address inbound_tkn, uint offerId);
 
   /// @notice extracts old offer from the order that is received from the Mangrove
   function unpackOfferFromOrder(MgvLib.SingleOrder calldata order)
@@ -41,10 +39,10 @@ contract TradeHandler {
     (, , offer_wants, offer_gives, gasprice) = MP.offer_unpack(order.offer);
   }
 
-  function getProvision(
+  function getMissingProvision(
     Mangrove mgv,
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint gasreq,
     uint gasprice
   ) internal returns (uint) {
@@ -55,11 +53,18 @@ contract TradeHandler {
     } else {
       _gp = gasprice;
     }
-    return ((gasreq +
+    uint bounty = ((gasreq +
       MP.local_unpack_overhead_gasbase(localData) +
       MP.local_unpack_offer_gasbase(localData)) *
       _gp *
       10**9);
+    uint currentProvision = 10**9 *
+      MP.offer_unpack_gasprice(offerData) *
+      (MP.offerDetail_unpack_gasreq(offerDetailData) +
+        MP.offerDetail_unpack_overhead_gasbase(offerDetailData) +
+        MP.offerDetail_unpack_offer_gasbase(offerDetailData));
+    console.log(bounty, currentProvision);
+    return (currentProvision >= bounty ? 0 : bounty - currentProvision);
   }
 
   //queries the mangrove to get current gasprice (considered to compute bounty)
