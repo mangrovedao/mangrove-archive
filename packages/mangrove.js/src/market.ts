@@ -743,7 +743,7 @@ export class Market {
     given: Bigish;
     what: "base" | "quote";
     to: "buy" | "sell";
-  }) {
+  }): { estimatedVolume: Big; givenResidue: Big } {
     const dict = {
       base: {
         buy: { offers: "asks", drainer: "gives", filler: "wants" },
@@ -768,7 +768,7 @@ export class Market {
       filling = filling.plus(filler);
       if (draining.eq(0)) break;
     }
-    return filling;
+    return { estimatedVolume: filling, givenResidue: draining };
   }
 }
 
