@@ -575,13 +575,17 @@ async function snipeFail(mgv, base_sym, quote_sym, offerId, wants, gives) {
   // console.log(receipt.gasUsed.toString());
 }
 
+function Big(x) {
+  return ethers.BigNumber.from(x);
+}
+
 //TODO density should depend on some price and take decimals into account
 async function deployMangrove() {
   const Mangrove = await ethers.getContractFactory("Mangrove");
   const MangroveReader = await ethers.getContractFactory("MgvReader");
 
-  const mgv_gasprice = 500;
-  let gasmax = 2000000;
+  const mgv_gasprice = Big(100);
+  const gasmax = Big(2000000);
   const deployer = await provider.getSigner().getAddress();
   const mgv = await Mangrove.deploy(deployer, mgv_gasprice, gasmax);
   await mgv.deployed();
@@ -754,3 +758,5 @@ exports.fund = fund;
 // ex. expectAmountOnLender(0xabcd,"compound",[["WETH",amount_w,8],["DAI",amount_dai,4]])
 // checks if user 0xabcd had amount_w (with 4 decimals precision) weth and amount_dai (with 4 decimals precision) as collateral on compoound
 exports.expectAmountOnLender = expectAmountOnLender;
+
+exports.Big = Big;
