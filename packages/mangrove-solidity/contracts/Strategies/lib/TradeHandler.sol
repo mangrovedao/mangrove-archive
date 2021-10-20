@@ -53,17 +53,16 @@ contract TradeHandler {
     } else {
       _gp = gasprice;
     }
-    uint bounty = ((gasreq +
+    uint bounty = (gasreq +
       MP.local_unpack_overhead_gasbase(localData) +
       MP.local_unpack_offer_gasbase(localData)) *
       _gp *
-      10**9);
-    uint currentProvision = 10**9 *
+      10**9; // in WEI
+    uint currentProvision = (MP.offerDetail_unpack_gasreq(offerDetailData) +
+      MP.offerDetail_unpack_overhead_gasbase(offerDetailData) +
+      MP.offerDetail_unpack_offer_gasbase(offerDetailData)) *
       MP.offer_unpack_gasprice(offerData) *
-      (MP.offerDetail_unpack_gasreq(offerDetailData) +
-        MP.offerDetail_unpack_overhead_gasbase(offerDetailData) +
-        MP.offerDetail_unpack_offer_gasbase(offerDetailData));
-    console.log(bounty, currentProvision);
+      10**9;
     return (currentProvision >= bounty ? 0 : bounty - currentProvision);
   }
 
