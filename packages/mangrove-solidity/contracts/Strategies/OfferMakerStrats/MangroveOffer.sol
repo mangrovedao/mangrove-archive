@@ -3,7 +3,7 @@ pragma abicoder v2;
 import "../lib/AccessControlled.sol";
 import "../lib/Exponential.sol";
 import "../lib/TradeHandler.sol";
-import "hardhat/console.sol";
+import "../lib/consolerr/consolerr.sol";
 
 // SPDX-License-Identifier: MIT
 
@@ -12,7 +12,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   Mangrove immutable MGV; // Address of the deployed Mangrove contract
 
   // default values
-  uint public OFR_GASREQ = 1_000_000;
+  uint public OFR_GASREQ = 600_000;
 
   receive() external payable {}
 
@@ -102,10 +102,16 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint pivotId,
     uint offerId
   ) external internalOrAdmin {
-    require(
-      __autoRefill__(outbound_tkn, inbound_tkn, gasprice, gasreq, offerId),
-      "mgvOffer/insufficientFunds"
+    uint missing = __autoRefill__(
+      outbound_tkn,
+      inbound_tkn,
+      gasreq,
+      gasprice,
+      offerId
     );
+    if (missing > 0) {
+      consolerr.errorUint("mgvOffer/insufficientFunds: ", missing);
+    }
     MGV.updateOffer(
       outbound_tkn,
       inbound_tkn,
@@ -204,18 +210,18 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint gasreq,
     uint gasprice,
     uint offerId
-  ) internal virtual returns (bool) {
+  ) internal virtual returns (uint) {
     outbound_tkn; //shh
     inbound_tkn;
     gasreq;
     gasprice;
     offerId;
-    return true;
+    return 0;
   }
 
   function __put__(IERC20 inbound_tkn, uint amount) internal virtual {
     /// @notice receive payment is just stored at this address
-    inbound_tkn;
+    inbound_tkn; //shh
     amount;
   }
 
