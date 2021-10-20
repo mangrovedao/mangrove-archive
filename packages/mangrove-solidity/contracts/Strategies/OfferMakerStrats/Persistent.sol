@@ -47,7 +47,7 @@ abstract contract Persistent is MangroveOffer {
     uint gasreq,
     uint gasprice,
     uint offerId
-  ) internal virtual override returns (bool) {
+  ) internal virtual override returns (uint) {
     uint toAdd = getMissingProvision(
       outbound_tkn,
       inbound_tkn,
@@ -57,11 +57,11 @@ abstract contract Persistent is MangroveOffer {
     );
     if (toAdd > 0) {
       try MGV.fund{value: toAdd}() {
-        return true;
+        return 0;
       } catch {
-        return false;
+        return toAdd;
       }
     }
-    return true;
+    return 0;
   }
 }

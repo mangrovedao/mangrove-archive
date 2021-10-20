@@ -6,8 +6,8 @@ const chalk = require("chalk");
 
 let testSigner = null;
 
-function big(x) {
-  return ethers.BigNumber.from(x);
+function Big(x) {
+  return lc.Big(x);
 }
 
 describe("Running tests...", function () {
@@ -32,47 +32,62 @@ describe("Running tests...", function () {
   it("Basic offer", async function () {
     // Provisioning mangrove
     const MgvOffer = await ethers.getContractFactory("Basic");
+
+    // Listenning to Credid events from Mangrove
     const filter_Credit = mgv.filters.Credit();
+    let creditEvents = 0;
     mgv.on(filter_Credit, (maker, amount, event) => {
+      creditEvents++;
       console.log(
-        "Crediting ",
+        "Crediting",
         maker,
-        " for ",
+        "for",
         lc.formatToken(amount, 18),
         "ethers"
       );
+      if (creditEvents == 2) {
+        mgv.removeAllListeners();
+      }
     });
 
     // deploying strat
     const makerContract = await MgvOffer.deploy(mgv.address);
-    const filter_Fail = makerContract.filters.PosthookFail();
-    makerContract.on(
-      filter_Fail,
-      (outbound_tkn, inbound_tkn, offerId, message, event) => {
-        console.log("Posthook failed with ", message);
-      }
-    );
+
+    // // Listening
+    // const filter_Fail = makerContract.filters.PosthookFail();
+    // makerContract.once(
+    //   filter_Fail,
+    //   (outbound_tkn, inbound_tkn, offerId, message, event) => {
+    //     console.log("Posthook failed with ", message);
+    //   }
+    // );
 
     const makerWants = lc.parseToken("1000", await usdc.decimals());
     const makerGives = lc.parseToken("1000", await dai.decimals());
     const gasreq = await makerContract.OFR_GASREQ();
-    await mgv.setGasprice(100);
+    await mgv.setGasprice(20);
     const bounty = await makerContract.getMissingProvision(
       dai.address,
       usdc.address,
       gasreq,
-      big(0),
-      big(0)
+      Big(0),
+      Big(0)
     );
     const overrides = { value: bounty };
     // provision makerContract
     await mgv["fund(address)"](makerContract.address, overrides);
-    // gives 1000 DAI to makerContract
+    // gives 1000 DAI (for offer) and 2 ETH (for refilling) to makerContract
     await lc.fund([
       ["DAI", "1000", makerContract.address],
       ["USDC", "1000", testSigner.address],
       ["ETH", "2.0", makerContract.address],
     ]);
+    // bal should be 2.0
+    let bal = await ethers.provider.getBalance(makerContract.address);
+    lc.assertEqualBN(bal, lc.parseToken("2", 18), "Incorrect balance");
+    // prov should be bounty
+    let prov = await mgv.balanceOf(makerContract.address);
+    lc.assertEqualBN(prov, bounty, "Incorrect provision");
     // approve dai for Mangrove
     await makerContract.approveMangrove(
       dai.address,
@@ -90,17 +105,30 @@ describe("Running tests...", function () {
       makerWants,
       makerGives
     );
+    // prov should now be 0.0
+    prov = await mgv.balanceOf(makerContract.address);
+    lc.assertEqualBN(prov, Big(0), "Incorrect provision");
 
-    await mgv.setGasprice(500);
+    await mgv.setGasprice(50);
+
+    // bounty2 should be higher than bounty
+    const bounty2 = await makerContract.getMissingProvision(
+      dai.address,
+      usdc.address,
+      gasreq,
+      Big(0),
+      Big(0)
+    );
 
     const [takerGot, takerGave] = await lc.snipeSuccess(
       mgv,
       "DAI",
       "USDC",
       1,
-      big(10000000000),
-      big(10000000000)
+      lc.parseToken("900", 18),
+      lc.parseToken("900", 6)
     );
+
     const balDai = await dai.balanceOf(makerContract.address);
     const balUsdc = await usdc.balanceOf(makerContract.address);
 
