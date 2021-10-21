@@ -9,19 +9,16 @@ contract AdvancedAaveRetail is AaveTrader(2) {
   {}
 
   // Tries to take base directly from `this` balance. Fetches the remainder on Aave.
-  function __get__(IERC20 base, uint amount)
+  function __get__(IERC20 outbound_tkn, uint amount)
     internal
     virtual
     override
     returns (uint)
   {
-    // checks whether `this` contract has enough `base` token
-    uint missingGet = MangroveOffer.__get__(base, amount);
-    // if not tries to fetch missing liquidity on compound using `AaveTrader`'s strat
-    return super.__get__(base, missingGet);
-  }
-
-  function __put__(IERC20 quote, uint amount) internal virtual override {
-    super.__put__(quote, amount);
+    uint missing = MangroveOffer.__get__(outbound_tkn, amount);
+    if (missing > 0) {
+      return super.__get__(outbound_tkn, missing);
+    }
+    return 0;
   }
 }
