@@ -138,7 +138,7 @@ contract HasMgvEvents {
     uint takerGives
   );
 
-  /* Log information when a trade execution reverts */
+  /* Log information when a trade execution reverts or returns a non empty bytes32 word */
   event OfferFail(
     address indexed outbound_tkn,
     address indexed inbound_tkn,
