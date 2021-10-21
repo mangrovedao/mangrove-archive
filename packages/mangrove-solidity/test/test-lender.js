@@ -2,7 +2,7 @@ const { assert } = require("chai");
 //const { parseToken } = require("ethers/lib/utils");
 const { ethers, env, mangrove, network } = require("hardhat");
 const lc = require("lib/libcommon.js");
-// const chalk = require("chalk");
+const chalk = require("chalk");
 // const config = require ("config");
 // const url = config.hardhat.networks.hardhat.forking.url;
 // const blockNumber = config.hardhat.networks.hardhat.forking.blockNumber;
@@ -20,7 +20,6 @@ async function deployStrat(strategy, mgv) {
   const Strat = await ethers.getContractFactory(strategy);
   let makerContract = null;
   let market = [null, null]; // market pair for lender
-  let oracle = null;
   let enterMarkets = true;
   switch (strategy) {
     case "SimpleCompoundRetail":
@@ -146,7 +145,7 @@ async function execLenderStrat(makerContract, mgv, lenderName) {
     "Incorrect given amount"
   );
 
-  // checking that MakerContract did put WETH on lender --allowing 5 gwei of rounding error
+  // checking that MakerContract did put WETH on lender
   await lc.expectAmountOnLender(makerContract, lenderName, [
     ["DAI", lc.parseToken("200", await lc.getDecimals("DAI")), zero, 4],
     ["WETH", takerGave, zero, 8],
@@ -330,6 +329,43 @@ describe("Deploy strategies", function () {
 
   it("Lender/borrower strat on aave", async function () {
     const makerContract = await deployStrat("AdvancedAaveRetail", mgv);
+    const filter_Fail = mgv.filters.OfferFail();
+    mgv.on(
+      filter_Fail,
+      (
+        outbound_tkn,
+        inbound_tkn,
+        offerId,
+        taker,
+        takerWants,
+        takerGives,
+        mgvData,
+        event
+      ) => {
+        console.log(
+          chalk.red(
+            `Offer ${offerId} failed with`,
+            ethers.utils.parseBytes32String(mgvData)
+          )
+        );
+      }
+    );
+    const filter_Success = mgv.filters.OfferSuccess();
+    mgv.on(
+      filter_Success,
+      (
+        outbound_tkn,
+        inbound_tkn,
+        offerId,
+        taker,
+        takerWants,
+        takerGives,
+        event
+      ) => {
+        console.log(chalk.green(`Offer ${offerId} succeeded`));
+      }
+    );
     await execTraderStrat(makerContract, mgv, "aave");
+    lc.stopListeners(mgv);
   });
 });
