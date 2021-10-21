@@ -12,7 +12,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
   Mangrove immutable MGV; // Address of the deployed Mangrove contract
 
   // default values
-  uint public OFR_GASREQ = 600_000;
+  uint public OFR_GASREQ = 1_000_000;
 
   receive() external payable {}
 
@@ -77,6 +77,16 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     if (gasreq == type(uint).max) {
       gasreq = OFR_GASREQ;
     }
+    uint missing = __autoRefill__(
+      outbound_tkn,
+      inbound_tkn,
+      gasreq,
+      gasprice,
+      0
+    );
+    if (missing > 0) {
+      consolerr.errorUint("mgvOffer/new/outOfFunds: ", missing);
+    }
     return
       MGV.newOffer(
         outbound_tkn,
@@ -110,7 +120,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
       offerId
     );
     if (missing > 0) {
-      consolerr.errorUint("mgvOffer/insufficientFunds: ", missing);
+      consolerr.errorUint("mgvOffer/update/outOfFunds: ", missing);
     }
     MGV.updateOffer(
       outbound_tkn,
@@ -134,6 +144,8 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     MGV.retractOffer(outbound_tkn, inbound_tkn, offerId, deprovision);
   }
 
+  // Returns the amount of WEI necessary to (re)provision the (re)posting of offer `offerID` in the (`outbound_tkn, inbound_tkn`) Offer List.
+  // If `OfferId` is not in the Offer List (possibly not live), the returned amount is the amount needed to post a fresh offer.
   function getMissingProvision(
     address outbound_tkn,
     address inbound_tkn,
@@ -156,30 +168,28 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
 
   // `makerExecute` is the callback function to execute all offers that were posted on Mangrove by `this` contract.
   // it may not be overriden although it can be customized using `__lastLook__`, `__put__` and `__get__` hooks.
-  // NB #1: Offer Maker SHOULD make sure the overriden hooks do not revert in order to be able to post logs in case of bad executions.
+  // NB #1: When overriding the above hooks, the Offer Maker SHOULD make sure they do not revert in order to be able to post logs in case of bad executions.
   // NB #2: if `makerExecute` does revert, the offer will be considered to be refusing the trade.
   function makerExecute(MgvLib.SingleOrder calldata order)
     external
     override
     onlyCaller(address(MGV))
-    returns (bytes32)
+    returns (bytes32 ret)
   {
     if (!__lastLook__(order)) {
       // hook to check order details and decide whether `this` contract should renege on the offer.
       return RENEGED;
     }
-    __put__(IERC20(order.inbound_tkn), order.gives); // hook to specify what should be done with the liquidity that is flashswapped by the offer taker to `this` contract
-    uint missingGet = __get__(IERC20(order.outbound_tkn), order.wants); // hook to describe how `this` contract should make the outbound tokens available
+    __put__(IERC20(order.inbound_tkn), order.gives); // implements what should be done with the liquidity that is flashswapped by the offer taker to `this` contract
+    uint missingGet = __get__(IERC20(order.outbound_tkn), order.wants); // implements how `this` contract should make the outbound tokens available
     if (missingGet > 0) {
       return OUTOFLIQUIDITY;
     }
-    return bytes32(""); // proceed with trade
   }
 
   // `makerPosthook` is the callback function that is called by Mangrove *after* the offer execution.
-  // it may not be overriden although it can be customized using `__lastLook__`, `__put__` and `__get__` hooks.
-  // NB #1: Offer Maker SHOULD make sure the overriden hooks do not revert in order to be able to post logs in case of bad executions.
-  // NB #2: if `makerExecute` does revert, the offer will be considered to be refusing the trade.
+  // It may not be overriden although it can be customized via the post-hooks `__posthookSuccess__`, `__posthookGetFailure__`, `__posthookReneged__` and `__posthookFallback__` (see below).
+  // Offer Maker SHOULD make sure the overriden posthooks do not revert in order to be able to post logs in case of bad executions.
   function makerPosthook(
     MgvLib.SingleOrder calldata order,
     MgvLib.OrderResult calldata result
@@ -189,60 +199,74 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
       __posthookSuccess__(order);
       return;
     }
-    // if trade was cancelled by offer maker
+    // if trade was aborted because of a lack of liquidity
     if (result.makerData == OUTOFLIQUIDITY) {
       __posthookGetFailure__(order);
       return;
     }
+    // if trade was reneged on during lastLook
     if (result.makerData == RENEGED) {
       __posthookReneged__(order);
       return;
     }
+    // if trade failed unexpectedly (`makerExecute` reverted or Mangrove failed to transfer the outbound tokens to the Offer Taker)
     __posthookFallback__(order, result);
     return;
   }
 
-  ////// Hooks
+  ////// Customizable hooks for Taker Order'execution
 
+  // Override this hook to let the offer refill its provision on Mangrove (provided `this` contract has enough ETH).
+  // Use this hook to increase outbound token approval for Mangrove when the Offer Maker wishes to keep it tight.
+  // return value `missingETH` should be 0 if `offerId` doesn't lack provision.
   function __autoRefill__(
     address outbound_tkn,
     address inbound_tkn,
-    uint gasreq,
-    uint gasprice,
-    uint offerId
-  ) internal virtual returns (uint) {
+    uint gasreq, // gas required by the offer to be reposted
+    uint gasprice, // gas price for the computation of the bounty
+    uint offerId // ID of the offer to be updated.
+  ) internal virtual returns (uint missingETH) {
     outbound_tkn; //shh
     inbound_tkn;
     gasreq;
     gasprice;
     offerId;
-    return 0;
   }
 
+  // Override this hook to describe where the inbound token, which are flashswapped by the Offer Taker, should go during Taker Order's execution.
+  // `amount` is the quantity of outbound tokens whose destination is to be resolved.
+  // All tokens that are not transfered to a different contract remain listed in the balance of `this` contract
   function __put__(IERC20 inbound_tkn, uint amount) internal virtual {
     /// @notice receive payment is just stored at this address
     inbound_tkn; //shh
     amount;
   }
 
+  // Override this hook to implement fetching `amount` of outbound tokens, possibly from another source than `this` contract during Taker Order's execution.
+  // For composability, return value MUST be the remaining quantity (i.e <= `amount`) of tokens remaining to be fetched.
   function __get__(IERC20 outbound_tkn, uint amount)
     internal
     virtual
     returns (uint)
   {
-    uint balance = outbound_tkn.balanceOf(address(this));
-    return (balance > amount ? 0 : amount - balance);
+    uint local = outbound_tkn.balanceOf(address(this));
+    return (local > amount ? 0 : amount - local);
   }
 
+  // Override this hook to implement a last look check during Taker Order's execution.
+  // Return value should be `true` if Taker Order is acceptable.
   function __lastLook__(MgvLib.SingleOrder calldata order)
     internal
     virtual
-    returns (bool)
+    returns (bool proceed)
   {
     order; //shh
-    return true;
+    proceed = true;
   }
 
+  ////// Customizable post-hooks.
+
+  // Override this post-hook to implement what `this` contract should do when called back after a successfully executed order.
   function __posthookSuccess__(MgvLib.SingleOrder calldata order)
     internal
     virtual
@@ -250,6 +274,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     order; // shh
   }
 
+  // Override this post-hook to implement what `this` contract should do when called back after an order that failed to be executed because of a lack of liquidity (not enough outbound tokens).
   function __posthookGetFailure__(MgvLib.SingleOrder calldata order)
     internal
     virtual
@@ -259,6 +284,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     emit NotEnoughLiquidity(order.outbound_tkn, missing);
   }
 
+  // Override this post-hook to implement what `this` contract should do when called back after an order that did not pass its last look (see `__lastLook__` hook).
   function __posthookReneged__(MgvLib.SingleOrder calldata order)
     internal
     virtual
@@ -266,11 +292,16 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     order; //shh
   }
 
+  // Override this post-hook to implement fallback behavior when Taker Order's execution failed unexpectedly. Information from Mangrove is accessible in `result.mgvData` for logging purpose.
   function __posthookFallback__(
     MgvLib.SingleOrder calldata order,
     MgvLib.OrderResult calldata result
   ) internal virtual {
-    order; //shh
-    result;
+    emit PosthookFail(
+      order.outbound_tkn,
+      order.inbound_tkn,
+      order.offerId,
+      string(bytesOfWord(result.mgvData))
+    );
   }
 }
