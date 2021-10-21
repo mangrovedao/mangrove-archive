@@ -10,22 +10,16 @@ contract AdvancedCompoundRetail is CompoundTrader {
   ) CompoundLender(_unitroller, wethAddress) MangroveOffer(_MGV) {}
 
   // Tries to take base directly from `this` balance. Fetches the remainder on Compound.
-  function __get__(IERC20 base, uint amount)
+  function __get__(IERC20 outbound_tkn, uint amount)
     internal
     virtual
     override
     returns (uint)
   {
-    // checks whether `this` contract has enough `base` token
-    uint missingGet = MangroveOffer.__get__(base, amount);
-    // if not tries to fetch missing liquidity on compound using `CompoundTrader`'s strat
-    return super.__get__(base, missingGet);
-  }
-
-  function __put__(IERC20 quote, uint amount) internal virtual override {
-    // should check here if `this` contract has enough funds in `quote` token
-    // TODO
-    // transfers the remainder on compound
-    super.__put__(quote, amount);
+    uint missing = MangroveOffer.__get__(outbound_tkn, amount);
+    if (missing > 0) {
+      return super.__get__(outbound_tkn, missing);
+    }
+    return 0;
   }
 }
