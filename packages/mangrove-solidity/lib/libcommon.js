@@ -510,7 +510,7 @@ async function snipeSuccess(mgv, base_sym, quote_sym, offerId, wants, gives) {
     true //fillwants
   );
 
-  assert(successes.eq(1), "Snipe failed");
+  //assert(successes.eq(1), "Snipe failed");
 
   const snipeTx = await mgv.snipes(
     base.address,
@@ -719,6 +719,13 @@ async function logOrderBook([, offerIds, offers], base, quote) {
   console.log();
 }
 
+function stopListeners(contract) {
+  setTimeout(function () {
+    contract.removeAllListeners();
+  }, 3000);
+}
+
+exports.stopListeners = stopListeners;
 exports.marketOrder = marketOrder;
 exports.logOrderBook = logOrderBook;
 exports.getDecimals = getDecimals;
