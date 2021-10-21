@@ -69,11 +69,15 @@ contract TradeHandler {
       MP.local_unpack_offer_gasbase(localData)) *
       _gp *
       10**9; // in WEI
-    uint currentProvision = (MP.offerDetail_unpack_gasreq(offerDetailData) +
+    uint currentProvisionLocked = (MP.offerDetail_unpack_gasreq(
+      offerDetailData
+    ) +
       MP.offerDetail_unpack_overhead_gasbase(offerDetailData) +
       MP.offerDetail_unpack_offer_gasbase(offerDetailData)) *
       MP.offer_unpack_gasprice(offerData) *
       10**9;
+    uint currentProvision = currentProvisionLocked +
+      mgv.balanceOf(address(this));
     return (currentProvision >= bounty ? 0 : bounty - currentProvision);
   }
 
@@ -84,17 +88,17 @@ contract TradeHandler {
   }
 
   //truncate some bytes into a byte32 word
-  function returnTruncatedBytes(bytes memory data)
-    internal
-    pure
-    returns (bytes32 w)
-  {
+  function truncateBytes(bytes memory data) internal pure returns (bytes32 w) {
     assembly {
       w := mload(add(data, 32))
     }
   }
 
-  function returnUint(uint x) internal pure returns (bytes32 w) {
-    w = bytes32(x);
+  function bytesOfWord(bytes32 w) internal pure returns (bytes memory) {
+    bytes memory b = new bytes(32);
+    assembly {
+      mstore(add(b, 32), w)
+    }
+    return b;
   }
 }
