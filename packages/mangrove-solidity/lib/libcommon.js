@@ -719,10 +719,16 @@ async function logOrderBook([, offerIds, offers], base, quote) {
   console.log();
 }
 
-function stopListeners(contract) {
+function _stopListeners(contract) {
   setTimeout(function () {
     contract.removeAllListeners();
   }, 3000);
+}
+
+function stopListeners(contracts) {
+  for (let contract of contracts) {
+    _stopListeners(contract);
+  }
 }
 
 exports.stopListeners = stopListeners;
