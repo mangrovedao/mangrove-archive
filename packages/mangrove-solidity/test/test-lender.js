@@ -366,6 +366,6 @@ describe("Deploy strategies", function () {
       }
     );
     await execTraderStrat(makerContract, mgv, "aave");
-    lc.stopListeners(mgv);
+    lc.stopListeners([mgv]);
   });
 });
