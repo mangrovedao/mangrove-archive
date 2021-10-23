@@ -42,6 +42,7 @@ config.hardhat = {
       ":MgvEvents$",
       ":MgvReader$",
       ":MgvCleaner$",
+      ":MgvOracle$",
       ":TestMaker$",
       ":IERC20$",
     ],

@@ -103,7 +103,7 @@ export class GasUpdater {
     );
 
     try {
-      await this.#mangrove.gasUpdaterContract.setGasPrice(
+      await this.#mangrove.oracleContract.setGasPrice(
         ethers.BigNumber.from(newGasPrice)
       );
     } catch (e) {
