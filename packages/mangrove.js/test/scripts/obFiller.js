@@ -55,6 +55,12 @@ const main = async () => {
   // const TokenA = await hre.ethers.getContract("TokenA");
   // const TokenB = await hre.ethers.getContract("TokenB");
 
+  // Setup Mangrove to use MgvOracle as oracle
+  const mgvOracle = await hre.ethers.getContract("MgvOracle");
+  mgvContract.setMonitor(mgvOracle.address);
+  mgvContract.setUseOracle(true);
+  mgvContract.setNotify(true);
+
   const activate = (base, quote) => {
     return mgvContract.activate(base, quote, 0, 10, 80000, 20000);
   };
