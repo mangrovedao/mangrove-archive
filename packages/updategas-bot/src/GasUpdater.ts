@@ -116,7 +116,7 @@ export class GasUpdater {
     }
 
     logger.info(
-      `Succesfully set Mangrove gas price. New gas price ${newGasPrice}.`
+      `Succesfully sent Mangrove gas price update to oracle: ${newGasPrice}.`
     );
   }
 }
