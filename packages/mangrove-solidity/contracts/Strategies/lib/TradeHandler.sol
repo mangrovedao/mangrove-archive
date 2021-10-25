@@ -44,9 +44,19 @@ contract TradeHandler {
     address outbound_tkn,
     address inbound_tkn,
     uint gasreq,
-    uint gasprice
+    uint gasprice,
+    uint offerId
   ) internal returns (uint) {
-    (bytes32 globalData, bytes32 localData) = mgv.config(base, quote);
+    (bytes32 globalData, bytes32 localData) = mgv.config(
+      outbound_tkn,
+      inbound_tkn
+    );
+    bytes32 offerData = mgv.offers(outbound_tkn, inbound_tkn, offerId);
+    bytes32 offerDetailData = mgv.offerDetails(
+      outbound_tkn,
+      inbound_tkn,
+      offerId
+    );
     uint _gp;
     if (MP.global_unpack_gasprice(globalData) > gasprice) {
       _gp = MP.global_unpack_gasprice(globalData);
