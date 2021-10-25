@@ -44,7 +44,6 @@ abstract contract AaveTrader is AaveLender {
     if (toBorrow == 0) {
       return amount;
     }
-
     // 3. trying to borrow missing liquidity
     try
       lendingPool.borrow(
@@ -59,6 +58,9 @@ abstract contract AaveTrader is AaveLender {
     } catch Error(string memory errorCode) {
       emit ErrorOnBorrow(address(outbound_tkn), toBorrow, errorCode);
       return amount; // unable to borrow requested amount
+    } catch {
+      emit ErrorOnBorrow(address(outbound_tkn), toBorrow, "Unexpected reason");
+      return amount;
     }
   }
 

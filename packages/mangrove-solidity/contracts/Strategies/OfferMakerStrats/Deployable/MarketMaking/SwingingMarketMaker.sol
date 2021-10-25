@@ -1,7 +1,6 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import "../CompoundTrader.sol";
-import "hardhat/console.sol";
+import "../../CompoundTrader.sol";
 
 contract SwingingMarketMaker is CompoundTrader {
   event MissingPriceConverter(address token0, address token1);
@@ -59,20 +58,12 @@ contract SwingingMarketMaker is CompoundTrader {
     uint offerId = offers[outbound_tkn][inbound_tkn];
     if (offerId == 0) {
       try
-        this.newOffer(
-          outbound_tkn,
-          inbound_tkn,
-          wants,
-          gives,
-          OFR_GASREQ,
-          OFR_GASPRICE,
-          0
-        )
+        this.newOffer(outbound_tkn, inbound_tkn, wants, gives, OFR_GASREQ, 0, 0)
       returns (uint id) {
         offers[outbound_tkn][inbound_tkn] = id;
         return true;
       } catch Error(string memory message) {
-        emit MangroveRevert(outbound_tkn, inbound_tkn, offerId, message);
+        emit PosthookFail(outbound_tkn, inbound_tkn, offerId, message);
         return false;
       }
     } else {
@@ -84,20 +75,20 @@ contract SwingingMarketMaker is CompoundTrader {
           gives,
           // offerId is already on the book so a good pivot
           OFR_GASREQ, // default value
-          OFR_GASPRICE, // default value
+          0, // default value
           offerId,
           offerId
         )
       {
         return true;
       } catch Error(string memory message) {
-        emit MangroveRevert(outbound_tkn, inbound_tkn, offerId, message);
+        emit PosthookFail(outbound_tkn, inbound_tkn, offerId, message);
         return false;
       }
     }
   }
 
-  function __postHookSuccess__(MgvLib.SingleOrder calldata order)
+  function __posthookSuccess__(MgvLib.SingleOrder calldata order)
     internal
     override
   {

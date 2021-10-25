@@ -1,8 +1,8 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
-import "../Defensive.sol";
-import "../AaveLender.sol";
+import "../../Defensive.sol";
+import "../../AaveLender.sol";
 
 //import "hardhat/console.sol";
 
@@ -16,7 +16,7 @@ contract PriceFed is Defensive, AaveLender {
   event Slippage(uint indexed offerId, uint old_wants, uint new_wants);
 
   // reposts only if offer was reneged due to a price slippage
-  function __postHookReneged__(MgvLib.SingleOrder calldata order)
+  function __posthookReneged__(MgvLib.SingleOrder calldata order)
     internal
     override
   {
@@ -34,12 +34,12 @@ contract PriceFed is Defensive, AaveLender {
         new_offer_wants,
         old_gives,
         OFR_GASREQ,
-        OFR_GASPRICE,
+        0,
         0,
         order.offerId
       )
     {} catch Error(string memory message) {
-      emit MangroveRevert(
+      emit PosthookFail(
         order.outbound_tkn,
         order.inbound_tkn,
         order.offerId,

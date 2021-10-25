@@ -444,9 +444,9 @@ async function newOffer(mgv, contract, base_sym, quote_sym, wants, gives) {
     quote.address,
     wants,
     gives,
-    ethers.constants.MaxUint256,
-    ethers.constants.MaxUint256,
-    ethers.constants.MaxUint256
+    ethers.constants.MaxUint256, // use offer gasreq
+    0, // use mangrove gasprice
+    0 // use best as pivot
   );
   await offerTx.wait();
   const [offer] = await mgv.offerInfo(base.address, quote.address, offerId);
@@ -510,7 +510,7 @@ async function snipeSuccess(mgv, base_sym, quote_sym, offerId, wants, gives) {
     true //fillwants
   );
 
-  assert(successes.eq(1), "Snipe failed");
+  //assert(successes.eq(1), "Snipe failed");
 
   const snipeTx = await mgv.snipes(
     base.address,
@@ -575,13 +575,17 @@ async function snipeFail(mgv, base_sym, quote_sym, offerId, wants, gives) {
   // console.log(receipt.gasUsed.toString());
 }
 
+function Big(x) {
+  return ethers.BigNumber.from(x);
+}
+
 //TODO density should depend on some price and take decimals into account
 async function deployMangrove() {
   const Mangrove = await ethers.getContractFactory("Mangrove");
   const MangroveReader = await ethers.getContractFactory("MgvReader");
 
-  const mgv_gasprice = 500;
-  let gasmax = 2000000;
+  const mgv_gasprice = Big(100);
+  const gasmax = Big(2000000);
   const deployer = await provider.getSigner().getAddress();
   const mgv = await Mangrove.deploy(deployer, mgv_gasprice, gasmax);
   await mgv.deployed();
@@ -715,6 +719,19 @@ async function logOrderBook([, offerIds, offers], base, quote) {
   console.log();
 }
 
+function _stopListeners(contract) {
+  setTimeout(function () {
+    contract.removeAllListeners();
+  }, 3000);
+}
+
+function stopListeners(contracts) {
+  for (let contract of contracts) {
+    _stopListeners(contract);
+  }
+}
+
+exports.stopListeners = stopListeners;
 exports.marketOrder = marketOrder;
 exports.logOrderBook = logOrderBook;
 exports.getDecimals = getDecimals;
@@ -754,3 +771,5 @@ exports.fund = fund;
 // ex. expectAmountOnLender(0xabcd,"compound",[["WETH",amount_w,8],["DAI",amount_dai,4]])
 // checks if user 0xabcd had amount_w (with 4 decimals precision) weth and amount_dai (with 4 decimals precision) as collateral on compoound
 exports.expectAmountOnLender = expectAmountOnLender;
+
+exports.Big = Big;
