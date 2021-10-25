@@ -70,7 +70,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     ML.SingleOrder memory sor;
     sor.outbound_tkn = outbound_tkn;
     sor.inbound_tkn = inbound_tkn;
-    (sor.global, sor.local) = _config(outbound_tkn, inbound_tkn);
+    (sor.global, sor.local) = config(outbound_tkn, inbound_tkn);
     /* Throughout the execution of the market order, the `sor`'s offer id and other parameters will change. We start with the current best offer id (0 if the book is empty). */
     sor.offerId = $$(local_best("sor.local"));
     sor.offer = offers[outbound_tkn][inbound_tkn][sor.offerId];
@@ -275,7 +275,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     ML.SingleOrder memory sor;
     sor.outbound_tkn = outbound_tkn;
     sor.inbound_tkn = inbound_tkn;
-    (sor.global, sor.local) = _config(outbound_tkn, inbound_tkn);
+    (sor.global, sor.local) = config(outbound_tkn, inbound_tkn);
 
     MultiOrder memory mor;
     mor.taker = taker;

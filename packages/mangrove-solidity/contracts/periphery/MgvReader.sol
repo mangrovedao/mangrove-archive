@@ -137,7 +137,7 @@ contract MgvReader {
     uint ofr_gasreq,
     uint ofr_gasprice
   ) external view returns (uint) {
-    (bytes32 global, bytes32 local) = mgv._config(outbound_tkn, inbound_tkn);
+    (bytes32 global, bytes32 local) = mgv.config(outbound_tkn, inbound_tkn);
     uint _gp;
     uint global_gasprice = MP.global_unpack_gasprice(global);
     if (global_gasprice > ofr_gasprice) {
@@ -151,5 +151,34 @@ contract MgvReader {
         MP.local_unpack_offer_gasbase(local)) *
       _gp *
       10**9;
+  }
+
+  /* Returns the configuration in an ABI-compatible struct. Should not be called internally, would be a huge memory copying waste. Use `config` instead. */
+  function config(address outbound_tkn, address inbound_tkn)
+    external
+    view
+    returns (ML.Global memory, ML.Local memory)
+  {
+    (bytes32 _global, bytes32 _local) = mgv.config(outbound_tkn, inbound_tkn);
+    return (
+      ML.Global({
+        monitor: $$(global_monitor("_global")),
+        useOracle: $$(global_useOracle("_global")) > 0,
+        notify: $$(global_notify("_global")) > 0,
+        gasprice: $$(global_gasprice("_global")),
+        gasmax: $$(global_gasmax("_global")),
+        dead: $$(global_dead("_global")) > 0
+      }),
+      ML.Local({
+        active: $$(local_active("_local")) > 0,
+        overhead_gasbase: $$(local_overhead_gasbase("_local")),
+        offer_gasbase: $$(local_offer_gasbase("_local")),
+        fee: $$(local_fee("_local")),
+        density: $$(local_density("_local")),
+        best: $$(local_best("_local")),
+        lock: $$(local_lock("_local")) > 0,
+        last: $$(local_last("_local"))
+      })
+    );
   }
 }
