@@ -257,7 +257,7 @@ export class MarketCleaner {
     return [
       inboundToken.address,
       outboundToken.address,
-      [[offer.id, 0, maxWants, maxGasReq]],
+      [[offer.id, 0, 0, maxGasReq]], // (offer id, taker wants, taker gives, gas requirement)
       false,
     ];
   }
