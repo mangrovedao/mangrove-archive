@@ -821,7 +821,7 @@ const getNext = ({ offers, best }: semibook, offerId: number) => {
         "Trying to get next of an offer absent from local orderbook copy"
       );
     } else {
-      return offers.get(offerId).next;
+      return offers.get(offerId).next || 0;
     }
   }
 };
