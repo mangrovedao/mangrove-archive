@@ -14,7 +14,7 @@ import { MgvToken } from "./mgvtoken";
 let canConstructMarket = false;
 
 const DEFAULT_MAX_OFFERS = 50;
-const MAX_MARKET_ORDER_GAS = 1500000;
+const MAX_MARKET_ORDER_GAS = 6500000;
 
 /* Note on big.js:
 ethers.js's BigNumber (actually BN.js) only handles integers
@@ -718,7 +718,9 @@ export class Market {
   async estimateGas(bs: "buy" | "sell", volume: BigNumber): Promise<BigNumber> {
     const rawConfig = await this.rawConfig();
     const ba = bs === "buy" ? "asks" : "bids";
-    const estimation = volume.div(rawConfig[ba].local.density);
+    const estimation = rawConfig[ba].local.overhead_gasbase.add(
+      volume.div(rawConfig[ba].local.density)
+    );
     if (estimation.gt(MAX_MARKET_ORDER_GAS)) {
       return BigNumber.from(MAX_MARKET_ORDER_GAS);
     } else {
