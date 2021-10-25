@@ -45,19 +45,27 @@ exports.mochaHooks = {
       params: [],
     });
 
-    const signer = (await ethers.getSigners())[0];
+    const deployer = (await ethers.getNamedSigners()).deployer;
+    const signerAddress = await deployer.getAddress();
 
-    const account = await signer.getAddress();
+    // const account = (await await signer.getAddress();
+
+    const tester = (await ethers.getSigners())[0];
+    const testerAddress = await tester.getAddress();
+    // console.log("account address",account);
 
     const toWei = (v, u = "ether") => ethers.utils.parseUnits(v.toString(), u);
 
     const deployments = await hre.deployments.run("TestingSetup");
 
-    const mgvContract = await hre.ethers.getContract("Mangrove");
-    const mgvReader = await hre.ethers.getContract("MgvReader");
-    const TokenA = await hre.ethers.getContract("TokenA");
-    const TokenB = await hre.ethers.getContract("TokenB");
-    const testMakerContract = await hre.ethers.getContract("TestMaker");
+    const mgvContract = await hre.ethers.getContract("Mangrove", deployer);
+    const mgvReader = await hre.ethers.getContract("MgvReader", deployer);
+    const TokenA = await hre.ethers.getContract("TokenA", deployer);
+    const TokenB = await hre.ethers.getContract("TokenB", deployer);
+    const testMakerContract = await hre.ethers.getContract(
+      "TestMaker",
+      deployer
+    );
 
     await awaitTransaction(
       mgvContract.activate(TokenA.address, TokenB.address, 0, 10, 80000, 20000)
@@ -66,13 +74,10 @@ exports.mochaHooks = {
       mgvContract.activate(TokenB.address, TokenA.address, 0, 10, 80000, 20000)
     );
 
-    await awaitTransaction(TokenA.mint(account, toWei(10)));
-    await awaitTransaction(TokenA.approve(mgvContract.address, toWei(1000)));
+    await TokenA.mint(testerAddress, toWei(10));
 
-    await awaitTransaction(TokenB.mint(account, toWei(10)));
-    await awaitTransaction(TokenB.approve(mgvContract.address, toWei(1000)));
+    await TokenB.mint(testerAddress, toWei(10));
 
-    await awaitTransaction(mgvContract["fund()"]({ value: toWei(10) }));
     await awaitTransaction(
       mgvContract["fund(address)"](testMakerContract.address, {
         value: toWei(10),

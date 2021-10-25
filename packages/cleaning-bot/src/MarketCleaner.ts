@@ -5,6 +5,7 @@ import { Provider } from "@ethersproject/providers";
 import { Signer, BigNumber, BigNumberish } from "ethers";
 import { BookSide } from "./mangrove-js-type-aliases";
 import Big from "big.js";
+
 Big.DP = 20; // precision when dividing
 Big.RM = Big.roundHalfUp; // round to nearest
 
@@ -29,6 +30,7 @@ export class MarketCleaner {
   constructor(market: Market, provider: Provider) {
     this.#market = market;
     this.#provider = provider;
+
     this.#isCleaning = false;
   }
 
@@ -42,6 +44,7 @@ export class MarketCleaner {
           quote: this.#market.quote.name,
         }
       );
+
       return;
     }
     this.#isCleaning = true;
@@ -68,6 +71,7 @@ export class MarketCleaner {
     logger.info(`Order book retrieved`, {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
+
       data: {
         asksCount: asks.length,
         bidsCount: bids.length,
@@ -88,6 +92,7 @@ export class MarketCleaner {
   async #cleanOfferList(
     offerList: Offer[],
     bookSide: BookSide,
+
     gasPrice: Big,
     minerTipPerGas: Big
   ) {
@@ -196,6 +201,7 @@ export class MarketCleaner {
       bookSide: bookSide,
       offer: offer,
     });
+
     return true;
   }
 
@@ -211,6 +217,7 @@ export class MarketCleaner {
       bookSide: bookSide,
       offer: offer,
     });
+
     try {
       // FIXME move to mangrove.js API
       const collectTx = await this.#market.mgv.cleanerContract.collect(

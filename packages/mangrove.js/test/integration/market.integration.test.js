@@ -8,6 +8,9 @@ const { Mangrove } = require("../../src");
 const helpers = require("../util/helpers");
 
 const { Big } = require("big.js");
+
+const toWei = (v, u = "ether") => ethers.utils.parseUnits(v.toString(), u);
+
 //pretty-print when using console.log
 Big.prototype[Symbol.for("nodejs.util.inspect.custom")] = function () {
   return `<Big>${this.toString()}`; // previously just Big.prototype.toString;
@@ -19,12 +22,20 @@ describe("Market integration tests suite", () => {
   beforeEach(async function () {
     //set mgv object
     mgv = await Mangrove.connect({
-      provider: this.test?.parent?.parent?.ctx.provider,
+      provider: "http://localhost:8546",
     });
 
     //shorten polling for faster tests
     mgv._provider.pollingInterval = 250;
+    await mgv.contract["fund()"]({ value: toWei(10) });
+
+    const tokenA = mgv.token("TokenA");
+    const tokenB = mgv.token("TokenB");
+
+    await tokenA.approveMgv(1000);
+    await tokenB.approveMgv(1000);
   });
+  before(async function () {});
 
   afterEach(async () => {
     mgv.disconnect();
@@ -116,9 +127,18 @@ describe("Market integration tests suite", () => {
   });
 
   it("gets config", async function () {
+    const mgvAsAdmin = await Mangrove.connect({
+      provider: "http://localhost:8546",
+      signerIndex: 1, // deployer index in hardhat.config
+    });
+
     const fee = 13;
     const market = await mgv.market({ base: "TokenA", quote: "TokenB" });
-    await mgv.contract.setFee(market.base.address, market.quote.address, fee);
+    await mgvAsAdmin.contract.setFee(
+      market.base.address,
+      market.quote.address,
+      fee
+    );
 
     const config = await market.config();
     assert.strictEqual(config.asks.fee, fee, "wrong fee");

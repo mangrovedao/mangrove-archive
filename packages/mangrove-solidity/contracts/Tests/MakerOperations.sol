@@ -135,6 +135,7 @@ contract MakerOperations_Test is IMaker, HasMgvEvents {
       0.05 ether,
       "wrong quote balance"
     );
+    return "";
   }
 
   function makerPosthook(
@@ -204,7 +205,17 @@ contract MakerOperations_Test is IMaker, HasMgvEvents {
     tkr.take(ofr, 0.1 ether); // fails but we don't care
 
     TestEvents.expectFrom(address(mgv));
-    emit PosthookFail(_base, _quote, ofr, "posthookFail");
+    emit PosthookFail(_base, _quote, ofr);
+  }
+
+  function badReturn_fails_test() public {
+    mkr.provisionMgv(1 ether);
+    uint ofr = mkr.newOffer(1 ether, 1 ether, 50000, 0);
+
+    mkr.shouldAbort(true);
+    bool success = tkr.take(ofr, 0.1 ether);
+    TestEvents.check(!success, "take should fail");
+    mkr.expect("abort");
   }
 
   function delete_restores_balance_test() public {

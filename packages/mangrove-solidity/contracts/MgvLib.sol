@@ -138,7 +138,7 @@ contract HasMgvEvents {
     uint takerGives
   );
 
-  /* Log information when a trade execution reverts */
+  /* Log information when a trade execution reverts or returns a non empty bytes32 word */
   event OfferFail(
     address indexed outbound_tkn,
     address indexed inbound_tkn,
@@ -147,17 +147,15 @@ contract HasMgvEvents {
     address taker,
     uint takerWants,
     uint takerGives,
-    // `mgvData` may only be `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"`
-    bytes32 mgvData,
-    bytes32 makerData
+    // `mgvData` may only be `"mgv/makerRevert"`, `"mgv/makerAbort"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"`
+    bytes32 mgvData
   );
 
   /* Log information when a posthook reverts */
   event PosthookFail(
     address indexed outbound_tkn,
     address indexed inbound_tkn,
-    uint offerId,
-    bytes32 makerData
+    uint offerId
   );
 
   /* * After `permit` and `approve` */
@@ -210,7 +208,7 @@ contract HasMgvEvents {
 
 /* # IMaker interface */
 interface IMaker {
-  /* Called upon offer execution. If this function reverts, Mangrove will not try to transfer funds. Returned data (truncated to leftmost 32 bytes) can be accessed during the call to `makerPosthook` in the `result.mgvData` field. To revert with a 32 bytes value, use something like:
+  /* Called upon offer execution. If the call returns normally with the first 32 bytes are 0, Mangrove will try to transfer funds; otherwise not. Returned data (truncated to leftmost 32 bytes) can be accessed during the call to `makerPosthook` in the `result.mgvData` field. To revert with a 32 bytes value, use something like:
      ```
      function tradeRevert(bytes32 data) internal pure {
        bytes memory revData = new bytes(32);

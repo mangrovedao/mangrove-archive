@@ -113,10 +113,20 @@ export interface CallOptions {
   privateKey?: string;
   mnemonic?: string;
   path?: string;
+  signer?: any;
   mantissa?: boolean;
   blockTag?: number | string;
   // blockNumber?: string;
   // id?: number;
+}
+
+export interface CreateSignerOptions {
+  provider?: Provider | string;
+  privateKey?: string;
+  mnemonic?: string;
+  signer?: any;
+  signerIndex?: number;
+  path?: string;
 }
 
 export interface Connection {

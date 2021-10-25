@@ -71,21 +71,22 @@ async function execPriceFedStrat(makerContract, mgv, lenderName) {
     "DAI", // maker base
     "WETH", // maker quote
     offerId,
-    lc.parseToken("1000.0", await lc.getDecimals("DAI")),
-    lc.parseToken("0.3334", await lc.getDecimals("WETH"))
+    lc.parseToken("900.0", await lc.getDecimals("DAI")),
+    lc.parseToken("0.36", await lc.getDecimals("WETH"))
   );
 
   lc.assertEqualBN(
     takerGot,
-    lc.netOf(lc.parseToken("1000.0", await lc.getDecimals("DAI")), fee),
+    lc.netOf(lc.parseToken("900.0", await lc.getDecimals("DAI")), fee),
     "Incorrect received amount"
   );
 
   await lc.logLenderStatus(makerContract, lenderName, ["DAI", "WETH"]);
   const zero = lc.parseToken("0.0", 1);
+  const hundred = lc.parseToken("100", 18);
   await lc.expectAmountOnLender(makerContract, lenderName, [
-    ["DAI", zero, zero, 4], // no DAI remaining
-    ["WETH", takerGave, zero, 8], // should have received 0.3334 WETH
+    ["DAI", hundred, zero, 4], // 100 DAI remaining
+    ["WETH", takerGave, zero, 8], // should have received takerGave WETH
   ]);
 }
 

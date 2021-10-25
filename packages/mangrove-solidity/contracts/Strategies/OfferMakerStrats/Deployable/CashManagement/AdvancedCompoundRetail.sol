@@ -1,8 +1,8 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import "../CompoundLender.sol";
+import "../../CompoundTrader.sol";
 
-contract SimpleCompoundRetail is CompoundLender {
+contract AdvancedCompoundRetail is CompoundTrader {
   constructor(
     address _unitroller,
     address payable _MGV,
@@ -10,17 +10,16 @@ contract SimpleCompoundRetail is CompoundLender {
   ) CompoundLender(_unitroller, wethAddress) MangroveOffer(_MGV) {}
 
   // Tries to take base directly from `this` balance. Fetches the remainder on Compound.
-  function __get__(IERC20 base, uint amount)
+  function __get__(IERC20 outbound_tkn, uint amount)
     internal
     virtual
     override
     returns (uint)
   {
-    uint missingGet = MangroveOffer.__get__(base, amount);
-    return super.__get__(base, missingGet);
-  }
-
-  function __put__(IERC20 quote, uint amount) internal virtual override {
-    super.__put__(quote, amount);
+    uint missing = MangroveOffer.__get__(outbound_tkn, amount);
+    if (missing > 0) {
+      return super.__get__(outbound_tkn, missing);
+    }
+    return 0;
   }
 }

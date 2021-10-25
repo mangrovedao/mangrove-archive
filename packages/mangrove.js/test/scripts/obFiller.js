@@ -38,20 +38,25 @@ const main = async () => {
   //   [],
   // );
 
-  const deployer = (await hre.getNamedAccounts()).deployer;
+  // const deployer = (await hre.getNamedAccounts()).deployer;
+  const deployer = (await hre.ethers.getSigners())[1];
   const deployments = await hre.deployments.run("TestingSetup");
   // const params = await (require("@giry/mangrove-solidity/lib/testDeploymentParams")());
 
-  const signer = (await hre.ethers.getSigners())[0];
-  const user = await signer.getAddress();
+  const user = (await hre.ethers.getSigners())[0];
+  // const signer = (await hre.ethers.getSigners())[1];
+  // const user = await signer.getAddress();
 
   // console.log(await hre.deployments.deterministic("Mangrove",{
   //   from: deployer,
   //   args: [1 /*gasprice*/, 500000 /*gasmax*/],
   // }));
-  const mgv = await Mangrove.connect(`http://${host.name}:${host.port}`);
-  const mgvContract = await hre.ethers.getContract("Mangrove");
-  const mgvReader = await hre.ethers.getContract("MgvReader");
+  const mgv = await Mangrove.connect({
+    signer: deployer,
+    provider: `http://${host.name}:${host.port}`,
+  });
+  const mgvContract = await hre.ethers.getContract("Mangrove", deployer);
+  const mgvReader = await hre.ethers.getContract("MgvReader", deployer);
   // const TokenA = await hre.ethers.getContract("TokenA");
   // const TokenB = await hre.ethers.getContract("TokenB");
 
@@ -59,8 +64,13 @@ const main = async () => {
     return mgvContract.activate(base, quote, 0, 10, 80000, 20000);
   };
 
+  const userA = await user.getAddress();
+  console.log("user", userA);
+  const deployerA = await deployer.getAddress();
+  console.log("deployer", deployerA);
+
   const approve = (tkn) => {
-    tkn.contract.mint(user, mgv.toUnits(tkn.amount, tkn.name));
+    tkn.contract.mint(userA, mgv.toUnits(tkn.amount, tkn.name));
   };
 
   // await activate(TokenA.address,TokenB.address);
@@ -72,7 +82,8 @@ const main = async () => {
     { name: "USDC", amount: 10_000 },
   ];
 
-  for (const t of tkns) t.contract = await hre.ethers.getContract(t.name);
+  for (const t of tkns)
+    t.contract = await hre.ethers.getContract(t.name, deployer);
 
   for (const tkn1 of tkns) {
     await approve(tkn1);
@@ -85,11 +96,14 @@ const main = async () => {
 
   const toWei = (v, u = "ether") =>
     hre.ethers.utils.parseUnits(v.toString(), u);
-  console.log("User/admin");
-  console.log(user);
+  console.log("Deployer");
+  console.log(await deployer.getAddress());
+  console.log();
+  console.log("User");
+  console.log(userA);
   console.log("");
 
-  const signer2 = provider.getSigner();
+  // const signer2 = provider.getSigner();
   // console.log("user2", await signer2.getAddress());
 
   // const signer = (await hre.ethers.getSigners())[0];
@@ -113,6 +127,7 @@ const main = async () => {
         0
       );
     } catch (e) {
+      console.log(e);
       console.warn(
         `Posting offer failed - base=${base}, quote=${quote}, wants=${wants}, gives=${gives}, gasreq=${gasreq}, gasprice=${gasprice}`
       );
