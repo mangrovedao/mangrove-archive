@@ -178,10 +178,8 @@ contract TestMaker is IMaker, Passthrough {
     uint gasreq,
     uint pivotId,
     uint offerId
-  ) public returns (uint) {
-    return (
-      _mgv.updateOffer(_base, _quote, wants, gives, gasreq, 0, pivotId, offerId)
-    );
+  ) public {
+    _mgv.updateOffer(_base, _quote, wants, gives, gasreq, 0, pivotId, offerId);
   }
 
   function retractOffer(uint offerId) public {
