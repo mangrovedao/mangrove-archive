@@ -452,7 +452,7 @@ async function newOffer(mgv, contract, base_sym, quote_sym, wants, gives) {
   const [offer] = await mgv.offerInfo(base.address, quote.address, offerId);
   assertEqualBN(offer.wants, wants, "Offer not correctly inserted (wants)");
   assertEqualBN(offer.gives, gives, "Offer not correctly inserted (gives)");
-  const book = await mgv.reader.book(base.address, quote.address, 0, 2);
+  const book = await mgv.reader.offerList(base.address, quote.address, 0, 2);
   await logOrderBook(book, base, quote);
 
   return offerId;
@@ -529,7 +529,7 @@ async function snipeSuccess(mgv, base_sym, quote_sym, offerId, wants, gives) {
     chalk.red(formatToken(gives, await getDecimals(quote_sym)) + quote_sym),
     "]\n"
   );
-  const book = await mgv.reader.book(base.address, quote.address, 0, 2);
+  const book = await mgv.reader.offerList(base.address, quote.address, 0, 2);
   await logOrderBook(book, base, quote);
   return [takerGot, takerGave];
 }
@@ -570,7 +570,7 @@ async function snipeFail(mgv, base_sym, quote_sym, offerId, wants, gives) {
     "]\n"
   );
   await snipeTx.wait(0);
-  const book = await mgv.reader.book(base.address, quote.address, 0, 2);
+  const book = await mgv.reader.offerList(base.address, quote.address, 0, 2);
   await logOrderBook(book, base, quote);
   // console.log(receipt.gasUsed.toString());
 }

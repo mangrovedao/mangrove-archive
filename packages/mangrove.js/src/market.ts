@@ -465,10 +465,10 @@ export class Market {
     let offerIds = [],
       offers = [],
       details = [];
-    await this.mgv.contract.config(this.mgv._address, this.mgv._address);
+    await this.mgv.readerContract.config(this.mgv._address, this.mgv._address);
     do {
       const [_nextId, _offerIds, _offers, _details] =
-        await this.mgv.readerContract.book(
+        await this.mgv.readerContract.offerList(
           base_a,
           quote_a,
           opts.fromId,
