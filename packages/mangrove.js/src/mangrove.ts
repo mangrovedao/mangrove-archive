@@ -207,7 +207,7 @@ export class Mangrove {
    */
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   async config(): Promise<globalConfig> {
-    const config = await this.contract.config(
+    const config = await this.readerContract.config(
       ethers.constants.AddressZero,
       ethers.constants.AddressZero
     );
