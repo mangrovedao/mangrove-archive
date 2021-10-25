@@ -316,11 +316,11 @@ export class Market {
    * fee *remains* in basis points of the token being bought
    */
   async rawConfig(): Promise<{ asks: rawConfig; bids: rawConfig }> {
-    const rawAskConfig = await this.mgv.contract.config(
+    const rawAskConfig = await this.mgv.readerContract.config(
       this.base.address,
       this.quote.address
     );
-    const rawBidsConfig = await this.mgv.contract.config(
+    const rawBidsConfig = await this.mgv.readerContract.config(
       this.quote.address,
       this.base.address
     );
