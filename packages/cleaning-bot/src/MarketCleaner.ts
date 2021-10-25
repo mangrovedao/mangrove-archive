@@ -44,7 +44,6 @@ export class MarketCleaner {
       logger.debug(`Already cleaning so skipping block number ${blockNumber}`, {
         base: this.#market.base.name,
         quote: this.#market.quote.name,
-
       });
       return;
     }
@@ -236,7 +235,6 @@ export class MarketCleaner {
     });
     */
     return true;
-    
   }
 
   // TODO How do source liquidity for the snipes?
@@ -245,7 +243,7 @@ export class MarketCleaner {
   //  - The cleaner contract would have to implement the sourcing strategy
   //  - We don't want to do that in V0.
   async #snipeOffer(offer: Offer, bookSide: BookSide) {
-        /* Temporarily disable those tests
+    /* Temporarily disable those tests
 
     logger.debug(`Sniping offer ${offer.id} from ${bookSide} on market`, {
       base: this.#market.base.name,

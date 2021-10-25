@@ -7,121 +7,59 @@ const seed =
 console.log(`random seed: ${seed}`);
 const rng = require("seedrandom")(seed);
 
+const _argv = require('minimist')(process.argv.slice(2));
+const opts = {
+  url: _argv.url || null,
+  port: _argv.port || 8546,
+  logging: _argv.logging || false,
+}
+
 const main = async () => {
-  console.log("Mnemonic:");
-  console.log(hre.config.networks.hardhat.accounts.mnemonic);
-  console.log("");
-  const { Mangrove } = require("../../src");
 
-  const host = {
-    name: "localhost",
-    port: 8546,
-  };
+  const _url = opts.url || `http://localhost:${opts.port}`;
 
-  const server = await hardhatUtils.hreServer({
-    hostname: host.name,
-    port: host.port,
-    provider: hre.network.provider,
-  });
+  console.log(`${opts.url ? 'Connecting' : 'Starting'} RPC node on ${_url}`);
 
-  const provider = new hre.ethers.providers.JsonRpcProvider(
-    `http://${host.name}:${host.port}`
-  );
-
-  console.log("RPC node");
-  console.log(`http://${host.name}:${host.port}`);
-  console.log("");
-
-  // console.log(provider);
-  // await provider.send(
-  //   "hardhat_reset",
-  //   [],
-  // );
-
-  // const deployer = (await hre.getNamedAccounts()).deployer;
-  const deployer = (await hre.ethers.getSigners())[1];
-  const deployments = await hre.deployments.run("TestingSetup");
-  // const params = await (require("@giry/mangrove-solidity/lib/testDeploymentParams")());
-
-  const user = (await hre.ethers.getSigners())[0];
-  // const signer = (await hre.ethers.getSigners())[1];
-  // const user = await signer.getAddress();
-
-  // console.log(await hre.deployments.deterministic("Mangrove",{
-  //   from: deployer,
-  //   args: [1 /*gasprice*/, 500000 /*gasmax*/],
-  // }));
-  const mgv = await Mangrove.connect({
-    signer: deployer,
-    provider: `http://${host.name}:${host.port}`,
-  });
-  const mgvContract = await hre.ethers.getContract("Mangrove", deployer);
-  const mgvReader = await hre.ethers.getContract("MgvReader", deployer);
-  // const TokenA = await hre.ethers.getContract("TokenA");
-  // const TokenB = await hre.ethers.getContract("TokenB");
-
-  const activate = (base, quote) => {
-    return mgvContract.activate(base, quote, 0, 10, 80000, 20000);
-  };
-
-  const userA = await user.getAddress();
-  console.log("user", userA);
-  const deployerA = await deployer.getAddress();
-  console.log("deployer", deployerA);
-
-  const approve = (tkn) => {
-    tkn.contract.mint(userA, mgv.toUnits(tkn.amount, tkn.name));
-  };
-
-  // await activate(TokenA.address,TokenB.address);
-  // await activate(TokenB.address,TokenA.address);
-
-  const tkns = [
-    { name: "WETH", amount: 1000 },
-    { name: "DAI", amount: 10_000 },
-    { name: "USDC", amount: 10_000 },
-  ];
-
-  for (const t of tkns)
-    t.contract = await hre.ethers.getContract(t.name, deployer);
-
-  for (const tkn1 of tkns) {
-    await approve(tkn1);
-    for (const tkn2 of tkns) {
-      if (tkn1 !== tkn2) {
-        await activate(tkn1.contract.address, tkn2.contract.address);
-      }
-    }
+  if (!opts.url) {
+    const mgvServer = require('./mgvServer');
+    await mgvServer(opts);
   }
 
-  console.log("Deployer");
-  console.log(await deployer.getAddress());
-  console.log();
-  console.log("User");
-  console.log(userA);
-  console.log("");
+  const provider = new hre.ethers.providers.JsonRpcProvider(_url);
 
-  // const signer2 = provider.getSigner();
-  // console.log("user2", await signer2.getAddress());
+  const { Mangrove } = require("../../src");
 
-  // const signer = (await hre.ethers.getSigners())[0];
-  // await TokenA.mint(user, mgv.toUnits("TokenA", 1000));
-  // await TokenA.approve(mgvContract.address, toWei(1000000));
+  const deployer = (await hre.ethers.getSigners())[1];
+  console.log(deployer);
 
-  // await TokenB.mint(user, mgv.toUnits("TokenB", 1000));
-  // await TokenB.approve(mgvContract.address, toWei(1000000));
+  const user = (await hre.ethers.getSigners())[0];
 
-  await mgvContract["fund()"]({ value: helpers.toWei(100) });
+  const mgv = await Mangrove.connect({
+    signerIndex: 1,
+    provider: `http://localhost:${opts.port}`,
+  });
+  console.log("_PROVIDEr");
+  // console.log(mgv._provider);
+  console.log("mgv address in obfiller",mgv.contract.address);
+const z = "0x0000000000000000000000000000000000000000";
+  console.log(mgv.contract);
+  const c = await mgv.contract.vault();
+  console.log("vault",c);
 
-  const newOffer = async (tkout, tkin, { wants, gives, gasreq, gasprice }) => {
+  // contract create2 addresses exported by mangrove-solidity to hardhatAddresses
+
+  // const mgvContract = mgv.contract;
+  // const mgvReader = mgv.readerContract;
+
+  const newOffer = async (tkout, tkin, wants, gives, gasreq=100_000, gasprice=1) => {
     try {
       await mgv.contract.newOffer(
         tkout.address,
         tkin.address,
         tkin.toUnits(wants),
         tkout.toUnits(gives),
-        gasreq || 100000,
-        gasprice || 1,
+        gasreq,
+        gasprice,
         0
       );
     } catch (e) {
@@ -156,21 +94,11 @@ const main = async () => {
 
   const between = (a, b) => a + rng() * (b - a);
 
-  for (const t of tkns) {
-    console.log(`${t.name} (${mgv.getDecimals(t.name)} decimals)`);
-    console.log(t.contract.address);
-    console.log("");
-  }
-
   const WethDai = await mgv.market({ base: "WETH", quote: "DAI" });
   const WethUsdc = await mgv.market({ base: "WETH", quote: "USDC" });
   const DaiUsdc = await mgv.market({ base: "DAI", quote: "USDC" });
 
   const markets = [WethDai, WethUsdc, DaiUsdc];
-
-  // console.log(`Token B (${mgv.getDecimals("TokenB")} decimals`);
-  // console.log(market.quote.address);
-  // console.log();
 
   console.log("Orderbook filler is now running.");
 
@@ -179,19 +107,13 @@ const main = async () => {
       tkin = "quote";
     if (ba === "bids") [tkout, tkin] = [tkin, tkout];
     const book = await market.book();
-    // console.log(book,ba,book[ba]);
     const buffer = book[ba].length > 30 ? 5000 : 0;
-    // console.log(`${ba} length`, book[ba].length);
 
     setTimeout(async () => {
-      // console.log(`pushing offer to ${ba}`);
       const wants = 1 + between(0, 3);
       const gives = wants * between(1.001, 4);
 
-      await newOffer(market[tkout], market[tkin], {
-        wants,
-        gives,
-      });
+      await newOffer(market[tkout], market[tkin], wants, gives );
       pushOffer(market, ba);
     }, between(1000 + buffer, 3000 + buffer));
   };
@@ -201,13 +123,8 @@ const main = async () => {
       quote = "quote";
     if (ba === "bids") [base, quote] = [quote, base];
     const book = await market.book();
-    // console.log(
-    //   `${ba} ids`,
-    //   book[ba].map((o) => o.id)
-    // );
 
     if (book[ba].length !== 0) {
-      // const offer = book[ba].shift();
       const pulledIndex = Math.floor(rng() * book[ba].length);
       const offer = book[ba][pulledIndex];
       await retractOffer(market[base].address, market[quote].address, offer.id);
@@ -216,13 +133,6 @@ const main = async () => {
       pullOffer(market, ba);
     }, between(2000, 4000));
   };
-
-  // setTimeout(async () => {
-  //   const bla = await market.buy({wants:3,gives:4});
-  //   console.log(bla);
-  // // console.log(bla);
-  // // console.log((await bla.wait()).events);
-  // },5000);
 
   for (const market of markets) {
     pushOffer(market, "asks");
