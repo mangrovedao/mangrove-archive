@@ -160,26 +160,25 @@ contract MgvReader {
     returns (ML.Global memory global, ML.Local memory local)
   {
     (bytes32 _global, bytes32 _local) = mgv.config(outbound_tkn, inbound_tkn);
-    return
-      ML.Config({
-        global: ML.Global({
-          monitor: $$(global_monitor("_global")),
-          useOracle: $$(global_useOracle("_global")) > 0,
-          notify: $$(global_notify("_global")) > 0,
-          gasprice: $$(global_gasprice("_global")),
-          gasmax: $$(global_gasmax("_global")),
-          dead: $$(global_dead("_global")) > 0
-        }),
-        local: ML.Local({
-          active: $$(local_active("_local")) > 0,
-          overhead_gasbase: $$(local_overhead_gasbase("_local")),
-          offer_gasbase: $$(local_offer_gasbase("_local")),
-          fee: $$(local_fee("_local")),
-          density: $$(local_density("_local")),
-          best: $$(local_best("_local")),
-          lock: $$(local_lock("_local")) > 0,
-          last: $$(local_last("_local"))
-        })
-      });
+    return (
+      ML.Global({
+        monitor: $$(global_monitor("_global")),
+        useOracle: $$(global_useOracle("_global")) > 0,
+        notify: $$(global_notify("_global")) > 0,
+        gasprice: $$(global_gasprice("_global")),
+        gasmax: $$(global_gasmax("_global")),
+        dead: $$(global_dead("_global")) > 0
+      }),
+      ML.Local({
+        active: $$(local_active("_local")) > 0,
+        overhead_gasbase: $$(local_overhead_gasbase("_local")),
+        offer_gasbase: $$(local_offer_gasbase("_local")),
+        fee: $$(local_fee("_local")),
+        density: $$(local_density("_local")),
+        best: $$(local_best("_local")),
+        lock: $$(local_lock("_local")) > 0,
+        last: $$(local_last("_local"))
+      })
+    );
   }
 }
