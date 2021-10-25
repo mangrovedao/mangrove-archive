@@ -59,7 +59,7 @@ export class Mangrove {
       options = { provider: options };
     }
 
-    const signer = eth._createSigner(options);
+    const signer = eth._createSigner(options); // returns a provider equipped signer
     const network = await eth.getProviderNetwork(signer.provider);
     canConstructMangrove = true;
     const mgv = new Mangrove({
