@@ -772,6 +772,7 @@ export class Market {
     }
     return { estimatedVolume: filling, givenResidue: draining };
   }
+  /* remove an offer from a {offerMap,bestOffer} pair and keep the structure in a coherent state */
 }
 
 const removeOffer = (semibook: semibook, id: number) => {
@@ -792,6 +793,7 @@ const removeOffer = (semibook: semibook, id: number) => {
   } else {
     return null;
   }
+  /* Insert an offer in a {offerMap,bestOffer} semibook and keep the structure in a coherent state */
 };
 
 // Assumes ofr.prev and ofr.next are present in local OB copy.
@@ -809,21 +811,22 @@ const insertOffer = (semibook: semibook, id: number, ofr: Offer) => {
   }
 };
 
-const getNext = ({ offers, best }: semibook, prev: number) => {
-  if (prev === 0) {
+/* given `offerId`, get the offer next to it in a semibook */
+const getNext = ({ offers, best }: semibook, offerId: number) => {
+  if (offerId === 0) {
     return best;
   } else {
-    if (!offers.get(prev)) {
+    if (!offers.get(offerId)) {
       throw Error(
         "Trying to get next of an offer absent from local orderbook copy"
       );
     } else {
-      return offers.get(prev).next;
+      return offers.get(offerId).next;
     }
   }
 };
 
-// May stop before endofbook if we only have a prefix
+/* Turn {bestOffer,offerMap} into an offer array */
 const mapToArray = (best: number, offers: Map<number, Offer>) => {
   const ary = [];
 
