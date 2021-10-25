@@ -14,7 +14,7 @@ import { MgvToken } from "./mgvtoken";
 let canConstructMarket = false;
 
 const DEFAULT_MAX_OFFERS = 50;
-const MAX_MARKET_ORDER_GAS = 1500000;
+const MAX_MARKET_ORDER_GAS = 6500000;
 
 /* Note on big.js:
 ethers.js's BigNumber (actually BN.js) only handles integers
@@ -718,7 +718,9 @@ export class Market {
   async estimateGas(bs: "buy" | "sell", volume: BigNumber): Promise<BigNumber> {
     const rawConfig = await this.rawConfig();
     const ba = bs === "buy" ? "asks" : "bids";
-    const estimation = volume.div(rawConfig[ba].local.density);
+    const estimation = rawConfig[ba].local.overhead_gasbase.add(
+      volume.div(rawConfig[ba].local.density)
+    );
     if (estimation.gt(MAX_MARKET_ORDER_GAS)) {
       return BigNumber.from(MAX_MARKET_ORDER_GAS);
     } else {
@@ -743,7 +745,7 @@ export class Market {
     given: Bigish;
     what: "base" | "quote";
     to: "buy" | "sell";
-  }) {
+  }): { estimatedVolume: Big; givenResidue: Big } {
     const dict = {
       base: {
         buy: { offers: "asks", drainer: "gives", filler: "wants" },
@@ -768,8 +770,9 @@ export class Market {
       filling = filling.plus(filler);
       if (draining.eq(0)) break;
     }
-    return filling;
+    return { estimatedVolume: filling, givenResidue: draining };
   }
+  /* remove an offer from a {offerMap,bestOffer} pair and keep the structure in a coherent state */
 }
 
 const removeOffer = (semibook: semibook, id: number) => {
@@ -790,6 +793,7 @@ const removeOffer = (semibook: semibook, id: number) => {
   } else {
     return null;
   }
+  /* Insert an offer in a {offerMap,bestOffer} semibook and keep the structure in a coherent state */
 };
 
 // Assumes ofr.prev and ofr.next are present in local OB copy.
@@ -807,21 +811,22 @@ const insertOffer = (semibook: semibook, id: number, ofr: Offer) => {
   }
 };
 
-const getNext = ({ offers, best }: semibook, prev: number) => {
-  if (prev === 0) {
+/* given `offerId`, get the offer next to it in a semibook */
+const getNext = ({ offers, best }: semibook, offerId: number) => {
+  if (offerId === 0) {
     return best;
   } else {
-    if (!offers.get(prev)) {
+    if (!offers.get(offerId)) {
       throw Error(
         "Trying to get next of an offer absent from local orderbook copy"
       );
     } else {
-      return offers.get(prev).next;
+      return offers.get(offerId).next;
     }
   }
 };
 
-// May stop before endofbook if we only have a prefix
+/* Turn {bestOffer,offerMap} into an offer array */
 const mapToArray = (best: number, offers: Map<number, Offer>) => {
   const ary = [];
 

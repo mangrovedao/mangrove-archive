@@ -45,7 +45,7 @@ contract MgvRoot is HasMgvEvents {
 
   /* # Configuration Reads */
   /* Reading the configuration for a pair involves reading the config global to all pairs and the local one. In addition, a global parameter (`gasprice`) and a local one (`density`) may be read from the oracle. */
-  function _config(address outbound_tkn, address inbound_tkn)
+  function config(address outbound_tkn, address inbound_tkn)
     public
     view
     returns (bytes32 _global, bytes32 _local)
@@ -62,33 +62,6 @@ contract MgvRoot is HasMgvEvents {
         _local = $$(set_local("_local", [["density", "density"]]));
       }
     }
-  }
-
-  /* Returns the configuration in an ABI-compatible struct. Should not be called internally, would be a huge memory copying waste. Use `config` instead. */
-  function config(address outbound_tkn, address inbound_tkn)
-    external
-    view
-    returns (ML.Config memory ret)
-  {
-    (bytes32 _global, bytes32 _local) = _config(outbound_tkn, inbound_tkn);
-    ret.global = ML.Global({
-      monitor: $$(global_monitor("_global")),
-      useOracle: $$(global_useOracle("_global")) > 0,
-      notify: $$(global_notify("_global")) > 0,
-      gasprice: $$(global_gasprice("_global")),
-      gasmax: $$(global_gasmax("_global")),
-      dead: $$(global_dead("_global")) > 0
-    });
-    ret.local = ML.Local({
-      active: $$(local_active("_local")) > 0,
-      overhead_gasbase: $$(local_overhead_gasbase("_local")),
-      offer_gasbase: $$(local_offer_gasbase("_local")),
-      fee: $$(local_fee("_local")),
-      density: $$(local_density("_local")),
-      best: $$(local_best("_local")),
-      lock: $$(local_lock("_local")) > 0,
-      last: $$(local_last("_local"))
-    });
   }
 
   /* Convenience function to check whether given pair is locked */

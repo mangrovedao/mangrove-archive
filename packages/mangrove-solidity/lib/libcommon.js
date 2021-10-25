@@ -277,7 +277,7 @@ function assertEqualBN(value1, value2, msg) {
 }
 
 async function nextOfferId(base, quote, mgv) {
-  const [, local] = await mgv.config(base, quote);
+  const [, local] = await mgv.reader.config(base, quote);
   return local.last.add(1);
 }
 
