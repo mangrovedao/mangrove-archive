@@ -157,7 +157,7 @@ contract MgvReader {
   function config(address outbound_tkn, address inbound_tkn)
     external
     view
-    returns (ML.Global memory, ML.Local memory)
+    returns (ML.Global memory global, ML.Local memory local)
   {
     (bytes32 _global, bytes32 _local) = mgv.config(outbound_tkn, inbound_tkn);
     return (

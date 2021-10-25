@@ -25,9 +25,7 @@ export namespace BookReturns {
   export type details = _bookReturns[3];
 }
 
-export type rawConfig = Awaited<
-  ReturnType<Mangrove["functions"]["config"]>
->["ret"];
+export type rawConfig = Awaited<ReturnType<MgvReader["functions"]["config"]>>;
 
 export type localConfig = {
   active: boolean;
@@ -122,7 +120,6 @@ export interface CreateSignerOptions {
   provider?: Provider | string;
   privateKey?: string;
   mnemonic?: string;
-  signer?: any;
   signerIndex?: number;
   path?: string;
 }
