@@ -38,7 +38,7 @@ config.hardhat = {
   // see github.com/wighawag/hardhat-deploy#1-namedaccounts-ability-to-name-addresses
   namedAccounts: {
     deployer: {
-      default: 0, // take first account as deployer
+      default: 1, // take second account as deployer
     },
   },
   mocha: defer(function () {

@@ -2,12 +2,12 @@ import { addresses, decimals as loadedDecimals } from "./constants";
 import * as eth from "./eth";
 import { Market } from "./market";
 import {
-  ConnectOptions,
   Provider,
   Signer,
   ProviderNetwork,
   Bigish,
   globalConfig,
+  CreateSignerOptions,
 } from "./types";
 import * as typechain from "./types/typechain";
 import { MgvToken } from "./mgvtoken";
@@ -54,7 +54,7 @@ export class Mangrove {
    */
 
   static async connect(
-    options: ConnectOptions | string = {}
+    options: CreateSignerOptions | string = {}
   ): Promise<Mangrove> {
     if (typeof options === "string") {
       options = { provider: options };

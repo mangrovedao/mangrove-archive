@@ -1,12 +1,9 @@
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import "../CompoundTrader.sol";
-import "hardhat/console.sol";
+import "../../CompoundTrader.sol";
 
 contract SwingingMarketMaker is CompoundTrader {
-  event Begin();
-  event NotEnoughLiquidity(address token, uint amountMissing);
-  event MissingPrice(address token0, address token1);
+  event MissingPriceConverter(address token0, address token1);
   event NotEnoughProvision(uint amount);
 
   // price[B][A] : price of A in B = p(B|A) = volume of B obtained/volume of A given
@@ -17,9 +14,7 @@ contract SwingingMarketMaker is CompoundTrader {
     address _unitroller,
     address payable _MGV,
     address wethAddress
-  ) CompoundLender(_unitroller, wethAddress) MangroveOffer(_MGV) {
-    emit Begin();
-  }
+  ) CompoundLender(_unitroller, wethAddress) MangroveOffer(_MGV) {}
 
   // sets P(tk0|tk1)
   // one wants P(tk0|tk1).P(tk1|tk0) >= 1
@@ -35,14 +30,11 @@ contract SwingingMarketMaker is CompoundTrader {
     address tk0,
     address tk1,
     uint gives // amount of tk0 (with tk0.decimals() decimals)
-  ) external payable onlyAdmin returns (bool) {
+  ) external payable onlyAdmin {
     MGV.fund{value: msg.value}();
-    bool success = repostOffer(tk0, tk1, gives);
-    if (success) {
-      IERC20(tk0).approve(address(MGV), uint(-1)); // approving MGV for tk0 transfer
-      IERC20(tk1).approve(address(MGV), uint(-1)); // approving MGV for tk1 transfer
-    }
-    return success;
+    require(repostOffer(tk0, tk1, gives), "Could not start strategy");
+    IERC20(tk0).approve(address(MGV), uint(-1)); // approving MGV for tk0 transfer
+    IERC20(tk1).approve(address(MGV), uint(-1)); // approving MGV for tk1 transfer
   }
 
   // at this stage contract has `received` amount in token0
@@ -56,7 +48,7 @@ contract SwingingMarketMaker is CompoundTrader {
     uint p_10 = price[inbound_tkn][outbound_tkn];
     if (p_10 == 0) {
       // ! p_10 has the decimals of inbound_tkn
-      emit MissingPrice(inbound_tkn, outbound_tkn);
+      emit MissingPriceConverter(inbound_tkn, outbound_tkn);
       return false;
     }
     uint wants = div_(
@@ -65,71 +57,49 @@ contract SwingingMarketMaker is CompoundTrader {
     ); // in base units
     uint offerId = offers[outbound_tkn][inbound_tkn];
     if (offerId == 0) {
-      offerId = newOfferInternal(
-        outbound_tkn,
-        inbound_tkn,
-        wants,
-        gives,
-        OFR_GASREQ,
-        OFR_GASPRICE,
-        0
-      );
-      offers[outbound_tkn][inbound_tkn] = offerId;
+      try
+        this.newOffer(outbound_tkn, inbound_tkn, wants, gives, OFR_GASREQ, 0, 0)
+      returns (uint id) {
+        offers[outbound_tkn][inbound_tkn] = id;
+        return true;
+      } catch Error(string memory message) {
+        emit PosthookFail(outbound_tkn, inbound_tkn, offerId, message);
+        return false;
+      }
     } else {
-      updateOfferInternal(
-        outbound_tkn,
-        inbound_tkn,
-        wants,
-        gives,
-        // offerId is already on the book so a good pivot
-        OFR_GASREQ, // default value
-        OFR_GASPRICE, // default value
-        offerId,
-        offerId
-      );
+      try
+        this.updateOffer(
+          outbound_tkn,
+          inbound_tkn,
+          wants,
+          gives,
+          // offerId is already on the book so a good pivot
+          OFR_GASREQ, // default value
+          0, // default value
+          offerId,
+          offerId
+        )
+      {
+        return true;
+      } catch Error(string memory message) {
+        emit PosthookFail(outbound_tkn, inbound_tkn, offerId, message);
+        return false;
+      }
     }
-    return true;
   }
 
-  function __postHookSuccess__(bytes32, MgvLib.SingleOrder calldata order)
+  function __posthookSuccess__(MgvLib.SingleOrder calldata order)
     internal
     override
   {
     address token0 = order.outbound_tkn;
     address token1 = order.inbound_tkn;
-    uint offer_received = MgvPack.offer_unpack_wants(order.offer); // amount with token1.decimals() decimals
-    if (
-      repostOffer({
-        outbound_tkn: token1,
-        inbound_tkn: token0,
-        gives: offer_received
-      })
-    ) {
-      return;
-    } else {
-      returnData(true, bytes32("swinging/failRepost"));
-    }
-  }
-
-  function __postHookGetFailure__(bytes32, MgvLib.SingleOrder calldata order)
-    internal
-    override
-  {
-    uint missing = order.wants -
-      IERC20(order.outbound_tkn).balanceOf(address(this));
-
-    emit NotEnoughLiquidity(order.outbound_tkn, missing);
-  }
-
-  function __autoRefill__(uint amount) internal override returns (bool) {
-    if (amount > 0) {
-      try MGV.fund{value: amount}() {
-        return true;
-      } catch {
-        emit NotEnoughProvision(amount);
-        return false;
-      }
-    }
+    uint offer_received = MP.offer_unpack_wants(order.offer); // amount with token1.decimals() decimals
+    repostOffer({
+      outbound_tkn: token1,
+      inbound_tkn: token0,
+      gives: offer_received
+    });
   }
 
   function __get__(IERC20 base, uint amount)

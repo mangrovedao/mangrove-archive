@@ -154,6 +154,18 @@ contract TakerOperations_Test is HasMgvEvents {
     }
   }
 
+  function taker_cannot_drain_maker_test() public {
+    mgv.setDensity(base, quote, 0);
+    quoteT.approve(address(mgv), 1 ether);
+    uint ofr = mkr.newOffer(9, 10, 100_000, 0);
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 1, 15 ether, 100_000];
+    uint oldBal = quoteT.balanceOf(address(this));
+    mgv.snipes(base, quote, targets, true);
+    uint newBal = quoteT.balanceOf(address(this));
+    TestEvents.more(oldBal, newBal, "oldBal should be strictly higher");
+  }
+
   function snipe_fillWants_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
     mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
@@ -172,6 +184,8 @@ contract TakerOperations_Test is HasMgvEvents {
       TestEvents.fail("Transaction should not revert");
     }
   }
+
+  event Transfer(address indexed from, address indexed to, uint value);
 
   function snipe_fillWants_zero_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 100_000, 0);
@@ -192,6 +206,73 @@ contract TakerOperations_Test is HasMgvEvents {
       TestEvents.check(successes == 1, "Snipe should not fail");
       TestEvents.eq(got, 0 ether, "Taker had too much");
       TestEvents.eq(gave, 0 ether, "Taker gave too much");
+      TestEvents.check(
+        !TestUtils.hasOffer(mgv, base, quote, ofr),
+        "Offer should not be in the book"
+      );
+      TestEvents.expectFrom(address(quote));
+      emit Transfer(address(this), address(mgv), 0);
+      emit Transfer(address(mgv), address(mkr), 0);
+    } catch {
+      TestEvents.fail("Transaction should not revert");
+    }
+  }
+
+  function snipe_free_offer_fillWants_respects_spec_test() public {
+    uint ofr = mkr.newOffer(0, 1 ether, 100_000, 0);
+    TestEvents.check(
+      TestUtils.hasOffer(mgv, base, quote, ofr),
+      "Offer should be in the book"
+    );
+    mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
+    quoteT.approve(address(mgv), 1 ether);
+
+    /* Setting fillWants = true means we should not receive more than `wants`.
+       Here we are asking for 0.1 eth to an offer that gives 1eth for nothing.
+       We should still only receive 0.1 eth */
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 0.1 ether, 0, 100_000];
+    try mgv.snipes(base, quote, targets, true) returns (
+      uint successes,
+      uint got,
+      uint gave
+    ) {
+      TestEvents.check(successes == 1, "Snipe should not fail");
+      TestEvents.eq(got, 0.1 ether, "Wrong got value");
+      TestEvents.eq(gave, 0 ether, "Wrong gave value");
+      TestEvents.check(
+        !TestUtils.hasOffer(mgv, base, quote, ofr),
+        "Offer should not be in the book"
+      );
+    } catch {
+      TestEvents.fail("Transaction should not revert");
+    }
+  }
+
+  function snipe_free_offer_fillGives_respects_spec_test() public {
+    uint ofr = mkr.newOffer(0, 1 ether, 100_000, 0);
+    TestEvents.check(
+      TestUtils.hasOffer(mgv, base, quote, ofr),
+      "Offer should be in the book"
+    );
+    mkr.expect("mgv/tradeSuccess"); // trade should be OK on the maker side
+    quoteT.approve(address(mgv), 1 ether);
+
+    /* Setting fillWants = false means we should spend as little as possible to receive
+       as much as possible.
+       Here despite asking for .1eth the offer gives 1eth for 0 so we should receive 1eth. */
+
+    uint[4][] memory targets = new uint[4][](1);
+    targets[0] = [ofr, 0.1 ether, 0, 100_000];
+    try mgv.snipes(base, quote, targets, false) returns (
+      uint successes,
+      uint got,
+      uint gave
+    ) {
+      TestEvents.check(successes == 1, "Snipe should not fail");
+      TestEvents.eq(got, 1 ether, "Wrong got value");
+      TestEvents.eq(gave, 0 ether, "Wrong gave value");
       TestEvents.check(
         !TestUtils.hasOffer(mgv, base, quote, ofr),
         "Offer should not be in the book"
@@ -350,8 +431,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerTransferFail",
-      "testMaker/transferFail"
+      "mgv/makerTransferFail"
     );
     emit Credit(address(refusemkr), mkr_provision - penalty);
   }
@@ -409,8 +489,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerTransferFail",
-      ""
+      "mgv/makerTransferFail"
     );
     emit Credit(address(mkr), mkr_provision - penalty);
   }
@@ -453,8 +532,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerReceiveFail",
-      ""
+      "mgv/makerReceiveFail"
     );
     emit Credit(address(mkr), mkr_provision - penalty);
   }
@@ -517,8 +595,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerRevert",
-      "testMaker/revert"
+      "mgv/makerRevert"
     );
     emit Credit(address(failmkr), mkr_provision - penalty);
   }
@@ -799,8 +876,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       50 ether,
       0.5 ether,
-      "mgv/makerTransferFail",
-      ""
+      "mgv/makerTransferFail"
     );
   }
 
@@ -820,8 +896,7 @@ contract TakerOperations_Test is HasMgvEvents {
       address(this),
       1 ether,
       1 ether,
-      "mgv/makerRevert",
-      "testMaker/revert"
+      "mgv/makerRevert"
     );
   }
 

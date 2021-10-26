@@ -3,19 +3,17 @@ module.exports = (hre, formatArg) => {
 
   const logFormatters = {
     OfferFail: (log, rawLog, originator) => {
-      const statusCode = hre.ethers.utils.parseBytes32String(
-        log.args.statusCode
-      );
+      const mgvData = hre.ethers.utils.parseBytes32String(log.args.mgvData);
       console.log("");
-      console.log(`╭ Offer ${formatArg(log.args.offerId)} failed`);
+      console.log(`╭ Offer ${formatArg(log.args.id)} failed`);
       console.log(`┊ takerWants ${formatArg(log.args.takerWants)}`);
       console.log(`┊ takerGives ${formatArg(log.args.takerGives)}`);
-      console.log(`╰ statusCode ${statusCode}`);
+      console.log(`╰ mgvData    ${mgvData}`);
       console.log("");
     },
     OfferSuccess: (log, rawLog, originator) => {
       console.log("");
-      console.log(`┏ Offer ${formatArg(log.args.offerId)} consumed`);
+      console.log(`┏ Offer ${formatArg(log.args.id)} consumed`);
       console.log(`┃ takerWants ${formatArg(log.args.takerWants)}`);
       console.log(`┗ takerGives ${formatArg(log.args.takerGives)}`);
       console.log("");

@@ -2,19 +2,27 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 // SPDX-License-Identifier: MIT
 
-import "../../MgvPack.sol";
+import {MgvPack as MP} from "../../MgvPack.sol";
 import "../../Mangrove.sol";
 import "../../MgvLib.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract TradeHandler {
-  enum PostHook {
-    Success, // Trade was a success. NB: Do not move this field as it should be the default value
-    Get, // Trade was dropped by maker due to a lack of liquidity
-    Reneged, // Trade was dropped because of price slippage
-    Fallback // Fallback posthook
-  }
+  // internal bytes32 to select appropriate posthook
+  bytes32 constant RENEGED = "mgvOffer/reneged";
+  bytes32 constant OUTOFLIQUIDITY = "mgvOffer/outOfLiquidity";
+
+  // to wrap potentially reverting calls to mangrove
+  event PosthookFail(
+    address indexed outbound_tkn,
+    address indexed inbound_tkn,
+    uint offerId,
+    string message
+  );
+
+  event NotEnoughLiquidity(address token, uint amountMissing);
+  event PostHookError(address outbound_tkn, address inbound_tkn, uint offerId);
 
   /// @notice extracts old offer from the order that is received from the Mangrove
   function unpackOfferFromOrder(MgvLib.SingleOrder calldata order)
@@ -27,122 +35,70 @@ contract TradeHandler {
       uint gasprice
     )
   {
-    gasreq = MgvPack.offerDetail_unpack_gasreq(order.offerDetail);
-    (, , offer_wants, offer_gives, gasprice) = MgvPack.offer_unpack(
-      order.offer
-    );
+    gasreq = MP.offerDetail_unpack_gasreq(order.offerDetail);
+    (, , offer_wants, offer_gives, gasprice) = MP.offer_unpack(order.offer);
   }
 
-  function getProvision(
+  function getMissingProvision(
     Mangrove mgv,
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint gasreq,
-    uint gasprice
-  ) internal returns (uint) {
-    ML.Config memory config = mgv.config(base, quote);
+    uint gasprice,
+    uint offerId
+  ) internal view returns (uint) {
+    (bytes32 globalData, bytes32 localData) = mgv._config(
+      outbound_tkn,
+      inbound_tkn
+    );
+    bytes32 offerData = mgv.offers(outbound_tkn, inbound_tkn, offerId);
+    bytes32 offerDetailData = mgv.offerDetails(
+      outbound_tkn,
+      inbound_tkn,
+      offerId
+    );
+
     uint _gp;
-    if (config.global.gasprice > gasprice) {
-      _gp = uint(config.global.gasprice);
+    if (MP.global_unpack_gasprice(globalData) > gasprice) {
+      _gp = MP.global_unpack_gasprice(globalData);
     } else {
       _gp = gasprice;
     }
-    return ((gasreq +
-      config.local.overhead_gasbase +
-      config.local.offer_gasbase) *
+    uint bounty = (gasreq +
+      MP.local_unpack_overhead_gasbase(localData) +
+      MP.local_unpack_offer_gasbase(localData)) *
       _gp *
-      10**9);
+      10**9; // in WEI
+    uint currentProvisionLocked = (MP.offerDetail_unpack_gasreq(
+      offerDetailData
+    ) +
+      MP.offerDetail_unpack_overhead_gasbase(offerDetailData) +
+      MP.offerDetail_unpack_offer_gasbase(offerDetailData)) *
+      MP.offer_unpack_gasprice(offerData) *
+      10**9;
+    uint currentProvision = currentProvisionLocked +
+      mgv.balanceOf(address(this));
+    return (currentProvision >= bounty ? 0 : bounty - currentProvision);
   }
 
-  function wordOfBytes(bytes memory data) internal pure returns (bytes32 w) {
+  //queries the mangrove to get current gasprice (considered to compute bounty)
+  function getCurrentGasPrice(Mangrove mgv) internal view returns (uint) {
+    (bytes32 global_pack, ) = mgv._config(address(0), address(0));
+    return MP.global_unpack_gasprice(global_pack);
+  }
+
+  //truncate some bytes into a byte32 word
+  function truncateBytes(bytes memory data) internal pure returns (bytes32 w) {
     assembly {
       w := mload(add(data, 32))
     }
   }
 
-  function bytesOfWord(bytes32 w) internal pure returns (bytes memory data) {
-    data = new bytes(32);
+  function bytesOfWord(bytes32 w) internal pure returns (bytes memory) {
+    bytes memory b = new bytes(32);
     assembly {
-      mstore(add(data, 32), w)
+      mstore(add(b, 32), w)
     }
-  }
-
-  function wordOfUint(uint x) internal pure returns (bytes32 w) {
-    w = bytes32(x);
-  }
-
-  function revertWithBytes(bytes memory data) private pure {
-    assembly {
-      revert(add(data, 32), 32)
-    }
-  }
-
-  function returnData(bool drop, bytes memory message)
-    internal
-    pure
-    returns (bytes32 w)
-  {
-    if (drop) {
-      revertWithBytes(message);
-    } else {
-      w = wordOfBytes(message);
-    }
-  }
-
-  function returnData(bool drop, bytes32 message)
-    internal
-    pure
-    returns (bytes32 w)
-  {
-    bytes memory data = bytesOfWord(message);
-    if (drop) {
-      revertWithBytes(data);
-    } else {
-      w = wordOfBytes(data);
-    }
-  }
-
-  function returnData(bool drop, PostHook postHook_switch)
-    internal
-    pure
-    returns (bytes32 w)
-  {
-    bytes memory data = abi.encodePacked(postHook_switch);
-    if (drop) {
-      revertWithBytes(data);
-    } else {
-      w = wordOfBytes(data);
-    }
-  }
-
-  function returnData(
-    bool drop,
-    PostHook postHook_switch,
-    bytes32 message
-  ) internal pure returns (bytes32 w) {
-    bytes memory data = abi.encodePacked(postHook_switch, message);
-    if (drop) {
-      revertWithBytes(data);
-    } else {
-      w = wordOfBytes(data);
-    }
-  }
-
-  function getMakerData(bytes32 w)
-    internal
-    view
-    returns (PostHook postHook_switch, bytes32 message)
-  {
-    postHook_switch = decodeSwitch(w);
-    message = (w << 1) >> 1; // ([postHook_switch:1])[message:31]
-  }
-
-  function decodeSwitch(bytes32 w)
-    private
-    pure
-    returns (PostHook postHook_switch)
-  {
-    bytes memory switch_data = bytesOfWord(w >> (31 * 8)); // PostHook enum is encoded in the first byte
-    postHook_switch = abi.decode(switch_data, (PostHook));
+    return b;
   }
 }

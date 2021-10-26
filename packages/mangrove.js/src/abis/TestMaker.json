@@ -438,7 +438,7 @@
     "outputs": [
       {
         "internalType": "bytes32",
-        "name": "avoid_compilation_warning",
+        "name": "",
         "type": "bytes32"
       }
     ],
@@ -687,6 +687,19 @@
       }
     ],
     "name": "setShouldFailHook",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bool",
+        "name": "should",
+        "type": "bool"
+      }
+    ],
+    "name": "shouldAbort",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

@@ -248,9 +248,9 @@ contract Maker_basic is TestMaker {
     public
     pure
     override
-    returns (bytes32 ret)
+    returns (bytes32)
   {
-    ret; // silence compiler warning
+    return "";
     //ERC20(order.outbound_tkn).transfer({recipient: taker, amount: order.wants});
   }
 }
@@ -280,9 +280,8 @@ contract Maker_compound is TestMaker {
   function makerExecute(ML.SingleOrder calldata order)
     public
     override
-    returns (bytes32 ret)
+    returns (bytes32)
   {
-    ret; // silence compiler warning
     _compound.mint({token: ERC20BL(order.inbound_tkn), amount: order.gives});
     Display.log("Maker redeems from Compound.");
     _compound.redeem({
@@ -290,6 +289,7 @@ contract Maker_compound is TestMaker {
       amount: order.wants,
       to: address(this)
     });
+    return "";
   }
 }
 
@@ -308,9 +308,9 @@ contract Maker_callback is TestMaker {
     public
     pure
     override
-    returns (bytes32 ret)
+    returns (bytes32)
   {
-    ret; // silence compiler warning
+    return "";
     //ERC20BL(order.outbound_tkn).transfer({recipient: taker, amount: order.wants});
   }
 

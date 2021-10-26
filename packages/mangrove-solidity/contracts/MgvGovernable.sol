@@ -90,8 +90,8 @@ contract MgvGovernable is MgvRoot {
     uint density
   ) public {
     authOnly();
-    /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
-    require(uint32(density) == density, "mgv/config/density/32bits");
+
+    require(checkDensity(density), "mgv/config/density/32bits");
     //+clear+
     locals[outbound_tkn][inbound_tkn] = $$(
       set_local("locals[outbound_tkn][inbound_tkn]", [["density", "density"]])
@@ -141,8 +141,8 @@ contract MgvGovernable is MgvRoot {
   /* Useless if `global.useOracle is != 0` */
   function setGasprice(uint gasprice) public {
     authOnly();
-    /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */
-    require(uint16(gasprice) == gasprice, "mgv/config/gasprice/16bits");
+    require(checkGasprice(gasprice), "mgv/config/gasprice/16bits");
+
     //+clear+
 
     global = $$(set_global("global", [["gasprice", "gasprice"]]));

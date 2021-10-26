@@ -79,19 +79,36 @@ contract OfferManager is IMaker, ITaker {
       _order.wants,
       _order.gives
     );
+    bool inverted;
+    address MGV;
     if (msg.sender == address(mgv)) {
-      // if residual of offerId is < dust, offer will be removed and dust lost
-      // also freeWeil[this] will increase, offerManager may chose to give it back to owner
-      address owner = owners[address(mgv)][_order.outbound_tkn][
-        _order.inbound_tkn
-      ][_order.offerId];
-      require(owner != address(0), "Unkown owner");
+      MGV = address(mgv);
+    }
+    if (msg.sender == address(invMgv)) {
+      MGV = address(invMgv);
+      inverted = true;
+    }
+    require(MGV != address(0), "Unauth call");
+    // if residual of offerId is < dust, offer will be removed and dust lost
+    // also freeWeil[this] will increase, offerManager may chose to give it back to owner
+    address owner = owners[address(MGV)][_order.outbound_tkn][
+      _order.inbound_tkn
+    ][_order.offerId];
+    console.log(owner);
+    if (owner == address(0)) {
+      ret = "mgvOffer/unknownOwner";
+    }
+    if (!inverted) {
       try IERC20(_order.inbound_tkn).transfer(owner, _order.gives) {
-        ret = "OfferManager/transferOK";
-      } catch {
-        ret = "transferToOwnerFail";
+        console.log("Success");
+        ret = "";
+      } catch Error(string memory message) {
+        console.log(message);
+        ret = "mgvOffer/transferToOwnerFail";
       }
-    } else {}
+    } else {
+      ret = "";
+    }
   }
 
   //marketOrder (base,quote) + NewOffer(quote,base)

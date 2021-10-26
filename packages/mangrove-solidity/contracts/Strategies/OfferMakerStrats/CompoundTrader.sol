@@ -93,7 +93,6 @@ abstract contract CompoundTrader is CompoundLender {
     } else {
       toMint = amount - toRepay;
     }
-
     compoundMint(inbound_cTkn, toMint);
   }
 }
