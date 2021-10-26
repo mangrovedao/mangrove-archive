@@ -19,7 +19,7 @@ type OfferCleaningEstimates = {
 };
 
 // FIXME move to Mangrove.js
-const maxWants = BigNumber.from(2).pow(96).sub(1);
+const maxWantsOrGives = BigNumber.from(2).pow(96).sub(1);
 const maxGasReq = BigNumber.from(2).pow(256).sub(1);
 
 export class MarketCleaner {
@@ -260,6 +260,42 @@ export class MarketCleaner {
       [[offer.id, 0, 0, maxGasReq]], // (offer id, taker wants, taker gives, gas requirement)
       false,
     ];
+    // FIXME The following are the result of different strategies per 2021-10-26:
+    // WORKS:
+    //   inboundToken.address,
+    //   outboundToken.address,
+    //   [[offer.id, 0, 0, maxGasReq]], // (offer id, taker wants, taker gives, gas requirement)
+    //   false,
+    //
+    // WORKS:
+    //   inboundToken.address,
+    //   outboundToken.address,
+    //   [[offer.id, 0, 0, maxGasReq]], // (offer id, taker wants, taker gives, gas requirement)
+    //   true,
+    //
+    // WORKS: This works, though I think Adrien said the last argument should be `false` ?
+    //   inboundToken.address,
+    //   outboundToken.address,
+    //   [[offer.id, 0, maxWantsOrGives, maxGasReq]], // (offer id, taker wants, taker gives, gas requirement)
+    //   true,
+    //
+    // FAILS: This worked in week 41, but no longer - how come? This is the strategy Adrien recommended
+    //   inboundToken.address,
+    //   outboundToken.address,
+    //   [[offer.id, 0, maxWantsOrGives, maxGasReq]], // (offer id, taker wants, taker gives, gas requirement)
+    //   false,
+    //
+    // WEIRD: The following succeeds in the call to MgvCleaner, but does not remove the offer nor yield any bounty - why is that?
+    //   inboundToken.address,
+    //   outboundToken.address,
+    //   [[offer.id, maxWantsOrGives, 0, maxGasReq]], // (offer id, taker wants, taker gives, gas requirement)
+    //   false,
+    //
+    // WEIRD: The following succeeds in the call to MgvCleaner, but does not remove the offer nor yield any bounty - why is that?
+    //   inboundToken.address,
+    //   outboundToken.address,
+    //   [[offer.id, maxWantsOrGives, 0, maxGasReq]], // (offer id, taker wants, taker gives, gas requirement)
+    //   true,
   }
 
   // FIXME move/integrate into Market API?
