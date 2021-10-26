@@ -14,7 +14,7 @@ import { MgvToken } from "./mgvtoken";
 let canConstructMarket = false;
 
 const DEFAULT_MAX_OFFERS = 50;
-const MAX_MARKET_ORDER_GAS = 6500000;
+const MAX_MARKET_ORDER_GAS = 1500000;
 
 /* Note on big.js:
 ethers.js's BigNumber (actually BN.js) only handles integers
@@ -316,11 +316,11 @@ export class Market {
    * fee *remains* in basis points of the token being bought
    */
   async rawConfig(): Promise<{ asks: rawConfig; bids: rawConfig }> {
-    const rawAskConfig = await this.mgv.readerContract.config(
+    const rawAskConfig = await this.mgv.contract.config(
       this.base.address,
       this.quote.address
     );
-    const rawBidsConfig = await this.mgv.readerContract.config(
+    const rawBidsConfig = await this.mgv.contract.config(
       this.quote.address,
       this.base.address
     );
@@ -465,10 +465,10 @@ export class Market {
     let offerIds = [],
       offers = [],
       details = [];
-    await this.mgv.readerContract.config(this.mgv._address, this.mgv._address);
+    await this.mgv.contract.config(this.mgv._address, this.mgv._address);
     do {
       const [_nextId, _offerIds, _offers, _details] =
-        await this.mgv.readerContract.offerList(
+        await this.mgv.readerContract.book(
           base_a,
           quote_a,
           opts.fromId,
@@ -718,9 +718,7 @@ export class Market {
   async estimateGas(bs: "buy" | "sell", volume: BigNumber): Promise<BigNumber> {
     const rawConfig = await this.rawConfig();
     const ba = bs === "buy" ? "asks" : "bids";
-    const estimation = rawConfig[ba].local.overhead_gasbase.add(
-      volume.div(rawConfig[ba].local.density)
-    );
+    const estimation = volume.div(rawConfig[ba].local.density);
     if (estimation.gt(MAX_MARKET_ORDER_GAS)) {
       return BigNumber.from(MAX_MARKET_ORDER_GAS);
     } else {
@@ -745,7 +743,7 @@ export class Market {
     given: Bigish;
     what: "base" | "quote";
     to: "buy" | "sell";
-  }): { estimatedVolume: Big; givenResidue: Big } {
+  }) {
     const dict = {
       base: {
         buy: { offers: "asks", drainer: "gives", filler: "wants" },
@@ -770,9 +768,8 @@ export class Market {
       filling = filling.plus(filler);
       if (draining.eq(0)) break;
     }
-    return { estimatedVolume: filling, givenResidue: draining };
+    return filling;
   }
-  /* remove an offer from a {offerMap,bestOffer} pair and keep the structure in a coherent state */
 }
 
 const removeOffer = (semibook: semibook, id: number) => {
@@ -793,7 +790,6 @@ const removeOffer = (semibook: semibook, id: number) => {
   } else {
     return null;
   }
-  /* Insert an offer in a {offerMap,bestOffer} semibook and keep the structure in a coherent state */
 };
 
 // Assumes ofr.prev and ofr.next are present in local OB copy.
@@ -811,22 +807,21 @@ const insertOffer = (semibook: semibook, id: number, ofr: Offer) => {
   }
 };
 
-/* given `offerId`, get the offer next to it in a semibook */
-const getNext = ({ offers, best }: semibook, offerId: number) => {
-  if (offerId === 0) {
+const getNext = ({ offers, best }: semibook, prev: number) => {
+  if (prev === 0) {
     return best;
   } else {
-    if (!offers.get(offerId)) {
+    if (!offers.get(prev)) {
       throw Error(
         "Trying to get next of an offer absent from local orderbook copy"
       );
     } else {
-      return offers.get(offerId).next;
+      return offers.get(prev).next;
     }
   }
 };
 
-/* Turn {bestOffer,offerMap} into an offer array */
+// May stop before endofbook if we only have a prefix
 const mapToArray = (best: number, offers: Map<number, Offer>) => {
   const ary = [];
 

@@ -51,35 +51,26 @@ contract Monitor_Test {
   }
 
   function initial_monitor_values_test() public {
-    (bytes32 config, ) = mgv.config(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     TestEvents.check(
-      MP.global_unpack_useOracle(config) == 0,
+      !config.global.useOracle,
       "initial useOracle should be false"
     );
-    TestEvents.check(
-      MP.global_unpack_notify(config) == 0,
-      "initial notify should be false"
-    );
+    TestEvents.check(!config.global.notify, "initial notify should be false");
   }
 
   function set_monitor_values_test() public {
     mgv.setMonitor(address(monitor));
     mgv.setUseOracle(true);
     mgv.setNotify(true);
-    (bytes32 config, ) = mgv.config(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     TestEvents.eq(
-      MP.global_unpack_monitor(config),
+      config.global.monitor,
       address(monitor),
       "monitor should be set"
     );
-    TestEvents.check(
-      MP.global_unpack_useOracle(config) > 0,
-      "useOracle should be set"
-    );
-    TestEvents.check(
-      MP.global_unpack_notify(config) > 0,
-      "notify should be set"
-    );
+    TestEvents.check(config.global.useOracle, "useOracle should be set");
+    TestEvents.check(config.global.notify, "notify should be set");
   }
 
   function set_oracle_density_with_useOracle_works_test() public {
@@ -87,24 +78,16 @@ contract Monitor_Test {
     mgv.setUseOracle(true);
     mgv.setDensity(base, quote, 898);
     monitor.setDensity(base, quote, 899);
-    (, bytes32 config) = mgv.config(base, quote);
-    TestEvents.eq(
-      MP.local_unpack_density(config),
-      899,
-      "density should be set oracle"
-    );
+    ML.Config memory config = mgv.config(base, quote);
+    TestEvents.eq(config.local.density, 899, "density should be set oracle");
   }
 
   function set_oracle_density_without_useOracle_fails_test() public {
     mgv.setMonitor(address(monitor));
     mgv.setDensity(base, quote, 898);
     monitor.setDensity(base, quote, 899);
-    (, bytes32 config) = mgv.config(base, quote);
-    TestEvents.eq(
-      MP.local_unpack_density(config),
-      898,
-      "density should be set by mgv"
-    );
+    ML.Config memory config = mgv.config(base, quote);
+    TestEvents.eq(config.local.density, 898, "density should be set by mgv");
   }
 
   function set_oracle_gasprice_with_useOracle_works_test() public {
@@ -112,9 +95,9 @@ contract Monitor_Test {
     mgv.setUseOracle(true);
     mgv.setGasprice(900);
     monitor.setGasprice(901);
-    (bytes32 config, ) = mgv.config(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     TestEvents.eq(
-      MP.global_unpack_gasprice(config),
+      config.global.gasprice,
       901,
       "gasprice should be set by oracle"
     );
@@ -124,12 +107,8 @@ contract Monitor_Test {
     mgv.setMonitor(address(monitor));
     mgv.setGasprice(900);
     monitor.setGasprice(901);
-    (bytes32 config, ) = mgv.config(base, quote);
-    TestEvents.eq(
-      MP.global_unpack_gasprice(config),
-      900,
-      "gasprice should be set by mgv"
-    );
+    ML.Config memory config = mgv.config(base, quote);
+    TestEvents.eq(config.global.gasprice, 900, "gasprice should be set by mgv");
   }
 
   function invalid_oracle_address_throws_test() public {
@@ -153,7 +132,7 @@ contract Monitor_Test {
     targets[0] = [ofrId, 0.04 ether, 0.05 ether, 100_000];
     (uint successes, , ) = mgv.snipes(base, quote, targets, true);
     TestEvents.check(successes == 1, "snipe should succeed");
-    (bytes32 _global, bytes32 _local) = mgv.config(base, quote);
+    (bytes32 _global, bytes32 _local) = mgv._config(base, quote);
     _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
 
     ML.SingleOrder memory order = ML.SingleOrder({
@@ -183,7 +162,7 @@ contract Monitor_Test {
     (uint successes, , ) = mgv.snipes(base, quote, targets, true);
     TestEvents.check(successes == 0, "snipe should fail");
 
-    (bytes32 _global, bytes32 _local) = mgv.config(base, quote);
+    (bytes32 _global, bytes32 _local) = mgv._config(base, quote);
     // config sent during maker callback has stale best and, is locked
     _local = $$(set_local("_local", [["best", 1], ["lock", 1]]));
 

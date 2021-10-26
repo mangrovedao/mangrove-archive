@@ -581,6 +581,35 @@
         "internalType": "address",
         "name": "inbound_tkn",
         "type": "address"
+      }
+    ],
+    "name": "_config",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "_global",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "_local",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "outbound_tkn",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "inbound_tkn",
+        "type": "address"
       },
       {
         "internalType": "uint256",
@@ -735,14 +764,95 @@
     "name": "config",
     "outputs": [
       {
-        "internalType": "bytes32",
-        "name": "_global",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "_local",
-        "type": "bytes32"
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "monitor",
+                "type": "address"
+              },
+              {
+                "internalType": "bool",
+                "name": "useOracle",
+                "type": "bool"
+              },
+              {
+                "internalType": "bool",
+                "name": "notify",
+                "type": "bool"
+              },
+              {
+                "internalType": "uint256",
+                "name": "gasprice",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "gasmax",
+                "type": "uint256"
+              },
+              {
+                "internalType": "bool",
+                "name": "dead",
+                "type": "bool"
+              }
+            ],
+            "internalType": "struct MgvLib.Global",
+            "name": "global",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "internalType": "bool",
+                "name": "active",
+                "type": "bool"
+              },
+              {
+                "internalType": "uint256",
+                "name": "fee",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "density",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "overhead_gasbase",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "offer_gasbase",
+                "type": "uint256"
+              },
+              {
+                "internalType": "bool",
+                "name": "lock",
+                "type": "bool"
+              },
+              {
+                "internalType": "uint256",
+                "name": "best",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "last",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct MgvLib.Local",
+            "name": "local",
+            "type": "tuple"
+          }
+        ],
+        "internalType": "struct MgvLib.Config",
+        "name": "ret",
+        "type": "tuple"
       }
     ],
     "stateMutability": "view",

@@ -530,12 +530,11 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
     MgvLib.OrderResult calldata
   ) external {
     called = true;
-    (, bytes32 cfg) = mgv.config(order.outbound_tkn, order.inbound_tkn);
-    TestEvents.eq(
-      MP.local_unpack_best(cfg),
-      ofr,
-      "Incorrect best offer id in posthook"
+    MgvLib.Config memory cfg = mgv.config(
+      order.outbound_tkn,
+      order.inbound_tkn
     );
+    TestEvents.eq(cfg.local.best, ofr, "Incorrect best offer id in posthook");
   }
 
   function best_in_posthook_is_correct_test() public {
@@ -587,12 +586,11 @@ contract MakerPosthook_Test is IMaker, HasMgvEvents {
     MgvLib.OrderResult calldata
   ) external {
     called = true;
-    (, bytes32 cfg) = mgv.config(order.outbound_tkn, order.inbound_tkn);
-    TestEvents.eq(
-      MP.local_unpack_last(cfg),
-      ofr,
-      "Incorrect last offer id in posthook"
+    MgvLib.Config memory cfg = mgv.config(
+      order.outbound_tkn,
+      order.inbound_tkn
     );
+    TestEvents.eq(cfg.local.last, ofr, "Incorrect last offer id in posthook");
   }
 
   function lastId_in_posthook_is_correct_test() public {

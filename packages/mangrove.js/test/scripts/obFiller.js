@@ -94,6 +94,8 @@ const main = async () => {
     }
   }
 
+  const toWei = (v, u = "ether") =>
+    hre.ethers.utils.parseUnits(v.toString(), u);
   console.log("Deployer");
   console.log(await deployer.getAddress());
   console.log();
@@ -111,15 +113,15 @@ const main = async () => {
   // await TokenB.mint(user, mgv.toUnits("TokenB", 1000));
   // await TokenB.approve(mgvContract.address, toWei(1000000));
 
-  await mgvContract["fund()"]({ value: helpers.toWei(100) });
+  await mgvContract["fund()"]({ value: toWei(100) });
 
-  const newOffer = async (tkout, tkin, { wants, gives, gasreq, gasprice }) => {
+  const newOffer = async (base, quote, { wants, gives, gasreq, gasprice }) => {
     try {
       await mgv.contract.newOffer(
-        tkout.address,
-        tkin.address,
-        tkin.toUnits(wants),
-        tkout.toUnits(gives),
+        base,
+        quote,
+        helpers.toWei(wants),
+        helpers.toWei(gives),
         gasreq || 100000,
         gasprice || 1,
         0
@@ -127,7 +129,7 @@ const main = async () => {
     } catch (e) {
       console.log(e);
       console.warn(
-        `Posting offer failed - tkout=${tkout}, tkin=${tkin}, wants=${wants}, gives=${gives}, gasreq=${gasreq}, gasprice=${gasprice}`
+        `Posting offer failed - base=${base}, quote=${quote}, wants=${wants}, gives=${gives}, gasreq=${gasreq}, gasprice=${gasprice}`
       );
     }
   };
@@ -175,9 +177,9 @@ const main = async () => {
   console.log("Orderbook filler is now running.");
 
   const pushOffer = async (market, ba /*bids|asks*/) => {
-    let tkout = "base",
-      tkin = "quote";
-    if (ba === "bids") [tkout, tkin] = [tkin, tkout];
+    let base = "base",
+      quote = "quote";
+    if (ba === "bids") [base, quote] = [quote, base];
     const book = await market.book();
     // console.log(book,ba,book[ba]);
     const buffer = book[ba].length > 30 ? 5000 : 0;
@@ -187,8 +189,7 @@ const main = async () => {
       // console.log(`pushing offer to ${ba}`);
       const wants = 1 + between(0, 3);
       const gives = wants * between(1.001, 4);
-
-      await newOffer(market[tkout], market[tkin], {
+      await newOffer(market[base].address, market[quote].address, {
         wants,
         gives,
       });

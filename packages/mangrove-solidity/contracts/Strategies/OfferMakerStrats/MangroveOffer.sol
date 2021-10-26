@@ -18,7 +18,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
 
   // Offer constructor (caller will be admin)
   constructor(address _MGV) {
-    (bytes32 global_pack, ) = Mangrove(payable(_MGV)).config(
+    (bytes32 global_pack, ) = Mangrove(payable(_MGV))._config(
       address(0),
       address(0)
     );

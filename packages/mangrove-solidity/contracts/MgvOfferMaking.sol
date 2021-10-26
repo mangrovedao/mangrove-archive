@@ -57,7 +57,7 @@ contract MgvOfferMaking is MgvHasOffers {
   ) external returns (uint) {
     /* In preparation for calling `writeOffer`, we read the `outbound_tkn`,`inbound_tkn` pair configuration, check for reentrancy and market liveness, fill the `OfferPack` struct and increment the `outbound_tkn`,`inbound_tkn` pair's `last`. */
     OfferPack memory ofp;
-    (ofp.global, ofp.local) = config(outbound_tkn, inbound_tkn);
+    (ofp.global, ofp.local) = _config(outbound_tkn, inbound_tkn);
     unlockedMarketOnly(ofp.local);
     activeMarketOnly(ofp.global, ofp.local);
 
@@ -107,7 +107,7 @@ contract MgvOfferMaking is MgvHasOffers {
     uint offerId
   ) external returns (uint) {
     OfferPack memory ofp;
-    (ofp.global, ofp.local) = config(outbound_tkn, inbound_tkn);
+    (ofp.global, ofp.local) = _config(outbound_tkn, inbound_tkn);
     unlockedMarketOnly(ofp.local);
     activeMarketOnly(ofp.global, ofp.local);
     ofp.outbound_tkn = outbound_tkn;
@@ -139,7 +139,7 @@ contract MgvOfferMaking is MgvHasOffers {
     uint offerId,
     bool deprovision
   ) external {
-    (, bytes32 local) = config(outbound_tkn, inbound_tkn);
+    (, bytes32 local) = _config(outbound_tkn, inbound_tkn);
     unlockedMarketOnly(local);
     bytes32 offer = offers[outbound_tkn][inbound_tkn][offerId];
     bytes32 offerDetail = offerDetails[outbound_tkn][inbound_tkn][offerId];
@@ -189,7 +189,7 @@ contract MgvOfferMaking is MgvHasOffers {
 
   /* Fund should be called with a nonzero value (hence the `payable` modifier). The provision will be given to `maker`, not `msg.sender`. */
   function fund(address maker) public payable {
-    (bytes32 _global, ) = config(address(0), address(0));
+    (bytes32 _global, ) = _config(address(0), address(0));
     liveMgvOnly(_global);
     creditWei(maker, msg.value);
   }
