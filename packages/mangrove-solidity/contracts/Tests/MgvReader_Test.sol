@@ -75,7 +75,7 @@ contract MgvReader_Test is HasMgvEvents {
       uint[] memory offerIds,
       ML.Offer[] memory offers,
       ML.OfferDetail[] memory details
-    ) = reader.book(base, quote, 0, 50);
+    ) = reader.offerList(base, quote, 0, 50);
 
     TestEvents.eq(offerIds.length, 0, "ids: wrong length on 2elem");
     TestEvents.eq(offers.length, 0, "offers: wrong length on 1elem");
@@ -83,7 +83,12 @@ contract MgvReader_Test is HasMgvEvents {
     // test 1 elem
     mkr.newOffer(1 ether, 1 ether, 10_000, 0);
 
-    (currentId, offerIds, offers, details) = reader.book(base, quote, 0, 50);
+    (currentId, offerIds, offers, details) = reader.offerList(
+      base,
+      quote,
+      0,
+      50
+    );
 
     TestEvents.eq(offerIds.length, 1, "ids: wrong length on 1elem");
     TestEvents.eq(offers.length, 1, "offers: wrong length on 1elem");
@@ -92,14 +97,24 @@ contract MgvReader_Test is HasMgvEvents {
     // test 2 elem
     mkr.newOffer(0.9 ether, 1 ether, 10_000, 0);
 
-    (currentId, offerIds, offers, details) = reader.book(base, quote, 0, 50);
+    (currentId, offerIds, offers, details) = reader.offerList(
+      base,
+      quote,
+      0,
+      50
+    );
 
     TestEvents.eq(offerIds.length, 2, "ids: wrong length on 2elem");
     TestEvents.eq(offers.length, 2, "offers: wrong length on 1elem");
     TestEvents.eq(details.length, 2, "details: wrong length on 1elem");
 
     // test 2 elem read from elem 1
-    (currentId, offerIds, offers, details) = reader.book(base, quote, 1, 50);
+    (currentId, offerIds, offers, details) = reader.offerList(
+      base,
+      quote,
+      1,
+      50
+    );
     TestEvents.eq(
       offerIds.length,
       1,
@@ -110,7 +125,12 @@ contract MgvReader_Test is HasMgvEvents {
 
     // test 3 elem read in chunks of 2
     mkr.newOffer(0.8 ether, 1 ether, 10_000, 0);
-    (currentId, offerIds, offers, details) = reader.book(base, quote, 0, 2);
+    (currentId, offerIds, offers, details) = reader.offerList(
+      base,
+      quote,
+      0,
+      2
+    );
     TestEvents.eq(
       offerIds.length,
       2,
@@ -120,7 +140,12 @@ contract MgvReader_Test is HasMgvEvents {
     TestEvents.eq(details.length, 2, "details: wrong length on 1elem");
 
     // test offer order
-    (currentId, offerIds, offers, details) = reader.book(base, quote, 0, 50);
+    (currentId, offerIds, offers, details) = reader.offerList(
+      base,
+      quote,
+      0,
+      50
+    );
     TestEvents.eq(offers[0].wants, 0.8 ether, "wrong wants for offers[0]");
     TestEvents.eq(offers[1].wants, 0.9 ether, "wrong wants for offers[0]");
     TestEvents.eq(offers[2].wants, 1 ether, "wrong wants for offers[0]");
@@ -129,7 +154,7 @@ contract MgvReader_Test is HasMgvEvents {
   function returns_zero_on_nonexisting_offer_test() public {
     uint ofr = mkr.newOffer(1 ether, 1 ether, 10_000, 0);
     mkr.retractOffer(ofr);
-    (, uint[] memory offerIds, , ) = reader.book(base, quote, ofr, 50);
+    (, uint[] memory offerIds, , ) = reader.offerList(base, quote, ofr, 50);
     TestEvents.eq(
       offerIds.length,
       0,
@@ -138,14 +163,14 @@ contract MgvReader_Test is HasMgvEvents {
   }
 
   function no_wasted_time_test() public {
-    reader.book(base, quote, 0, 50); // warming up caches
+    reader.offerList(base, quote, 0, 50); // warming up caches
 
     uint g = gasleft();
-    reader.book(base, quote, 0, 50);
+    reader.offerList(base, quote, 0, 50);
     uint used1 = g - gasleft();
 
     g = gasleft();
-    reader.book(base, quote, 0, 50000000);
+    reader.offerList(base, quote, 0, 50000000);
     uint used2 = g - gasleft();
 
     TestEvents.eq(
@@ -158,11 +183,11 @@ contract MgvReader_Test is HasMgvEvents {
   function correct_endpoints_0_test() public {
     uint startId;
     uint length;
-    (startId, length) = reader.offersEndpoints(base, quote, 0, 100000);
+    (startId, length) = reader.offerListEndPoints(base, quote, 0, 100000);
     TestEvents.eq(startId, 0, "0.0 wrong startId");
     TestEvents.eq(length, 0, "0.0 wrong length");
 
-    (startId, length) = reader.offersEndpoints(base, quote, 32, 100000);
+    (startId, length) = reader.offerListEndPoints(base, quote, 32, 100000);
     TestEvents.eq(startId, 0, "0.1 wrong startId");
     TestEvents.eq(length, 0, "0.1 wrong length");
   }
@@ -172,19 +197,19 @@ contract MgvReader_Test is HasMgvEvents {
     uint length;
     uint ofr = mkr.newOffer(1 ether, 1 ether, 50_000, 0);
 
-    (startId, length) = reader.offersEndpoints(base, quote, 0, 0);
+    (startId, length) = reader.offerListEndPoints(base, quote, 0, 0);
     TestEvents.eq(startId, 1, "1.0 wrong startId");
     TestEvents.eq(length, 0, "1.0 wrong length");
 
-    (startId, length) = reader.offersEndpoints(base, quote, 1, 1);
+    (startId, length) = reader.offerListEndPoints(base, quote, 1, 1);
     TestEvents.eq(startId, 1, "1.1 wrong startId");
     TestEvents.eq(length, 1, "1.1 wrong length");
 
-    (startId, length) = reader.offersEndpoints(base, quote, 1, 1321);
+    (startId, length) = reader.offerListEndPoints(base, quote, 1, 1321);
     TestEvents.eq(startId, 1, "1.2 wrong startId");
     TestEvents.eq(length, 1, "1.2 wrong length");
 
-    (startId, length) = reader.offersEndpoints(base, quote, 2, 12);
+    (startId, length) = reader.offerListEndPoints(base, quote, 2, 12);
     TestEvents.eq(startId, 0, "1.0 wrong startId");
     TestEvents.eq(length, 0, "1.0 wrong length");
   }
