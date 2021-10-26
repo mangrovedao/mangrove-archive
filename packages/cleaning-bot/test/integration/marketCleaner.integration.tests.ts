@@ -10,6 +10,7 @@ chai.use(chaiAsPromised);
 import { Mangrove, Market, MgvToken } from "@giry/mangrove-js";
 import * as typechain from "@giry/mangrove-js/dist/nodejs/types/typechain";
 import { BookSide } from "../../src/mangrove-js-type-aliases";
+import ethers from "ethers";
 import "hardhat-deploy";
 import "hardhat-deploy-ethers";
 import { ethers as hardhatEthers } from "hardhat";
@@ -20,20 +21,22 @@ import { MarketCleaner } from "../../dist/nodejs/MarketCleaner";
 const bookSides: BookSide[] = ["asks", "bids"];
 
 describe("MarketCleaner integration tests", () => {
+  let deployerSigner: SignerWithAddress;
+  let makerSigner: SignerWithAddress;
+  let cleanerSigner: SignerWithAddress;
+
   let cleanerProvider: Provider;
+
   let mgv: Mangrove;
   let market: Market;
   let testMakerContract: typechain.TestMaker;
+
   let getTokens = (bookSide: BookSide) => {
     return {
       inboundToken: bookSide === "asks" ? market.base : market.quote,
       outboundToken: bookSide === "asks" ? market.quote : market.base,
     };
   };
-
-  let deployerSigner: SignerWithAddress;
-  let makerSigner: SignerWithAddress;
-  let cleanerSigner: SignerWithAddress;
 
   before(async function () {
     deployerSigner = await hardhatEthers.getNamedSigner("deployer"); // Owner of deployed MGV and token contracts
@@ -51,6 +54,13 @@ describe("MarketCleaner integration tests", () => {
     });
     cleanerProvider = mgv._provider;
     market = await mgv.market({ base: "TokenA", quote: "TokenB" });
+
+    // Turn up the Mangrove gasprice to increase the bounty
+    const mangroveContract = typechain.Mangrove__factory.connect(
+      mgv._address,
+      deployerSigner
+    );
+    await mangroveContract.setGasprice(10).then((tx) => tx.wait());
 
     const testMakerAddress = Mangrove.getAddress(
       "TestMaker",
@@ -75,9 +85,8 @@ describe("MarketCleaner integration tests", () => {
       await testMakerContract.shouldFail(true).then((tx) => tx.wait());
       await testMakerContract[
         "newOffer(address,address,uint256,uint256,uint256,uint256)"
-      ](inboundToken.address, outboundToken.address, 1, 1000000, 100, 1).then(
-        (tx) => tx.wait()
-      );
+      ](inboundToken.address, outboundToken.address, 1, 1000000, 1000, 1) // (base address, quote address, wants, gives, gasreq, pivotId)
+        .then((tx) => tx.wait());
 
       const marketCleaner = new MarketCleaner(market, cleanerProvider);
 
@@ -89,29 +98,14 @@ describe("MarketCleaner integration tests", () => {
       await marketCleaner.clean(0);
 
       // Assert
-      // FIXME temp debugging output
-      const cleanerBalanceAfter = await cleanerProvider.getBalance(
-        cleanerSigner.address
-      );
-      console.group("cleaner balance");
-      console.log(`before=${cleanerBalanceBefore}`);
-      console.log(`after= ${cleanerBalanceAfter}`);
-      console.groupEnd();
-
       return Promise.all([
-        // - Offer is not in the 'bookSide' offer list
         expect(market.requestBook()).to.eventually.have.property(bookSide).which
           .is.empty,
-        // - Cleaner acct has more ether than before
-        //   - Can we calculate exactly what the balance should be? I guess we can extract the gas used from the cleaning transaction - can we also get the bounty?
-        // FIXME bounty is currently too small to offset gas cost
-        // expect(
-        //   cleanerProvider.getBalance(cleanerSigner.address)
-        // ).to.eventually.satisfy((balanceAfter: ethers.BigNumber) => {
-        //   console.dir(balanceAfter);
-        //   return balanceAfter.gt(cleanerBalanceBefore);
-        // }
-        // ),
+        expect(
+          cleanerProvider.getBalance(cleanerSigner.address)
+        ).to.eventually.satisfy((balanceAfter: ethers.BigNumber) =>
+          balanceAfter.gt(cleanerBalanceBefore)
+        ),
       ]);
     });
   });
