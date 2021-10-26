@@ -32,10 +32,11 @@ library TestInsert {
       gasreq: 90_000,
       pivotId: 72
     });
+    (bytes32 cfg, ) = mgv.config(address(base), address(quote));
     offerOf[0] = makers.getMaker(0).newOffer({ //failer offer 4
       wants: 20 ether,
       gives: 10 ether,
-      gasreq: mgv.config(address(base), address(quote)).global.gasmax,
+      gasreq: MP.global_unpack_gasmax(cfg),
       pivotId: 0
     });
     //TestUtils.printOfferBook(mgv);

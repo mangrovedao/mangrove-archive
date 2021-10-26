@@ -3,7 +3,8 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "./Passthrough.sol";
 import "../../AbstractMangrove.sol";
-import {IERC20, IMaker} from "../../MgvLib.sol";
+import "../../MgvLib.sol";
+import {MgvPack as MP} from "../../MgvPack.sol";
 
 contract TestMoriartyMaker is IMaker, Passthrough {
   AbstractMangrove mgv;
@@ -54,8 +55,9 @@ contract TestMoriartyMaker is IMaker, Passthrough {
     mgv.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
     mgv.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
     mgv.newOffer(base, quote, wants, gives, gasreq, 0, pivotId);
-    uint density = mgv.config(base, quote).local.density;
-    uint offer_gasbase = mgv.config(base, quote).local.offer_gasbase;
+    (, bytes32 cfg) = mgv.config(base, quote);
+    uint density = MP.local_unpack_density(cfg);
+    uint offer_gasbase = MP.local_unpack_offer_gasbase(cfg);
     dummy = mgv.newOffer({
       outbound_tkn: base,
       inbound_tkn: quote,

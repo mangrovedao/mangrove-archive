@@ -104,8 +104,8 @@ describe("Running tests...", function () {
     await lc.logLenderStatus(makerContract, "compound", ["WETH"]);
 
     for (let i = 0; i < 10; i++) {
-      let book01 = await mgv.reader.book(usdc.address, wEth.address, 0, 1);
-      let book10 = await mgv.reader.book(wEth.address, usdc.address, 0, 1);
+      let book01 = await mgv.reader.offerList(usdc.address, wEth.address, 0, 1);
+      let book10 = await mgv.reader.offerList(wEth.address, usdc.address, 0, 1);
       await lc.logOrderBook(book01, usdc, wEth);
       await lc.logOrderBook(book10, wEth, usdc);
 
