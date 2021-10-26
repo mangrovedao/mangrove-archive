@@ -6,23 +6,50 @@ import * as chai from "chai";
 const { expect } = chai;
 import chaiAsPromised from "chai-as-promised";
 chai.use(chaiAsPromised);
+
 import { Mangrove, Market, MgvToken } from "@giry/mangrove-js";
 import * as typechain from "@giry/mangrove-js/dist/nodejs/types/typechain";
-import { newOffer, toWei } from "../util/helpers";
+import { BookSide } from "../../src/mangrove-js-type-aliases";
+import "hardhat-deploy";
+import "hardhat-deploy-ethers";
+import { ethers as hardhatEthers } from "hardhat";
 import { Provider } from "@ethersproject/abstract-provider";
-import { MarketCleaner } from "../../src/MarketCleaner";
-import * as hre from "hardhat";
-import "hardhat-deploy-ethers/dist/src/type-extensions";
+import { SignerWithAddress } from "hardhat-deploy-ethers/dist/src/signers";
+import { MarketCleaner } from "../../dist/nodejs/MarketCleaner";
+
+const bookSides: BookSide[] = ["asks", "bids"];
 
 describe("MarketCleaner integration tests", () => {
-  let provider: Provider;
+  let cleanerProvider: Provider;
   let mgv: Mangrove;
   let market: Market;
   let testMakerContract: typechain.TestMaker;
+  let getTokens = (bookSide: BookSide) => {
+    return {
+      inboundToken: bookSide === "asks" ? market.base : market.quote,
+      outboundToken: bookSide === "asks" ? market.quote : market.base,
+    };
+  };
+
+  let deployerSigner: SignerWithAddress;
+  let makerSigner: SignerWithAddress;
+  let cleanerSigner: SignerWithAddress;
+
+  before(async function () {
+    deployerSigner = await hardhatEthers.getNamedSigner("deployer"); // Owner of deployed MGV and token contracts
+    makerSigner = await hardhatEthers.getNamedSigner("maker"); // Owner of TestMaker contract
+    cleanerSigner = await hardhatEthers.getNamedSigner("cleaner"); // Owner of cleaner EOA
+  });
 
   beforeEach(async function () {
-    provider = this.test?.parent?.parent?.ctx.provider;
-    mgv = await Mangrove.connect({ provider });
+    // FIXME the hre.network.provider is not a full ethers Provider, e.g. it doesn't have getBalance() and getGasPrice()
+    // FIXME for now we therefore use the provider constructed by Mangrove
+    // provider = this.test?.parent?.parent?.ctx.provider;
+    mgv = await Mangrove.connect({
+      provider: this.test?.parent?.parent?.ctx.providerUrl,
+      signer: cleanerSigner,
+    });
+    cleanerProvider = mgv._provider;
     market = await mgv.market({ base: "TokenA", quote: "TokenB" });
 
     const testMakerAddress = Mangrove.getAddress(
@@ -31,7 +58,7 @@ describe("MarketCleaner integration tests", () => {
     );
     testMakerContract = typechain.TestMaker__factory.connect(
       testMakerAddress,
-      mgv._signer
+      makerSigner
     );
   });
 
@@ -40,67 +67,52 @@ describe("MarketCleaner integration tests", () => {
     mgv.disconnect();
   });
 
-  it("should clean offer failing to trade 0 wants on the 'asks' offer list", async function () {
-    // Arrange
-    // - Set up accounts
-    //   - Which do we need?
-    //     - MGV admin account for opening market
-    //     - Maker account for creating offer
-    //       - Could perhaps be the same as MGV admin?
-    //     - Cleaner account for sending transactions
-    //   - What funding do the accounts need?
-    //     - Plenty of ether for gas - we're not testing out of gas here
-    //     - Only Maker acct needs tokens
-    //   - Do we need to set up any token approvals?
-    //     - For ERC-20 tokens, I think both Maker acct and Cleaner acct need to be approved?
-    //     - NB: MgvToken has utility function for approving
-    //   - Maker must be provisioned
-    // - Open market
-    //   - NB: Market (TokenA, TokenB) is already opened by the integration-test-root-hooks
-    //   - TODO which account - deployer?
-    //   - NB: There's no Mangrove.js API for opening markets, right?
-    console.log((await market.config()).asks.active);
-    // - Add offer to order book - using Mangrove.js if possible
-    //   - Must be failing
-    //   - Must not be persistent
-    //   - Cleaning it must be profitable
-    // TODO which account is used for this transaction - deployer, right?
-    // FIXME ----------------- commented out for merge
-    // const setShouldFailTx = await testMakerContract.shouldFail(true);
-    // await setShouldFailTx.wait();
-    // const provisionTx = await testMakerContract.provisionMgv(toWei("1"));
-    // await provisionTx.wait();
-    // const newOfferTx = await testMakerContract[
-    //   "newOffer(address,address,uint256,uint256,uint256,uint256)"
-    // ](market.base.address, market.quote.address, 1, 1000000, 100, 1);
-    // console.dir(newOfferTx);
-    // const newOfferTxReceipt = await newOfferTx.wait();
-    // console.dir(newOfferTxReceipt);
-    // FIXME ---------------- end
-    // const newOfferTx = await newOffer(mgv, market.base, market.quote, {
-    //   wants: "1",
-    //   gives: "1.2",
-    //   gasreq: 10000,
-    //   gasprice: 1,
-    // });
-    // console.dir(newOfferTx);
-    // const newOfferTxReceipt = await newOfferTx.wait();
-    // console.dir(newOfferTxReceipt);
+  bookSides.forEach((bookSide) => {
+    it(`should clean offer failing to trade 0 wants on the '${bookSide}' offer list`, async function () {
+      // Arrange
+      const { inboundToken, outboundToken } = getTokens(bookSide);
 
-    // Act
-    // - Create MarketCleaner for the market
-    //   - Must use the right account
-    // - Wait for it to complete cleaning - HOW?
-    const marketCleaner = new MarketCleaner(market, provider);
-    await marketCleaner.cleanNow();
+      await testMakerContract.shouldFail(true).then((tx) => tx.wait());
+      await testMakerContract[
+        "newOffer(address,address,uint256,uint256,uint256,uint256)"
+      ](inboundToken.address, outboundToken.address, 1, 1000000, 100, 1).then(
+        (tx) => tx.wait()
+      );
 
-    // Assert
-    return Promise.all([
-      // - Offer is not in the 'asks' offer list
-      expect(market.requestBook()).to.eventually.have.property("asks").which.is
-        .empty,
-      // - Cleaner acct has more ether than before
-      //   - Can we calculate exactly what the balance should be?
-    ]);
+      const marketCleaner = new MarketCleaner(market, cleanerProvider);
+
+      const cleanerBalanceBefore = await cleanerProvider.getBalance(
+        cleanerSigner.address
+      );
+
+      // Act
+      await marketCleaner.clean(0);
+
+      // Assert
+      // FIXME temp debugging output
+      const cleanerBalanceAfter = await cleanerProvider.getBalance(
+        cleanerSigner.address
+      );
+      console.group("cleaner balance");
+      console.log(`before=${cleanerBalanceBefore}`);
+      console.log(`after= ${cleanerBalanceAfter}`);
+      console.groupEnd();
+
+      return Promise.all([
+        // - Offer is not in the 'bookSide' offer list
+        expect(market.requestBook()).to.eventually.have.property(bookSide).which
+          .is.empty,
+        // - Cleaner acct has more ether than before
+        //   - Can we calculate exactly what the balance should be? I guess we can extract the gas used from the cleaning transaction - can we also get the bounty?
+        // FIXME bounty is currently too small to offset gas cost
+        // expect(
+        //   cleanerProvider.getBalance(cleanerSigner.address)
+        // ).to.eventually.satisfy((balanceAfter: ethers.BigNumber) => {
+        //   console.dir(balanceAfter);
+        //   return balanceAfter.gt(cleanerBalanceBefore);
+        // }
+        // ),
+      ]);
+    });
   });
 });
