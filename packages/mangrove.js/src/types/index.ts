@@ -19,7 +19,7 @@ import { MgvReader, Mangrove } from "./typechain";
 export type { Signer, Provider };
 
 export namespace BookReturns {
-  type _bookReturns = Awaited<ReturnType<MgvReader["functions"]["book"]>>;
+  type _bookReturns = Awaited<ReturnType<MgvReader["functions"]["offerList"]>>;
   export type indices = _bookReturns[1];
   export type offers = _bookReturns[2];
   export type details = _bookReturns[3];

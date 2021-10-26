@@ -152,7 +152,7 @@ contract MangroveOffer is AccessControlled, IMaker, TradeHandler, Exponential {
     uint gasreq,
     uint gasprice,
     uint offerId
-  ) public returns (uint) {
+  ) public view returns (uint) {
     return
       getMissingProvision(
         MGV,

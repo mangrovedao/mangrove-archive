@@ -21,7 +21,7 @@ contract MgvReader {
    * `length` is 0 if `startId == 0`. Other it is the number of live offers as good or worse than the offer with
    * id `startId`.
    */
-  function offersEndpoints(
+  function offerListEndPoints(
     address outbound_tkn,
     address inbound_tkn,
     uint fromId,
@@ -50,7 +50,7 @@ contract MgvReader {
   }
 
   // Returns the orderbook for the outbound_tkn/inbound_tkn pair in packed form. First number is id of next offer (0 is we're done). First array is ids, second is offers (as bytes32), third is offerDetails (as bytes32). Array will be of size `min(# of offers in out/in list, maxOffers)`.
-  function packedBook(
+  function packedOfferList(
     address outbound_tkn,
     address inbound_tkn,
     uint fromId,
@@ -65,7 +65,7 @@ contract MgvReader {
       bytes32[] memory
     )
   {
-    (uint currentId, uint length) = offersEndpoints(
+    (uint currentId, uint length) = offerListEndPoints(
       outbound_tkn,
       inbound_tkn,
       fromId,
@@ -90,7 +90,7 @@ contract MgvReader {
   }
 
   // Returns the orderbook for the outbound_tkn/inbound_tkn pair in unpacked form. First number is id of next offer (0 if we're done). First array is ids, second is offers (as structs), third is offerDetails (as structs). Array will be of size `min(# of offers in out/in list, maxOffers)`.
-  function book(
+  function offerList(
     address outbound_tkn,
     address inbound_tkn,
     uint fromId,
@@ -105,7 +105,7 @@ contract MgvReader {
       ML.OfferDetail[] memory
     )
   {
-    (uint currentId, uint length) = offersEndpoints(
+    (uint currentId, uint length) = offerListEndPoints(
       outbound_tkn,
       inbound_tkn,
       fromId,

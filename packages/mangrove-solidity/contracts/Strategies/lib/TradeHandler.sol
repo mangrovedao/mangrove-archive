@@ -46,7 +46,7 @@ contract TradeHandler {
     uint gasreq,
     uint gasprice,
     uint offerId
-  ) internal returns (uint) {
+  ) internal view returns (uint) {
     (bytes32 globalData, bytes32 localData) = mgv.config(
       outbound_tkn,
       inbound_tkn
