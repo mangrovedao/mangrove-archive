@@ -42,7 +42,7 @@ contract MgvOracle is AccessControlled, IMgvMonitor {
   }
 
   //TODO: This should have the onlyAdmin or onlySender modifier
-  function setDensity(uint density) {
+  function setDensity(uint density) private {
     //NOTE: Not implemented, so not made external yet
   }
 
