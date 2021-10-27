@@ -7,7 +7,6 @@ const { expect } = chai;
 import chaiAsPromised from "chai-as-promised";
 chai.use(chaiAsPromised);
 import { Mangrove } from "@giry/mangrove-js";
-//import * as typechain from "@giry/mangrove-js/dist/nodejs/types/typechain";
 import { Provider } from "@ethersproject/abstract-provider";
 import { GasUpdater } from "../../src/GasUpdater";
 import * as hre from "hardhat";
@@ -63,16 +62,11 @@ describe("GasUpdater integration tests", () => {
 
     //TODO: Need to wait for Mangrove core to get update from oracle-contract
     //TODO: Temp solution: Wait a bit. Better solution possibly to wait for event?
-    await sleep(2000);
+    //await sleep(2000);
 
     const globalConfig = await mgv.config();
 
     // Assert
-    return Promise.all([
-      // expect(mgv.config())
-      //   .to.eventually.have.property("gasprice")
-      //   .which.is.equal(newGasPrice),
-      expect(globalConfig.gasprice).to.equal(newGasPrice),
-    ]);
+    return Promise.all([expect(globalConfig.gasprice).to.equal(newGasPrice)]);
   });
 });
