@@ -20,7 +20,7 @@ export class GasUpdater {
     this.#acceptableGasGapToOracle = acceptableGasGapToOracle;
   }
 
-  public start() {
+  public start(): void {
     // TODO: Each block is definitely too often - what is a good setting here, everytime change is deteced from external source?
     this.#provider.on("block", async (blocknumber) =>
       this.#checkSetGasprice(blocknumber)
@@ -28,11 +28,11 @@ export class GasUpdater {
   }
 
   // TODO: Or just make checkSetGasPrice public
-  public async checkSetGasPriceNow() {
+  public async checkSetGasPriceNow(): Promise<void> {
     await this.#checkSetGasprice(-1);
   }
 
-  async #checkSetGasprice(blocknumber: number) {
+  async #checkSetGasprice(blocknumber: number): Promise<void> {
     //TODO: Probably suitable protection against reentrancy
 
     const globalConfig = await this.#mangrove.config();
@@ -101,7 +101,7 @@ export class GasUpdater {
     }
   }
 
-  async #updateMangroveGasPrice(newGasPrice: number) {
+  async #updateMangroveGasPrice(newGasPrice: number): Promise<void> {
     logger.debug(
       "updateMangroveGasPrice: Sending gas update to oracle contract."
     );
