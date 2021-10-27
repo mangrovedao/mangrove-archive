@@ -23,11 +23,16 @@ export class GasUpdater {
   public start() {
     // TODO: Each block is definitely too often - what is a good setting here?
     this.#provider.on("block", async (blocknumber) =>
-      this._checkSetGasprice(blocknumber)
+      this.#checkSetGasprice(blocknumber)
     );
   }
 
-  private async _checkSetGasprice(blocknumber: any) {
+  // TODO: Or just make checkSetGasPrice public
+  public async checkSetGasPriceNow() {
+    this.#checkSetGasprice(-1);
+  }
+
+  async #checkSetGasprice(blocknumber: number) {
     //TODO: Probably suitable protection against reentrancy
 
     const globalConfig = await this.#mangrove.config();
@@ -36,7 +41,7 @@ export class GasUpdater {
       logger.debug(
         `Mangrove is dead at block number ${blocknumber}. Stopping MarketCleaner`
       );
-      this.#provider.off("block", this._checkSetGasprice);
+      this.#provider.off("block", this.#checkSetGasprice);
       return;
     }
 
@@ -50,62 +55,61 @@ export class GasUpdater {
       `Current Mangrove gas price in config is: ${currentMangroveGasPrice}`
     );
 
-    const oracleGasPriceEstimate = await this._getGasPriceEstimateFromOracle();
+    const oracleGasPriceEstimate = await this.#getGasPriceEstimateFromOracle();
 
     const [shouldUpdateGasPrice, newGasPrice] =
-      await this._shouldUpdateMangroveGasPrice(
+      await this.#shouldUpdateMangroveGasPrice(
         currentMangroveGasPrice,
         oracleGasPriceEstimate
       );
 
     if (shouldUpdateGasPrice) {
-      await this._updateMangroveGasPrice(newGasPrice);
+      await this.#updateMangroveGasPrice(newGasPrice);
     }
   }
 
-  private async _getGasPriceEstimateFromOracle(): Promise<number> {
+  async #getGasPriceEstimateFromOracle(): Promise<number> {
     //TODO: stub implementation
     const oracleGasPrice = 2;
     logger.debug(
-      `_getGasPriceEstimateFromOracle: Stub implementation - using constant: ${oracleGasPrice}`
+      `getGasPriceEstimateFromOracle: Stub implementation - using constant: ${oracleGasPrice}`
     );
     return oracleGasPrice;
   }
 
-  private async _shouldUpdateMangroveGasPrice(
+  async #shouldUpdateMangroveGasPrice(
     currentGasPrice: number,
     oracleGasPrice: number
   ): Promise<[Boolean, number]> {
     //TODO: stub implementation - also, if entirely local calc, may be sync
 
-    logger.debug("_shouldUpdateMangroveGasPrice: Naive stub implementation.");
+    logger.debug("shouldUpdateMangroveGasPrice: Naive implementation.");
     const shouldUpdate =
       Math.abs(currentGasPrice - oracleGasPrice) >
       this.#acceptableGasGapToOracle;
 
     if (shouldUpdate) {
       logger.debug(
-        `_shouldUpdateMangroveGasPrice: Determined update needed - to ${oracleGasPrice}`
+        `shouldUpdateMangroveGasPrice: Determined update needed - to ${oracleGasPrice}`
       );
       return [true, oracleGasPrice];
     } else {
       logger.debug(
-        `_shouldUpdateMangroveGasPrice: Determined no update needed.`
+        `shouldUpdateMangroveGasPrice: Determined no update needed.`
       );
       return [false, oracleGasPrice];
     }
   }
 
-  private async _updateMangroveGasPrice(newGasPrice: number) {
-    //TODO: First implementation going through mangrove.js -> gas-update-contract
+  async #updateMangroveGasPrice(newGasPrice: number) {
     logger.debug(
-      "_updateMangroveGasPrice: First implementation going through mangrove.js -> contract."
+      "updateMangroveGasPrice: Sending gas update to oracle contract."
     );
 
     try {
-      await this.#mangrove.oracleContract.setGasPrice(
-        ethers.BigNumber.from(newGasPrice)
-      );
+      await this.#mangrove.oracleContract
+        .setGasPrice(ethers.BigNumber.from(newGasPrice))
+        .then((tx) => tx.wait());
     } catch (e) {
       logger.error("setGasprice failed", {
         mangrove: this.#mangrove,
