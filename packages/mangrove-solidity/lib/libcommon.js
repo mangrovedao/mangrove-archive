@@ -37,6 +37,15 @@ async function fund(funding_tuples) {
     await erc.connect(signer).mint(amount);
     await erc.connect(signer).transfer(recipient, amount);
   }
+
+  function logError(sym) {
+    console.warn(
+      chalk.yellow(
+        `No method given to mint ${sym} on ${env.mainnet.chain}-${env.mainnet.network}`
+      )
+    );
+  }
+
   for (const tuple of funding_tuples) {
     let token_symbol = tuple[0];
     let amount = tuple[1];
@@ -47,7 +56,11 @@ async function fund(funding_tuples) {
       case "DAI": {
         let dai = await getContract("DAI");
         let Bigamount = parseToken(amount, 18);
-        if (env.mainnet.name == "ethereum") {
+        if (env.mainnet.chain == "ethereum") {
+          if (env.mainnet.network != "mainnet") {
+            logError("DAI");
+            break;
+          }
           let daiAdmin = env.mainnet.tokens.dai.admin;
           await network.provider.request({
             method: "hardhat_impersonateAccount",
@@ -67,22 +80,28 @@ async function fund(funding_tuples) {
           });
           break;
         }
-        if (env.mainnet.name == "polygon") {
-          await mintPolygonChildErc(dai, recipient, Bigamount);
-          break;
-        }
-        if (env.mainnet.name == "mumbai") {
-          await mintMintableErc(dai, recipient, Bigamount);
-          break;
+        if (env.mainnet.chain == "polygon") {
+          if (env.mainnet.network == "mainnet") {
+            await mintPolygonChildErc(dai, recipient, Bigamount);
+            break;
+          }
+          if (env.mainnet.network == "mumbai") {
+            await mintMintableErc(dai, recipient, Bigamount);
+            break;
+          }
         } else {
-          console.warn(`No method given to mint DAI on ${env.mainnet.name}`);
+          logError("DAI");
           break;
         }
       }
       case "USDC": {
         let usdc = await getContract("USDC");
         let Bigamount = parseToken(amount, await getDecimals("USDC"));
-        if (env.mainnet.name == "ethereum") {
+        if (env.mainnet.chain == "ethereum") {
+          if (env.mainnet.network != "mainnet") {
+            logError("USDC");
+            break;
+          }
           let masterMinter = env.mainnet.tokens.usdc.masterMinter;
           await network.provider.request({
             method: "hardhat_impersonateAccount",
@@ -106,15 +125,20 @@ async function fund(funding_tuples) {
           });
           break;
         }
-        if (env.mainnet.name == "polygon") {
-          await mintPolygonChildErc(usdc, recipient, Bigamount);
-          break;
-        }
-        if (env.mainnet.name == "mumbai") {
-          await mintMintableErc(usdc, recipient, Bigamount);
-          break;
+        if (env.mainnet.chain == "polygon") {
+          if (env.mainnet.network == "mainnet") {
+            await mintPolygonChildErc(usdc, recipient, Bigamount);
+            break;
+          }
+          if (env.mainnet.network == "mumbai") {
+            await mintMintableErc(usdc, recipient, Bigamount);
+            break;
+          } else {
+            logError("USDC");
+            break;
+          }
         } else {
-          console.warn(`No method given to mint USDC on ${env.mainnet.name}`);
+          logError("USDC");
           break;
         }
       }
@@ -122,7 +146,11 @@ async function fund(funding_tuples) {
         let wEth = await getContract("WETH");
         let Bigamount = parseToken(amount, await getDecimals("WETH"));
 
-        if (env.mainnet.name == "ethereum") {
+        if (env.mainnet.chain == "ethereum") {
+          if (env.mainnet.network != "mainnet") {
+            logError("WETH");
+            break;
+          }
           if (recipient != signer.address) {
             await network.provider.request({
               method: "hardhat_impersonateAccount",
@@ -144,15 +172,20 @@ async function fund(funding_tuples) {
           }
           break;
         }
-        if (env.mainnet.name == "polygon") {
-          await mintPolygonChildErc(wEth, recipient, Bigamount);
-          break;
-        }
-        if (env.mainnet.name == "mumbai") {
-          await mintMintableErc(wEth, recipient, Bigamount);
-          break;
+        if (env.mainnet.chain == "polygon") {
+          if (env.mainnet.network == "mainnet") {
+            await mintPolygonChildErc(wEth, recipient, Bigamount);
+            break;
+          }
+          if (env.mainnet.network == "mumbai") {
+            await mintMintableErc(wEth, recipient, Bigamount);
+            break;
+          } else {
+            logError("WETH");
+            break;
+          }
         } else {
-          console.warn(`No method given to mint WETH on ${env.mainnet.name}`);
+          logError("WETH");
           break;
         }
       }
