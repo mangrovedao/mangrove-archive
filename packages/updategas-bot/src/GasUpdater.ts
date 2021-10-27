@@ -80,7 +80,7 @@ export class GasUpdater {
   async #shouldUpdateMangroveGasPrice(
     currentGasPrice: number,
     oracleGasPrice: number
-  ): Promise<[Boolean, number]> {
+  ): Promise<[boolean, number]> {
     //TODO: stub implementation - also, if entirely local calc, may be sync
 
     logger.debug("shouldUpdateMangroveGasPrice: Naive implementation.");
