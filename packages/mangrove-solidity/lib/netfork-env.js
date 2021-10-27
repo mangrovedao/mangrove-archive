@@ -15,7 +15,7 @@ module.exports = (ethers) => {
   }
 
   // if no network name is defined, then one is not forking mainnet
-  if (!networkName) {
+  if (!mainnetConfig.network) {
     return;
   }
 
@@ -23,7 +23,7 @@ module.exports = (ethers) => {
 
   env.mainnet = {
     network: mainnetConfig.network,
-    name: networkName,
+    chain: mainnetConfig.chain,
     tokens: getConfiguredTokens(mainnetConfig, ethers),
     abis: getExtraAbis(mainnetConfig),
   };
