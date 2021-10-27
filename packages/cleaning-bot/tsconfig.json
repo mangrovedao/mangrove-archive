@@ -9,6 +9,7 @@
     "noErrorTruncation": true,
     "moduleResolution": "node",
     "sourceMap": true,
+    "declaration": true,
     "outDir": "dist/nodejs",
     "baseUrl": ".",
     "paths": {

@@ -40,6 +40,12 @@ config.hardhat = {
     deployer: {
       default: 1, // take second account as deployer
     },
+    maker: {
+      default: 2,
+    },
+    cleaner: {
+      default: 3,
+    },
   },
   mocha: defer(function () {
     // Use same configuration when running Mocha via Hardhat

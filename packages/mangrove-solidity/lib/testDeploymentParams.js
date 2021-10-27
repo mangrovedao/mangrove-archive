@@ -38,14 +38,6 @@ module.exports = async () => {
   const Usdc = await withAddress(makeToken("USDC", "USDC", 6));
   const Weth = await withAddress(makeToken("WETH", "WETH", 18));
 
-  const testMaker = await withAddress({
-    name: "TestMaker",
-    options: {
-      from: deployer,
-      args: [mangrove.address, tokenA.address, tokenB.address],
-    },
-  });
-
   const mgvReader = await withAddress({
     name: "MgvReader",
     options: {
@@ -70,16 +62,26 @@ module.exports = async () => {
     },
   });
 
+  const maker = (await hre.getNamedAccounts()).maker;
+
+  const testMaker = await withAddress({
+    name: "TestMaker",
+    options: {
+      from: maker,
+      args: [mangrove.address, tokenA.address, tokenB.address],
+    },
+  });
+
   return [
     mangrove,
+    mgvReader,
+    mgvCleaner,
     tokenA,
     tokenB,
     Dai,
     Usdc,
     Weth,
     testMaker,
-    mgvReader,
-    mgvCleaner,
     mgvOracle,
   ];
 };
