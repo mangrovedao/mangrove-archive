@@ -44,7 +44,7 @@
     "@giry/hardhat-mangrove": "workspace:*",
     "@giry/mangrove-solidity": "workspace:*",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
-    "@types/chai": "^4.2.21",
+    "@types/chai": "^4.2.22",
     "@types/chai-as-promised": "^7.1.4",
     "@types/config": "^0.0.39",
     "@types/dotenv-flow": "^3.2.0",

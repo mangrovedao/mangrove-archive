@@ -3,7 +3,8 @@ import { BigNumberish, utils } from "ethers";
 
 import { Mangrove, MgvToken } from "@giry/mangrove-js";
 
-export const toWei = (v: string, u = "ether") => utils.parseUnits(v, u);
+export const toWei = (v: number, u = "ether") =>
+  utils.parseUnits(v.toString(), u);
 
 export interface EoaOfferSpec {
   wants: string;
