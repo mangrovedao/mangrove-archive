@@ -6,7 +6,9 @@ import { GasUpdater } from "./GasUpdater";
 
 const main = async () => {
   const mgv = await Mangrove.connect(config.get<string>("jsonRpcUrl"));
-  //TODO: Fail gracefully with an error-message if cannot connect
+
+  //NOTE: We probably want to fail more gracefully with a reasonable error-message,
+  //      if we cannot connect. Right now, we fall into the main.exception handler.
 
   // TODO:
   const provider = mgv._provider;
@@ -27,7 +29,7 @@ const main = async () => {
   gasUpdater.start();
 };
 
-// TODO: Exact same as in cleanerbot - maybe common functionality
+// FIXME: Exact same as in cleanerbot - maybe parts are commonlib.js candidates
 async function exitIfMangroveIsKilled(
   mgv: Mangrove,
   blockNumber: number

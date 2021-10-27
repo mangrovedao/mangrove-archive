@@ -19,6 +19,7 @@ describe("GasUpdater integration tests", () => {
   let mgv: Mangrove;
 
   beforeEach(async function () {
+    //FIXME: for now we use the provider constructed by Mangrove -->
     provider = this.test?.parent?.parent?.ctx.provider;
     mgv = await Mangrove.connect({ provider });
 
