@@ -21,7 +21,7 @@ export class GasUpdater {
   }
 
   public start() {
-    // TODO: Each block is definitely too often - what is a good setting here?
+    // TODO: Each block is definitely too often - what is a good setting here, everytime change is deteced from external source?
     this.#provider.on("block", async (blocknumber) =>
       this.#checkSetGasprice(blocknumber)
     );
@@ -29,7 +29,7 @@ export class GasUpdater {
 
   // TODO: Or just make checkSetGasPrice public
   public async checkSetGasPriceNow() {
-    this.#checkSetGasprice(-1);
+    await this.#checkSetGasprice(-1);
   }
 
   async #checkSetGasprice(blocknumber: number) {

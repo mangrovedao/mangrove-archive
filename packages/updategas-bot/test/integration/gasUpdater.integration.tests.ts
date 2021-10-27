@@ -58,15 +58,11 @@ describe("GasUpdater integration tests", () => {
       );
     }
 
+    // Test
     await gasUpdater.checkSetGasPriceNow();
 
-    //TODO: Need to wait for Mangrove core to get update from oracle-contract
-    //TODO: Temp solution: Wait a bit. Better solution possibly to wait for event?
-    //await sleep(2000);
-
-    const globalConfig = await mgv.config();
-
     // Assert
+    const globalConfig = await mgv.config();
     return Promise.all([expect(globalConfig.gasprice).to.equal(newGasPrice)]);
   });
 });
