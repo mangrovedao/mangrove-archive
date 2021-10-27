@@ -8,9 +8,7 @@ import "../MgvLib.sol";
  *
  *  */
 
-//TODO: Currently doesn't use *any* math, if it does use CarefulMath
-
-//TODO: Should probably set the bot EOA as admin, and set authonly on setGasPrice?
+//TODO: Should set the bot EOA as admin, and set authonly on setGasPrice?
 contract MgvOracle is AccessControlled, IMgvMonitor {
   Mangrove immutable MGV;
   uint receivedGasPrice;
@@ -33,9 +31,7 @@ contract MgvOracle is AccessControlled, IMgvMonitor {
     // Do nothing
   }
 
-  //TODO: Is it really this simple?
-  //TODO: Should this have the onlyAdmin modifier?
-  //TODO: Should I require(...) something to ensure it went well? But what?
+  //TODO: This should have the onlyAdmin or onlySender modifier
   function setGasPrice(uint gasPrice) external {
     receivedGasPrice = gasPrice;
   }
