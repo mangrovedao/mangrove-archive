@@ -32,6 +32,11 @@ async function fund(funding_tuples) {
     });
   }
 
+  async function mintMintableErc(erc, recipient, amount) {
+    let [signer] = await ethers.getSigners();
+    await erc.connect(signer).mint(amount);
+    await erc.connect(signer).transfer(recipient, amount);
+  }
   for (const tuple of funding_tuples) {
     let token_symbol = tuple[0];
     let amount = tuple[1];
@@ -41,7 +46,7 @@ async function fund(funding_tuples) {
     switch (token_symbol) {
       case "DAI": {
         let dai = await getContract("DAI");
-        amount = parseToken(amount, 18);
+        let Bigamount = parseToken(amount, 18);
         if (env.mainnet.name == "ethereum") {
           let daiAdmin = env.mainnet.tokens.dai.admin;
           await network.provider.request({
@@ -52,7 +57,9 @@ async function fund(funding_tuples) {
           if ((await admin_signer.getBalance()).eq(0)) {
             await mintNative(daiAdmin, parseToken("1.0", 18));
           }
-          let mintTx = await dai.connect(admin_signer).mint(recipient, amount);
+          let mintTx = await dai
+            .connect(admin_signer)
+            .mint(recipient, Bigamount);
           await mintTx.wait();
           await network.provider.request({
             method: "hardhat_stopImpersonatingAccount",
@@ -61,16 +68,20 @@ async function fund(funding_tuples) {
           break;
         }
         if (env.mainnet.name == "polygon") {
-          await mintPolygonChildErc(dai, recipient, amount);
+          await mintPolygonChildErc(dai, recipient, Bigamount);
+          break;
+        }
+        if (env.mainnet.name == "mumbai") {
+          await mintMintableErc(dai, recipient, Bigamount);
           break;
         } else {
-          console.warn(`No method given to mint USDC on ${env.mainnet.name}`);
+          console.warn(`No method given to mint DAI on ${env.mainnet.name}`);
           break;
         }
       }
       case "USDC": {
         let usdc = await getContract("USDC");
-        amount = parseToken(amount, await getDecimals("USDC"));
+        let Bigamount = parseToken(amount, await getDecimals("USDC"));
         if (env.mainnet.name == "ethereum") {
           let masterMinter = env.mainnet.tokens.usdc.masterMinter;
           await network.provider.request({
@@ -87,7 +98,7 @@ async function fund(funding_tuples) {
             .configureMinter(masterMinter, ethers.constants.MaxUint256);
           let mintTx = await usdc
             .connect(master_signer)
-            .mint(recipient, amount);
+            .mint(recipient, Bigamount);
           await mintTx.wait();
           await network.provider.request({
             method: "hardhat_stopImpersonatingAccount",
@@ -96,7 +107,11 @@ async function fund(funding_tuples) {
           break;
         }
         if (env.mainnet.name == "polygon") {
-          await mintPolygonChildErc(usdc, recipient, amount);
+          await mintPolygonChildErc(usdc, recipient, Bigamount);
+          break;
+        }
+        if (env.mainnet.name == "mumbai") {
+          await mintMintableErc(usdc, recipient, Bigamount);
           break;
         } else {
           console.warn(`No method given to mint USDC on ${env.mainnet.name}`);
@@ -105,7 +120,7 @@ async function fund(funding_tuples) {
       }
       case "WETH": {
         let wEth = await getContract("WETH");
-        amount = parseToken(amount, await getDecimals("WETH"));
+        let Bigamount = parseToken(amount, await getDecimals("WETH"));
 
         if (env.mainnet.name == "ethereum") {
           if (recipient != signer.address) {
@@ -116,10 +131,10 @@ async function fund(funding_tuples) {
             signer = provider.getSigner(recipient);
           }
           let bal = await signer.getBalance();
-          if (bal.lt(amount)) {
-            await mintNative(recipient, amount);
+          if (bal.lt(Bigamount)) {
+            await mintNative(recipient, Bigamount);
           }
-          let mintTx = await wEth.connect(signer).deposit({ value: amount });
+          let mintTx = await wEth.connect(signer).deposit({ value: Bigamount });
           await mintTx.wait();
           if (recipient != signer.address) {
             await network.provider.request({
@@ -130,7 +145,11 @@ async function fund(funding_tuples) {
           break;
         }
         if (env.mainnet.name == "polygon") {
-          await mintPolygonChildErc(wEth, recipient, amount);
+          await mintPolygonChildErc(wEth, recipient, Bigamount);
+          break;
+        }
+        if (env.mainnet.name == "mumbai") {
+          await mintMintableErc(wEth, recipient, Bigamount);
           break;
         } else {
           console.warn(`No method given to mint WETH on ${env.mainnet.name}`);
@@ -139,8 +158,8 @@ async function fund(funding_tuples) {
       }
       case "ETH":
       case "MATIC": {
-        amount = parseToken(amount, 18);
-        await mintNative(recipient, amount);
+        let Bigamount = parseToken(amount, 18);
+        await mintNative(recipient, Bigamount);
         break;
       }
       default: {
@@ -156,6 +175,7 @@ function getUnderlyingSymbol(symbol) {
     case "CETH":
     case "ADAI":
     case "AWETH":
+    case "AUSDC":
       return symbol.slice(1, symbol.length);
     case "vdDAI":
     case "vdWETH":
@@ -182,6 +202,7 @@ async function getContract(symbol) {
     case "CUSDC":
       return net.tokens.cUsdc.contract;
     case "ADAI":
+    case "AUSDC":
     case "AWETH": {
       const underlying = await getContract(getUnderlyingSymbol(symbol));
       const aTokenAddress = (

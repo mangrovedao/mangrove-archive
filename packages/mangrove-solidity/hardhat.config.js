@@ -9,7 +9,7 @@ require("hardhat-deploy-ethers");
 require("hardhat-abi-exporter");
 require("adhusson-hardhat-solpp");
 
-require("./lib/hardhat-mainnet-env.js"); // Adds Ethereum/polygon environment to Hardhat Runtime Envrionment
+require("./lib/hardhat-netfork-env.js"); // Adds Ethereum/polygon environment to Hardhat Runtime Envrionment
 
 require("@giry/hardhat-test-solidity");
 // Use Hardhat configuration from loaded configuration files
