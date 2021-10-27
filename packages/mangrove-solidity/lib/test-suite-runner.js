@@ -2,6 +2,7 @@
 //
 // We use this runner instead of Mocha's and Hardhat's runners in order to
 // ensure that the right configuration is loaded for the chosen network.
+const chalk = require("chalk");
 const argv = require("yargs")
   .usage("Usage: $0 --network <network> [testSuite1 ...]")
   .option("network", {
@@ -44,12 +45,21 @@ const main = async () => {
       file.substring(5, file.length - 3)
     );
   }
-  console.log(`Running all test suites: ${testSuites}`);
-  console.log(`  on network: ${argv.network}`);
+  console.log(
+    `Running all test suites:`,
+    chalk.green(`${testSuites}`),
+    `on`,
+    chalk.yellow(`${argv.network}`)
+  );
 
   testSuites.forEach((testSuite) => {
     if (testSuite == "mumbai" && argv.network != "mumbai") {
-      console.warn(`Skipping mumbai test on ${argv.network}`);
+      console.warn(
+        `Skipping`,
+        chalk.green(`mumbai`),
+        `test on`,
+        chalk.yellow(`${argv.network}`)
+      );
     } else {
       mocha.addFile(`./test/test-${testSuite}.js`);
     }
