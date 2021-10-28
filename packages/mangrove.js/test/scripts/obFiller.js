@@ -30,7 +30,6 @@ const main = async () => {
   const { Mangrove } = require("../../src");
 
   const deployer = (await hre.ethers.getSigners())[1];
-  console.log(deployer);
 
   const user = (await hre.ethers.getSigners())[0];
 
@@ -38,13 +37,6 @@ const main = async () => {
     signerIndex: 1,
     provider: `http://localhost:${opts.port}`,
   });
-  console.log("_PROVIDEr");
-  // console.log(mgv._provider);
-  console.log("mgv address in obfiller",mgv.contract.address);
-const z = "0x0000000000000000000000000000000000000000";
-  console.log(mgv.contract);
-  const c = await mgv.contract.vault();
-  console.log("vault",c);
 
   // contract create2 addresses exported by mangrove-solidity to hardhatAddresses
 
