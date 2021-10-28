@@ -2,6 +2,7 @@ import { logger } from "./util/logger";
 import Mangrove, { ethers } from "@giry/mangrove-js";
 import { Provider } from "@ethersproject/providers";
 import Big from "big.js";
+import get from "axios";
 Big.DP = 20; // precision when dividing
 Big.RM = Big.roundHalfUp; // round to nearest
 
@@ -13,7 +14,8 @@ export class GasUpdater {
   #mangrove: Mangrove;
   #provider: Provider;
   #acceptableGasGapToOracle: number;
-  #externalOracleGetter: () => Promise<number>;
+  #externalGasOracleGetter: () => Promise<number | undefined>;
+  #externalGasOracleURL = new URL("https://gasstation-mainnet.matic.network/");
 
   /**
    * Constructs a GasUpdater bot.
@@ -21,22 +23,22 @@ export class GasUpdater {
    * @param provider An ethers.js provider.
    * @param acceptableGasGapToOracle The allowed gap between the Mangrove gas
    * price and the external oracle gas price.
-   * @param externalOracleGetter An optional override for the function, which
+   * @param externalGasOracleGetter An optional override for the function, which
    * contacts the external oracle. (Intended for testing.)
    */
   constructor(
     mangrove: Mangrove,
     provider: Provider,
     acceptableGasGapToOracle: number,
-    externalOracleGetter?: () => Promise<number>
+    externalGasOracleGetter?: () => Promise<number | undefined>
   ) {
     this.#mangrove = mangrove;
     this.#provider = provider;
     this.#acceptableGasGapToOracle = acceptableGasGapToOracle;
-    if (typeof externalOracleGetter !== "undefined") {
-      this.#externalOracleGetter = externalOracleGetter;
+    if (externalGasOracleGetter !== undefined) {
+      this.#externalGasOracleGetter = externalGasOracleGetter;
     } else {
-      this.#externalOracleGetter = this.#getGasPriceEstimateFromOracle;
+      this.#externalGasOracleGetter = this.#getGasPriceEstimateFromOracle;
     }
   }
 
@@ -81,16 +83,20 @@ export class GasUpdater {
       `Current Mangrove gas price in config is: ${currentMangroveGasPrice}`
     );
 
-    const oracleGasPriceEstimate = await this.#externalOracleGetter();
+    const oracleGasPriceEstimate = await this.#externalGasOracleGetter();
 
-    const [shouldUpdateGasPrice, newGasPrice] =
-      this.#shouldUpdateMangroveGasPrice(
-        currentMangroveGasPrice,
-        oracleGasPriceEstimate
-      );
+    if (oracleGasPriceEstimate !== undefined) {
+      const [shouldUpdateGasPrice, newGasPrice] =
+        this.#shouldUpdateMangroveGasPrice(
+          currentMangroveGasPrice,
+          oracleGasPriceEstimate
+        );
 
-    if (shouldUpdateGasPrice) {
-      await this.#updateMangroveGasPrice(newGasPrice);
+      if (shouldUpdateGasPrice) {
+        await this.#updateMangroveGasPrice(newGasPrice);
+      }
+    } else {
+      logger.error("Could not contact oracle, skipping update.");
     }
   }
 
@@ -100,13 +106,18 @@ export class GasUpdater {
    * @returns {number} Promise object representing the gas price from the
    * external oracle
    */
-  async #getGasPriceEstimateFromOracle(): Promise<number> {
-    //TODO: Missing
-    const oracleGasPrice = 2;
-    logger.debug(
-      `getGasPriceEstimateFromOracle: Stub implementation - using constant: ${oracleGasPrice}`
-    );
-    return oracleGasPrice;
+  async #getGasPriceEstimateFromOracle(): Promise<number | undefined> {
+    try {
+      const { data } = await get(this.#externalGasOracleURL.toString());
+      logger.debug(`Received this data from oracle.`, { data: data });
+      return data.standard;
+    } catch (error) {
+      logger.error("Getting gas price estimate from oracle failed", {
+        mangrove: this.#mangrove,
+        data: error,
+      });
+      return;
+    }
   }
 
   /**
@@ -121,9 +132,8 @@ export class GasUpdater {
     currentGasPrice: number,
     oracleGasPrice: number
   ): [boolean, number] {
-    logger.debug(
-      "shouldUpdateMangroveGasPrice: Basic implementation allowing a configurable gap between Mangrove an oracle gas price."
-    );
+    //NOTE: Very basic implementation allowing a configurable gap between
+    //      Mangrove an oracle gas price.
     const shouldUpdate =
       Math.abs(currentGasPrice - oracleGasPrice) >
       this.#acceptableGasGapToOracle;
@@ -154,6 +164,10 @@ export class GasUpdater {
       await this.#mangrove.oracleContract
         .setGasPrice(ethers.BigNumber.from(newGasPrice))
         .then((tx) => tx.wait());
+
+      logger.info(
+        `Succesfully sent Mangrove gas price update to oracle: ${newGasPrice}.`
+      );
     } catch (e) {
       logger.error("setGasprice failed", {
         mangrove: this.#mangrove,
@@ -162,9 +176,5 @@ export class GasUpdater {
 
       return;
     }
-
-    logger.info(
-      `Succesfully sent Mangrove gas price update to oracle: ${newGasPrice}.`
-    );
   }
 }
