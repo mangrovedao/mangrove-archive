@@ -23,7 +23,7 @@ export class GasUpdater {
     if (typeof externalOracleGetter !== "undefined") {
       this.#externalOracleGetter = externalOracleGetter;
     } else {
-      this.#externalOracleGetter = this.getGasPriceEstimateFromOracle;
+      this.#externalOracleGetter = this.#getGasPriceEstimateFromOracle;
     }
   }
 
@@ -82,12 +82,12 @@ export class GasUpdater {
   }
 
   /**
-   * Standard implementation of a function to query a dedicated external source
-   * for gas prices.
+   * Standard implementation of a function, which queries a dedicated external
+   * source for gas prices.
    * @returns {number} Promise object representing the gas price from the
    * external oracle
    */
-  public async getGasPriceEstimateFromOracle(): Promise<number> {
+  async #getGasPriceEstimateFromOracle(): Promise<number> {
     //TODO: Missing
     const oracleGasPrice = 2;
     logger.debug(

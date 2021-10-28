@@ -11,6 +11,7 @@ import { Provider } from "@ethersproject/abstract-provider";
 import { GasUpdater } from "../../src/GasUpdater";
 import * as hre from "hardhat";
 import "hardhat-deploy-ethers/dist/src/type-extensions";
+import { config } from "../../src/util/config";
 
 describe("GasUpdater integration tests", () => {
   let provider: Provider;
@@ -41,27 +42,33 @@ describe("GasUpdater integration tests", () => {
   });
 
   it("should set the gas price in Mangrove, when GasUpdater is run", async function () {
+    // Setup s.t. Mangrove is assured to need a gas price update
     const origMgvConfig = await mgv.config();
+    const acceptableGasGapToOracle = config.get<number>(
+      "acceptableGasGapToOracle"
+    );
+    const gasPriceFromOracle =
+      origMgvConfig.gasprice + acceptableGasGapToOracle * 10 + 1;
 
-    const origGasPrice = origMgvConfig.gasprice;
+    // Mock the function to get the price from the oracle
+    const externalOracleMockGetter: () => Promise<number> = async () =>
+      gasPriceFromOracle;
 
-    const gasUpdater = new GasUpdater(mgv, provider, 0.0);
-
-    //TODO: Set mock value of gas-price-oracle
-    const newGasPrice = 2;
-
-    //TODO:Setup s.t. origGasPrice is guarenteed different than newGasPrice - temp check
-    if (origGasPrice === newGasPrice) {
-      throw new Error(
-        `Test setup error: Mangrove gas price should be different than oracle price before invoking GasUpdater.`
-      );
-    }
+    // construct the gasUpdater with the mock for getting prices from the oracle
+    const gasUpdater = new GasUpdater(
+      mgv,
+      provider,
+      0.0,
+      externalOracleMockGetter
+    );
 
     // Test
     await gasUpdater.checkSetGasprice(-1);
 
     // Assert
     const globalConfig = await mgv.config();
-    return Promise.all([expect(globalConfig.gasprice).to.equal(newGasPrice)]);
+    return Promise.all([
+      expect(globalConfig.gasprice).to.equal(gasPriceFromOracle),
+    ]);
   });
 });
