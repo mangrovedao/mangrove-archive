@@ -857,7 +857,6 @@ __metadata:
     dotenv-flow: ^3.2.0
     eslint: ^7.32.0
     eslint-config-prettier: ^8.3.0
-    eslint-plugin-prettier: ^4.0.0
     ethers: ^5.4.7
     fast-safe-stringify: ^2.1.1
     hardhat: ^2.6.4
