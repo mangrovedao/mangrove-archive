@@ -11,7 +11,6 @@ import { Provider } from "@ethersproject/abstract-provider";
 import { GasUpdater } from "../../src/GasUpdater";
 import * as hre from "hardhat";
 import "hardhat-deploy-ethers/dist/src/type-extensions";
-import { sleep } from "@giry/commonlib-js";
 
 describe("GasUpdater integration tests", () => {
   let provider: Provider;
@@ -37,8 +36,8 @@ describe("GasUpdater integration tests", () => {
     await mgvContract.setNotify(true);
   });
 
-  afterEach(async function () {
-    mgv.disconnect();
+  afterEach(async () => {
+    await mgv.disconnect();
   });
 
   it("should set the gas price in Mangrove, when GasUpdater is run", async function () {
@@ -59,7 +58,7 @@ describe("GasUpdater integration tests", () => {
     }
 
     // Test
-    await gasUpdater.checkSetGasPriceNow();
+    await gasUpdater.checkSetGasprice(-1);
 
     // Assert
     const globalConfig = await mgv.config();

@@ -9,30 +9,43 @@ export class GasUpdater {
   #mangrove: Mangrove;
   #provider: Provider;
   #acceptableGasGapToOracle: number;
+  #externalOracleGetter: () => Promise<number>;
 
   constructor(
     mangrove: Mangrove,
     provider: Provider,
-    acceptableGasGapToOracle: number
+    acceptableGasGapToOracle: number,
+    externalOracleGetter?: () => Promise<number>
   ) {
     this.#mangrove = mangrove;
     this.#provider = provider;
     this.#acceptableGasGapToOracle = acceptableGasGapToOracle;
+    if (typeof externalOracleGetter !== "undefined") {
+      this.#externalOracleGetter = externalOracleGetter;
+    } else {
+      this.#externalOracleGetter = this.getGasPriceEstimateFromOracle;
+    }
   }
 
+  /**
+   * Start bot running.
+   */
   public start(): void {
     // TODO: Each block is definitely too often - what is a good setting here, everytime change is deteced from external source?
-    this.#provider.on("block", async (blocknumber) =>
-      this.#checkSetGasprice(blocknumber)
+    this.#provider.on(
+      "block",
+      async (blocknumber) => await this.checkSetGasprice(blocknumber)
     );
   }
 
-  // TODO: Or just make checkSetGasPrice public
-  public async checkSetGasPriceNow(): Promise<void> {
-    await this.#checkSetGasprice(-1);
-  }
-
-  async #checkSetGasprice(blocknumber: number): Promise<void> {
+  /**
+   * Checks an external oracle for an updated gas price, compares with the
+   * current Mangrove gas price and, if deemed necessary, sends an updated
+   * gas price to use to the oracle contract, which this bot works together
+   * with.
+   * @param blocknumber The current blocknumber - mainly used for logging.
+   */
+  public async checkSetGasprice(blocknumber: number): Promise<void> {
     //TODO: Probably suitable protection against reentrancy
 
     const globalConfig = await this.#mangrove.config();
@@ -41,7 +54,7 @@ export class GasUpdater {
       logger.debug(
         `Mangrove is dead at block number ${blocknumber}. Stopping MarketCleaner`
       );
-      this.#provider.off("block", this.#checkSetGasprice);
+      this.#provider.off("block", this.checkSetGasprice);
       return;
     }
 
@@ -55,10 +68,10 @@ export class GasUpdater {
       `Current Mangrove gas price in config is: ${currentMangroveGasPrice}`
     );
 
-    const oracleGasPriceEstimate = await this.#getGasPriceEstimateFromOracle();
+    const oracleGasPriceEstimate = await this.#externalOracleGetter();
 
     const [shouldUpdateGasPrice, newGasPrice] =
-      await this.#shouldUpdateMangroveGasPrice(
+      this.#shouldUpdateMangroveGasPrice(
         currentMangroveGasPrice,
         oracleGasPriceEstimate
       );
@@ -68,8 +81,14 @@ export class GasUpdater {
     }
   }
 
-  async #getGasPriceEstimateFromOracle(): Promise<number> {
-    //TODO: stub implementation
+  /**
+   * Standard implementation of a function to query a dedicated external source
+   * for gas prices.
+   * @returns {number} Promise object representing the gas price from the
+   * external oracle
+   */
+  public async getGasPriceEstimateFromOracle(): Promise<number> {
+    //TODO: Missing
     const oracleGasPrice = 2;
     logger.debug(
       `getGasPriceEstimateFromOracle: Stub implementation - using constant: ${oracleGasPrice}`
@@ -77,13 +96,21 @@ export class GasUpdater {
     return oracleGasPrice;
   }
 
-  async #shouldUpdateMangroveGasPrice(
+  /**
+   * Compare the current Mangrove gasprice with a gas price from the external
+   * oracle, and decide whether a gas price update should be sent.
+   * @param currentGasPrice Current gas price from Mangrove config.
+   * @param oracleGasPrice Gas price from external oracle.
+   * @returns {[boolean, number]} A pair representing (1) whether the Mangrove
+   * gas price should be updated, and (2) what gas price to update to.
+   */
+  #shouldUpdateMangroveGasPrice(
     currentGasPrice: number,
     oracleGasPrice: number
-  ): Promise<[boolean, number]> {
-    //TODO: stub implementation - also, if entirely local calc, may be sync
-
-    logger.debug("shouldUpdateMangroveGasPrice: Naive implementation.");
+  ): [boolean, number] {
+    logger.debug(
+      "shouldUpdateMangroveGasPrice: Basic implementation allowing a configurable gap between Mangrove an oracle gas price."
+    );
     const shouldUpdate =
       Math.abs(currentGasPrice - oracleGasPrice) >
       this.#acceptableGasGapToOracle;
@@ -101,6 +128,10 @@ export class GasUpdater {
     }
   }
 
+  /**
+   * Send a gas price update to the oracle contract, which Mangrove uses.
+   * @param newGasPrice The new gas price.
+   */
   async #updateMangroveGasPrice(newGasPrice: number): Promise<void> {
     logger.debug(
       "updateMangroveGasPrice: Sending gas update to oracle contract."
