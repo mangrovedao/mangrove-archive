@@ -43,7 +43,7 @@ const main = async (opts) => {
   // const mgvReader = await hre.ethers.getContract("MgvReader", deployer);
 
   const activate = (base, quote) => {
-    return mgvContract.activate(base, quote, 0, 10, 80000, 20000);
+    return mgvContract.activate(base, quote, 0, 1, 80000, 20000);
   };
 
   const userA = await user.getAddress();
