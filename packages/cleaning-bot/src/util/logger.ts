@@ -1,5 +1,6 @@
 import { createLogger, BetterLogger, format } from "@giry/commonlib-js";
 import os from "os";
+import safeStringify from "fast-safe-stringify";
 import config from "./config";
 
 const consoleLogFormat = format.printf(
@@ -24,10 +25,10 @@ const consoleLogFormat = format.printf(
     }
     msg += message;
     if (metadata.offer) {
-      msg += ` | offer: ${JSON.stringify(metadata.offer)}`;
+      msg += ` | offer: ${safeStringify(metadata.offer)}`;
     }
     if (metadata.data !== undefined) {
-      msg += ` | data: ${JSON.stringify(metadata.data)}`;
+      msg += ` | data: ${safeStringify(metadata.data)}`;
     }
     if (metadata.stack) {
       msg += `${os.EOL}${metadata.stack}`;

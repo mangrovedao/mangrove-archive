@@ -840,7 +840,7 @@ __metadata:
     "@giry/mangrove-solidity": "workspace:*"
     "@nomiclabs/hardhat-ethers": ^2.0.2
     "@types/big.js": ^6.1.2
-    "@types/chai": ^4.2.21
+    "@types/chai": ^4.2.22
     "@types/chai-as-promised": ^7.1.4
     "@types/config": ^0.0.39
     "@types/dotenv-flow": ^3.2.0
@@ -857,8 +857,8 @@ __metadata:
     dotenv-flow: ^3.2.0
     eslint: ^7.32.0
     eslint-config-prettier: ^8.3.0
-    eslint-plugin-prettier: ^4.0.0
     ethers: ^5.4.7
+    fast-safe-stringify: ^2.1.1
     hardhat: ^2.6.4
     hardhat-deploy: ^0.9.1
     hardhat-deploy-ethers: ^0.3.0-beta.11
@@ -890,7 +890,6 @@ __metadata:
     dotenv-flow: ^3.2.0
     eslint: ^7.32.0
     eslint-config-prettier: ^8.3.0
-    eslint-plugin-prettier: ^4.0.0
     lint-staged: ^11.1.2
     mocha: ^9.1.1
     mocha-multi-reporters: ^1.5.1
@@ -910,7 +909,6 @@ __metadata:
     config: ^3.3.6
     eslint: ^7.32.0
     eslint-config-prettier: ^8.3.0
-    eslint-plugin-prettier: ^4.0.0
     ethers: ^5.4.7
     hardhat: ^2.6.5
     lint-staged: ^11.1.2
@@ -1058,7 +1056,6 @@ __metadata:
     dotenv-flow: ^3.2.0
     eslint: ^7.32.0
     eslint-config-prettier: ^8.3.0
-    eslint-plugin-prettier: ^4.0.0
     ethers: ^5.4.7
     hardhat: ^2.6.4
     hardhat-deploy: ^0.9.1
@@ -1538,7 +1535,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/chai@npm:*, @types/chai@npm:^4.2.21":
+"@types/chai@npm:*, @types/chai@npm:^4.2.21, @types/chai@npm:^4.2.22":
   version: 4.2.22
   resolution: "@types/chai@npm:4.2.22"
   checksum: dca66a263b25c26112c0a8c6df20316412fa54b557443a108836c07cee961aa56cc5b1763273f69eb450c83ca9f28069ff78b617bffc01806cdd83afc1c20c2a
@@ -3661,21 +3658,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint-plugin-prettier@npm:^4.0.0":
-  version: 4.0.0
-  resolution: "eslint-plugin-prettier@npm:4.0.0"
-  dependencies:
-    prettier-linter-helpers: ^1.0.0
-  peerDependencies:
-    eslint: ">=7.28.0"
-    prettier: ">=2.0.0"
-  peerDependenciesMeta:
-    eslint-config-prettier:
-      optional: true
-  checksum: 03d69177a3c21fa2229c7e427ce604429f0b20ab7f411e2e824912f572a207c7f5a41fd1f0a95b9b8afe121e291c1b1f1dc1d44c7aad4b0837487f9c19f5210d
-  languageName: node
-  linkType: hard
-
 "eslint-scope@npm:^5.0.0, eslint-scope@npm:^5.1.1":
   version: 5.1.1
   resolution: "eslint-scope@npm:5.1.1"
@@ -4071,13 +4053,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-diff@npm:^1.1.2":
-  version: 1.2.0
-  resolution: "fast-diff@npm:1.2.0"
-  checksum: 1b5306eaa9e826564d9e5ffcd6ebd881eb5f770b3f977fcbf38f05c824e42172b53c79920e8429c54eb742ce15a0caf268b0fdd5b38f6de52234c4a8368131ae
-  languageName: node
-  linkType: hard
-
 "fast-glob@npm:^3.1.1":
   version: 3.2.7
   resolution: "fast-glob@npm:3.2.7"
@@ -4102,6 +4077,13 @@ __metadata:
   version: 2.0.6
   resolution: "fast-levenshtein@npm:2.0.6"
   checksum: 92cfec0a8dfafd9c7a15fba8f2cc29cd0b62b85f056d99ce448bbcd9f708e18ab2764bda4dd5158364f4145a7c72788538994f0d1787b956ef0d1062b0f7c24c
+  languageName: node
+  linkType: hard
+
+"fast-safe-stringify@npm:^2.1.1":
+  version: 2.1.1
+  resolution: "fast-safe-stringify@npm:2.1.1"
+  checksum: a851cbddc451745662f8f00ddb622d6766f9bd97642dabfd9a405fb0d646d69fc0b9a1243cbf67f5f18a39f40f6fa821737651ff1bceeba06c9992ca2dc5bd3d
   languageName: node
   linkType: hard
 
@@ -7565,15 +7547,6 @@ fsevents@~2.1.1:
     typescript: ^3.9.3
     vue-eslint-parser: ~7.1.0
   checksum: a745ae6d2d05ab8d596be6885f79dc0fd486d9e15408be2c7696fa87cec93f4f7d91afeae31d414260301402164f9e5e689b538795413aeaaa456e01df9184eb
-  languageName: node
-  linkType: hard
-
-"prettier-linter-helpers@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "prettier-linter-helpers@npm:1.0.0"
-  dependencies:
-    fast-diff: ^1.1.2
-  checksum: 00ce8011cf6430158d27f9c92cfea0a7699405633f7f1d4a45f07e21bf78e99895911cbcdc3853db3a824201a7c745bd49bfea8abd5fb9883e765a90f74f8392
   languageName: node
   linkType: hard
 

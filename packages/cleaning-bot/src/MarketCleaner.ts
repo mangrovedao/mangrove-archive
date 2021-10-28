@@ -2,7 +2,7 @@ import { logger } from "./util/logger";
 import { Market, Offer } from "@giry/mangrove-js/dist/nodejs/market";
 import { MgvToken } from "@giry/mangrove-js/dist/nodejs/mgvtoken";
 import { Provider } from "@ethersproject/providers";
-import { Signer, BigNumber, BigNumberish } from "ethers";
+import { BigNumber, BigNumberish } from "ethers";
 import { BookSide } from "./mangrove-js-type-aliases";
 import Big from "big.js";
 
@@ -34,7 +34,7 @@ export class MarketCleaner {
     this.#isCleaning = false;
   }
 
-  public async clean(blockNumber: number) {
+  public async clean(blockNumber: number): Promise<void> {
     // TODO non-thread safe reentrancy lock - is this is an issue in JS?
     if (this.#isCleaning) {
       logger.debug(
@@ -92,17 +92,16 @@ export class MarketCleaner {
   async #cleanOfferList(
     offerList: Offer[],
     bookSide: BookSide,
-
     gasPrice: Big,
     minerTipPerGas: Big
-  ) {
+  ): Promise<void> {
     for (const offer of offerList) {
-      let willOfferFail = await this.#willOfferFail(offer, bookSide);
+      const willOfferFail = await this.#willOfferFail(offer, bookSide);
       if (!willOfferFail) {
         continue;
       }
 
-      let estimates = await this.#estimateCostsAndGains(
+      const estimates = await this.#estimateCostsAndGains(
         offer,
         bookSide,
         gasPrice,
@@ -210,7 +209,7 @@ export class MarketCleaner {
   //  - If not, we must implement strategies for sourcing and calculate the costs, incl. gas
   //  - The cleaner contract would have to implement the sourcing strategy
   //  - We don't want to do that in V0.
-  async #cleanOffer(offer: Offer, bookSide: BookSide) {
+  async #cleanOffer(offer: Offer, bookSide: BookSide): Promise<boolean> {
     logger.debug("Cleaning offer", {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
