@@ -47,6 +47,16 @@ type Addresses = {
   tokenB: string;
 };
 
+type TestOffer = {
+  bookSide: BookSide;
+  wants: ethers.BigNumberish;
+  gives: ethers.BigNumberish;
+  gasreq?: ethers.BigNumberish;
+  shouldFail?: boolean;
+  shouldAbort?: boolean;
+  shouldRevert?: boolean;
+};
+
 describe("MarketCleaner integration tests", () => {
   let deployer: Account; // Owner of deployed MGV and token contracts
   let maker: Account; // Owner of TestMaker contract
@@ -64,24 +74,24 @@ describe("MarketCleaner integration tests", () => {
 
   let addresses: Addresses;
 
-  before(async function () {
+  const initAddresses = async () => {
     addresses = {
       mangrove: (await hardhatEthers.getContract("Mangrove")).address,
       testMaker: (await hardhatEthers.getContract("TestMaker")).address,
       tokenA: (await hardhatEthers.getContract("TokenA")).address,
       tokenB: (await hardhatEthers.getContract("TokenB")).address,
     };
-  });
-
-  const getBalances = async (account: Account): Promise<AccountBalances> => {
-    return {
-      ether: await testProvider.getBalance(account.address),
-      tokenA: await account.contracts.tokenA.balanceOf(account.address),
-      tokenB: await account.contracts.tokenB.balanceOf(account.address),
-    };
   };
 
-  const initContractsForSigner = async (signer: ethers.Signer) => {
+  const logAddresses = () => {
+    console.group("Addresses");
+    Object.entries(addresses).map(([key, value]) =>
+      console.log(`${key}: ${value}`)
+    );
+    console.groupEnd();
+  };
+
+  const initContracts = async (signer: ethers.Signer) => {
     return {
       mangrove: typechain.Mangrove__factory.connect(addresses.mangrove, signer),
       testMaker: typechain.TestMaker__factory.connect(
@@ -105,33 +115,35 @@ describe("MarketCleaner integration tests", () => {
       name: name,
       address: signer.address,
       signer: signer,
-      contracts: await initContractsForSigner(signer),
+      contracts: await initContracts(signer),
     };
-    accounts.push(account);
     return account;
   };
 
   const initAccounts = async () => {
-    accounts = [];
     deployer = await initAccount("deployer");
     maker = await initAccount("maker");
     cleaner = await initAccount("cleaner");
+
+    accounts = [deployer, maker, cleaner];
   };
 
-  const setBalances = async (balances: Map<string, AccountBalances>) => {
+  const getAccountBalances = async (
+    account: Account
+  ): Promise<AccountBalances> => {
+    return {
+      ether: await testProvider.getBalance(account.address),
+      tokenA: await account.contracts.tokenA.balanceOf(account.address),
+      tokenB: await account.contracts.tokenB.balanceOf(account.address),
+    };
+  };
+
+  const getBalances = async () => {
+    const balances = new Map<string, AccountBalances>();
     for (const account of accounts) {
-      balances.set(account.name, await getBalances(account));
+      balances.set(account.name, await getAccountBalances(account));
     }
-  };
-
-  const captureBalancesBefore = async () => {
-    balancesBefore = new Map<string, AccountBalances>();
-    await setBalances(balancesBefore);
-  };
-
-  const captureBalancesAfter = async () => {
-    balancesAfter = new Map<string, AccountBalances>();
-    await setBalances(balancesAfter);
+    return balances;
   };
 
   const getTokens = (bookSide: BookSide) => {
@@ -141,6 +153,54 @@ describe("MarketCleaner integration tests", () => {
     };
   };
 
+  const newOffer = async ({
+    bookSide,
+    wants,
+    gives,
+    gasreq = 5e4,
+    shouldFail = false,
+    shouldAbort = false,
+    shouldRevert = false,
+  }: TestOffer) => {
+    const { inboundToken, outboundToken } = getTokens(bookSide);
+
+    await maker.contracts.testMaker
+      .shouldFail(shouldFail)
+      .then((tx) => tx.wait());
+    await maker.contracts.testMaker
+      .shouldAbort(shouldAbort)
+      .then((tx) => tx.wait());
+    await maker.contracts.testMaker
+      .shouldRevert(shouldRevert)
+      .then((tx) => tx.wait());
+
+    await maker.contracts.testMaker[
+      "newOffer(address,address,uint256,uint256,uint256,uint256)"
+    ](inboundToken.address, outboundToken.address, wants, gives, gasreq, 1) // (base address, quote address, wants, gives, gasreq, pivotId)
+      .then((tx) => tx.wait());
+  };
+
+  const newFailingOffer = async (bookSide: BookSide) => {
+    await newOffer({
+      bookSide: bookSide,
+      wants: 1,
+      gives: 1000000,
+      shouldFail: true,
+    });
+  };
+
+  const newSucceedingOffer = async (bookSide: BookSide) => {
+    await newOffer({
+      bookSide,
+      wants: 1,
+      gives: 1000000,
+    });
+  };
+
+  before(async function () {
+    await initAddresses();
+  });
+
   beforeEach(async function () {
     testProvider = new ethers.providers.JsonRpcProvider(
       this.test?.parent?.parent?.ctx.providerUrl
@@ -149,14 +209,23 @@ describe("MarketCleaner integration tests", () => {
     await initAccounts();
 
     // Turn up the Mangrove gasprice to increase the bounty
-    await deployer.contracts.mangrove.setGasprice(10).then((tx) => tx.wait());
+    await deployer.contracts.mangrove.setGasprice(50).then((tx) => tx.wait());
 
-    await deployer.contracts.tokenA.mint(maker.address, toWei(10));
-    await deployer.contracts.tokenB.mint(maker.address, toWei(10));
+    await deployer.contracts.tokenA
+      .mint(maker.address, toWei(10))
+      .then((tx) => tx.wait());
+    await deployer.contracts.tokenB
+      .mint(maker.address, toWei(10))
+      .then((tx) => tx.wait());
 
-    await maker.contracts.tokenA.approve(addresses.mangrove, toWei(100));
+    await maker.contracts.tokenA
+      .approve(addresses.mangrove, toWei(100))
+      .then((tx) => tx.wait());
+    await maker.contracts.tokenB
+      .approve(addresses.mangrove, toWei(100))
+      .then((tx) => tx.wait());
 
-    await captureBalancesBefore();
+    balancesBefore = await getBalances();
 
     mgv = await Mangrove.connect({
       provider: this.test?.parent?.parent?.ctx.providerUrl,
@@ -170,7 +239,7 @@ describe("MarketCleaner integration tests", () => {
     market.disconnect();
     mgv.disconnect();
 
-    await captureBalancesAfter();
+    balancesAfter = await getBalances();
 
     for (const account of accounts) {
       console.group(`${account.name} balances`);
@@ -182,18 +251,14 @@ describe("MarketCleaner integration tests", () => {
       console.groupEnd();
       console.groupEnd();
     }
+
+    logAddresses();
   });
 
   bookSides.forEach((bookSide) => {
     it(`should clean offer failing to trade 0 wants on the '${bookSide}' offer list`, async function () {
       // Arrange
-      const { inboundToken, outboundToken } = getTokens(bookSide);
-
-      await maker.contracts.testMaker.shouldFail(true).then((tx) => tx.wait());
-      await maker.contracts.testMaker[
-        "newOffer(address,address,uint256,uint256,uint256,uint256)"
-      ](inboundToken.address, outboundToken.address, 1, 1000000, 1000, 1) // (base address, quote address, wants, gives, gasreq, pivotId)
-        .then((tx) => tx.wait());
+      await newFailingOffer(bookSide);
 
       const marketCleaner = new MarketCleaner(market, cleanerProvider);
 
@@ -206,35 +271,30 @@ describe("MarketCleaner integration tests", () => {
           .is.empty,
         expect(testProvider.getBalance(cleaner.address)).to.eventually.satisfy(
           (balanceAfter: ethers.BigNumber) =>
-            balanceAfter.gt(balancesBefore.get(cleaner.name)!.ether)
+            balanceAfter.gt(balancesBefore.get(cleaner.name)?.ether || -1)
         ),
       ]);
     });
 
-    // it(`should not clean offer suceeding to trade 0 wants on the '${bookSide}' offer list`, async function () {
-    //   // Arrange
-    //   const { inboundToken, outboundToken } = getTokens(bookSide);
+    it(`should not clean offer suceeding to trade 0 wants on the '${bookSide}' offer list`, async function () {
+      // Arrange
+      await newSucceedingOffer(bookSide);
 
-    //   await testMakerContract.shouldFail(false).then((tx) => tx.wait());
-    //   await testMakerContract[
-    //     "newOffer(address,address,uint256,uint256,uint256,uint256)"
-    //   ](inboundToken.address, outboundToken.address, 1, 1000000, 1000, 1) // (base address, quote address, wants, gives, gasreq, pivotId)
-    //     .then((tx) => tx.wait());
+      const marketCleaner = new MarketCleaner(market, cleanerProvider);
 
-    //   const marketCleaner = new MarketCleaner(market, cleanerProvider);
+      // Act
+      await marketCleaner.clean(0);
 
-    //   // Act
-    //   await marketCleaner.clean(0);
-
-    //   // Assert
-    //   return Promise.all([
-    //     expect(market.requestBook())
-    //       .to.eventually.have.property(bookSide)
-    //       .which.has.lengthOf(1),
-    //     expect(testProvider.getBalance(cleaner.address)).to.eventually.eq(
-    //       cleanerBalancesBefore.ether
-    //     ),
-    //   ]);
-    // });
+      // Assert
+      return Promise.all([
+        expect(market.requestBook())
+          .to.eventually.have.property(bookSide)
+          .which.has.lengthOf(1),
+        expect(testProvider.getBalance(cleaner.address)).to.eventually.satisfy(
+          (balanceAfter: ethers.BigNumber) =>
+            balanceAfter.eq(balancesBefore.get(cleaner.name)?.ether || -1)
+        ),
+      ]);
+    });
   });
 });
