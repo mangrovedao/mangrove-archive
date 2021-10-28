@@ -5,12 +5,25 @@ import Big from "big.js";
 Big.DP = 20; // precision when dividing
 Big.RM = Big.roundHalfUp; // round to nearest
 
+/**
+ * A GasUpdater bot, which queries an external oracle for gas prices, and sends
+ * gas price updates to Mangrove, through a dedicated oracle contract.
+ */
 export class GasUpdater {
   #mangrove: Mangrove;
   #provider: Provider;
   #acceptableGasGapToOracle: number;
   #externalOracleGetter: () => Promise<number>;
 
+  /**
+   * Constructs a GasUpdater bot.
+   * @param mangrove A mangrove.js Mangrove object.
+   * @param provider An ethers.js provider.
+   * @param acceptableGasGapToOracle The allowed gap between the Mangrove gas
+   * price and the external oracle gas price.
+   * @param externalOracleGetter An optional override for the function, which
+   * contacts the external oracle. (Intended for testing.)
+   */
   constructor(
     mangrove: Mangrove,
     provider: Provider,
