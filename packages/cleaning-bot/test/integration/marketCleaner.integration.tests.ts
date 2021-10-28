@@ -180,12 +180,12 @@ describe("MarketCleaner integration tests", () => {
       .then((tx) => tx.wait());
   };
 
-  const newFailingOffer = async (bookSide: BookSide) => {
+  const newRevertingOffer = async (bookSide: BookSide) => {
     await newOffer({
       bookSide: bookSide,
       wants: 1,
       gives: 1000000,
-      shouldFail: true,
+      shouldRevert: true,
     });
   };
 
@@ -258,7 +258,7 @@ describe("MarketCleaner integration tests", () => {
   bookSides.forEach((bookSide) => {
     it(`should clean offer failing to trade 0 wants on the '${bookSide}' offer list`, async function () {
       // Arrange
-      await newFailingOffer(bookSide);
+      await newRevertingOffer(bookSide);
 
       const marketCleaner = new MarketCleaner(market, cleanerProvider);
 
