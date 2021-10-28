@@ -7,11 +7,12 @@ const seed =
 console.log(`random seed: ${seed}`);
 const rng = require("seedrandom")(seed);
 
-const _argv = require('minimist')(process.argv.slice(2));
+const _argv = require('minimist')(process.argv.slice(2),{boolean:"cross"});
 const opts = {
   url: _argv.url || null,
   port: _argv.port || 8546,
   logging: _argv.logging || false,
+  cross: _argv.cross
 }
 
 const main = async () => {
@@ -102,10 +103,25 @@ const main = async () => {
     const buffer = book[ba].length > 30 ? 5000 : 0;
 
     setTimeout(async () => {
-      const wants = 1 + between(0, 3);
-      const gives = wants * between(1.001, 4);
+      if (opts.cross) {
+        let wants,gives;
+        if (tkin === "quote") {
+          wants = 1 + between(0, 0.5);
+          gives = 1;
+          console.log("posting ask, price is ",wants/gives);
+        } else {
+          gives = 0.5 + between(0.3,0.8);
+          wants = 1;
+          console.log("posting bid, price is ",gives/wants);
+        }
 
-      await newOffer(market[tkout], market[tkin], wants, gives );
+        await newOffer(market[tkout], market[tkin], wants, gives);
+      } else {
+        const wants = 1 + between(0, 3);
+        const gives = wants * between(1.001, 4);
+
+        await newOffer(market[tkout], market[tkin], wants, gives);
+      }
       pushOffer(market, ba);
     }, between(1000 + buffer, 3000 + buffer));
   };
