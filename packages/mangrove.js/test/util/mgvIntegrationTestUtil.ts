@@ -1,11 +1,9 @@
 // Utility functions for writing integration tests against Mangrove.
-import { ethers, BigNumberish } from "ethers";
-import { Market, MgvToken } from "@giry/mangrove-js";
-import * as typechain from "@giry/mangrove-js/dist/nodejs/types/typechain";
-import { OrderBookSide } from "../../src/mangrove-js-type-aliases";
-import { SignerWithAddress } from "hardhat-deploy-ethers/dist/src/signers";
-import "hardhat-deploy";
-import "hardhat-deploy-ethers";
+import { ethers } from "ethers";
+import { Market, MgvToken } from "../..";
+import * as typechain from "../../dist/nodejs/types/typechain";
+import type { SignerWithAddress } from "hardhat-deploy-ethers/dist/src/signers";
+import "hardhat-deploy-ethers/dist/src/type-extensions";
 import { ethers as hardhatEthers } from "hardhat";
 import { Provider } from "@ethersproject/abstract-provider";
 
@@ -28,7 +26,9 @@ export type Balances = {
   tokenB: ethers.BigNumber;
 };
 
-export const orderBookSides: OrderBookSide[] = ["asks", "bids"];
+export type BA = "bids" | "asks";
+
+export const bidsAsks: BA[] = ["bids", "asks"];
 
 export type Addresses = {
   mangrove: string;
@@ -150,20 +150,20 @@ export const logBalances = async (
 
 export const getTokens = (
   market: Market,
-  bookSide: OrderBookSide
+  ba: BA
 ): {
   inboundToken: MgvToken;
   outboundToken: MgvToken;
 } => {
   return {
-    inboundToken: bookSide === "asks" ? market.base : market.quote,
-    outboundToken: bookSide === "asks" ? market.quote : market.base,
+    inboundToken: ba === "asks" ? market.base : market.quote,
+    outboundToken: ba === "asks" ? market.quote : market.base,
   };
 };
 
 export type NewOffer = {
   market: Market;
-  bookSide: OrderBookSide;
+  ba: BA;
   maker: Account;
   wants?: ethers.BigNumberish;
   gives?: ethers.BigNumberish;
@@ -176,7 +176,7 @@ export type NewOffer = {
 // By default, a new offer will succeed
 export const postNewOffer = async ({
   market,
-  bookSide,
+  ba,
   maker,
   wants = 1,
   gives = 1000000,
@@ -185,7 +185,7 @@ export const postNewOffer = async ({
   shouldAbort = false,
   shouldRevert = false,
 }: NewOffer): Promise<void> => {
-  const { inboundToken, outboundToken } = getTokens(market, bookSide);
+  const { inboundToken, outboundToken } = getTokens(market, ba);
 
   await maker.connectedContracts.testMaker
     .shouldFail(shouldFail)
@@ -205,12 +205,12 @@ export const postNewOffer = async ({
 
 export const postNewRevertingOffer = async (
   market: Market,
-  bookSide: OrderBookSide,
+  ba: BA,
   maker: Account
 ): Promise<void> => {
   await postNewOffer({
     market,
-    bookSide,
+    ba,
     maker,
     wants: 1,
     gives: 1000000,
@@ -220,13 +220,15 @@ export const postNewRevertingOffer = async (
 
 export const postNewSucceedingOffer = async (
   market: Market,
-  bookSide: OrderBookSide,
+  ba: BA,
   maker: Account
 ): Promise<void> => {
-  await postNewOffer({ market, bookSide, maker });
+  await postNewOffer({ market, ba, maker });
 };
 
-export const setMgvGasPrice = async (gasPrice: BigNumberish): Promise<void> => {
+export const setMgvGasPrice = async (
+  gasPrice: ethers.BigNumberish
+): Promise<void> => {
   const deployer = await getAccount(AccountName.Deployer);
   await deployer.connectedContracts.mangrove
     .setGasprice(gasPrice)

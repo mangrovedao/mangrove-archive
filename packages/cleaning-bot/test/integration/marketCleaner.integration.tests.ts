@@ -8,12 +8,12 @@ import chaiAsPromised from "chai-as-promised";
 chai.use(chaiAsPromised);
 
 import { Mangrove, Market } from "@giry/mangrove-js";
+import * as mgvTestUtil from "@giry/mangrove-js/test/util/mgvIntegrationTestUtil";
+
 import { ethers } from "ethers";
-import "hardhat-deploy";
-import "hardhat-deploy-ethers";
 import { Provider } from "@ethersproject/abstract-provider";
+
 import { MarketCleaner } from "../../dist/nodejs/MarketCleaner";
-import * as mgvTestUtil from "../util/mgvIntegrationTestUtil";
 
 let maker: mgvTestUtil.Account; // Owner of TestMaker contract
 let cleaner: mgvTestUtil.Account; // Owner of cleaner EOA
@@ -32,6 +32,10 @@ describe("MarketCleaner integration tests", () => {
     testProvider = new ethers.providers.JsonRpcProvider(
       this.test?.parent?.parent?.ctx.providerUrl
     );
+  });
+
+  after(async function () {
+    await mgvTestUtil.logAddresses();
   });
 
   beforeEach(async function () {
@@ -65,7 +69,6 @@ describe("MarketCleaner integration tests", () => {
 
     const balancesAfter = await mgvTestUtil.getBalances(accounts, testProvider);
     mgvTestUtil.logBalances(accounts, balancesBefore, balancesAfter);
-    mgvTestUtil.logAddresses();
   });
 
   mgvTestUtil.bidsAsks.forEach((ba) => {
