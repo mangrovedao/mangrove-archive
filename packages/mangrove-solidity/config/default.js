@@ -44,6 +44,7 @@ config.hardhat = {
       ":MgvCleaner$",
       ":MgvOracle$",
       ":TestMaker$",
+      ":TestTokenWithDecimals$",
       ":IERC20$",
     ],
     spacing: 2,

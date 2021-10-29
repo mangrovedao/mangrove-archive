@@ -7,104 +7,108 @@ const { expect } = chai;
 import chaiAsPromised from "chai-as-promised";
 chai.use(chaiAsPromised);
 
-import { Mangrove, Market, MgvToken } from "@giry/mangrove-js";
-import * as typechain from "@giry/mangrove-js/dist/nodejs/types/typechain";
-import { BookSide } from "../../src/mangrove-js-type-aliases";
-import ethers from "ethers";
-import "hardhat-deploy";
-import "hardhat-deploy-ethers";
-import { ethers as hardhatEthers } from "hardhat";
+import { Mangrove, Market } from "@giry/mangrove-js";
+import * as mgvTestUtil from "@giry/mangrove-js/test/util/mgvIntegrationTestUtil";
+
+import { ethers } from "ethers";
 import { Provider } from "@ethersproject/abstract-provider";
-import { SignerWithAddress } from "hardhat-deploy-ethers/dist/src/signers";
+
 import { MarketCleaner } from "../../dist/nodejs/MarketCleaner";
 
-const bookSides: BookSide[] = ["asks", "bids"];
+let maker: mgvTestUtil.Account; // Owner of TestMaker contract
+let cleaner: mgvTestUtil.Account; // Owner of cleaner EOA
+let accounts: mgvTestUtil.Account[]; // All referenced accounts for easy debugging
+
+let balancesBefore: Map<string, mgvTestUtil.Balances>; // mgvTestUtil.Account name |-> mgvTestUtil.Balances
+
+let testProvider: Provider; // Only used to read state for assertions, not associated with an mgvTestUtil.Account
+let cleanerProvider: Provider; // Tied to the cleaner bot's mgvTestUtil.Account
+
+let mgv: Mangrove;
+let market: Market;
 
 describe("MarketCleaner integration tests", () => {
-  let deployerSigner: SignerWithAddress;
-  let makerSigner: SignerWithAddress;
-  let cleanerSigner: SignerWithAddress;
-
-  let cleanerProvider: Provider;
-
-  let mgv: Mangrove;
-  let market: Market;
-  let testMakerContract: typechain.TestMaker;
-
-  let getTokens = (bookSide: BookSide) => {
-    return {
-      inboundToken: bookSide === "asks" ? market.base : market.quote,
-      outboundToken: bookSide === "asks" ? market.quote : market.base,
-    };
-  };
-
   before(async function () {
-    deployerSigner = await hardhatEthers.getNamedSigner("deployer"); // Owner of deployed MGV and token contracts
-    makerSigner = await hardhatEthers.getNamedSigner("maker"); // Owner of TestMaker contract
-    cleanerSigner = await hardhatEthers.getNamedSigner("cleaner"); // Owner of cleaner EOA
+    testProvider = new ethers.providers.JsonRpcProvider(
+      this.test?.parent?.parent?.ctx.providerUrl
+    );
+  });
+
+  after(async function () {
+    await mgvTestUtil.logAddresses();
   });
 
   beforeEach(async function () {
-    // FIXME the hre.network.provider is not a full ethers Provider, e.g. it doesn't have getBalance() and getGasPrice()
-    // FIXME for now we therefore use the provider constructed by Mangrove
-    // provider = this.test?.parent?.parent?.ctx.provider;
+    maker = await mgvTestUtil.getAccount(mgvTestUtil.AccountName.Maker);
+    cleaner = await mgvTestUtil.getAccount(mgvTestUtil.AccountName.Cleaner);
+
+    accounts = [maker, cleaner];
+
     mgv = await Mangrove.connect({
       provider: this.test?.parent?.parent?.ctx.providerUrl,
-      signer: cleanerSigner,
+      signer: cleaner.signer,
     });
-    cleanerProvider = mgv._provider;
     market = await mgv.market({ base: "TokenA", quote: "TokenB" });
 
-    // Turn up the Mangrove gasprice to increase the bounty
-    const mangroveContract = typechain.Mangrove__factory.connect(
-      mgv._address,
-      deployerSigner
-    );
-    await mangroveContract.setGasprice(10).then((tx) => tx.wait());
+    cleanerProvider = mgv._provider;
 
-    const testMakerAddress = Mangrove.getAddress(
-      "TestMaker",
-      mgv._network.name
-    );
-    testMakerContract = typechain.TestMaker__factory.connect(
-      testMakerAddress,
-      makerSigner
-    );
+    // Turn up the Mangrove gasprice to increase the bounty
+    await mgvTestUtil.setMgvGasPrice(50);
+    await mgvTestUtil.mint(market.base, maker, 10);
+    await mgvTestUtil.mint(market.quote, maker, 10);
+
+    await mgvTestUtil.approveMgv(market.base, maker, 100);
+    await mgvTestUtil.approveMgv(market.quote, maker, 100);
+
+    balancesBefore = await mgvTestUtil.getBalances(accounts, testProvider);
   });
 
   afterEach(async function () {
     market.disconnect();
     mgv.disconnect();
+
+    const balancesAfter = await mgvTestUtil.getBalances(accounts, testProvider);
+    mgvTestUtil.logBalances(accounts, balancesBefore, balancesAfter);
   });
 
-  bookSides.forEach((bookSide) => {
-    it(`should clean offer failing to trade 0 wants on the '${bookSide}' offer list`, async function () {
+  mgvTestUtil.bidsAsks.forEach((ba) => {
+    it(`should clean offer failing to trade 0 wants on the '${ba}' offer list`, async function () {
       // Arrange
-      const { inboundToken, outboundToken } = getTokens(bookSide);
-
-      await testMakerContract.shouldFail(true).then((tx) => tx.wait());
-      await testMakerContract[
-        "newOffer(address,address,uint256,uint256,uint256,uint256)"
-      ](inboundToken.address, outboundToken.address, 1, 1000000, 1000, 1) // (base address, quote address, wants, gives, gasreq, pivotId)
-        .then((tx) => tx.wait());
+      await mgvTestUtil.postNewRevertingOffer(market, ba, maker);
 
       const marketCleaner = new MarketCleaner(market, cleanerProvider);
-
-      const cleanerBalanceBefore = await cleanerProvider.getBalance(
-        cleanerSigner.address
-      );
 
       // Act
       await marketCleaner.clean(0);
 
       // Assert
       return Promise.all([
-        expect(market.requestBook()).to.eventually.have.property(bookSide).which
-          .is.empty,
-        expect(
-          cleanerProvider.getBalance(cleanerSigner.address)
-        ).to.eventually.satisfy((balanceAfter: ethers.BigNumber) =>
-          balanceAfter.gt(cleanerBalanceBefore)
+        expect(market.requestBook()).to.eventually.have.property(ba).which.is
+          .empty,
+        expect(testProvider.getBalance(cleaner.address)).to.eventually.satisfy(
+          (balanceAfter: ethers.BigNumber) =>
+            balanceAfter.gt(balancesBefore.get(cleaner.name)?.ether || -1)
+        ),
+      ]);
+    });
+
+    it(`should not clean offer suceeding to trade 0 wants on the '${ba}' offer list`, async function () {
+      // Arrange
+      await mgvTestUtil.postNewSucceedingOffer(market, ba, maker);
+
+      const marketCleaner = new MarketCleaner(market, cleanerProvider);
+
+      // Act
+      await marketCleaner.clean(0);
+
+      // Assert
+      return Promise.all([
+        expect(market.requestBook())
+          .to.eventually.have.property(ba)
+          .which.has.lengthOf(1),
+        expect(testProvider.getBalance(cleaner.address)).to.eventually.satisfy(
+          (balanceAfter: ethers.BigNumber) =>
+            balanceAfter.eq(balancesBefore.get(cleaner.name)?.ether || -1)
         ),
       ]);
     });

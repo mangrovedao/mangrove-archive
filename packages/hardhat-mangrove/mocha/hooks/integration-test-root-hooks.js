@@ -16,11 +16,6 @@ const host = {
   port: 8546,
 };
 
-const awaitTransaction = async (contractTransactionPromise) => {
-  let tx = await contractTransactionPromise;
-  let txReceipt = await tx.wait();
-};
-
 exports.mochaHooks = {
   async beforeAll() {
     process.on("unhandledRejection", function (reason, p) {
@@ -67,22 +62,19 @@ exports.mochaHooks = {
       deployer
     );
 
-    await awaitTransaction(
-      mgvContract.activate(TokenA.address, TokenB.address, 0, 10, 80000, 20000)
-    );
-    await awaitTransaction(
-      mgvContract.activate(TokenB.address, TokenA.address, 0, 10, 80000, 20000)
-    );
+    await mgvContract
+      .activate(TokenA.address, TokenB.address, 0, 10, 80000, 20000)
+      .then((tx) => tx.wait());
+    await mgvContract
+      .activate(TokenB.address, TokenA.address, 0, 10, 80000, 20000)
+      .then((tx) => tx.wait());
 
     await TokenA.mint(testerAddress, toWei(10));
-
     await TokenB.mint(testerAddress, toWei(10));
 
-    await awaitTransaction(
-      mgvContract["fund(address)"](testMakerContract.address, {
-        value: toWei(10),
-      })
-    );
+    await mgvContract["fund(address)"](testMakerContract.address, {
+      value: toWei(10),
+    }).then((tx) => tx.wait());
 
     await snapshot();
   },
