@@ -8,8 +8,6 @@ import "../MgvLib.sol";
  * oracle for the Mangrove. It bridges to an external oracle, and allows
  * a given sender to update the gas price and density which the oracle
  * reports to Mangrove. */
-
-//TODO: Should set the bot EOA as admin, and set authonly on setGasPrice?
 contract MgvOracle is IMgvMonitor {
   address governance;
   address mutator;

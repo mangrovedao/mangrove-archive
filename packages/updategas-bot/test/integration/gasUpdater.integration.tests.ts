@@ -15,14 +15,12 @@ import { config } from "../../src/util/config";
 import { SignerWithAddress } from "hardhat-deploy-ethers/dist/src/signers";
 
 describe("GasUpdater integration tests", () => {
-  let deployerSigner: SignerWithAddress;
   let gasUpdaterSigner: SignerWithAddress;
   let gasUpdaterProvider: Provider;
 
   let mgv: Mangrove;
 
   before(async function () {
-    deployerSigner = await hre.ethers.getNamedSigner("deployer");
     gasUpdaterSigner = await hre.ethers.getNamedSigner("gasUpdater");
   });
 
