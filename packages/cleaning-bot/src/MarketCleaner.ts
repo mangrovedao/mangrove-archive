@@ -3,7 +3,6 @@ import { Market, Offer } from "@giry/mangrove-js/dist/nodejs/market";
 import { MgvToken } from "@giry/mangrove-js/dist/nodejs/mgvtoken";
 import { Provider } from "@ethersproject/providers";
 import { BigNumber, BigNumberish } from "ethers";
-import { BookSide } from "./mangrove-js-type-aliases";
 import Big from "big.js";
 
 Big.DP = 20; // precision when dividing
@@ -17,6 +16,9 @@ type OfferCleaningEstimates = {
   totalCost: Big; // wei
   netResult: Big; // wei
 };
+
+// FIXME Move to mangrove.js
+export type BA = "bids" | "asks";
 
 // FIXME move to Mangrove.js
 const maxWantsOrGives = BigNumber.from(2).pow(96).sub(1);
@@ -91,7 +93,7 @@ export class MarketCleaner {
 
   async #cleanOfferList(
     offerList: Offer[],
-    bookSide: BookSide,
+    bookSide: BA,
     gasPrice: Big,
     minerTipPerGas: Big
   ): Promise<void> {
@@ -124,7 +126,7 @@ export class MarketCleaner {
 
   async #estimateCostsAndGains(
     offer: Offer,
-    bookSide: BookSide,
+    bookSide: BA,
     gasPrice: Big,
     minerTipPerGas: Big
   ): Promise<OfferCleaningEstimates> {
@@ -156,7 +158,7 @@ export class MarketCleaner {
     return Big(1);
   }
 
-  #estimateBounty(offer: Offer, bookSide: BookSide): Big {
+  #estimateBounty(offer: Offer, bookSide: BA): Big {
     // TODO Implement
     logger.debug(
       "Using hard coded bounty estimate because #estimateBounty is not implemented",
@@ -170,7 +172,7 @@ export class MarketCleaner {
     return Big(1e18);
   }
 
-  async #estimateGas(offer: Offer, bookSide: BookSide): Promise<Big> {
+  async #estimateGas(offer: Offer, bookSide: BA): Promise<Big> {
     const gasEstimate =
       await this.#market.mgv.cleanerContract.estimateGas.collect(
         ...this.#createCollectParams(bookSide, offer)
@@ -178,7 +180,7 @@ export class MarketCleaner {
     return Big(gasEstimate.toString());
   }
 
-  async #willOfferFail(offer: Offer, bookSide: BookSide): Promise<boolean> {
+  async #willOfferFail(offer: Offer, bookSide: BA): Promise<boolean> {
     try {
       // FIXME move to mangrove.js API
       await this.#market.mgv.cleanerContract.callStatic.collect(
@@ -209,7 +211,7 @@ export class MarketCleaner {
   //  - If not, we must implement strategies for sourcing and calculate the costs, incl. gas
   //  - The cleaner contract would have to implement the sourcing strategy
   //  - We don't want to do that in V0.
-  async #cleanOffer(offer: Offer, bookSide: BookSide): Promise<boolean> {
+  async #cleanOffer(offer: Offer, bookSide: BA): Promise<boolean> {
     logger.debug("Cleaning offer", {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
@@ -244,7 +246,7 @@ export class MarketCleaner {
   }
 
   #createCollectParams(
-    bookSide: BookSide,
+    bookSide: BA,
     offer: Offer
   ): [
     string,
@@ -298,7 +300,7 @@ export class MarketCleaner {
   }
 
   // FIXME move/integrate into Market API?
-  #getTokens(bookSide: BookSide): {
+  #getTokens(bookSide: BA): {
     inboundToken: MgvToken;
     outboundToken: MgvToken;
   } {
