@@ -13,30 +13,16 @@ import "hardhat-deploy";
 import "hardhat-deploy-ethers";
 import { Provider } from "@ethersproject/abstract-provider";
 import { MarketCleaner } from "../../dist/nodejs/MarketCleaner";
-import {
-  Account,
-  Balances,
-  bookSides,
-  getAccount,
-  logAddresses,
-  postNewSucceedingOffer,
-  postNewRevertingOffer,
-  getBalances,
-  logBalances,
-  setMgvGasPrice,
-  mint,
-  approveMgv,
-  AccountName,
-} from "../util/helpers";
+import * as mgvTestUtil from "../util/mgvIntegrationTestUtil";
 
-let maker: Account; // Owner of TestMaker contract
-let cleaner: Account; // Owner of cleaner EOA
-let accounts: Account[]; // All referenced accounts for easy debugging
+let maker: mgvTestUtil.Account; // Owner of TestMaker contract
+let cleaner: mgvTestUtil.Account; // Owner of cleaner EOA
+let accounts: mgvTestUtil.Account[]; // All referenced accounts for easy debugging
 
-let balancesBefore: Map<string, Balances>; // account name |-> balances
+let balancesBefore: Map<string, mgvTestUtil.Balances>; // mgvTestUtil.Account name |-> mgvTestUtil.Balances
 
-let testProvider: Provider; // Only used to read state for assertions, not associated with an account
-let cleanerProvider: Provider; // Tied to the cleaner bot's account
+let testProvider: Provider; // Only used to read state for assertions, not associated with an mgvTestUtil.Account
+let cleanerProvider: Provider; // Tied to the cleaner bot's mgvTestUtil.Account
 
 let mgv: Mangrove;
 let market: Market;
@@ -49,8 +35,8 @@ describe("MarketCleaner integration tests", () => {
   });
 
   beforeEach(async function () {
-    maker = await getAccount(AccountName.Maker);
-    cleaner = await getAccount(AccountName.Cleaner);
+    maker = await mgvTestUtil.getAccount(mgvTestUtil.AccountName.Maker);
+    cleaner = await mgvTestUtil.getAccount(mgvTestUtil.AccountName.Cleaner);
 
     accounts = [maker, cleaner];
 
@@ -63,29 +49,29 @@ describe("MarketCleaner integration tests", () => {
     cleanerProvider = mgv._provider;
 
     // Turn up the Mangrove gasprice to increase the bounty
-    await setMgvGasPrice(50);
-    await mint(market.base, maker, 10);
-    await mint(market.quote, maker, 10);
+    await mgvTestUtil.setMgvGasPrice(50);
+    await mgvTestUtil.mint(market.base, maker, 10);
+    await mgvTestUtil.mint(market.quote, maker, 10);
 
-    await approveMgv(market.base, maker, 100);
-    await approveMgv(market.quote, maker, 100);
+    await mgvTestUtil.approveMgv(market.base, maker, 100);
+    await mgvTestUtil.approveMgv(market.quote, maker, 100);
 
-    balancesBefore = await getBalances(accounts, testProvider);
+    balancesBefore = await mgvTestUtil.getBalances(accounts, testProvider);
   });
 
   afterEach(async function () {
     market.disconnect();
     mgv.disconnect();
 
-    const balancesAfter = await getBalances(accounts, testProvider);
-    logBalances(accounts, balancesBefore, balancesAfter);
-    logAddresses();
+    const balancesAfter = await mgvTestUtil.getBalances(accounts, testProvider);
+    mgvTestUtil.logBalances(accounts, balancesBefore, balancesAfter);
+    mgvTestUtil.logAddresses();
   });
 
-  bookSides.forEach((bookSide) => {
+  mgvTestUtil.orderBookSides.forEach((bookSide) => {
     it(`should clean offer failing to trade 0 wants on the '${bookSide}' offer list`, async function () {
       // Arrange
-      await postNewRevertingOffer(market, bookSide, maker);
+      await mgvTestUtil.postNewRevertingOffer(market, bookSide, maker);
 
       const marketCleaner = new MarketCleaner(market, cleanerProvider);
 
@@ -105,7 +91,7 @@ describe("MarketCleaner integration tests", () => {
 
     it(`should not clean offer suceeding to trade 0 wants on the '${bookSide}' offer list`, async function () {
       // Arrange
-      await postNewSucceedingOffer(market, bookSide, maker);
+      await mgvTestUtil.postNewSucceedingOffer(market, bookSide, maker);
 
       const marketCleaner = new MarketCleaner(market, cleanerProvider);
 

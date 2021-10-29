@@ -1,18 +1,13 @@
-// FIXME this is a TypeScriptified excerpt of the file Mangrove-js/test/util/helper.js - we should find a better way...
-import { BigNumber, BigNumberish, utils } from "ethers";
-
+// Utility functions for writing integration tests against Mangrove.
+import { ethers, BigNumberish } from "ethers";
 import { Market, MgvToken } from "@giry/mangrove-js";
-import { SignerWithAddress } from "hardhat-deploy-ethers/dist/src/signers";
 import * as typechain from "@giry/mangrove-js/dist/nodejs/types/typechain";
-import { BookSide } from "../../src/mangrove-js-type-aliases";
-import { ethers } from "ethers";
+import { OrderBookSide } from "../../src/mangrove-js-type-aliases";
+import { SignerWithAddress } from "hardhat-deploy-ethers/dist/src/signers";
 import "hardhat-deploy";
 import "hardhat-deploy-ethers";
 import { ethers as hardhatEthers } from "hardhat";
 import { Provider } from "@ethersproject/abstract-provider";
-
-export const toWei = (v: number, u = "ether"): BigNumber =>
-  utils.parseUnits(v.toString(), u);
 
 export type Account = {
   name: string;
@@ -33,7 +28,7 @@ export type Balances = {
   tokenB: ethers.BigNumber;
 };
 
-export const bookSides: BookSide[] = ["asks", "bids"];
+export const orderBookSides: OrderBookSide[] = ["asks", "bids"];
 
 export type Addresses = {
   mangrove: string;
@@ -155,7 +150,7 @@ export const logBalances = async (
 
 export const getTokens = (
   market: Market,
-  bookSide: BookSide
+  bookSide: OrderBookSide
 ): {
   inboundToken: MgvToken;
   outboundToken: MgvToken;
@@ -168,7 +163,7 @@ export const getTokens = (
 
 export type NewOffer = {
   market: Market;
-  bookSide: BookSide;
+  bookSide: OrderBookSide;
   maker: Account;
   wants?: ethers.BigNumberish;
   gives?: ethers.BigNumberish;
@@ -210,7 +205,7 @@ export const postNewOffer = async ({
 
 export const postNewRevertingOffer = async (
   market: Market,
-  bookSide: BookSide,
+  bookSide: OrderBookSide,
   maker: Account
 ): Promise<void> => {
   await postNewOffer({
@@ -225,7 +220,7 @@ export const postNewRevertingOffer = async (
 
 export const postNewSucceedingOffer = async (
   market: Market,
-  bookSide: BookSide,
+  bookSide: OrderBookSide,
   maker: Account
 ): Promise<void> => {
   await postNewOffer({ market, bookSide, maker });
@@ -247,14 +242,14 @@ export const mint = async (
   switch (token.name) {
     case "TokenA":
       await deployer.connectedContracts.tokenA
-        .mint(receiver.address, toWei(amount))
+        .mint(receiver.address, token.toUnits(amount))
         .then((tx) => tx.wait());
 
       break;
 
     case "TokenB":
       await deployer.connectedContracts.tokenB
-        .mint(receiver.address, toWei(amount))
+        .mint(receiver.address, token.toUnits(amount))
         .then((tx) => tx.wait());
 
       break;
