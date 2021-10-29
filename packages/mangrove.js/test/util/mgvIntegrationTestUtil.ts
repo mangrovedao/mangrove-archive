@@ -52,9 +52,8 @@ export const getAddresses = async (): Promise<Addresses> => {
 
 export const logAddresses = async (): Promise<void> => {
   console.group("Addresses");
-  Object.entries(await getAddresses()).map(([key, value]) =>
-    console.log(`${key}: ${value}`)
-  );
+  const addresses = await getAddresses();
+  console.table(addresses);
   console.groupEnd();
 };
 
@@ -135,16 +134,48 @@ export const logBalances = async (
   balancesBefore: Map<string, Balances>,
   balancesAfter: Map<string, Balances>
 ): Promise<void> => {
+  const accountBalancesTable = []; // [(name?, address?, ether|token|..., before, after, change)]
   for (const account of accounts) {
-    console.group(`${account.name} balances`);
-    console.group("Before");
-    console.dir(balancesBefore.get(account.name));
-    console.groupEnd();
-    console.group("After");
-    console.dir(balancesAfter.get(account.name));
-    console.groupEnd();
-    console.groupEnd();
+    const before = balancesBefore.get(account.name);
+    const after = balancesAfter.get(account.name);
+    if (!before || !after) {
+      continue;
+    }
+    accountBalancesTable.push({
+      Name: account.name,
+      Address: account.address,
+      Currency: "ether",
+      Before: before.ether.toString(),
+      After: after.ether.toString(),
+      Change: after.ether.sub(before.ether).toString(),
+    });
+    accountBalancesTable.push({
+      Name: "",
+      Address: "",
+      Currency: "TokenA",
+      Before: before.tokenA.toString(),
+      After: after.tokenA.toString(),
+      Change: after.tokenA.sub(before.tokenA).toString(),
+    });
+    accountBalancesTable.push({
+      Name: "",
+      Address: "",
+      Currency: "TokenB",
+      Before: before.tokenB.toString(),
+      After: after.tokenB.toString(),
+      Change: after.tokenB.sub(before.tokenB).toString(),
+    });
   }
+  console.group("Balances");
+  console.table(accountBalancesTable, [
+    "Name",
+    "Address",
+    "Currency",
+    "Before",
+    "After",
+    "Change",
+  ]);
+  console.groupEnd();
 };
 
 export const getTokens = (
