@@ -2,13 +2,14 @@ import config from "./util/config";
 import { ErrorWithData } from "@giry/commonlib-js";
 import { MarketCleaner } from "./MarketCleaner";
 import { logger } from "./util/logger";
-import { TokenPair } from "./mangrove-js-type-aliases";
 // TODO Figure out where mangrove.js get its addresses from and make it configurable
 import Mangrove from "@giry/mangrove-js";
 
 process.on("unhandledRejection", function (reason, p) {
   logger.warn("Unhandled Rejection at: Promise ", p, " reason: ", reason);
 });
+
+type TokenPair = { token1: string; token2: string };
 
 const main = async () => {
   // TODO Initialize:
@@ -39,7 +40,7 @@ const main = async () => {
   const mgvConfig = await mgv.config();
   logger.info("Mangrove config retrieved", { data: mgvConfig });
 
-  let marketCleanerMap = new Map<TokenPair, MarketCleaner>();
+  const marketCleanerMap = new Map<TokenPair, MarketCleaner>();
 
   /* Connect to markets */
   const marketConfigs = getMarketConfigsOrThrow();
@@ -57,18 +58,17 @@ const main = async () => {
     });
 
     marketCleanerMap.set(
-      { base: market.base.name, quote: market.quote.name },
+      { token1: market.base.name, token2: market.quote.name },
       new MarketCleaner(market, provider)
     );
   }
 
   provider.on("block", async function (blockNumber) {
-    const globalConfig = await mgv.config();
     // FIXME maybe this should be a property/method on Mangrove.
     exitIfMangroveIsKilled(mgv, blockNumber);
 
     logger.debug(`Cleaning at block number ${blockNumber}`);
-    let cleaningPromises = [];
+    const cleaningPromises = [];
     for (const marketCleaner of marketCleanerMap.values()) {
       cleaningPromises.push(marketCleaner.clean(blockNumber));
     }

@@ -68,10 +68,10 @@ describe("MarketCleaner integration tests", () => {
     mgvTestUtil.logAddresses();
   });
 
-  mgvTestUtil.orderBookSides.forEach((bookSide) => {
-    it(`should clean offer failing to trade 0 wants on the '${bookSide}' offer list`, async function () {
+  mgvTestUtil.bidsAsks.forEach((ba) => {
+    it(`should clean offer failing to trade 0 wants on the '${ba}' offer list`, async function () {
       // Arrange
-      await mgvTestUtil.postNewRevertingOffer(market, bookSide, maker);
+      await mgvTestUtil.postNewRevertingOffer(market, ba, maker);
 
       const marketCleaner = new MarketCleaner(market, cleanerProvider);
 
@@ -80,8 +80,8 @@ describe("MarketCleaner integration tests", () => {
 
       // Assert
       return Promise.all([
-        expect(market.requestBook()).to.eventually.have.property(bookSide).which
-          .is.empty,
+        expect(market.requestBook()).to.eventually.have.property(ba).which.is
+          .empty,
         expect(testProvider.getBalance(cleaner.address)).to.eventually.satisfy(
           (balanceAfter: ethers.BigNumber) =>
             balanceAfter.gt(balancesBefore.get(cleaner.name)?.ether || -1)
@@ -89,9 +89,9 @@ describe("MarketCleaner integration tests", () => {
       ]);
     });
 
-    it(`should not clean offer suceeding to trade 0 wants on the '${bookSide}' offer list`, async function () {
+    it(`should not clean offer suceeding to trade 0 wants on the '${ba}' offer list`, async function () {
       // Arrange
-      await mgvTestUtil.postNewSucceedingOffer(market, bookSide, maker);
+      await mgvTestUtil.postNewSucceedingOffer(market, ba, maker);
 
       const marketCleaner = new MarketCleaner(market, cleanerProvider);
 
@@ -101,7 +101,7 @@ describe("MarketCleaner integration tests", () => {
       // Assert
       return Promise.all([
         expect(market.requestBook())
-          .to.eventually.have.property(bookSide)
+          .to.eventually.have.property(ba)
           .which.has.lengthOf(1),
         expect(testProvider.getBalance(cleaner.address)).to.eventually.satisfy(
           (balanceAfter: ethers.BigNumber) =>
