@@ -2,7 +2,6 @@
 import { ethers } from "ethers";
 import { Market, MgvToken } from "../..";
 import * as typechain from "../../dist/nodejs/types/typechain";
-import type { SignerWithAddress } from "hardhat-deploy-ethers/dist/src/signers";
 import "hardhat-deploy-ethers/dist/src/type-extensions";
 import { ethers as hardhatEthers } from "hardhat";
 import { Provider } from "@ethersproject/abstract-provider";
@@ -10,7 +9,7 @@ import { Provider } from "@ethersproject/abstract-provider";
 export type Account = {
   name: string;
   address: string;
-  signer: SignerWithAddress;
+  signer: ethers.Signer;
   connectedContracts: {
     // Contracts connected with the signer for setting chain state in test case setup
     mangrove: typechain.Mangrove;
@@ -260,8 +259,32 @@ export const mint = async (
 
 export const approveMgv = async (
   token: MgvToken,
-  spender: Account,
+  owner: Account,
   amount: number
 ): Promise<void> => {
-  await token.approveMgv(amount).then((tx) => tx.wait());
+  const addresses = await getAddresses();
+  await approve(token, owner, addresses.mangrove, amount);
+};
+
+export const approve = async (
+  token: MgvToken,
+  owner: Account,
+  spenderAddress: string,
+  amount: number
+): Promise<void> => {
+  switch (token.name) {
+    case "TokenA":
+      await owner.connectedContracts.tokenA
+        .approve(spenderAddress, token.toUnits(amount))
+        .then((tx) => tx.wait());
+
+      break;
+
+    case "TokenB":
+      await owner.connectedContracts.tokenB
+        .approve(spenderAddress, token.toUnits(amount))
+        .then((tx) => tx.wait());
+
+      break;
+  }
 };
