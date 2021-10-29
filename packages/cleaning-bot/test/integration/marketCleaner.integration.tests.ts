@@ -54,11 +54,6 @@ describe("MarketCleaner integration tests", () => {
 
     // Turn up the Mangrove gasprice to increase the bounty
     await mgvTestUtil.setMgvGasPrice(50);
-    await mgvTestUtil.mint(market.base, maker, 10);
-    await mgvTestUtil.mint(market.quote, maker, 10);
-
-    await mgvTestUtil.approveMgv(market.base, maker, 100);
-    await mgvTestUtil.approveMgv(market.quote, maker, 100);
 
     balancesBefore = await mgvTestUtil.getBalances(accounts, testProvider);
   });
