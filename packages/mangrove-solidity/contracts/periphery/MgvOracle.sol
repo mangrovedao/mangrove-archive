@@ -59,14 +59,20 @@ contract MgvOracle is IMgvMonitor {
 
   function setGasPrice(uint gasPrice) external {
     // governance or mutator are allowed to update the gasprice
-    require(msg.sender == governance || msg.sender == mutator);
+    require(
+      msg.sender == governance || msg.sender == mutator,
+      "MgvOracle/unauthorized"
+    );
 
     lastReceivedGasPrice = gasPrice;
   }
 
   function setDensity(uint density) private {
     // governance or mutator are allowed to update the density
-    require(msg.sender == governance || msg.sender == mutator);
+    require(
+      msg.sender == governance || msg.sender == mutator,
+      "MgvOracle/unauthorized"
+    );
 
     //NOTE: Not implemented, so not made external yet
   }
