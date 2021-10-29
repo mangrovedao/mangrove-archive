@@ -46,6 +46,9 @@ config.hardhat = {
     cleaner: {
       default: 3,
     },
+    gasUpdater: {
+      default: 4,
+    },
   },
   mocha: defer(function () {
     // Use same configuration when running Mocha via Hardhat

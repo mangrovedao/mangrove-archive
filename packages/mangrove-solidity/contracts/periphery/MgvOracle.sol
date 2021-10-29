@@ -10,16 +10,31 @@ import "../MgvLib.sol";
  * reports to Mangrove. */
 
 //TODO: Should set the bot EOA as admin, and set authonly on setGasPrice?
-contract MgvOracle is AccessControlled, IMgvMonitor {
-  Mangrove immutable MGV;
+contract MgvOracle is IMgvMonitor {
+  address governance;
+  address mutator;
+
   uint lastReceivedGasPrice;
   uint lastReceivedDensity;
 
-  constructor(Mangrove _MGV) {
-    MGV = _MGV;
+  constructor(address _governance, address _initialMutator) {
+    governance = _governance;
+    mutator = _initialMutator;
 
     //NOTE: Hardwiring density for now
     lastReceivedDensity = type(uint).max;
+  }
+
+  /* ## `authOnly` check */
+  // NOTE: Should use standard auth method, instead of this copy from MgvGovernable
+
+  function authOnly() internal view {
+    require(
+      msg.sender == governance ||
+        msg.sender == address(this) ||
+        governance == address(0),
+      "MgvOracle/unauthorized"
+    );
   }
 
   function notifySuccess(MgvLib.SingleOrder calldata sor, address taker)
@@ -36,13 +51,23 @@ contract MgvOracle is AccessControlled, IMgvMonitor {
     // Do nothing
   }
 
-  //TODO: This should have the onlyAdmin or onlySender modifier
+  function setMutator(address _mutator) external {
+    authOnly();
+
+    mutator = _mutator;
+  }
+
   function setGasPrice(uint gasPrice) external {
+    // governance or mutator are allowed to update the gasprice
+    require(msg.sender == governance || msg.sender == mutator);
+
     lastReceivedGasPrice = gasPrice;
   }
 
-  //TODO: This should have the onlyAdmin or onlySender modifier
   function setDensity(uint density) private {
+    // governance or mutator are allowed to update the density
+    require(msg.sender == governance || msg.sender == mutator);
+
     //NOTE: Not implemented, so not made external yet
   }
 

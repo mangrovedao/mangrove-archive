@@ -61,10 +61,13 @@ const main = async () => {
   // const TokenB = await hre.ethers.getContract("TokenB");
 
   // Setup Mangrove to use MgvOracle as oracle
-  const mgvOracle = await hre.ethers.getContract("MgvOracle");
+  const mgvOracle = await hre.ethers.getContract("MgvOracle", deployer);
   await mgvContract.setMonitor(mgvOracle.address);
   await mgvContract.setUseOracle(true);
   await mgvContract.setNotify(true);
+
+  const gasUpdater = (await hre.getNamedAccounts()).gasUpdater;
+  await mgvOracle.setMutator(gasUpdater);
 
   const activate = (base, quote) => {
     return mgvContract.activate(base, quote, 0, 10, 80000, 20000);

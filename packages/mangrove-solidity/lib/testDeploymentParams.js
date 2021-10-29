@@ -54,11 +54,13 @@ module.exports = async () => {
     },
   });
 
+  const gasUpdater = (await hre.getNamedAccounts()).gasUpdater;
+
   const mgvOracle = await withAddress({
     name: "MgvOracle",
     options: {
       from: deployer,
-      args: [mangrove.address],
+      args: [deployer, gasUpdater],
     },
   });
 

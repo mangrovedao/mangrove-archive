@@ -2,8 +2,13 @@
   {
     "inputs": [
       {
-        "internalType": "contract Mangrove",
-        "name": "_MGV",
+        "internalType": "address",
+        "name": "_governance",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_initialMutator",
         "type": "address"
       }
     ],
@@ -172,12 +177,12 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "_admin",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "gasPrice",
+        "type": "uint256"
       }
     ],
-    "name": "setAdmin",
+    "name": "setGasPrice",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -185,12 +190,12 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "gasPrice",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "_mutator",
+        "type": "address"
       }
     ],
-    "name": "setGasPrice",
+    "name": "setMutator",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
