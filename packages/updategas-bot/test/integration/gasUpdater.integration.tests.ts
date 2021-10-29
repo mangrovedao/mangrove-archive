@@ -12,15 +12,27 @@ import { GasUpdater } from "../../src/GasUpdater";
 import * as hre from "hardhat";
 import "hardhat-deploy-ethers/dist/src/type-extensions";
 import { config } from "../../src/util/config";
+import { SignerWithAddress } from "hardhat-deploy-ethers/dist/src/signers";
 
 describe("GasUpdater integration tests", () => {
-  let provider: Provider;
+  let deployerSigner: SignerWithAddress;
+  let gasUpdaterSigner: SignerWithAddress;
+  let gasUpdaterProvider: Provider;
+
   let mgv: Mangrove;
 
+  before(async function () {
+    deployerSigner = await hre.ethers.getNamedSigner("deployer");
+    gasUpdaterSigner = await hre.ethers.getNamedSigner("gasUpdater");
+  });
+
   beforeEach(async function () {
-    //FIXME: for now we use the provider constructed by Mangrove -->
-    provider = this.test?.parent?.parent?.ctx.provider;
-    mgv = await Mangrove.connect({ provider });
+    mgv = await Mangrove.connect({
+      //FIXME: hacky -->
+      provider: this.test?.parent?.parent?.ctx.provider,
+      signer: gasUpdaterSigner,
+    });
+    gasUpdaterProvider = mgv._provider;
 
     //TODO: The following should be able to be done with a mgv : Mangrove that has the right signer
 
@@ -31,10 +43,12 @@ describe("GasUpdater integration tests", () => {
       deployer
     );
 
-    // FIXME: This only awaits tx receipts. Should really wait for tx's to be mined.
     await mgvContract.setMonitor(mgvOracleContract.address);
     await mgvContract.setUseOracle(true);
     await mgvContract.setNotify(true);
+
+    const gasUpdater = gasUpdaterSigner.address;
+    await mgvOracleContract.setMutator(gasUpdater);
   });
 
   afterEach(async () => {
@@ -57,7 +71,7 @@ describe("GasUpdater integration tests", () => {
     // construct the gasUpdater with the mock for getting prices from the oracle
     const gasUpdater = new GasUpdater(
       mgv,
-      provider,
+      gasUpdaterProvider,
       0.0,
       externalOracleMockGetter
     );
