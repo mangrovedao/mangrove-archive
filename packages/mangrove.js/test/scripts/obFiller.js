@@ -1,6 +1,7 @@
 const hre = require("hardhat");
 const helpers = require("../util/helpers");
 const hardhatUtils = require("@giry/hardhat-mangrove/hardhat-utils");
+const { BigNumber } = require("@ethersproject/bignumber");
 const seed =
   Math.random().toString(36).substring(2, 15) +
   Math.random().toString(36).substring(2, 15);
@@ -66,6 +67,12 @@ const main = async () => {
   await mgvContract.setUseOracle(true);
   await mgvContract.setNotify(true);
 
+  // ensure that unless instructed otherwise,
+  // MgvOracle has the same gasprice default as Mangrove default
+  const mgvConfig = await mgv.config();
+  await mgvOracle.setGasPrice(mgvConfig.gasprice);
+
+  // set allowed mutator on MgvOracle to gasUpdater named account
   const gasUpdater = (await hre.getNamedAccounts()).gasUpdater;
   await mgvOracle.setMutator(gasUpdater);
 
