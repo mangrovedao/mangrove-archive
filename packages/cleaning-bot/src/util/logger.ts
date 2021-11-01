@@ -16,15 +16,8 @@ const consoleLogFormat = format.printf(
       }
       msg += "] ";
     }
-    if (metadata.ba) {
-      msg += `[${metadata.ba}`;
-      if (metadata.offer) {
-        msg += `#${metadata.offer.id}`;
-      }
-      msg += "] ";
-    }
     if (metadata.contextInfo) {
-      msg += `[${metadata.contextInfo}]`;
+      msg += `[${metadata.contextInfo}] `;
     }
     msg += message;
     if (metadata.offer) {
