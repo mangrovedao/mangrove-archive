@@ -74,7 +74,7 @@ describe("MarketCleaner integration tests", () => {
       const marketCleaner = new MarketCleaner(market, cleanerProvider);
 
       // Act
-      await marketCleaner.clean(0);
+      await marketCleaner.clean();
 
       // Assert
       return Promise.all([
@@ -94,7 +94,7 @@ describe("MarketCleaner integration tests", () => {
       const marketCleaner = new MarketCleaner(market, cleanerProvider);
 
       // Act
-      await marketCleaner.clean(0);
+      await marketCleaner.clean();
 
       // Assert
       return Promise.all([

@@ -24,11 +24,24 @@ export type BA = "bids" | "asks";
 const maxWantsOrGives = BigNumber.from(2).pow(96).sub(1);
 const maxGasReq = BigNumber.from(2).pow(256).sub(1);
 
+/**
+ * A cleaner class for a single Mangrove market which snipes offers that fail and collects the bounty.
+ *
+ * The following strategy is used:
+ * - Offers are simulated using `STATICCALL`.
+ * - Snipes with `takerGives = 0` are used for simplicity. Thus, offers that only fail for non-zero trades will not be cleaned. A more sophisticated implementation might use flashloans or similar to clean such offers.
+ * - Profitability of cleaning is currently not taken into account, i.e. any failing offer will be cleaned even though the gas costs may outweigh the bounty. Some code for estimating profitability, however, is present and is expected to be completed at a later stage.
+ */
 export class MarketCleaner {
   #market: Market;
   #provider: Provider;
   #isCleaning: boolean;
 
+  /**
+   * Constructs a cleaner for the given Mangrove market which will use the given provider for queries and transactions.
+   * @param market The Mangrove market to clean.
+   * @param provider The provider to use for queries and transactions.
+   */
   constructor(market: Market, provider: Provider) {
     this.#market = market;
     this.#provider = provider;
@@ -36,16 +49,19 @@ export class MarketCleaner {
     this.#isCleaning = false;
   }
 
-  public async clean(blockNumber: number): Promise<void> {
+  /**
+   * Clean the offer lists of the market.
+   * @param contextInfo Context information that is included in logs.
+   * @returns A promise that fulfills when all offers have been evaluated and all cleaning transactions have been mined.
+   */
+  public async clean(contextInfo?: string): Promise<void> {
     // TODO non-thread safe reentrancy lock - is this is an issue in JS?
     if (this.#isCleaning) {
-      logger.debug(
-        `Already cleaning so ignoring request to clean at block #${blockNumber}`,
-        {
-          base: this.#market.base.name,
-          quote: this.#market.quote.name,
-        }
-      );
+      logger.debug("Already cleaning so ignoring request to clean", {
+        base: this.#market.base.name,
+        quote: this.#market.quote.name,
+        contextInfo: contextInfo,
+      });
 
       return;
     }
@@ -53,16 +69,18 @@ export class MarketCleaner {
 
     // FIXME this should be a property/method on Market
     if (!(await this.#isMarketOpen())) {
-      logger.warn(
-        `Market is closed at block #${blockNumber}. Waiting for next block.`,
-        { base: this.#market.base.name, quote: this.#market.quote.name }
-      );
+      logger.warn(`Market is closed so ignoring request to clean`, {
+        base: this.#market.base.name,
+        quote: this.#market.quote.name,
+        contextInfo: contextInfo,
+      });
       return;
     }
 
-    logger.info(`Cleaning market at block #${blockNumber}`, {
+    logger.info("Cleaning market", {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
+      contextInfo: contextInfo,
     });
 
     // TODO I think this is not quite EIP-1559 terminology - should fix
@@ -70,18 +88,30 @@ export class MarketCleaner {
     const minerTipPerGas = this.#estimateMinerTipPerGas(this.#provider);
 
     const { asks, bids } = await this.#market.requestBook();
-    logger.info(`Order book retrieved`, {
+    logger.info("Order book retrieved", {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
 
       data: {
         asksCount: asks.length,
         bidsCount: bids.length,
+        contextInfo: contextInfo,
       },
     });
 
-    await this.#cleanOfferList(asks, "asks", gasPrice, minerTipPerGas);
-    await this.#cleanOfferList(bids, "bids", gasPrice, minerTipPerGas);
+    const asksCleaningPromise = this.#cleanOfferList(
+      asks,
+      "asks",
+      gasPrice,
+      minerTipPerGas
+    );
+    const bidsCleaningPrimise = this.#cleanOfferList(
+      bids,
+      "bids",
+      gasPrice,
+      minerTipPerGas
+    );
+    await Promise.all([asksCleaningPromise, bidsCleaningPrimise]);
     this.#isCleaning = false;
   }
 
@@ -93,104 +123,69 @@ export class MarketCleaner {
 
   async #cleanOfferList(
     offerList: Offer[],
-    bookSide: BA,
+    ba: BA,
+    gasPrice: Big,
+    minerTipPerGas: Big
+  ): Promise<void[]> {
+    const cleaningPromises: Promise<void>[] = [];
+    for (const offer of offerList) {
+      cleaningPromises.push(
+        this.#cleanOffer(offer, ba, gasPrice, minerTipPerGas)
+      );
+    }
+    return Promise.all(cleaningPromises);
+  }
+
+  async #cleanOffer(
+    offer: Offer,
+    ba: BA,
     gasPrice: Big,
     minerTipPerGas: Big
   ): Promise<void> {
-    for (const offer of offerList) {
-      const willOfferFail = await this.#willOfferFail(offer, bookSide);
-      if (!willOfferFail) {
-        continue;
-      }
-
-      const estimates = await this.#estimateCostsAndGains(
-        offer,
-        bookSide,
-        gasPrice,
-        minerTipPerGas
-      );
-      if (estimates.netResult.gt(0)) {
-        logger.info("Identified offer that is profitable to clean", {
-          base: this.#market.base.name,
-          quote: this.#market.quote.name,
-          bookSide: bookSide,
-          offer: offer,
-          data: { estimates },
-        });
-        // TODO Do we have the liquidity to do the snipe?
-        //    - If we're trading 0 (zero) this is just the gas, right?
-        await this.#cleanOffer(offer, bookSide);
-      }
+    const willOfferFail = await this.#willOfferFail(offer, ba);
+    if (!willOfferFail) {
+      return;
     }
-  }
 
-  async #estimateCostsAndGains(
-    offer: Offer,
-    bookSide: BA,
-    gasPrice: Big,
-    minerTipPerGas: Big
-  ): Promise<OfferCleaningEstimates> {
-    const bounty = this.#estimateBounty(offer, bookSide);
-    const gas = await this.#estimateGas(offer, bookSide);
-    const totalCost = gas.mul(gasPrice.plus(minerTipPerGas));
-    const netResult = bounty.minus(totalCost);
-    return {
-      bounty,
-      gas,
+    const estimates = await this.#estimateCostsAndGains(
+      offer,
+      ba,
       gasPrice,
-      minerTipPerGas,
-      totalCost,
-      netResult,
-    };
-  }
-
-  async #estimateGasPrice(provider: Provider): Promise<Big> {
-    const gasPrice = await provider.getGasPrice();
-    return Big(gasPrice.toString());
-  }
-
-  #estimateMinerTipPerGas(provider: Provider): Big {
-    // TODO Implement
-    logger.debug(
-      "Using hard coded miner tip (1) because #estimateMinerTipPerGas is not implemented",
-      { base: this.#market.base.name, quote: this.#market.quote.name }
+      minerTipPerGas
     );
-    return Big(1);
+    logger.info("Collecting offer regardless of profitability", {
+      base: this.#market.base.name,
+      quote: this.#market.quote.name,
+      ba: ba,
+      offer: offer,
+      data: { estimates },
+    });
+    // TODO When profitability estimation is complete, uncomment the following and remove the above logging.
+    // if (estimates.netResult.gt(0)) {
+    //   logger.info("Identified offer that is profitable to clean", {
+    //     base: this.#market.base.name,
+    //     quote: this.#market.quote.name,
+    //     ba: ba,
+    //     offer: offer,
+    //     data: { estimates },
+    //   });
+    //   // TODO Do we have the liquidity to do the snipe?
+    //   //    - If we're trading 0 (zero) this is just the gas, right?
+    await this.#collectOffer(offer, ba);
+    // }
   }
 
-  #estimateBounty(offer: Offer, bookSide: BA): Big {
-    // TODO Implement
-    logger.debug(
-      "Using hard coded bounty estimate because #estimateBounty is not implemented",
-      {
-        base: this.#market.base.name,
-        quote: this.#market.quote.name,
-        bookSide: bookSide,
-        offer: offer,
-      }
-    );
-    return Big(1e18);
-  }
-
-  async #estimateGas(offer: Offer, bookSide: BA): Promise<Big> {
-    const gasEstimate =
-      await this.#market.mgv.cleanerContract.estimateGas.collect(
-        ...this.#createCollectParams(bookSide, offer)
-      );
-    return Big(gasEstimate.toString());
-  }
-
-  async #willOfferFail(offer: Offer, bookSide: BA): Promise<boolean> {
+  async #willOfferFail(offer: Offer, ba: BA): Promise<boolean> {
     try {
       // FIXME move to mangrove.js API
       await this.#market.mgv.cleanerContract.callStatic.collect(
-        ...this.#createCollectParams(bookSide, offer)
+        ...this.#createCollectParams(ba, offer)
       );
     } catch (e) {
       logger.debug("Static collect of offer failed", {
         base: this.#market.base.name,
         quote: this.#market.quote.name,
-        bookSide: bookSide,
+        ba: ba,
         offer: offer,
         data: e,
       });
@@ -199,54 +194,47 @@ export class MarketCleaner {
     logger.debug("Static collect of offer succeeded", {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
-      bookSide: bookSide,
+      ba: ba,
       offer: offer,
     });
 
     return true;
   }
 
-  // TODO How do source liquidity for the snipes?
-  //  - Can we just trade 0 (zero) ? That's the current approach
-  //  - If not, we must implement strategies for sourcing and calculate the costs, incl. gas
-  //  - The cleaner contract would have to implement the sourcing strategy
-  //  - We don't want to do that in V0.
-  async #cleanOffer(offer: Offer, bookSide: BA): Promise<boolean> {
+  async #collectOffer(offer: Offer, ba: BA): Promise<void> {
     logger.debug("Cleaning offer", {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
-      bookSide: bookSide,
+      ba: ba,
       offer: offer,
     });
 
-    try {
-      // FIXME move to mangrove.js API
-      const collectTx = await this.#market.mgv.cleanerContract.collect(
-        ...this.#createCollectParams(bookSide, offer)
-      );
-      // TODO Maybe don't want to wait for the transaction to be mined?
-      const txReceipt = await collectTx.wait();
-    } catch (e) {
-      logger.warn("Cleaning of offer failed", {
-        base: this.#market.base.name,
-        quote: this.#market.quote.name,
-        bookSide: bookSide,
-        offer: offer,
-        data: e,
+    // FIXME move to mangrove.js API
+    return this.#market.mgv.cleanerContract
+      .collect(...this.#createCollectParams(ba, offer))
+      .then((tx) => tx.wait())
+      .then((txReceipt) => {
+        logger.info("Successfully cleaned offer", {
+          base: this.#market.base.name,
+          quote: this.#market.quote.name,
+          ba: ba,
+          offer: offer,
+          data: { txReceipt },
+        });
+      })
+      .catch((e) => {
+        logger.warn("Cleaning of offer failed", {
+          base: this.#market.base.name,
+          quote: this.#market.quote.name,
+          ba: ba,
+          offer: offer,
+          data: e,
+        });
       });
-      return false;
-    }
-    logger.info("Successfully cleaned offer", {
-      base: this.#market.base.name,
-      quote: this.#market.quote.name,
-      bookSide: bookSide,
-      offer: offer,
-    });
-    return true;
   }
 
   #createCollectParams(
-    bookSide: BA,
+    ba: BA,
     offer: Offer
   ): [
     string,
@@ -254,7 +242,7 @@ export class MarketCleaner {
     [BigNumberish, BigNumberish, BigNumberish, BigNumberish][],
     boolean
   ] {
-    const { inboundToken, outboundToken } = this.#getTokens(bookSide);
+    const { inboundToken, outboundToken } = this.#getTokens(ba);
     return [
       inboundToken.address,
       outboundToken.address,
@@ -300,15 +288,69 @@ export class MarketCleaner {
   }
 
   // FIXME move/integrate into Market API?
-  #getTokens(bookSide: BA): {
+  #getTokens(ba: BA): {
     inboundToken: MgvToken;
     outboundToken: MgvToken;
   } {
     return {
-      inboundToken:
-        bookSide === "asks" ? this.#market.base : this.#market.quote,
-      outboundToken:
-        bookSide === "asks" ? this.#market.quote : this.#market.base,
+      inboundToken: ba === "asks" ? this.#market.base : this.#market.quote,
+      outboundToken: ba === "asks" ? this.#market.quote : this.#market.base,
     };
+  }
+
+  async #estimateCostsAndGains(
+    offer: Offer,
+    ba: BA,
+    gasPrice: Big,
+    minerTipPerGas: Big
+  ): Promise<OfferCleaningEstimates> {
+    const bounty = this.#estimateBounty(offer, ba);
+    const gas = await this.#estimateGas(offer, ba);
+    const totalCost = gas.mul(gasPrice.plus(minerTipPerGas));
+    const netResult = bounty.minus(totalCost);
+    return {
+      bounty,
+      gas,
+      gasPrice,
+      minerTipPerGas,
+      totalCost,
+      netResult,
+    };
+  }
+
+  async #estimateGasPrice(provider: Provider): Promise<Big> {
+    const gasPrice = await provider.getGasPrice();
+    return Big(gasPrice.toString());
+  }
+
+  #estimateMinerTipPerGas(provider: Provider): Big {
+    // TODO Implement
+    logger.debug(
+      "Using hard coded miner tip (1) because #estimateMinerTipPerGas is not implemented",
+      { base: this.#market.base.name, quote: this.#market.quote.name }
+    );
+    return Big(1);
+  }
+
+  #estimateBounty(offer: Offer, ba: BA): Big {
+    // TODO Implement
+    logger.debug(
+      "Using hard coded bounty (1) estimate because #estimateBounty is not implemented",
+      {
+        base: this.#market.base.name,
+        quote: this.#market.quote.name,
+        ba: ba,
+        offer: offer,
+      }
+    );
+    return Big(1);
+  }
+
+  async #estimateGas(offer: Offer, ba: BA): Promise<Big> {
+    const gasEstimate =
+      await this.#market.mgv.cleanerContract.estimateGas.collect(
+        ...this.#createCollectParams(ba, offer)
+      );
+    return Big(gasEstimate.toString());
   }
 }
