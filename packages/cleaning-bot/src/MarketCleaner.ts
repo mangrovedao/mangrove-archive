@@ -194,31 +194,30 @@ export class MarketCleaner {
     ba: BA,
     contextInfo?: string
   ): Promise<boolean> {
-    try {
-      // FIXME move to mangrove.js API
-      await this.#market.mgv.cleanerContract.callStatic.collect(
-        ...this.#createCollectParams(ba, offer)
-      );
-    } catch (e) {
-      logger.debug("Static collect of offer failed", {
-        base: this.#market.base.name,
-        quote: this.#market.quote.name,
-        ba: ba,
-        offer: offer,
-        contextInfo: contextInfo,
-        data: e,
+    // FIXME move to mangrove.js API
+    return this.#market.mgv.cleanerContract.callStatic
+      .collect(...this.#createCollectParams(ba, offer))
+      .then(() => {
+        logger.debug("Static collect of offer succeeded", {
+          base: this.#market.base.name,
+          quote: this.#market.quote.name,
+          ba: ba,
+          offer: offer,
+          contextInfo: contextInfo,
+        });
+        return true;
+      })
+      .catch((e) => {
+        logger.debug("Static collect of offer failed", {
+          base: this.#market.base.name,
+          quote: this.#market.quote.name,
+          ba: ba,
+          offer: offer,
+          contextInfo: contextInfo,
+          data: e,
+        });
+        return false;
       });
-      return false;
-    }
-    logger.debug("Static collect of offer succeeded", {
-      base: this.#market.base.name,
-      quote: this.#market.quote.name,
-      ba: ba,
-      offer: offer,
-      contextInfo: contextInfo,
-    });
-
-    return true;
   }
 
   async #collectOffer(

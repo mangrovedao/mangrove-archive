@@ -10,6 +10,9 @@ import { MarketCleaner } from "./MarketCleaner";
 import { logger } from "./util/logger";
 // TODO Figure out where mangrove.js get its addresses from and make it configurable
 import Mangrove from "@giry/mangrove-js";
+import { JsonRpcProvider } from "@ethersproject/providers";
+import { NonceManager } from "@ethersproject/experimental";
+import { Wallet } from "@ethersproject/wallet";
 
 type TokenPair = { token1: string; token2: string };
 
@@ -22,11 +25,13 @@ const main = async () => {
   if (!process.env["PRIVATE_KEY"]) {
     throw new Error("No private key provided in PRIVATE_KEY");
   }
+  const provider = new JsonRpcProvider(process.env["ETHEREUM_NODE_URL"]);
+  const signer = new Wallet(process.env["PRIVATE_KEY"], provider);
+  const nonceManager = new NonceManager(signer);
   const mgv = await Mangrove.connect({
     provider: process.env["ETHEREUM_NODE_URL"],
-    privateKey: process.env["PRIVATE_KEY"],
+    signer: nonceManager,
   });
-  const provider = mgv._provider;
 
   await exitIfMangroveIsKilled(mgv, "init");
 
@@ -91,8 +96,8 @@ async function exitIfMangroveIsKilled(
   }
 }
 
-process.on("unhandledRejection", function (reason, p) {
-  logger.warn("Unhandled Rejection at: Promise ", p, " reason: ", reason);
+process.on("unhandledRejection", function (reason, promise) {
+  logger.warn("Unhandled Rejection", { data: reason });
 });
 
 main().catch((e) => {
