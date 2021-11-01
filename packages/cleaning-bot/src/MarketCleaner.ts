@@ -47,6 +47,12 @@ export class MarketCleaner {
     this.#provider = provider;
 
     this.#isCleaning = false;
+
+    logger.info("Initalized market cleaner", {
+      base: this.#market.base.name,
+      quote: this.#market.quote.name,
+      contextInfo: "init",
+    });
   }
 
   /**
@@ -85,17 +91,19 @@ export class MarketCleaner {
 
     // TODO I think this is not quite EIP-1559 terminology - should fix
     const gasPrice = await this.#estimateGasPrice(this.#provider);
-    const minerTipPerGas = this.#estimateMinerTipPerGas(this.#provider);
+    const minerTipPerGas = this.#estimateMinerTipPerGas(
+      this.#provider,
+      contextInfo
+    );
 
     const { asks, bids } = await this.#market.requestBook();
     logger.info("Order book retrieved", {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
-
+      contextInfo: contextInfo,
       data: {
         asksCount: asks.length,
         bidsCount: bids.length,
-        contextInfo: contextInfo,
       },
     });
 
@@ -103,13 +111,15 @@ export class MarketCleaner {
       asks,
       "asks",
       gasPrice,
-      minerTipPerGas
+      minerTipPerGas,
+      contextInfo
     );
     const bidsCleaningPrimise = this.#cleanOfferList(
       bids,
       "bids",
       gasPrice,
-      minerTipPerGas
+      minerTipPerGas,
+      contextInfo
     );
     await Promise.all([asksCleaningPromise, bidsCleaningPrimise]);
     this.#isCleaning = false;
@@ -125,12 +135,13 @@ export class MarketCleaner {
     offerList: Offer[],
     ba: BA,
     gasPrice: Big,
-    minerTipPerGas: Big
+    minerTipPerGas: Big,
+    contextInfo?: string
   ): Promise<void[]> {
     const cleaningPromises: Promise<void>[] = [];
     for (const offer of offerList) {
       cleaningPromises.push(
-        this.#cleanOffer(offer, ba, gasPrice, minerTipPerGas)
+        this.#cleanOffer(offer, ba, gasPrice, minerTipPerGas, contextInfo)
       );
     }
     return Promise.all(cleaningPromises);
@@ -140,9 +151,10 @@ export class MarketCleaner {
     offer: Offer,
     ba: BA,
     gasPrice: Big,
-    minerTipPerGas: Big
+    minerTipPerGas: Big,
+    contextInfo?: string
   ): Promise<void> {
-    const willOfferFail = await this.#willOfferFail(offer, ba);
+    const willOfferFail = await this.#willOfferFail(offer, ba, contextInfo);
     if (!willOfferFail) {
       return;
     }
@@ -151,13 +163,15 @@ export class MarketCleaner {
       offer,
       ba,
       gasPrice,
-      minerTipPerGas
+      minerTipPerGas,
+      contextInfo
     );
     logger.info("Collecting offer regardless of profitability", {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
       ba: ba,
       offer: offer,
+      contextInfo: contextInfo,
       data: { estimates },
     });
     // TODO When profitability estimation is complete, uncomment the following and remove the above logging.
@@ -171,11 +185,15 @@ export class MarketCleaner {
     //   });
     //   // TODO Do we have the liquidity to do the snipe?
     //   //    - If we're trading 0 (zero) this is just the gas, right?
-    await this.#collectOffer(offer, ba);
+    await this.#collectOffer(offer, ba, contextInfo);
     // }
   }
 
-  async #willOfferFail(offer: Offer, ba: BA): Promise<boolean> {
+  async #willOfferFail(
+    offer: Offer,
+    ba: BA,
+    contextInfo?: string
+  ): Promise<boolean> {
     try {
       // FIXME move to mangrove.js API
       await this.#market.mgv.cleanerContract.callStatic.collect(
@@ -187,6 +205,7 @@ export class MarketCleaner {
         quote: this.#market.quote.name,
         ba: ba,
         offer: offer,
+        contextInfo: contextInfo,
         data: e,
       });
       return false;
@@ -196,17 +215,23 @@ export class MarketCleaner {
       quote: this.#market.quote.name,
       ba: ba,
       offer: offer,
+      contextInfo: contextInfo,
     });
 
     return true;
   }
 
-  async #collectOffer(offer: Offer, ba: BA): Promise<void> {
+  async #collectOffer(
+    offer: Offer,
+    ba: BA,
+    contextInfo?: string
+  ): Promise<void> {
     logger.debug("Cleaning offer", {
       base: this.#market.base.name,
       quote: this.#market.quote.name,
       ba: ba,
       offer: offer,
+      contextInfo: contextInfo,
     });
 
     // FIXME move to mangrove.js API
@@ -219,6 +244,7 @@ export class MarketCleaner {
           quote: this.#market.quote.name,
           ba: ba,
           offer: offer,
+          contextInfo: contextInfo,
           data: { txReceipt },
         });
       })
@@ -228,6 +254,7 @@ export class MarketCleaner {
           quote: this.#market.quote.name,
           ba: ba,
           offer: offer,
+          contextInfo: contextInfo,
           data: e,
         });
       });
@@ -302,9 +329,10 @@ export class MarketCleaner {
     offer: Offer,
     ba: BA,
     gasPrice: Big,
-    minerTipPerGas: Big
+    minerTipPerGas: Big,
+    contextInfo?: string
   ): Promise<OfferCleaningEstimates> {
-    const bounty = this.#estimateBounty(offer, ba);
+    const bounty = this.#estimateBounty(offer, ba, contextInfo);
     const gas = await this.#estimateGas(offer, ba);
     const totalCost = gas.mul(gasPrice.plus(minerTipPerGas));
     const netResult = bounty.minus(totalCost);
@@ -323,16 +351,20 @@ export class MarketCleaner {
     return Big(gasPrice.toString());
   }
 
-  #estimateMinerTipPerGas(provider: Provider): Big {
+  #estimateMinerTipPerGas(provider: Provider, contextInfo?: string): Big {
     // TODO Implement
     logger.debug(
       "Using hard coded miner tip (1) because #estimateMinerTipPerGas is not implemented",
-      { base: this.#market.base.name, quote: this.#market.quote.name }
+      {
+        base: this.#market.base.name,
+        quote: this.#market.quote.name,
+        contextInfo: contextInfo,
+      }
     );
     return Big(1);
   }
 
-  #estimateBounty(offer: Offer, ba: BA): Big {
+  #estimateBounty(offer: Offer, ba: BA, contextInfo?: string): Big {
     // TODO Implement
     logger.debug(
       "Using hard coded bounty (1) estimate because #estimateBounty is not implemented",
@@ -341,6 +373,7 @@ export class MarketCleaner {
         quote: this.#market.quote.name,
         ba: ba,
         offer: offer,
+        contextInfo: contextInfo,
       }
     );
     return Big(1);
