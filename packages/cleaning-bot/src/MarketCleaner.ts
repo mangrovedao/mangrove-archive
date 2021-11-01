@@ -114,14 +114,14 @@ export class MarketCleaner {
       minerTipPerGas,
       contextInfo
     );
-    const bidsCleaningPrimise = this.#cleanOfferList(
+    const bidsCleaningPromise = this.#cleanOfferList(
       bids,
       "bids",
       gasPrice,
       minerTipPerGas,
       contextInfo
     );
-    await Promise.all([asksCleaningPromise, bidsCleaningPrimise]);
+    await Promise.all([asksCleaningPromise, bidsCleaningPromise]);
     this.#isCleaning = false;
   }
 
