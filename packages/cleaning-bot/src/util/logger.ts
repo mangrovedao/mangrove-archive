@@ -8,20 +8,16 @@ const consoleLogFormat = format.printf(
     let msg = `${timestamp} [${level}] `;
     if (metadata.base && metadata.quote) {
       msg += `[(${metadata.base},${metadata.quote})`;
-      if (metadata.bookSide) {
-        msg += ` ${metadata.bookSide}`;
+      if (metadata.ba) {
+        msg += ` ${metadata.ba}`;
         if (metadata.offer) {
           msg += ` #${metadata.offer.id}`;
         }
       }
       msg += "] ";
     }
-    if (metadata.bookSide) {
-      msg += `[${metadata.bookSide}`;
-      if (metadata.offer) {
-        msg += `#${metadata.offer.id}`;
-      }
-      msg += "] ";
+    if (metadata.contextInfo) {
+      msg += `[${metadata.contextInfo}] `;
     }
     msg += message;
     if (metadata.offer) {
