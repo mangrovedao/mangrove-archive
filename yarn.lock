@@ -1434,12 +1434,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@giry/mm-bot-v0@workspace:packages/mm-bot-v0":
-  version: 0.0.0-use.local
-  resolution: "@giry/mm-bot-v0@workspace:packages/mm-bot-v0"
-  languageName: unknown
-  linkType: soft
-
 "@giry/updategas-bot-naive@workspace:packages/updategas-bot":
   version: 0.0.0-use.local
   resolution: "@giry/updategas-bot-naive@workspace:packages/updategas-bot"
