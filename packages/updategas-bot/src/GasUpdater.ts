@@ -46,7 +46,7 @@ export class GasUpdater {
    * Start bot running.
    */
   public start(): void {
-    // TODO: Each block is definitely too often - what is a good setting here, everytime change is deteced from external source?
+    // TODO: A few times a day, set in config
     this.#provider.on(
       "block",
       async (blocknumber) => await this.checkSetGasprice(blocknumber)
@@ -116,7 +116,6 @@ export class GasUpdater {
         mangrove: this.#mangrove,
         data: error,
       });
-      return;
     }
   }
 
@@ -162,7 +161,7 @@ export class GasUpdater {
 
     try {
       await this.#mangrove.oracleContract
-        .setGasPrice(ethers.BigNumber.from(newGasPrice))
+        .setGasPrice(newGasPrice)
         .then((tx) => tx.wait());
 
       logger.info(
@@ -173,8 +172,6 @@ export class GasUpdater {
         mangrove: this.#mangrove,
         data: e,
       });
-
-      return;
     }
   }
 }

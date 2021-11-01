@@ -49,8 +49,8 @@ describe("GasUpdater integration tests", () => {
     await mgvOracleContract.setMutator(gasUpdater);
   });
 
-  afterEach(async () => {
-    await mgv.disconnect();
+  afterEach(() => {
+    mgv.disconnect();
   });
 
   it("should set the gas price in Mangrove, when GasUpdater is run", async function () {
@@ -63,14 +63,14 @@ describe("GasUpdater integration tests", () => {
       origMgvConfig.gasprice + acceptableGasGapToOracle * 10 + 1;
 
     // Mock the function to get the price from the oracle
-    const externalOracleMockGetter: () => Promise<number> = async () =>
-      gasPriceFromOracle;
+    const externalOracleMockGetter: () => Promise<number> = () =>
+      Promise.resolve(gasPriceFromOracle);
 
     // construct the gasUpdater with the mock for getting prices from the oracle
     const gasUpdater = new GasUpdater(
       mgv,
       gasUpdaterProvider,
-      0.0,
+      acceptableGasGapToOracle,
       externalOracleMockGetter
     );
 

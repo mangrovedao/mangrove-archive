@@ -5,6 +5,7 @@ import Mangrove from "@giry/mangrove-js";
 import { GasUpdater } from "./GasUpdater";
 
 const main = async () => {
+  // TODO: Indlæs env.local config og opsæt EOA og eth URL...
   const mgv = await Mangrove.connect(config.get<string>("jsonRpcUrl"));
 
   //NOTE: We probably want to fail more gracefully with a reasonable error-message,
@@ -17,11 +18,14 @@ const main = async () => {
     "acceptableGasGapToOracle"
   );
 
+  //TODO: gas price factor in config
+
   /* Get global config */
   const mgvConfig = await mgv.config();
   logger.info("Mangrove config retrieved", { data: mgvConfig });
 
-  provider.on("block", async (blockNumber) =>
+  //TODO: Run a few times a day (config'ed)
+  provider.on("block", (blockNumber) =>
     exitIfMangroveIsKilled(mgv, blockNumber)
   );
 
@@ -29,7 +33,7 @@ const main = async () => {
   gasUpdater.start();
 };
 
-// FIXME: Exact same as in cleanerbot - maybe parts are commonlib.js candidates
+// FIXME: Exact same as in cleanerbot - commonlib.js candidate
 async function exitIfMangroveIsKilled(
   mgv: Mangrove,
   blockNumber: number
@@ -43,6 +47,8 @@ async function exitIfMangroveIsKilled(
     process.exit();
   }
 }
+
+//TODO: Promise unhandled handler
 
 main().catch((e) => {
   //TODO: naive implementation
