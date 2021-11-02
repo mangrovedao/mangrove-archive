@@ -1434,7 +1434,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@giry/updategas-bot-naive@workspace:packages/updategas-bot":
+"@giry/updategas-bot@workspace:packages/updategas-bot":
   version: 0.0.0-use.local
   resolution: "@giry/updategas-bot@workspace:packages/updategas-bot"
   dependencies:
