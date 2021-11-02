@@ -9,15 +9,18 @@ import { Format } from "logform";
 
 export type LogMetadata = {
   data?: Object;
-  stack?: String;
+  stack?: string;
 };
 
 export interface BetterLogger extends Logger {
   exception: (error: Error, data?: Object) => BetterLogger;
 }
 
-export const createLogger = (consoleFormatLogger: Format, logLevel: string) => {
-  var theLogger = winstonCreateLogger({
+export const createLogger = (
+  consoleFormatLogger: Format,
+  logLevel: string
+): BetterLogger => {
+  const theLogger = winstonCreateLogger({
     transports: [
       new transports.Console({
         level: logLevel,

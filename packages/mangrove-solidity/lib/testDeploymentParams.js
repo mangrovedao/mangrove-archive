@@ -54,6 +54,16 @@ module.exports = async () => {
     },
   });
 
+  const gasUpdater = (await hre.getNamedAccounts()).gasUpdater;
+
+  const mgvOracle = await withAddress({
+    name: "MgvOracle",
+    options: {
+      from: deployer,
+      args: [deployer, gasUpdater],
+    },
+  });
+
   const maker = (await hre.getNamedAccounts()).maker;
 
   const testMaker = await withAddress({
@@ -74,5 +84,6 @@ module.exports = async () => {
     Usdc,
     Weth,
     testMaker,
+    mgvOracle,
   ];
 };
