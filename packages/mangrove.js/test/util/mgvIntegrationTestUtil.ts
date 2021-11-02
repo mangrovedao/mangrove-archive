@@ -2,7 +2,6 @@
 import { ethers } from "ethers";
 import { Market, MgvToken } from "../..";
 import * as typechain from "../../dist/nodejs/types/typechain";
-import type { SignerWithAddress } from "hardhat-deploy-ethers/dist/src/signers";
 import "hardhat-deploy-ethers/dist/src/type-extensions";
 import { ethers as hardhatEthers } from "hardhat";
 import { Provider } from "@ethersproject/abstract-provider";
@@ -10,7 +9,7 @@ import { Provider } from "@ethersproject/abstract-provider";
 export type Account = {
   name: string;
   address: string;
-  signer: SignerWithAddress;
+  signer: ethers.Signer;
   connectedContracts: {
     // Contracts connected with the signer for setting chain state in test case setup
     mangrove: typechain.Mangrove;
@@ -53,9 +52,8 @@ export const getAddresses = async (): Promise<Addresses> => {
 
 export const logAddresses = async (): Promise<void> => {
   console.group("Addresses");
-  Object.entries(await getAddresses()).map(([key, value]) =>
-    console.log(`${key}: ${value}`)
-  );
+  const addresses = await getAddresses();
+  console.table(addresses);
   console.groupEnd();
 };
 
@@ -136,16 +134,48 @@ export const logBalances = async (
   balancesBefore: Map<string, Balances>,
   balancesAfter: Map<string, Balances>
 ): Promise<void> => {
+  const accountBalancesTable = []; // [(name?, address?, ether|token|..., before, after, change)]
   for (const account of accounts) {
-    console.group(`${account.name} balances`);
-    console.group("Before");
-    console.dir(balancesBefore.get(account.name));
-    console.groupEnd();
-    console.group("After");
-    console.dir(balancesAfter.get(account.name));
-    console.groupEnd();
-    console.groupEnd();
+    const before = balancesBefore.get(account.name);
+    const after = balancesAfter.get(account.name);
+    if (!before || !after) {
+      continue;
+    }
+    accountBalancesTable.push({
+      Name: account.name,
+      Address: account.address,
+      Currency: "ether",
+      Before: before.ether.toString(),
+      After: after.ether.toString(),
+      Change: after.ether.sub(before.ether).toString(),
+    });
+    accountBalancesTable.push({
+      Name: "",
+      Address: "",
+      Currency: "TokenA",
+      Before: before.tokenA.toString(),
+      After: after.tokenA.toString(),
+      Change: after.tokenA.sub(before.tokenA).toString(),
+    });
+    accountBalancesTable.push({
+      Name: "",
+      Address: "",
+      Currency: "TokenB",
+      Before: before.tokenB.toString(),
+      After: after.tokenB.toString(),
+      Change: after.tokenB.sub(before.tokenB).toString(),
+    });
   }
+  console.group("Balances");
+  console.table(accountBalancesTable, [
+    "Name",
+    "Address",
+    "Currency",
+    "Before",
+    "After",
+    "Change",
+  ]);
+  console.groupEnd();
 };
 
 export const getTokens = (
@@ -260,8 +290,32 @@ export const mint = async (
 
 export const approveMgv = async (
   token: MgvToken,
-  spender: Account,
+  owner: Account,
   amount: number
 ): Promise<void> => {
-  await token.approveMgv(amount).then((tx) => tx.wait());
+  const addresses = await getAddresses();
+  await approve(token, owner, addresses.mangrove, amount);
+};
+
+export const approve = async (
+  token: MgvToken,
+  owner: Account,
+  spenderAddress: string,
+  amount: number
+): Promise<void> => {
+  switch (token.name) {
+    case "TokenA":
+      await owner.connectedContracts.tokenA
+        .approve(spenderAddress, token.toUnits(amount))
+        .then((tx) => tx.wait());
+
+      break;
+
+    case "TokenB":
+      await owner.connectedContracts.tokenB
+        .approve(spenderAddress, token.toUnits(amount))
+        .then((tx) => tx.wait());
+
+      break;
+  }
 };
