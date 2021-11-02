@@ -55,7 +55,8 @@ const main = async () => {
       console.log(`asks: ${m.book().asks.length}`);
       console.log(`bids: ${m.book().bids.length}`);
       console.log(
-        `estim 10: ${m.estimateVolume({ given: 10, what: "base", to: "buy" })}`
+        `estim 10: %o`,
+        m.estimateVolume({ given: 10, what: "base", to: "buy" })
       );
       console.log();
     });

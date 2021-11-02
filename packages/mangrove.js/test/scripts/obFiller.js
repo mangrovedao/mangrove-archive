@@ -138,7 +138,8 @@ const main = async () => {
           tkin === "quote" ? wants / gives : gives / wants
         }. wants:${wants}. gives:${gives}`
       );
-      console.log(`last+1: ${await market.config().last}`);
+      const cfg = await market.config();
+      console.log(`asks last`, cfg.asks.last, `bids last`, cfg.bids.last);
       await newOffer(market[tkout], market[tkin], wants, gives);
       pushOffer(market, ba);
     }, between(1000 + buffer, 3000 + buffer));
