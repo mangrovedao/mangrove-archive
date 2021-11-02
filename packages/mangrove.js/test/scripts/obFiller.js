@@ -87,7 +87,7 @@ const main = async () => {
     const resp = await mgv.contract.retractOffer(base, quote, offerId, true, {
       gasLimit: newEstimate,
     });
-    const receipt = await resp.wait(0);
+    const receipt = await resp.wait();
     if (!estimate.eq(receipt.gasUsed)) {
       console.log(
         "estimate != used:",
@@ -107,6 +107,10 @@ const main = async () => {
   const markets = [WethDai, WethUsdc, DaiUsdc];
 
   console.log("Orderbook filler is now running.");
+
+  // Disable automine and set interval mining instead for more realistic behaviour + this allows queuing of TX's
+  await provider.send("evm_setAutomine", [false]);
+  await provider.send("evm_setIntervalMining", [1000]);
 
   const pushOffer = async (market, ba /*bids|asks*/) => {
     let base = "base",

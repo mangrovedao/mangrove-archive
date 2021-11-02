@@ -24,6 +24,9 @@ exports.mochaHooks = {
     });
 
     this.provider = hre.network.provider;
+    // FIXME the hre.network.provider is not a full ethers Provider, e.g. it doesn't have getBalance() and getGasPrice()
+    // FIXME we therefore introduce a workaround where tests can construct an appropriate provider themselves from a URL.
+    this.providerUrl = `http://${host.name}:${host.port}`;
 
     console.log("Running a Hardhat instance...");
     server = await hardhatUtils.hreServer({
@@ -54,27 +57,24 @@ exports.mochaHooks = {
     const mgvReader = await hre.ethers.getContract("MgvReader", deployer);
     const TokenA = await hre.ethers.getContract("TokenA", deployer);
     const TokenB = await hre.ethers.getContract("TokenB", deployer);
+    const testMakerContract = await hre.ethers.getContract(
+      "TestMaker",
+      deployer
+    );
 
-    await mgvContract.activate(
-      TokenA.address,
-      TokenB.address,
-      0,
-      10,
-      80000,
-      20000
-    );
-    await mgvContract.activate(
-      TokenB.address,
-      TokenA.address,
-      0,
-      10,
-      80000,
-      20000
-    );
+    await mgvContract
+      .activate(TokenA.address, TokenB.address, 0, 10, 80000, 20000)
+      .then((tx) => tx.wait());
+    await mgvContract
+      .activate(TokenB.address, TokenA.address, 0, 10, 80000, 20000)
+      .then((tx) => tx.wait());
 
     await TokenA.mint(testerAddress, toWei(10));
-
     await TokenB.mint(testerAddress, toWei(10));
+
+    await mgvContract["fund(address)"](testMakerContract.address, {
+      value: toWei(10),
+    }).then((tx) => tx.wait());
 
     await snapshot();
   },

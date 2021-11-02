@@ -47,7 +47,8 @@ export class Mangrove {
    * Options:
    * * privateKey: `0x...`
    * * mnemonic: `horse battery ...`
-   * * provider: url, provider object, or chain strin￼g
+   * * path: `m/44'/60'/0'/...`
+   * * provider: url, provider object, or chain string
    *
    * @returns {Mangrove} Returns an instance mangrove.js
    */
