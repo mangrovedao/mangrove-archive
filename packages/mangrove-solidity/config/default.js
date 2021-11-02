@@ -42,6 +42,7 @@ config.hardhat = {
       ":MgvEvents$",
       ":MgvReader$",
       ":MgvCleaner$",
+      ":MgvOracle$",
       ":TestMaker$",
       ":TestTokenWithDecimals$",
       ":IERC20$",
@@ -65,6 +66,9 @@ config.hardhat = {
     },
     cleaner: {
       default: 3,
+    },
+    gasUpdater: {
+      default: 4,
     },
   },
   mocha: defer(function () {

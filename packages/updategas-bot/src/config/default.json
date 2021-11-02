@@ -1,7 +1,10 @@
 {
-  "jsonRpcUrl": "http://localhost:8546",
   "log": {
-    "logLevel": "info"
+    "logLevel": "verbose"
   },
-  "markets": [["WETH", "DAI"]]
+  "acceptableGasGapToOracle": 0.5,
+  "constantOracleGasPrice": 3,
+  "oracleURL": "https://gasstation-mainnet.matic.network/",
+  "oracleURL_Key": "standard",
+  "runEveryXHours": 8
 }

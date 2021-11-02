@@ -2,6 +2,7 @@ const hre = require("hardhat");
 const helpers = require("../util/helpers");
 const Mangrove = require("../../src/mangrove");
 const hardhatUtils = require("@giry/hardhat-mangrove/hardhat-utils");
+const { BigNumber } = require("@ethersproject/bignumber");
 const seed =
   Math.random().toString(36).substring(2, 15) +
   Math.random().toString(36).substring(2, 15);
@@ -38,6 +39,50 @@ const main = async () => {
     signerIndex: 1,
     provider: `http://localhost:${opts.port}`,
   });
+  const mgvContract = await hre.ethers.getContract("Mangrove", deployer);
+  const mgvReader = await hre.ethers.getContract("MgvReader", deployer);
+  // const TokenA = await hre.ethers.getContract("TokenA");
+  // const TokenB = await hre.ethers.getContract("TokenB");
+
+  // Setup Mangrove to use MgvOracle as oracle
+  const mgvOracle = await hre.ethers.getContract("MgvOracle", deployer);
+  await mgvContract.setMonitor(mgvOracle.address);
+  await mgvContract.setUseOracle(true);
+  await mgvContract.setNotify(true);
+
+  // ensure that unless instructed otherwise,
+  // MgvOracle has the same gasprice default as Mangrove default
+  const mgvConfig = await mgv.config();
+  await mgvOracle.setGasPrice(mgvConfig.gasprice);
+
+  // set allowed mutator on MgvOracle to gasUpdater named account
+  const gasUpdater = (await hre.getNamedAccounts()).gasUpdater;
+  await mgvOracle.setMutator(gasUpdater);
+
+  const activate = (base, quote) => {
+    return mgvContract.activate(base, quote, 0, 10, 80000, 20000);
+  };
+
+  const userA = await user.getAddress();
+  console.log("user", userA);
+  const deployerA = await deployer.getAddress();
+  console.log("deployer", deployerA);
+
+  const approve = (tkn) => {
+    tkn.contract.mint(userA, mgv.toUnits(tkn.amount, tkn.name));
+  };
+
+  // await activate(TokenA.address,TokenB.address);
+  // await activate(TokenB.address,TokenA.address);
+
+  const tkns = [
+    { name: "WETH", amount: 1000 },
+    { name: "DAI", amount: 10_000 },
+    { name: "USDC", amount: 10_000 },
+  ];
+
+  for (const t of tkns)
+    t.contract = await hre.ethers.getContract(t.name, deployer);
 
   const mgv2 = await Mangrove.connect({
     signerIndex: 0,
