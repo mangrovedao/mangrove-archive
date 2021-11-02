@@ -1,5 +1,6 @@
 const hre = require("hardhat");
 const helpers = require("../util/helpers");
+const Mangrove = require("../../src/mangrove");
 const hardhatUtils = require("@giry/hardhat-mangrove/hardhat-utils");
 const seed =
   Math.random().toString(36).substring(2, 15) +
@@ -7,22 +8,21 @@ const seed =
 console.log(`random seed: ${seed}`);
 const rng = require("seedrandom")(seed);
 
-const _argv = require('minimist')(process.argv.slice(2),{boolean:"cross"});
+const _argv = require("minimist")(process.argv.slice(2), { boolean: "cross" });
 const opts = {
   url: _argv.url || null,
   port: _argv.port || 8546,
   logging: _argv.logging || false,
-  cross: _argv.cross
-}
+  cross: _argv.cross,
+};
 
 const main = async () => {
-
   const _url = opts.url || `http://localhost:${opts.port}`;
 
-  console.log(`${opts.url ? 'Connecting' : 'Starting'} RPC node on ${_url}`);
+  console.log(`${opts.url ? "Connecting" : "Starting"} RPC node on ${_url}`);
 
   if (!opts.url) {
-    const mgvServer = require('./mgvServer');
+    const mgvServer = require("./mgvServer");
     await mgvServer(opts);
   }
 
@@ -39,12 +39,25 @@ const main = async () => {
     provider: `http://localhost:${opts.port}`,
   });
 
+  const mgv2 = await Mangrove.connect({
+    signerIndex: 0,
+    provider: `http://localhost:${opts.port}`,
+  });
+
   // contract create2 addresses exported by mangrove-solidity to hardhatAddresses
 
   // const mgvContract = mgv.contract;
-  // const mgvReader = mgv.readerContract;
+  const mgvReader = mgv.readerContract;
+  console.log("mgvReader", mgvReader.address);
 
-  const newOffer = async (tkout, tkin, wants, gives, gasreq=100_000, gasprice=1) => {
+  const newOffer = async (
+    tkout,
+    tkin,
+    wants,
+    gives,
+    gasreq = 100_000,
+    gasprice = 1
+  ) => {
     try {
       await mgv.contract.newOffer(
         tkout.address,
@@ -103,25 +116,30 @@ const main = async () => {
     const buffer = book[ba].length > 30 ? 5000 : 0;
 
     setTimeout(async () => {
+      let wants, gives;
       if (opts.cross) {
-        let wants,gives;
         if (tkin === "quote") {
           wants = 1 + between(0, 0.5);
           gives = 1;
-          console.log("posting ask, price is ",wants/gives);
+          console.log("posting ask, price is ", wants / gives);
         } else {
-          gives = 0.5 + between(0.3,0.8);
+          gives = 0.5 + between(0.3, 0.8);
           wants = 1;
-          console.log("posting bid, price is ",gives/wants);
+          console.log("posting bid, price is ", gives / wants);
         }
 
-        await newOffer(market[tkout], market[tkin], wants, gives);
+        console.log();
       } else {
-        const wants = 1 + between(0, 3);
-        const gives = wants * between(1.001, 4);
-
-        await newOffer(market[tkout], market[tkin], wants, gives);
+        wants = 1 + between(0, 3);
+        gives = wants * between(1.001, 4);
       }
+      console.log(
+        `new ${market.base.name}/${market.quote.name} offer. price ${
+          tkin === "quote" ? wants / gives : gives / wants
+        }. wants:${wants}. gives:${gives}`
+      );
+      console.log(`last+1: ${await market.config().last}`);
+      await newOffer(market[tkout], market[tkin], wants, gives);
       pushOffer(market, ba);
     }, between(1000 + buffer, 3000 + buffer));
   };
@@ -135,6 +153,9 @@ const main = async () => {
     if (book[ba].length !== 0) {
       const pulledIndex = Math.floor(rng() * book[ba].length);
       const offer = book[ba][pulledIndex];
+      console.log(
+        `retracting on ${market.base.name}/${market.quote.name} ${offer.id}`
+      );
       await retractOffer(market[base].address, market[quote].address, offer.id);
     }
     setTimeout(() => {
