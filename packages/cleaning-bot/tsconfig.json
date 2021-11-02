@@ -9,7 +9,7 @@
     "noErrorTruncation": true,
     "sourceMap": true,
     "declaration": true,
-    "outDir": "dist/nodejs",
+    "outDir": "build",
     "baseUrl": ".",
     "paths": {
       "*": ["node_modules/*"]
