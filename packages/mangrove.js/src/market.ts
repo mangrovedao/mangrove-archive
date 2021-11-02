@@ -810,11 +810,11 @@ const insertOffer = (semibook: semibook, id: number, ofr: Offer) => {
   }
 };
 
-const getNext = ({ offers, best }: semibook, prev: number) => {
-  if (prev === 0) {
+const getNext = ({ offers, best }: semibook, offerId: number) => {
+  if (offerId === 0) {
     return best;
   } else {
-    if (!offers.get(prev)) {
+    if (!offers.get(offerId)) {
       throw Error(
         "Trying to get next of an offer absent from local orderbook copy"
       );
