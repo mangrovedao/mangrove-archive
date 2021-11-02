@@ -1439,6 +1439,7 @@ __metadata:
   resolution: "@giry/updategas-bot@workspace:packages/updategas-bot"
   dependencies:
     "@espendk/json-file-reporter": ^1.4.2
+    "@ethersproject/experimental": ^5.5.0
     "@ethersproject/hardware-wallets": ^5.4.0
     "@giry/commonlib-js": "workspace:*"
     "@giry/hardhat-mangrove": "workspace:*"

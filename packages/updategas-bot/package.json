@@ -30,6 +30,7 @@
     "**/*": "prettier --write --ignore-unknown"
   },
   "dependencies": {
+    "@ethersproject/experimental": "^5.5.0",
     "@giry/commonlib-js": "workspace:*",
     "@giry/mangrove-js": "workspace:*",
     "@types/big.js": "^6.1.2",

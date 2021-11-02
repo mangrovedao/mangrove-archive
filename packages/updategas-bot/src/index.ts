@@ -1,28 +1,34 @@
 import { config } from "./util/config";
 import { logger } from "./util/logger";
-
-import Mangrove from "@giry/mangrove-js";
 import { GasUpdater } from "./GasUpdater";
 
+import Mangrove from "@giry/mangrove-js";
+import { JsonRpcProvider } from "@ethersproject/providers";
+import { NonceManager } from "@ethersproject/experimental";
+import { Wallet } from "@ethersproject/wallet";
+
 const main = async () => {
-  // TODO: Indlæs env.local config og opsæt EOA og eth URL...
-  const mgv = await Mangrove.connect(config.get<string>("jsonRpcUrl"));
+  logger.info("Starting gas-updater bot...");
 
-  //NOTE: We probably want to fail more gracefully with a reasonable error-message,
-  //      if we cannot connect. Right now, we fall into the main.exception handler.
-
-  // TODO:
-  const provider = mgv._provider;
+  if (!process.env["ETHEREUM_NODE_URL"]) {
+    throw new Error("No URL for a node has been provided in ETHEREUM_NODE_URL");
+  }
+  if (!process.env["PRIVATE_KEY"]) {
+    throw new Error("No private key provided in PRIVATE_KEY");
+  }
+  const provider = new JsonRpcProvider(process.env["ETHEREUM_NODE_URL"]);
+  const signer = new Wallet(process.env["PRIVATE_KEY"], provider);
+  const nonceManager = new NonceManager(signer);
+  const mgv = await Mangrove.connect({
+    provider: process.env["ETHEREUM_NODE_URL"],
+    signer: nonceManager,
+  });
 
   const acceptableGasGapToOracle = config.get<number>(
     "acceptableGasGapToOracle"
   );
 
-  //TODO: gas price factor in config
-
-  /* Get global config */
-  const mgvConfig = await mgv.config();
-  logger.info("Mangrove config retrieved", { data: mgvConfig });
+  //TODO: read and instrument with gas price factor from file config
 
   //TODO: Run a few times a day (config'ed)
   provider.on("block", (blockNumber) =>
@@ -48,10 +54,12 @@ async function exitIfMangroveIsKilled(
   }
 }
 
-//TODO: Promise unhandled handler
+process.on("unhandledRejection", function (reason, promise) {
+  logger.warn("Unhandled Rejection", { data: reason });
+});
 
 main().catch((e) => {
-  //TODO: naive implementation
+  //NOTE: naive implementation
   logger.exception(e);
   process.exit(1);
 });

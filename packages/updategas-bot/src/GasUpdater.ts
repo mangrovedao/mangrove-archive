@@ -61,21 +61,23 @@ export class GasUpdater {
    * @param blocknumber The current blocknumber - mainly used for logging.
    */
   public async checkSetGasprice(blocknumber: number): Promise<void> {
-    //TODO: Probably suitable protection against reentrancy
+    //NOTE: Possibly suitable protection against reentrancy
+
+    logger.info(
+      `Checking whether Mangrove gas price needs updating at block number ${blocknumber}`
+    );
 
     const globalConfig = await this.#mangrove.config();
     // FIXME: (common func) move to a property/method on Mangrove
     if (globalConfig.dead) {
       logger.debug(
-        `Mangrove is dead at block number ${blocknumber}. Stopping MarketCleaner`
+        `Mangrove is dead at block number ${blocknumber}. Stopping Gas Updater`
       );
       this.#provider.off("block", this.checkSetGasprice);
       return;
     }
 
-    logger.info(
-      `Checking whether Mangrove gas price needs updating at block number ${blocknumber}`
-    );
+    logger.verbose("Mangrove global config retrieved", { data: globalConfig });
 
     const currentMangroveGasPrice = globalConfig.gasprice;
 
