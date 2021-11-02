@@ -14,8 +14,8 @@ export class GasUpdater {
   #mangrove: Mangrove;
   #provider: Provider;
   #acceptableGasGapToOracle: number;
-  #externalGasOracleGetter: () => Promise<number | undefined>;
-  #externalGasOracleURL = new URL("https://gasstation-mainnet.matic.network/");
+  #constantOracleGasPrice: number | undefined;
+  #oracleURL: string;
 
   /**
    * Constructs a GasUpdater bot.
@@ -23,23 +23,21 @@ export class GasUpdater {
    * @param provider An ethers.js provider.
    * @param acceptableGasGapToOracle The allowed gap between the Mangrove gas
    * price and the external oracle gas price.
-   * @param externalGasOracleGetter An optional override for the function, which
-   * contacts the external oracle. (Intended for testing.)
+   * @param constantOracleGasPrice TODO:
+   * @param oracleURL TODO:
    */
   constructor(
     mangrove: Mangrove,
     provider: Provider,
     acceptableGasGapToOracle: number,
-    externalGasOracleGetter?: () => Promise<number | undefined>
+    constantOracleGasPrice: number | undefined,
+    oracleURL: string
   ) {
     this.#mangrove = mangrove;
     this.#provider = provider;
     this.#acceptableGasGapToOracle = acceptableGasGapToOracle;
-    if (externalGasOracleGetter !== undefined) {
-      this.#externalGasOracleGetter = externalGasOracleGetter;
-    } else {
-      this.#externalGasOracleGetter = this.#getGasPriceEstimateFromOracle;
-    }
+    this.#constantOracleGasPrice = constantOracleGasPrice;
+    this.#oracleURL = oracleURL;
   }
 
   /**
@@ -77,15 +75,11 @@ export class GasUpdater {
       return;
     }
 
-    logger.verbose("Mangrove global config retrieved", { data: globalConfig });
+    logger.debug("Mangrove global config retrieved", { data: globalConfig });
 
     const currentMangroveGasPrice = globalConfig.gasprice;
 
-    logger.debug(
-      `Current Mangrove gas price in config is: ${currentMangroveGasPrice}`
-    );
-
-    const oracleGasPriceEstimate = await this.#externalGasOracleGetter();
+    const oracleGasPriceEstimate = await this.#getGasPriceEstimateFromOracle();
 
     if (oracleGasPriceEstimate !== undefined) {
       const [shouldUpdateGasPrice, newGasPrice] =
@@ -103,14 +97,22 @@ export class GasUpdater {
   }
 
   /**
-   * Standard implementation of a function, which queries a dedicated external
-   * source for gas prices.
+   * Either returns a constant gas price, if set, or queries a dedicated
+   * external source for gas prices.
    * @returns {number} Promise object representing the gas price from the
    * external oracle
    */
   async #getGasPriceEstimateFromOracle(): Promise<number | undefined> {
+    if (this.#constantOracleGasPrice !== undefined) {
+      logger.debug(
+        `'constantOracleGasPrice' set. Using the configured value.`,
+        { data: this.#constantOracleGasPrice }
+      );
+      return this.#constantOracleGasPrice;
+    }
+
     try {
-      const { data } = await get(this.#externalGasOracleURL.toString());
+      const { data } = await get(this.#oracleURL);
       logger.debug(`Received this data from oracle.`, { data: data });
       return data.standard;
     } catch (error) {
@@ -162,12 +164,15 @@ export class GasUpdater {
     );
 
     try {
+      // Round to closest integer before converting to BigNumber
+      const newGasPriceRounded = Math.round(newGasPrice);
+
       await this.#mangrove.oracleContract
-        .setGasPrice(newGasPrice)
+        .setGasPrice(newGasPriceRounded)
         .then((tx) => tx.wait());
 
       logger.info(
-        `Succesfully sent Mangrove gas price update to oracle: ${newGasPrice}.`
+        `Succesfully sent Mangrove gas price update to oracle: ${newGasPriceRounded}.`
       );
     } catch (e) {
       logger.error("setGasprice failed", {

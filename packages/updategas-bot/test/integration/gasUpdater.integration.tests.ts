@@ -54,24 +54,20 @@ describe("GasUpdater integration tests", () => {
   });
 
   it("should set the gas price in Mangrove, when GasUpdater is run", async function () {
-    // Setup s.t. Mangrove is assured to need a gas price update
-    const origMgvConfig = await mgv.config();
+    // read in configured test config - skipping gas oracle URL, as we use constant here
     const acceptableGasGapToOracle = config.get<number>(
       "acceptableGasGapToOracle"
     );
-    const gasPriceFromOracle =
-      origMgvConfig.gasprice + acceptableGasGapToOracle * 10 + 1;
 
-    // Mock the function to get the price from the oracle
-    const externalOracleMockGetter: () => Promise<number> = () =>
-      Promise.resolve(gasPriceFromOracle);
+    const constantGasPrice = config.get<number>("constantOracleGasPrice");
 
-    // construct the gasUpdater with the mock for getting prices from the oracle
+    // setup gasUpdater
     const gasUpdater = new GasUpdater(
       mgv,
       gasUpdaterProvider,
       acceptableGasGapToOracle,
-      externalOracleMockGetter
+      constantGasPrice,
+      ""
     );
 
     // Test
@@ -80,7 +76,7 @@ describe("GasUpdater integration tests", () => {
     // Assert
     const globalConfig = await mgv.config();
     return Promise.all([
-      expect(globalConfig.gasprice).to.equal(gasPriceFromOracle),
+      expect(globalConfig.gasprice).to.equal(constantGasPrice),
     ]);
   });
 });

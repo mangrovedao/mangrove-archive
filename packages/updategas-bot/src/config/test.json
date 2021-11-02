@@ -2,5 +2,6 @@
   "log": {
     "logLevel": "debug"
   },
-  "acceptableGasGapToOracle": 0.5
+  "acceptableGasGapToOracle": 0.5,
+  "constantOracleGasPrice": 6
 }

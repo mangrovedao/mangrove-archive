@@ -10,6 +10,7 @@ import { Wallet } from "@ethersproject/wallet";
 const main = async () => {
   logger.info("Starting gas-updater bot...");
 
+  // read and use env config
   if (!process.env["ETHEREUM_NODE_URL"]) {
     throw new Error("No URL for a node has been provided in ETHEREUM_NODE_URL");
   }
@@ -24,9 +25,39 @@ const main = async () => {
     signer: nonceManager,
   });
 
-  const acceptableGasGapToOracle = config.get<number>(
-    "acceptableGasGapToOracle"
-  );
+  // read and use file config
+  // - set defaults explicitly
+  let acceptableGasGapToOracle = 0;
+  let constantOracleGasPrice: number | undefined = undefined;
+  let oracleURL = "";
+
+  // - read in values
+  if (config.has("acceptableGasGapToOracle")) {
+    acceptableGasGapToOracle = config.get<number>("acceptableGasGapToOracle");
+  }
+
+  if (config.has("constantOracleGasPrice")) {
+    constantOracleGasPrice = config.get<number>("constantOracleGasPrice");
+  }
+
+  if (config.has("oracleURL")) {
+    oracleURL = config.get<string>("oracleURL");
+  }
+
+  // - config validation and logging
+  //   if constant price set, use that and ignore other gas price config
+  if (constantOracleGasPrice !== undefined) {
+    logger.info(
+      `config value for 'constantOracleGasPrice' set. Using the configured value.`,
+      { data: constantOracleGasPrice }
+    );
+  } else {
+    if (oracleURL === undefined) {
+      throw new Error(
+        `Either 'constantOracleGasPrice' or 'oracleURL' must be set in config. Neither found.`
+      );
+    }
+  }
 
   //TODO: read and instrument with gas price factor from file config
 
@@ -35,7 +66,14 @@ const main = async () => {
     exitIfMangroveIsKilled(mgv, blockNumber)
   );
 
-  const gasUpdater = new GasUpdater(mgv, provider, acceptableGasGapToOracle);
+  //TODO: Send new config to GasUpdater and use it inside
+  const gasUpdater = new GasUpdater(
+    mgv,
+    provider,
+    acceptableGasGapToOracle,
+    constantOracleGasPrice,
+    oracleURL
+  );
   gasUpdater.start();
 };
 
