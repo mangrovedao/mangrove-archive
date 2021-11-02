@@ -70,7 +70,6 @@ const main = async () => {
 
   const gasUpdater = new GasUpdater(
     mgv,
-    provider,
     acceptableGasGapToOracle,
     constantOracleGasPrice,
     oracleURL

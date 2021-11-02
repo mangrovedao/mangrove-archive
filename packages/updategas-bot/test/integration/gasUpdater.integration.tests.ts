@@ -7,7 +7,6 @@ const { expect } = chai;
 import chaiAsPromised from "chai-as-promised";
 chai.use(chaiAsPromised);
 import { Mangrove } from "@giry/mangrove-js";
-import { Provider } from "@ethersproject/abstract-provider";
 import { GasUpdater } from "../../src/GasUpdater";
 import * as hre from "hardhat";
 import "hardhat-deploy-ethers/dist/src/type-extensions";
@@ -16,8 +15,6 @@ import { SignerWithAddress } from "hardhat-deploy-ethers/dist/src/signers";
 
 describe("GasUpdater integration tests", () => {
   let gasUpdaterSigner: SignerWithAddress;
-  let gasUpdaterProvider: Provider;
-
   let mgv: Mangrove;
 
   before(async function () {
@@ -29,7 +26,6 @@ describe("GasUpdater integration tests", () => {
       provider: this.test?.parent?.parent?.ctx.provider,
       signer: gasUpdaterSigner,
     });
-    gasUpdaterProvider = mgv._provider;
 
     const deployer = (await hre.ethers.getNamedSigners()).deployer;
     const mgvContract = await hre.ethers.getContract("Mangrove", deployer);
@@ -61,7 +57,6 @@ describe("GasUpdater integration tests", () => {
     // setup gasUpdater
     const gasUpdater = new GasUpdater(
       mgv,
-      gasUpdaterProvider,
       acceptableGasGapToOracle,
       constantGasPrice,
       ""

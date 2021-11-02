@@ -1,6 +1,5 @@
 import { logger } from "./util/logger";
 import Mangrove from "@giry/mangrove-js";
-import { Provider } from "@ethersproject/providers";
 import Big from "big.js";
 import get from "axios";
 Big.DP = 20; // precision when dividing
@@ -12,32 +11,34 @@ Big.RM = Big.roundHalfUp; // round to nearest
  */
 export class GasUpdater {
   #mangrove: Mangrove;
-  #provider: Provider;
   #acceptableGasGapToOracle: number;
   #constantOracleGasPrice: number | undefined;
   #oracleURL: string;
+  #oracleURL_Key = "standard";
 
   /**
    * Constructs a GasUpdater bot.
    * @param mangrove A mangrove.js Mangrove object.
-   * @param provider An ethers.js provider.
    * @param acceptableGasGapToOracle The allowed gap between the Mangrove gas
    * price and the external oracle gas price.
-   * @param constantOracleGasPrice TODO:
-   * @param oracleURL TODO:
+   * @param constantOracleGasPrice A constant gasprice to be returned by this bot. This setting overrides a given `oracleURL`.
+   * @param oracleURL URL for an external oracle - expects a JSON REST endpoint. This setting is only used if `constantOracleGasPrice` is not given.
+   * @param oracleURL_Key Name of key to lookup in JSON returned by JSON REST endpoint at `oracleURL`.
    */
   constructor(
     mangrove: Mangrove,
-    provider: Provider,
     acceptableGasGapToOracle: number,
     constantOracleGasPrice: number | undefined,
-    oracleURL: string
+    oracleURL: string,
+    oracleURL_Key?: string
   ) {
     this.#mangrove = mangrove;
-    this.#provider = provider;
     this.#acceptableGasGapToOracle = acceptableGasGapToOracle;
     this.#constantOracleGasPrice = constantOracleGasPrice;
     this.#oracleURL = oracleURL;
+    if (oracleURL_Key !== undefined) {
+      this.#oracleURL_Key = oracleURL_Key;
+    }
   }
 
   /**
@@ -96,7 +97,7 @@ export class GasUpdater {
     try {
       const { data } = await get(this.#oracleURL);
       logger.debug(`Received this data from oracle.`, { data: data });
-      return data.standard;
+      return data[this.#oracleURL_Key];
     } catch (error) {
       logger.error("Getting gas price estimate from oracle failed", {
         mangrove: this.#mangrove,
