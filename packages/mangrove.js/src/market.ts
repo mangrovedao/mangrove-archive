@@ -644,6 +644,11 @@ export class Market {
             // next was not found, we are outside local OB copy. skip.
           }
 
+          if (!next)
+            throw Error(
+              `next of ${evt.args.prev.toNumber()} was not found.\n evt: ${evt}.\n semibook: ${semibook}`
+            );
+
           offer = this.#toOfferObject(semibook.ba, {
             ...evt.args,
             ...semibook.gasbase,
