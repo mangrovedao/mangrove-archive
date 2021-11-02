@@ -47,7 +47,7 @@ contract TradeHandler {
     uint gasprice,
     uint offerId
   ) internal view returns (uint) {
-    (bytes32 globalData, bytes32 localData) = mgv.config(
+    (bytes32 globalData, bytes32 localData) = mgv._config(
       outbound_tkn,
       inbound_tkn
     );
@@ -57,6 +57,7 @@ contract TradeHandler {
       inbound_tkn,
       offerId
     );
+
     uint _gp;
     if (MP.global_unpack_gasprice(globalData) > gasprice) {
       _gp = MP.global_unpack_gasprice(globalData);
@@ -82,7 +83,7 @@ contract TradeHandler {
 
   //queries the mangrove to get current gasprice (considered to compute bounty)
   function getCurrentGasPrice(Mangrove mgv) internal view returns (uint) {
-    (bytes32 global_pack, ) = mgv.config(address(0), address(0));
+    (bytes32 global_pack, ) = mgv._config(address(0), address(0));
     return MP.global_unpack_gasprice(global_pack);
   }
 

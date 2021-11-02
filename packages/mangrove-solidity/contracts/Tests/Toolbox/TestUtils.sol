@@ -11,7 +11,6 @@ import "../Agents/TestToken.sol";
 import {Display, Test as TestEvents} from "@giry/hardhat-test-solidity/test.sol";
 import "../../InvertedMangrove.sol";
 import "../../Mangrove.sol";
-import {MgvPack as MP} from "../../MgvPack.sol";
 
 library TestUtils {
   /* Various utilities */
@@ -263,8 +262,7 @@ library TestUtils {
     address quote,
     uint price
   ) internal view returns (uint) {
-    (, bytes32 local) = mgv.config(base, quote);
-    return ((price * MP.local_unpack_fee(local)) / 10000);
+    return ((price * mgv.config(base, quote).local.fee) / 10000);
   }
 
   function getProvision(
@@ -273,11 +271,11 @@ library TestUtils {
     address quote,
     uint gasreq
   ) internal view returns (uint) {
-    (bytes32 glo_cfg, bytes32 loc_cfg) = mgv.config(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     return ((gasreq +
-      MP.local_unpack_overhead_gasbase(loc_cfg) +
-      MP.local_unpack_offer_gasbase(loc_cfg)) *
-      uint(MP.global_unpack_gasprice(glo_cfg)) *
+      config.local.overhead_gasbase +
+      config.local.offer_gasbase) *
+      uint(config.global.gasprice) *
       10**9);
   }
 
@@ -288,16 +286,16 @@ library TestUtils {
     uint gasreq,
     uint gasprice
   ) internal view returns (uint) {
-    (bytes32 glo_cfg, bytes32 loc_cfg) = mgv.config(base, quote);
+    ML.Config memory config = mgv.config(base, quote);
     uint _gp;
-    if (MP.global_unpack_gasprice(glo_cfg) > gasprice) {
-      _gp = uint(MP.global_unpack_gasprice(glo_cfg));
+    if (config.global.gasprice > gasprice) {
+      _gp = uint(config.global.gasprice);
     } else {
       _gp = gasprice;
     }
     return ((gasreq +
-      MP.local_unpack_overhead_gasbase(loc_cfg) +
-      MP.local_unpack_offer_gasbase(loc_cfg)) *
+      config.local.overhead_gasbase +
+      config.local.offer_gasbase) *
       _gp *
       10**9);
   }

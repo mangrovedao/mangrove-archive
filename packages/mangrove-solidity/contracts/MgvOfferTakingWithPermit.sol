@@ -121,7 +121,7 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
   function snipesFor(
     address outbound_tkn,
     address inbound_tkn,
-    uint[4][] calldata targets,
+    uint[4][] memory targets,
     bool fillWants,
     address taker
   )

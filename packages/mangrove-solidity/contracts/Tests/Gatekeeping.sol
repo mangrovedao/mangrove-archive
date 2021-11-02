@@ -5,7 +5,6 @@ pragma experimental ABIEncoderV2;
 
 import "../AbstractMangrove.sol";
 import "../MgvLib.sol";
-import {MgvPack as MP} from "../MgvPack.sol";
 import "hardhat/console.sol";
 import "@giry/hardhat-test-solidity/test.sol";
 
@@ -215,32 +214,21 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
   }
 
   function killing_updates_config_test() public {
-    (bytes32 global, ) = mgv.config(address(0), address(0));
-    TestEvents.check(
-      MP.global_unpack_dead(global) == 0,
-      "mgv should not be dead "
-    );
     mgv.kill();
-    (global, ) = mgv.config(address(0), address(0));
-    TestEvents.check(MP.global_unpack_dead(global) > 0, "mgv should be dead ");
+    TestEvents.check(
+      mgv.config(address(0), address(0)).global.dead,
+      "mgv should be dead "
+    );
     // Logging tests
     TestEvents.expectFrom(address(mgv));
     emit Kill();
   }
 
   function kill_is_idempotent_test() public {
-    (bytes32 global, ) = mgv.config(address(0), address(0));
-    TestEvents.check(
-      MP.global_unpack_dead(global) == 0,
-      "mgv should not be dead "
-    );
     mgv.kill();
-    (global, ) = mgv.config(address(0), address(0));
-    TestEvents.check(MP.global_unpack_dead(global) > 0, "mgv should be dead");
     mgv.kill();
-    (global, ) = mgv.config(address(0), address(0));
     TestEvents.check(
-      MP.global_unpack_dead(global) > 0,
+      mgv.config(address(0), address(0)).global.dead,
       "mgv should still be dead"
     );
     // Logging tests
@@ -394,8 +382,8 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
   }
 
   function makerGasreq_bigger_than_gasmax_fails_newOffer_test() public {
-    (bytes32 cfg, ) = mgv.config(base, quote);
-    try mkr.newOffer(1, 1, MP.global_unpack_gasmax(cfg) + 1, 0) {
+    MgvLib.Config memory cfg = mgv.config(base, quote);
+    try mkr.newOffer(1, 1, cfg.global.gasmax + 1, 0) {
       TestEvents.fail("Offer should not be inserted");
     } catch Error(string memory r) {
       TestEvents.eq(r, "mgv/writeOffer/gasreq/tooHigh", "wrong revert reason");
@@ -403,10 +391,10 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
   }
 
   function makerGasreq_at_gasmax_succeeds_newOffer_test() public {
-    (bytes32 cfg, ) = mgv.config(base, quote);
-    try
-      mkr.newOffer(1 ether, 1 ether, MP.global_unpack_gasmax(cfg), 0)
-    returns (uint ofr) {
+    MgvLib.Config memory cfg = mgv.config(base, quote);
+    try mkr.newOffer(1 ether, 1 ether, cfg.global.gasmax, 0) returns (
+      uint ofr
+    ) {
       TestEvents.check(
         mgv.isLive(mgv.offers(base, quote, ofr)),
         "Offer should have been inserted"
@@ -419,8 +407,8 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
         address(mkr),
         1 ether, //base
         1 ether, //quote
-        MP.global_unpack_gasprice(cfg), //gasprice
-        MP.global_unpack_gasmax(cfg), //gasreq
+        cfg.global.gasprice, //gasprice
+        cfg.global.gasmax, //gasreq
         ofr, //ofrId
         0 // prev
       );
@@ -430,7 +418,7 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
           mgv,
           address(base),
           address(quote),
-          MP.global_unpack_gasmax(cfg),
+          cfg.global.gasmax,
           0
         )
       );
@@ -440,9 +428,8 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
   }
 
   function makerGasreq_lower_than_density_fails_newOffer_test() public {
-    (, bytes32 cfg) = mgv.config(base, quote);
-    uint amount = (1 + MP.local_unpack_offer_gasbase(cfg)) *
-      MP.local_unpack_density(cfg);
+    MgvLib.Config memory cfg = mgv.config(base, quote);
+    uint amount = (1 + cfg.local.offer_gasbase) * cfg.local.density;
     try mkr.newOffer(amount - 1, amount - 1, 1, 0) {
       TestEvents.fail("Offer should not be inserted");
     } catch Error(string memory r) {
@@ -451,9 +438,8 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
   }
 
   function makerGasreq_at_density_suceeds_test() public {
-    (bytes32 glob, bytes32 cfg) = mgv.config(base, quote);
-    uint amount = (1 + MP.local_unpack_offer_gasbase(cfg)) *
-      MP.local_unpack_density(cfg);
+    MgvLib.Config memory cfg = mgv.config(base, quote);
+    uint amount = (1 + cfg.local.offer_gasbase) * cfg.local.density;
     try mkr.newOffer(amount, amount, 1, 0) returns (uint ofr) {
       TestEvents.check(
         mgv.isLive(mgv.offers(base, quote, ofr)),
@@ -467,7 +453,7 @@ contract Gatekeeping_Test is IMaker, HasMgvEvents {
         address(mkr),
         amount, //base
         amount, //quote
-        MP.global_unpack_gasprice(glob), //gasprice
+        cfg.global.gasprice, //gasprice
         1, //gasreq
         ofr, //ofrId
         0 // prev

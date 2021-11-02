@@ -40,7 +40,6 @@ module.exports = async () => {
 
   const testMaker = await withAddress({
     name: "TestMaker",
-    token: false,
     options: {
       from: deployer,
       args: [mangrove.address, tokenA.address, tokenB.address],
@@ -49,7 +48,6 @@ module.exports = async () => {
 
   const mgvReader = await withAddress({
     name: "MgvReader",
-    token: false,
     options: {
       from: deployer,
       args: [mangrove.address],
@@ -58,7 +56,6 @@ module.exports = async () => {
 
   const mgvCleaner = await withAddress({
     name: "MgvCleaner",
-    token: false,
     options: {
       from: deployer,
       args: [mangrove.address],

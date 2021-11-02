@@ -71,7 +71,7 @@ const main = async () => {
     } catch (e) {
       console.log(e);
       console.warn(
-        `Posting offer failed - tkout=${tkout}, tkin=${tkin}, wants=${wants}, gives=${gives}, gasreq=${gasreq}, gasprice=${gasprice}`
+        `Posting offer failed - base=${base}, quote=${quote}, wants=${wants}, gives=${gives}, gasreq=${gasreq}, gasprice=${gasprice}`
       );
     }
   };
@@ -109,9 +109,9 @@ const main = async () => {
   console.log("Orderbook filler is now running.");
 
   const pushOffer = async (market, ba /*bids|asks*/) => {
-    let tkout = "base",
-      tkin = "quote";
-    if (ba === "bids") [tkout, tkin] = [tkin, tkout];
+    let base = "base",
+      quote = "quote";
+    if (ba === "bids") [base, quote] = [quote, base];
     const book = await market.book();
     const buffer = book[ba].length > 30 ? 5000 : 0;
 

@@ -70,7 +70,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     ML.SingleOrder memory sor;
     sor.outbound_tkn = outbound_tkn;
     sor.inbound_tkn = inbound_tkn;
-    (sor.global, sor.local) = config(outbound_tkn, inbound_tkn);
+    (sor.global, sor.local) = _config(outbound_tkn, inbound_tkn);
     /* Throughout the execution of the market order, the `sor`'s offer id and other parameters will change. We start with the current best offer id (0 if the book is empty). */
     sor.offerId = $$(local_best("sor.local"));
     sor.offer = offers[outbound_tkn][inbound_tkn][sor.offerId];
@@ -240,7 +240,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   function snipes(
     address outbound_tkn,
     address inbound_tkn,
-    uint[4][] calldata targets,
+    uint[4][] memory targets,
     bool fillWants
   )
     external
@@ -261,7 +261,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   function generalSnipes(
     address outbound_tkn,
     address inbound_tkn,
-    uint[4][] calldata targets,
+    uint[4][] memory targets,
     bool fillWants,
     address taker
   )
@@ -275,7 +275,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     ML.SingleOrder memory sor;
     sor.outbound_tkn = outbound_tkn;
     sor.inbound_tkn = inbound_tkn;
-    (sor.global, sor.local) = config(outbound_tkn, inbound_tkn);
+    (sor.global, sor.local) = _config(outbound_tkn, inbound_tkn);
 
     MultiOrder memory mor;
     mor.taker = taker;
@@ -318,7 +318,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   function internalSnipes(
     MultiOrder memory mor,
     ML.SingleOrder memory sor,
-    uint[4][] calldata targets,
+    uint[4][] memory targets,
     uint i
   ) internal {
     /* #### Case 1 : continuation of snipes */
@@ -436,67 +436,39 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       uint offerGives = $$(offer_gives("sor.offer"));
       uint takerWants = sor.wants;
       uint takerGives = sor.gives;
-      /* <a id="MgvOfferTaking/checkPrice"></a>If the price is too high, we return early.
+      /* If the price is too high, we return early.
 
          Otherwise we now know we'll execute the offer. */
       if (offerWants * takerWants > offerGives * takerGives) {
         return (0, bytes32(0), "mgv/notExecuted");
       }
 
-      /* ### Specification of value transfers:
+      /* If `fillWants` is true, we want to give the taker no more than they required. So if the offer does not provide enough, we completely consume it. 
 
-      Let $o_w$ be `offerWants`, $o_g$ be `offerGives`, $t_w$ be `takerWants`, $t_g$ be `takerGives`, and `f ∈ {w,g}` be $w$ if `fillWants` is true, $g$ otherwise.
+         Conversely, if `fillWants` is false, we want the taker to give as much as they can. So if the offer does not take enough, we completely consume it. 
 
-      Let $\textrm{got}$ be the amount that the taker will receive, and $\textrm{gave}$ be the amount that the taker will pay.
-
-      #### Case $f = w$
-
-      If $f = w$, let $\textrm{got} = \min(o_g,t_w)$, and let $\textrm{gave} = \left\lceil\dfrac{o_w \textrm{got}}{o_g}\right\rceil$. This is well-defined since, for live offers, $o_g > 0$.
-
-      In plain english, we only give to the taker up to what they wanted (or what the offer has to give), and follow the offer price to determine what the taker will give.
-
-      Since $\textrm{gave}$ is rounded up, the price might be overevaluated. Still, we cannot spend more than what the taker specified as `takerGives`. At this point [we know](#MgvOfferTaking/checkPrice) that $o_w t_w \leq o_g t_g$, so since $t_g$ is an integer we have
-      
-      $t_g \geq \left\lceil\dfrac{o_w t_w}{o_g}\right\rceil \geq \left\lceil\dfrac{o_w \textrm{got}}{o_g}\right\rceil = \textrm{gave}$.
-
-
-      #### Case $f = g$
-
-      If $f = g$, let $\textrm{gave} = \min(o_w,t_g)$, and $\textrm{got} = o_g$ if $o_w = 0$, $\textrm{got} = \left\lfloor\dfrac{o_g \textrm{gave}}{o_w}\right\rfloor$ otherwise.
-
-      In plain english, we spend up to what the taker agreed to pay (or what the offer wants), and follow the offer price to determine what the taker will get. This may exceed $t_w$.
-
-      #### Price adjustment
-
-      Prices are rounded up to ensure maker is not drained on small amounts. It's economically unlikely, but `density` protects the taker from being drained anyway so it is better to default towards protecting the maker here.
-      */
-
-      /*
-      ### Implementation
-
-      First we check the cases $(f=w \wedge o_g < t_w)\vee(f_g \wedge o_w < t_g)$, in which case the above spec simplifies to $\textrm{got} = o_g, \textrm{gave} = o_w$.
-
-      Otherwise the offer may be partially consumed.
-      
-      In the case $f=w$ we don't touch $\textrm{got}$ (which was initialized to $t_w$) and compute $\textrm{gave} = \left\lceil\dfrac{o_w t_w}{o_g}\right\rceil$. As shown above we have $\textrm{gave} \leq t_g$.
-
-      In the case $f=g$ we don't touch $\textrm{gave}$ (which was initialized to $t_g$) and compute $\textrm{got} = o_g$ if $o_w = 0$, and $\textrm{got} = \left\lfloor\dfrac{o_g t_g}{o_w}\right\rfloor$ otherwise.
-      */
+         Finally, if the offer has price 0 (`offerWants == 0`), we completely consume it. This avoids a division by 0 below where `fillWants` is false and we adjust `sor.wants`  (currently impossible to trigger a) snipes always have `fillWants == true`, and b) taking that branch under a price of 0 implies `takerGives == 0`, but market orders stop when `takerGives == 0`); it does not change the result in the other cases. */
+      /* Prices are rounded up to ensure maker is not drained on small amounts. It's economically unlikely, but `density` protects the taker from being drained anyway so it is better to default towards protecting the maker here. */
       if (
         (mor.fillWants && offerGives < takerWants) ||
         (!mor.fillWants && offerWants < takerGives)
       ) {
         sor.wants = offerGives;
         sor.gives = offerWants;
+        /* If we are in neither of the above cases, then the offer will be partially consumed. */
       } else {
+        /* If `fillWants` is true, we give `takerWants` to the taker and adjust how much they give based on the offer's price. Note that we round down how much the taker will give. */
         if (mor.fillWants) {
+          /* **Note**: We know statically that the offer is live (`offer.gives > 0`) since market orders only traverse live offers and `internalSnipes` check for offer liveness before executing. */
           uint product = offerWants * takerWants;
           sor.gives =
             product /
             offerGives +
             (product % offerGives == 0 ? 0 : 1);
+          /* If `fillWants` is false, we take `takerGives` from the taker and adjust how much they get based on the offer's price. Note that we round down how much the taker will get.*/
         } else {
           if (offerWants == 0) {
+            // implies takerGives == 0 by the outer `else` branch.
             sor.wants = offerGives;
           } else {
             sor.wants = (offerGives * takerGives) / offerWants;
