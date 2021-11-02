@@ -13,7 +13,7 @@ import * as mgvTestUtil from "@giry/mangrove-js/test/util/mgvIntegrationTestUtil
 import { ethers } from "ethers";
 import { Provider } from "@ethersproject/abstract-provider";
 
-import { MarketCleaner } from "../../dist/nodejs/MarketCleaner";
+import { MarketCleaner } from "../../build/MarketCleaner";
 
 let maker: mgvTestUtil.Account; // Owner of TestMaker contract
 let cleaner: mgvTestUtil.Account; // Owner of cleaner EOA
