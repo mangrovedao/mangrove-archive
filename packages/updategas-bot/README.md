@@ -27,7 +27,7 @@ ETHEREUM_NODE_URL=https://eth-mainnet.alchemyapi.io/v2/abcd-12345679
 # The private key for transaction signing
 PRIVATE_KEY=<private key>
 # example:
-PRIVATE_KEY=0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6
+PRIVATE_KEY=0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a
 ```
 
 These can either be set in the environment or in a `.env*` file. The bot uses [dotenv-flow](https://github.com/kerimdzhanov/dotenv-flow) for reading `.env*` files and [.env.local.example](.env.local.example) is an example of such a file.
