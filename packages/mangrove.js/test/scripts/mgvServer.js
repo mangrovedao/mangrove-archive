@@ -19,6 +19,12 @@ const main = async (opts) => {
     provider: hre.network.provider,
   });
 
+  if (opts.automine) {
+    // Disable automine and set interval mining instead for more realistic behaviour + this allows queuing of TX's
+    await hre.network.provider.send("evm_setAutomine", [false]);
+    await hre.network.provider.send("evm_setIntervalMining", [1000]);
+  }
+
   hre.config.networks.hardhat.loggingEnabled = opts.logging;
 
   const provider = new hre.ethers.providers.JsonRpcProvider(
@@ -91,10 +97,13 @@ const main = async (opts) => {
 };
 
 if (require.main === module) {
-  const _argv = require("minimist")(process.argv.slice(2));
+  const _argv = require("minimist")(process.argv.slice(2), {
+    boolean: ["logging", "automine"],
+  });
   const opts = {
     port: _argv.port || 8546,
     logging: _argv.logging || false,
+    automine: _argv.automine || false,
   };
 
   main(opts).catch((e) => console.error(e));

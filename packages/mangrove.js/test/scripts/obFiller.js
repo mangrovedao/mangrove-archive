@@ -9,12 +9,15 @@ const seed =
 console.log(`random seed: ${seed}`);
 const rng = require("seedrandom")(seed);
 
-const _argv = require("minimist")(process.argv.slice(2), { boolean: "cross" });
+const _argv = require("minimist")(process.argv.slice(2), {
+  boolean: ["cross", "automine"],
+});
 const opts = {
   url: _argv.url || null,
   port: _argv.port || 8546,
-  logging: _argv.logging || false,
+  logging: _argv.logging || false, // will be ignored if url is set
   cross: _argv.cross,
+  automine: _argv.automine || false, // will be ignored if url is set
 };
 
 const main = async () => {
@@ -24,7 +27,7 @@ const main = async () => {
 
   if (!opts.url) {
     const mgvServer = require("./mgvServer");
-    await mgvServer(opts);
+    await mgvServer({ ...opts, automine: true });
   }
 
   const provider = new hre.ethers.providers.JsonRpcProvider(_url);
@@ -37,6 +40,53 @@ const main = async () => {
 
   const mgv = await Mangrove.connect({
     signerIndex: 1,
+    provider: `http://localhost:${opts.port}`,
+  });
+  const mgvContract = mgv.contract;
+  // const TokenA = await hre.ethers.getContract("TokenA");
+  // const TokenB = await hre.ethers.getContract("TokenB");
+
+  // Setup Mangrove to use MgvOracle as oracle
+  const mgvOracle = mgv.oracleContract;
+  await mgvContract.setMonitor(mgvOracle.address);
+  await mgvContract.setUseOracle(true);
+  await mgvContract.setNotify(true);
+
+  // ensure that unless instructed otherwise,
+  // MgvOracle has the same gasprice default as Mangrove default
+  const mgvConfig = await mgv.config();
+  await mgvOracle.setGasPrice(mgvConfig.gasprice);
+
+  // set allowed mutator on MgvOracle to gasUpdater named account
+  const gasUpdater = (await hre.getNamedAccounts()).gasUpdater;
+  await mgvOracle.setMutator(gasUpdater);
+
+  const activate = (base, quote) => {
+    return mgvContract.activate(base, quote, 0, 10, 80000, 20000);
+  };
+
+  const userA = await user.getAddress();
+  console.log("user", userA);
+  const deployerA = await deployer.getAddress();
+  console.log("deployer", deployerA);
+
+  const approve = (tkn) => {
+    tkn.contract.mint(userA, mgv.toUnits(tkn.amount, tkn.name));
+  };
+
+  // await activate(TokenA.address,TokenB.address);
+  // await activate(TokenB.address,TokenA.address);
+
+  const tkns = [
+    { name: "WETH", amount: 1000 },
+    { name: "DAI", amount: 10_000 },
+    { name: "USDC", amount: 10_000 },
+  ];
+
+  for (const t of tkns) t.contract = mgv.token(t.name).contract;
+
+  const mgv2 = await Mangrove.connect({
+    signerIndex: 0,
     provider: `http://localhost:${opts.port}`,
   });
 
@@ -104,10 +154,6 @@ const main = async () => {
 
   console.log("Orderbook filler is now running.");
 
-  // Disable automine and set interval mining instead for more realistic behaviour + this allows queuing of TX's
-  await provider.send("evm_setAutomine", [false]);
-  await provider.send("evm_setIntervalMining", [1000]);
-
   const pushOffer = async (market, ba /*bids|asks*/) => {
     let tkout = "base",
       tkin = "quote";
@@ -146,9 +192,9 @@ const main = async () => {
   };
 
   const pullOffer = async (market, ba) => {
-    let base = "base",
-      quote = "quote";
-    if (ba === "bids") [base, quote] = [quote, base];
+    let tkout = "base",
+      tkin = "quote";
+    if (ba === "bids") [tkin, tkout] = [tkout, tkin];
     const book = await market.book();
 
     if (book[ba].length !== 0) {
@@ -157,7 +203,7 @@ const main = async () => {
       console.log(
         `retracting on ${market.base.name}/${market.quote.name} ${offer.id}`
       );
-      await retractOffer(market[base].address, market[quote].address, offer.id);
+      await retractOffer(market[tkout].address, market[tkin].address, offer.id);
     }
     setTimeout(() => {
       pullOffer(market, ba);
