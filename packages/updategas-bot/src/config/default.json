@@ -1,7 +1,6 @@
 {
-  "jsonRpcUrl": "http://localhost:8546",
   "log": {
-    "logLevel": "info"
+    "logLevel": "verbose"
   },
   "acceptableGasGapToOracle": 0.5
 }
