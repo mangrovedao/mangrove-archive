@@ -8,7 +8,6 @@
     "prettier"
   ],
   "rules": {
-    "prettier/prettier": ["error"],
     "require-await": "warn"
   }
 }
