@@ -1,5 +1,5 @@
 import { logger } from "./util/logger";
-import Mangrove, { ethers } from "@giry/mangrove-js";
+import Mangrove from "@giry/mangrove-js";
 import { Provider } from "@ethersproject/providers";
 import Big from "big.js";
 import get from "axios";
