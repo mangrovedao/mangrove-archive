@@ -190,11 +190,12 @@ describe("Market integration tests suite", () => {
     const done = helpers.Deferred();
     market.subscribe((evt) => {
       if (market.book().asks.length === 2) {
-        const estimated = market.estimateVolume({
-          given: "2",
-          what: "quote",
-          to: "sell",
-        });
+        const { estimatedVolume: estimated, givenResidue } =
+          market.estimateVolume({
+            given: "2",
+            what: "quote",
+            to: "sell",
+          });
         assert.equal(estimated.toFixed(), "0.5");
         done.ok();
       }

@@ -1,5 +1,6 @@
 const hre = require("hardhat");
 const helpers = require("../util/helpers");
+const Mangrove = require("../../src/mangrove");
 const hardhatUtils = require("@giry/hardhat-mangrove/hardhat-utils");
 const { BigNumber } = require("@ethersproject/bignumber");
 const seed =
@@ -8,61 +9,45 @@ const seed =
 console.log(`random seed: ${seed}`);
 const rng = require("seedrandom")(seed);
 
+const _argv = require("minimist")(process.argv.slice(2), {
+  boolean: ["cross", "automine"],
+});
+const opts = {
+  url: _argv.url || null,
+  port: _argv.port || 8546,
+  logging: _argv.logging || false, // will be ignored if url is set
+  cross: _argv.cross,
+  automine: _argv.automine || false, // will be ignored if url is set
+};
+
 const main = async () => {
-  console.log("Mnemonic:");
-  console.log(hre.config.networks.hardhat.accounts.mnemonic);
-  console.log("");
+  const _url = opts.url || `http://localhost:${opts.port}`;
+
+  console.log(`${opts.url ? "Connecting" : "Starting"} RPC node on ${_url}`);
+
+  if (!opts.url) {
+    const mgvServer = require("./mgvServer");
+    await mgvServer({ ...opts, automine: true });
+  }
+
+  const provider = new hre.ethers.providers.JsonRpcProvider(_url);
+
   const { Mangrove } = require("../../src");
 
-  const host = {
-    name: "localhost",
-    port: 8546,
-  };
-
-  const server = await hardhatUtils.hreServer({
-    hostname: host.name,
-    port: host.port,
-    provider: hre.network.provider,
-  });
-
-  const provider = new hre.ethers.providers.JsonRpcProvider(
-    `http://${host.name}:${host.port}`
-  );
-
-  console.log("RPC node");
-  console.log(`http://${host.name}:${host.port}`);
-  console.log("");
-
-  // console.log(provider);
-  // await provider.send(
-  //   "hardhat_reset",
-  //   [],
-  // );
-
-  // const deployer = (await hre.getNamedAccounts()).deployer;
   const deployer = (await hre.ethers.getSigners())[1];
-  const deployments = await hre.deployments.run("TestingSetup");
-  // const params = await (require("@giry/mangrove-solidity/lib/testDeploymentParams")());
 
   const user = (await hre.ethers.getSigners())[0];
-  // const signer = (await hre.ethers.getSigners())[1];
-  // const user = await signer.getAddress();
 
-  // console.log(await hre.deployments.deterministic("Mangrove",{
-  //   from: deployer,
-  //   args: [1 /*gasprice*/, 500000 /*gasmax*/],
-  // }));
   const mgv = await Mangrove.connect({
-    signer: deployer,
-    provider: `http://${host.name}:${host.port}`,
+    signerIndex: 1,
+    provider: `http://localhost:${opts.port}`,
   });
-  const mgvContract = await hre.ethers.getContract("Mangrove", deployer);
-  const mgvReader = await hre.ethers.getContract("MgvReader", deployer);
+  const mgvContract = mgv.contract;
   // const TokenA = await hre.ethers.getContract("TokenA");
   // const TokenB = await hre.ethers.getContract("TokenB");
 
   // Setup Mangrove to use MgvOracle as oracle
-  const mgvOracle = await hre.ethers.getContract("MgvOracle", deployer);
+  const mgvOracle = mgv.oracleContract;
   await mgvContract.setMonitor(mgvOracle.address);
   await mgvContract.setUseOracle(true);
   await mgvContract.setNotify(true);
@@ -98,48 +83,35 @@ const main = async () => {
     { name: "USDC", amount: 10_000 },
   ];
 
-  for (const t of tkns)
-    t.contract = await hre.ethers.getContract(t.name, deployer);
+  for (const t of tkns) t.contract = mgv.token(t.name).contract;
 
-  for (const tkn1 of tkns) {
-    await approve(tkn1);
-    for (const tkn2 of tkns) {
-      if (tkn1 !== tkn2) {
-        await activate(tkn1.contract.address, tkn2.contract.address);
-      }
-    }
-  }
+  const mgv2 = await Mangrove.connect({
+    signerIndex: 0,
+    provider: `http://localhost:${opts.port}`,
+  });
 
-  const toWei = (v, u = "ether") =>
-    hre.ethers.utils.parseUnits(v.toString(), u);
-  console.log("Deployer");
-  console.log(await deployer.getAddress());
-  console.log();
-  console.log("User");
-  console.log(userA);
-  console.log("");
+  // contract create2 addresses exported by mangrove-solidity to hardhatAddresses
 
-  // const signer2 = provider.getSigner();
-  // console.log("user2", await signer2.getAddress());
+  // const mgvContract = mgv.contract;
+  const mgvReader = mgv.readerContract;
+  console.log("mgvReader", mgvReader.address);
 
-  // const signer = (await hre.ethers.getSigners())[0];
-  // await TokenA.mint(user, mgv.toUnits("TokenA", 1000));
-  // await TokenA.approve(mgvContract.address, toWei(1000000));
-
-  // await TokenB.mint(user, mgv.toUnits("TokenB", 1000));
-  // await TokenB.approve(mgvContract.address, toWei(1000000));
-
-  await mgvContract["fund()"]({ value: toWei(100) });
-
-  const newOffer = async (base, quote, { wants, gives, gasreq, gasprice }) => {
+  const newOffer = async (
+    tkout,
+    tkin,
+    wants,
+    gives,
+    gasreq = 100_000,
+    gasprice = 1
+  ) => {
     try {
       await mgv.contract.newOffer(
-        base,
-        quote,
-        helpers.toWei(wants),
-        helpers.toWei(gives),
-        gasreq || 100000,
-        gasprice || 1,
+        tkout.address,
+        tkin.address,
+        tkin.toUnits(wants),
+        tkout.toUnits(gives),
+        gasreq,
+        gasprice,
         0
       );
     } catch (e) {
@@ -174,76 +146,69 @@ const main = async () => {
 
   const between = (a, b) => a + rng() * (b - a);
 
-  for (const t of tkns) {
-    console.log(`${t.name} (${mgv.getDecimals(t.name)} decimals)`);
-    console.log(t.contract.address);
-    console.log("");
-  }
-
   const WethDai = await mgv.market({ base: "WETH", quote: "DAI" });
   const WethUsdc = await mgv.market({ base: "WETH", quote: "USDC" });
   const DaiUsdc = await mgv.market({ base: "DAI", quote: "USDC" });
 
   const markets = [WethDai, WethUsdc, DaiUsdc];
 
-  // console.log(`Token B (${mgv.getDecimals("TokenB")} decimals`);
-  // console.log(market.quote.address);
-  // console.log();
-
   console.log("Orderbook filler is now running.");
 
-  // Disable automine and set interval mining instead for more realistic behaviour + this allows queuing of TX's
-  await provider.send("evm_setAutomine", [false]);
-  await provider.send("evm_setIntervalMining", [1000]);
-
   const pushOffer = async (market, ba /*bids|asks*/) => {
-    let base = "base",
-      quote = "quote";
-    if (ba === "bids") [base, quote] = [quote, base];
+    let tkout = "base",
+      tkin = "quote";
+    if (ba === "bids") [tkin, tkout] = [tkout, tkin];
     const book = await market.book();
-    // console.log(book,ba,book[ba]);
     const buffer = book[ba].length > 30 ? 5000 : 0;
-    // console.log(`${ba} length`, book[ba].length);
 
     setTimeout(async () => {
-      // console.log(`pushing offer to ${ba}`);
-      const wants = 1 + between(0, 3);
-      const gives = wants * between(1.001, 4);
-      await newOffer(market[base].address, market[quote].address, {
-        wants,
-        gives,
-      });
+      let wants, gives;
+      if (opts.cross) {
+        if (tkin === "quote") {
+          wants = 1 + between(0, 0.5);
+          gives = 1;
+          console.log("posting ask, price is ", wants / gives);
+        } else {
+          gives = 0.5 + between(0.3, 0.8);
+          wants = 1;
+          console.log("posting bid, price is ", gives / wants);
+        }
+
+        console.log();
+      } else {
+        wants = 1 + between(0, 3);
+        gives = wants * between(1.001, 4);
+      }
+      console.log(
+        `new ${market.base.name}/${market.quote.name} offer. price ${
+          tkin === "quote" ? wants / gives : gives / wants
+        }. wants:${wants}. gives:${gives}`
+      );
+      const cfg = await market.config();
+      console.log(`asks last`, cfg.asks.last, `bids last`, cfg.bids.last);
+      await newOffer(market[tkout], market[tkin], wants, gives);
       pushOffer(market, ba);
     }, between(1000 + buffer, 3000 + buffer));
   };
 
   const pullOffer = async (market, ba) => {
-    let base = "base",
-      quote = "quote";
-    if (ba === "bids") [base, quote] = [quote, base];
+    let tkout = "base",
+      tkin = "quote";
+    if (ba === "bids") [tkin, tkout] = [tkout, tkin];
     const book = await market.book();
-    // console.log(
-    //   `${ba} ids`,
-    //   book[ba].map((o) => o.id)
-    // );
 
     if (book[ba].length !== 0) {
-      // const offer = book[ba].shift();
       const pulledIndex = Math.floor(rng() * book[ba].length);
       const offer = book[ba][pulledIndex];
-      await retractOffer(market[base].address, market[quote].address, offer.id);
+      console.log(
+        `retracting on ${market.base.name}/${market.quote.name} ${offer.id}`
+      );
+      await retractOffer(market[tkout].address, market[tkin].address, offer.id);
     }
     setTimeout(() => {
       pullOffer(market, ba);
     }, between(2000, 4000));
   };
-
-  // setTimeout(async () => {
-  //   const bla = await market.buy({wants:3,gives:4});
-  //   console.log(bla);
-  // // console.log(bla);
-  // // console.log((await bla.wait()).events);
-  // },5000);
 
   for (const market of markets) {
     pushOffer(market, "asks");

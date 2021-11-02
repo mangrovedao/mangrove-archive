@@ -105,7 +105,7 @@ contract MgvOfferMaking is MgvHasOffers {
     uint gasprice,
     uint pivotId,
     uint offerId
-  ) external returns (uint) {
+  ) external {
     OfferPack memory ofp;
     (ofp.global, ofp.local) = _config(outbound_tkn, inbound_tkn);
     unlockedMarketOnly(ofp.local);
@@ -127,7 +127,6 @@ contract MgvOfferMaking is MgvHasOffers {
     if (oldLocal != ofp.local) {
       locals[ofp.outbound_tkn][ofp.inbound_tkn] = ofp.local;
     }
-    return ofp.id;
   }
 
   /* ## Retract Offer */

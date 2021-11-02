@@ -101,7 +101,11 @@ export class Market {
   #lowLevelCallbacks: null | { asksCallback?: any; bidsCallback?: any };
   _book: { asks: Offer[]; bids: Offer[] };
 
-  static async connect(params: { mgv: Mangrove; base: string; quote: string }) {
+  static async connect(params: {
+    mgv: Mangrove;
+    base: string;
+    quote: string;
+  }): Promise<Market> {
     canConstructMarket = true;
     const market = new Market(params);
     canConstructMarket = false;
@@ -139,7 +143,7 @@ export class Market {
   }
 
   /* Stop calling a user-provided function on book-related events. */
-  unsubscribe(cb): void {
+  unsubscribe(cb: (bookSubscriptionCbArgument) => void): void {
     this.#subscriptions.delete(cb);
   }
 
@@ -211,11 +215,6 @@ export class Market {
    * `opts` may specify the maximum of offers to read initially, and the chunk
    * size used when querying the reader contract (always ran locally).
    *
-   * The callback `cb` takes a `utils` object as a second argument which has a
-   * `book` function that returns the updated `book`, taking the current event
-   * into account. It is more efficient to call `utils.book()` than to call
-   * `market.book()`.
-   *
    * @example
    * ```
    * const market = await mgv.market({base:"USDC",quote:"DAI"}
@@ -227,8 +226,7 @@ export class Market {
    * @note Only one subscription may be active at a time.
    */
   async subscribe(
-    cb: (event: bookSubscriptionCbArgument) => void,
-    opts: Omit<bookOpts, "fromId"> = bookOptsDefault
+    cb: (event: bookSubscriptionCbArgument) => void
   ): Promise<void> {
     this.#subscriptions.set(cb, { type: "multiple" });
   }
@@ -236,10 +234,7 @@ export class Market {
   /**
    *  Returns a promise which is fulfilled after execution of the callback.
    */
-  async once<T>(
-    cb: (event: bookSubscriptionCbArgument) => T,
-    opts: Omit<bookOpts, "fromId"> = bookOptsDefault
-  ): Promise<T> {
+  async once<T>(cb: (event: bookSubscriptionCbArgument) => T): Promise<T> {
     return new Promise((ok, ko) => {
       this.#subscriptions.set(cb, { type: "once", ok, ko });
     });
@@ -281,7 +276,8 @@ export class Market {
       ...this.rawToMap("bids", ...rawBids),
     };
 
-    const blockNum = await this.mgv._provider.getBlockNumber();
+    // TODO ensure no missed events
+    // const blockNum = await this.mgv._provider.getBlockNumber();
 
     const asksCallback = this.#createBookEventCallback(asks);
     const bidsCallback = this.#createBookEventCallback(bids);
@@ -509,7 +505,9 @@ export class Market {
     return this._book;
   }
 
-  async requestBook(opts: bookOpts = bookOptsDefault) {
+  async requestBook(
+    opts: bookOpts = bookOptsDefault
+  ): Promise<Market["_book"]> {
     const rawAsks = await this.rawBook(
       this.base.address,
       this.quote.address,
@@ -645,6 +643,11 @@ export class Market {
           } catch (e) {
             // next was not found, we are outside local OB copy. skip.
           }
+
+          if (!next)
+            throw Error(
+              `next of ${evt.args.prev.toNumber()} was not found.\n evt: ${evt}.\n semibook: ${semibook}`
+            );
 
           offer = this.#toOfferObject(semibook.ba, {
             ...evt.args,
@@ -807,16 +810,16 @@ const insertOffer = (semibook: semibook, id: number, ofr: Offer) => {
   }
 };
 
-const getNext = ({ offers, best }: semibook, prev: number) => {
-  if (prev === 0) {
+const getNext = ({ offers, best }: semibook, offerId: number) => {
+  if (offerId === 0) {
     return best;
   } else {
-    if (!offers.get(prev)) {
+    if (!offers.get(offerId)) {
       throw Error(
         "Trying to get next of an offer absent from local orderbook copy"
       );
     } else {
-      return offers.get(prev).next;
+      return offers.get(offerId).next || 0;
     }
   }
 };

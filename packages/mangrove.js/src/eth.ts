@@ -84,24 +84,22 @@ export function _createSigner(options: CreateSignerOptions = {}): Signer {
     provider = new ethers.providers.Web3Provider(provider);
   }
 
+
+  // get default signer given by provider
   if (provider.getSigner) {
     signer = provider.getSigner(options.signerIndex || 0);
   }
 
+  // replace signer with user-provided one if there is one
   if (
     signer &&
-    (!!options.privateKey || !!options.mnemonic || !!options.signer)
+    (!!options.privateKey || !!options.mnemonic)
   ) {
     console.warn("Signer info provided will override default signer.");
   }
 
   // Add an explicit signer
-  if (options.signer) {
-    signer = options.signer;
-    if (options.mnemonic || options.privateKey) {
-      console.warn("options.signer overrides mnemonic and privateKey.");
-    }
-  } else if (options.privateKey) {
+  if (options.privateKey) {
     signer = new ethers.Wallet(options.privateKey, provider);
     if (options.signerIndex) {
       console.warn("options.signerIndex not applicable to private keys");

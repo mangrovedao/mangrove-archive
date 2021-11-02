@@ -124,7 +124,6 @@ export interface CreateSignerOptions {
   provider?: Provider | string;
   privateKey?: string;
   mnemonic?: string;
-  signer?: any;
   signerIndex?: number;
   path?: string;
 }

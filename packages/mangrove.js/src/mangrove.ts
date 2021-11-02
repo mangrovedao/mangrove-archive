@@ -124,7 +124,7 @@ export class Mangrove {
   }
 
   /* Return MgvToken instance tied to mangrove object. */
-  token(name: string) {
+  token(name: string): MgvToken {
     return new MgvToken(name, this);
   }
 
@@ -196,7 +196,7 @@ export class Mangrove {
    *  mgv.fromUnits("1e19",18) // 10
    *  ```
    */
-  fromUnits(amount: Bigish | ethers.BigNumber, extra: string | number) {
+  fromUnits(amount: Bigish | ethers.BigNumber, extra: string | number): Big {
     let decimals;
     if (typeof extra === "number") {
       decimals = extra;
