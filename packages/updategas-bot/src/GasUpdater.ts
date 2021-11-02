@@ -41,37 +41,19 @@ export class GasUpdater {
   }
 
   /**
-   * Start bot running.
-   */
-  public start(): void {
-    // TODO: A few times a day, set in config
-    this.#provider.on(
-      "block",
-      async (blocknumber) => await this.checkSetGasprice(blocknumber)
-    );
-  }
-
-  /**
    * Checks an external oracle for an updated gas price, compares with the
    * current Mangrove gas price and, if deemed necessary, sends an updated
    * gas price to use to the oracle contract, which this bot works together
    * with.
-   * @param blocknumber The current blocknumber - mainly used for logging.
    */
-  public async checkSetGasprice(blocknumber: number): Promise<void> {
+  public async checkSetGasprice(): Promise<void> {
     //NOTE: Possibly suitable protection against reentrancy
 
-    logger.info(
-      `Checking whether Mangrove gas price needs updating at block number ${blocknumber}`
-    );
+    logger.info(`Checking whether Mangrove gas price needs updating...`);
 
     const globalConfig = await this.#mangrove.config();
-    // FIXME: (common func) move to a property/method on Mangrove
     if (globalConfig.dead) {
-      logger.debug(
-        `Mangrove is dead at block number ${blocknumber}. Stopping Gas Updater`
-      );
-      this.#provider.off("block", this.checkSetGasprice);
+      logger.error("`Mangrove is dead, skipping update.");
       return;
     }
 

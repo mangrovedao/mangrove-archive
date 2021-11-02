@@ -1,8 +1,9 @@
 {
   "log": {
-    "logLevel": "verbose"
+    "logLevel": "info"
   },
   "acceptableGasGapToOracle": 0.5,
   "oracleURL": "https://gasstation-mainnet.matic.network/",
-  "constantOracleGasPrice": 3
+  "constantOracleGasPrice": 3,
+  "runEveryXHours": 8
 }

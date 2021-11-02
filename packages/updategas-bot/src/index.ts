@@ -7,6 +7,10 @@ import { JsonRpcProvider } from "@ethersproject/providers";
 import { NonceManager } from "@ethersproject/experimental";
 import { Wallet } from "@ethersproject/wallet";
 
+import { ToadScheduler, SimpleIntervalJob, AsyncTask } from "toad-scheduler";
+
+const scheduler = new ToadScheduler();
+
 const main = async () => {
   logger.info("Starting gas-updater bot...");
 
@@ -30,6 +34,7 @@ const main = async () => {
   let acceptableGasGapToOracle = 0;
   let constantOracleGasPrice: number | undefined = undefined;
   let oracleURL = "";
+  let runEveryXHours = 12; // twice a day, by default
 
   // - read in values
   if (config.has("acceptableGasGapToOracle")) {
@@ -42,6 +47,10 @@ const main = async () => {
 
   if (config.has("oracleURL")) {
     oracleURL = config.get<string>("oracleURL");
+  }
+
+  if (config.has("runEveryXHours")) {
+    runEveryXHours = config.get<number>("runEveryXHours");
   }
 
   // - config validation and logging
@@ -59,14 +68,6 @@ const main = async () => {
     }
   }
 
-  //TODO: read and instrument with gas price factor from file config
-
-  //TODO: Run a few times a day (config'ed)
-  provider.on("block", (blockNumber) =>
-    exitIfMangroveIsKilled(mgv, blockNumber)
-  );
-
-  //TODO: Send new config to GasUpdater and use it inside
   const gasUpdater = new GasUpdater(
     mgv,
     provider,
@@ -74,19 +75,48 @@ const main = async () => {
     constantOracleGasPrice,
     oracleURL
   );
-  gasUpdater.start();
+
+  // create and schedule task
+
+  logger.info(`Running bot every ${runEveryXHours} hours.`);
+
+  const task = new AsyncTask(
+    "gas-updater bot task",
+    async () => {
+      const blockNumber = await mgv._provider.getBlockNumber().catch((e) => {
+        logger.debug("Error on getting blockNumber via ethers", { data: e });
+        return -1;
+      });
+
+      logger.verbose(`scheduled bot task running on block ${blockNumber}...`);
+      exitIfMangroveIsKilled(mgv, blockNumber);
+      await gasUpdater.checkSetGasprice();
+    },
+    (err: Error) => {
+      logger.exception(err);
+    }
+  );
+
+  const job = new SimpleIntervalJob(
+    {
+      hours: runEveryXHours,
+      runImmediately: true,
+    },
+    task
+  );
+
+  scheduler.addSimpleIntervalJob(job);
 };
 
-// FIXME: Exact same as in cleanerbot - commonlib.js candidate
+// NOTE: Almost equal to method in cleanerbot - commonlib.js candidate
 async function exitIfMangroveIsKilled(
   mgv: Mangrove,
   blockNumber: number
 ): Promise<void> {
   const globalConfig = await mgv.config();
-  // FIXME maybe this should be a property/method on Mangrove.
   if (globalConfig.dead) {
     logger.warn(
-      `Mangrove is dead at block number ${blockNumber}. Stopping the bot`
+      `Mangrove is dead at block number ${blockNumber}. Stopping the bot.`
     );
     process.exit();
   }
@@ -99,5 +129,6 @@ process.on("unhandledRejection", function (reason, promise) {
 main().catch((e) => {
   //NOTE: naive implementation
   logger.exception(e);
+  scheduler.stop();
   process.exit(1);
 });

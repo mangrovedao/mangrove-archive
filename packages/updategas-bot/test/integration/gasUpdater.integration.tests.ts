@@ -26,13 +26,10 @@ describe("GasUpdater integration tests", () => {
 
   beforeEach(async function () {
     mgv = await Mangrove.connect({
-      //FIXME: hacky -->
       provider: this.test?.parent?.parent?.ctx.provider,
       signer: gasUpdaterSigner,
     });
     gasUpdaterProvider = mgv._provider;
-
-    //TODO: The following should be able to be done with a mgv : Mangrove that has the right signer
 
     const deployer = (await hre.ethers.getNamedSigners()).deployer;
     const mgvContract = await hre.ethers.getContract("Mangrove", deployer);
@@ -71,7 +68,7 @@ describe("GasUpdater integration tests", () => {
     );
 
     // Test
-    await gasUpdater.checkSetGasprice(-1);
+    await gasUpdater.checkSetGasprice();
 
     // Assert
     const globalConfig = await mgv.config();
