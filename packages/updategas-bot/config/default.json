@@ -6,5 +6,5 @@
   "constantOracleGasPrice": 3,
   "oracleURL": "https://gasstation-mainnet.matic.network/",
   "oracleURL_Key": "standard",
-  "runEveryXHours": 8
+  "runEveryXHours": 0.008
 }
