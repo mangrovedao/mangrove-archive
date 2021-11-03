@@ -627,32 +627,37 @@ export class Market {
         _evt
       ) as any;
 
-      // declare const evt: EventTypes.OfferWriteEvent;
-      let next;
       let offer;
+      let removedOffer;
+      let next;
 
       const takerWants_bq = semibook.ba === "asks" ? "base" : "quote";
       const takerGives_bq = semibook.ba === "asks" ? "quote" : "base";
 
       switch (evt.name) {
         case "OfferWrite":
+          // We ignore the return value here because the offer may have been outside the local
+          // cache, but may now enter the local cache due to its new price.
           removeOffer(semibook, evt.args.id.toNumber());
 
-          try {
-            next = BigNumber.from(getNext(semibook, evt.args.prev.toNumber()));
-          } catch (e) {
-            // next was not found, we are outside local OB copy. skip.
-          }
+          /* After removing the offer (a noop if the offer was not in local cache),
+             we reinsert it.
 
-          if (!next)
-            throw Error(
-              `next of ${evt.args.prev.toNumber()} was not found.\n evt: ${evt}.\n semibook: ${semibook}`
-            );
+             * The offer comes with id of its prev. If prev does not exist in cache, we skip
+             the event. Note that we still want to remove the offer from the cache.
+             * If the prev exists, we take the prev's next as the offer's next. Whether that next exists in the cache or not is irrelevant.
+          */
+          try {
+            next = getNext(semibook, evt.args.prev.toNumber());
+          } catch (e) {
+            // offer.prev was not found, we are outside local OB copy. skip.
+            break;
+          }
 
           offer = this.#toOfferObject(semibook.ba, {
             ...evt.args,
             ...semibook.gasbase,
-            next,
+            next: BigNumber.from(next),
           });
 
           insertOffer(semibook, evt.args.id.toNumber(), offer);
@@ -668,43 +673,54 @@ export class Market {
           break;
 
         case "OfferFail":
-          this.defaultCallback(
-            {
-              type: evt.name,
-              ba: semibook.ba,
-              taker: evt.args.taker,
-              offer: removeOffer(semibook, evt.args.id.toNumber()),
-              takerWants: this[takerWants_bq].fromUnits(evt.args.takerWants),
-              takerGives: this[takerGives_bq].fromUnits(evt.args.takerGives),
-              mgvData: evt.args.mgvData,
-            },
-            semibook
-          );
+          removedOffer = removeOffer(semibook, evt.args.id.toNumber());
+          // Don't trigger an event about an offer outside of the local cache
+          if (removedOffer) {
+            this.defaultCallback(
+              {
+                type: evt.name,
+                ba: semibook.ba,
+                taker: evt.args.taker,
+                offer: removedOffer,
+                takerWants: this[takerWants_bq].fromUnits(evt.args.takerWants),
+                takerGives: this[takerGives_bq].fromUnits(evt.args.takerGives),
+                mgvData: evt.args.mgvData,
+              },
+              semibook
+            );
+          }
           break;
 
         case "OfferSuccess":
-          this.defaultCallback(
-            {
-              type: evt.name,
-              ba: semibook.ba,
-              taker: evt.args.taker,
-              offer: removeOffer(semibook, evt.args.id.toNumber()),
-              takerWants: this[takerWants_bq].fromUnits(evt.args.takerWants),
-              takerGives: this[takerGives_bq].fromUnits(evt.args.takerGives),
-            },
-            semibook
-          );
+          removedOffer = removeOffer(semibook, evt.args.id.toNumber());
+          if (removedOffer) {
+            this.defaultCallback(
+              {
+                type: evt.name,
+                ba: semibook.ba,
+                taker: evt.args.taker,
+                offer: removedOffer,
+                takerWants: this[takerWants_bq].fromUnits(evt.args.takerWants),
+                takerGives: this[takerGives_bq].fromUnits(evt.args.takerGives),
+              },
+              semibook
+            );
+          }
           break;
 
         case "OfferRetract":
-          this.defaultCallback(
-            {
-              type: evt.name,
-              ba: semibook.ba,
-              offer: removeOffer(semibook, evt.args.id.toNumber()),
-            },
-            semibook
-          );
+          removedOffer = removeOffer(semibook, evt.args.id.toNumber());
+          // Don't trigger an event about an offer outside of the local cache
+          if (removedOffer) {
+            this.defaultCallback(
+              {
+                type: evt.name,
+                ba: semibook.ba,
+                offer: removedOffer,
+              },
+              semibook
+            );
+          }
           break;
 
         case "SetGasbase":
@@ -778,17 +794,28 @@ export class Market {
   /* remove an offer from a {offerMap,bestOffer} pair and keep the structure in a coherent state */
 }
 
+// remove offer id from book and connect its prev/next.
+// return null if offer was not found in book
 const removeOffer = (semibook: semibook, id: number) => {
   const ofr = semibook.offers.get(id);
   if (ofr) {
+    // we differentiate prev==0 (offer is best)
+    // from offers[prev] does not exist (we're outside of the local cache)
     if (ofr.prev === 0) {
       semibook.best = ofr.next;
     } else {
-      semibook.offers.get(ofr.prev).next = ofr.next;
+      const prevOffer = semibook.offers.get(ofr.prev);
+      if (prevOffer) {
+        prevOffer.next = ofr.next;
+      }
     }
 
-    if (ofr.next !== 0) {
-      semibook.offers.get(ofr.next).prev = ofr.prev;
+    // checking that nextOffers exists takes care of
+    // 1. ofr.next==0, i.e. we're at the end of the book
+    // 2. offers[ofr.next] does not exist, i.e. we're at the end of the local cache
+    const nextOffer = semibook.offers.get(ofr.next);
+    if (nextOffer) {
+      nextOffer.prev = ofr.prev;
     }
 
     semibook.offers.delete(id);
@@ -814,6 +841,9 @@ const insertOffer = (semibook: semibook, id: number, ofr: Offer) => {
   }
 };
 
+// return id of offer next to offerId, according to cache.
+// note that offers[offers[offerId].next] may be not exist!
+// throws if offerId is not found
 const getNext = ({ offers, best }: semibook, offerId: number) => {
   if (offerId === 0) {
     return best;
@@ -823,7 +853,7 @@ const getNext = ({ offers, best }: semibook, offerId: number) => {
         "Trying to get next of an offer absent from local orderbook copy"
       );
     } else {
-      return offers.get(offerId).next || 0;
+      return offers.get(offerId).next;
     }
   }
 };
