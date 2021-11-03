@@ -1,6 +1,6 @@
 import { config } from "./util/config";
 import { logger } from "./util/logger";
-import { GasUpdater } from "./GasUpdater";
+import { GasUpdater, OracleSourceConfiguration } from "./GasUpdater";
 
 import Mangrove from "@giry/mangrove-js";
 import { JsonRpcProvider } from "@ethersproject/providers";
@@ -58,14 +58,21 @@ const main = async () => {
     oracleURL_Key = config.get<string>("oracleURL_Key");
   }
 
+  let oracleSourceConfiguration: OracleSourceConfiguration;
   // - config validation and logging
   //   if constant price set, use that and ignore other gas price config
   if (constantOracleGasPrice != null) {
     logger.info(
-      `config value for 'constantOracleGasPrice' set. Using the configured value.`,
+      `Configuration for constant oracle gas price found. Using the configured value.`,
       { data: constantOracleGasPrice }
     );
+
+    oracleSourceConfiguration = {
+      OracleGasPrice: constantOracleGasPrice,
+      _tag: "Constant",
+    };
   } else {
+    // validate config
     if (
       oracleURL == null ||
       oracleURL == "" ||
@@ -76,18 +83,27 @@ const main = async () => {
         `Either 'constantOracleGasPrice' or the pair ('oracleURL', 'oracleURL_Key') must be set in config. Found values: constantOracleGasPrice: '${constantOracleGasPrice}', oracleURL: '${oracleURL}', oracleURL_Key: '${oracleURL_Key}'`
       );
     }
+    logger.info(
+      `Configuration for oracle endpoint found. Using the configured values.`,
+      {
+        data: { oracleURL, oracleURL_Key },
+      }
+    );
+
+    oracleSourceConfiguration = {
+      oracleEndpointURL: oracleURL,
+      oracleEndpointKey: oracleURL_Key,
+      _tag: "Endpoint",
+    };
   }
 
   const gasUpdater = new GasUpdater(
     mgv,
     acceptableGasGapToOracle,
-    constantOracleGasPrice,
-    oracleURL,
-    oracleURL_Key
+    oracleSourceConfiguration
   );
 
   // create and schedule task
-
   logger.info(`Running bot every ${runEveryXHours} hours.`);
 
   const task = new AsyncTask(
@@ -98,7 +114,7 @@ const main = async () => {
         return -1;
       });
 
-      logger.verbose(`scheduled bot task running on block ${blockNumber}...`);
+      logger.verbose(`Scheduled bot task running on block ${blockNumber}...`);
       await exitIfMangroveIsKilled(mgv, blockNumber);
       await gasUpdater.checkSetGasprice();
     },
