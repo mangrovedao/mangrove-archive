@@ -2,6 +2,7 @@ const hre = require("hardhat");
 const helpers = require("../util/helpers");
 const Mangrove = require("../../src/mangrove");
 const hardhatUtils = require("@giry/hardhat-mangrove/hardhat-utils");
+const { BigNumber } = require("@ethersproject/bignumber");
 const seed =
   Math.random().toString(36).substring(2, 15) +
   Math.random().toString(36).substring(2, 15);
@@ -82,7 +83,7 @@ const main = async () => {
     const resp = await mgv.contract.retractOffer(base, quote, offerId, true, {
       gasLimit: newEstimate,
     });
-    const receipt = await resp.wait(0);
+    const receipt = await resp.wait();
     if (!estimate.eq(receipt.gasUsed)) {
       console.log(
         "estimate != used:",
@@ -102,6 +103,10 @@ const main = async () => {
   const markets = [WethDai, WethUsdc, DaiUsdc];
 
   console.log("Orderbook filler is now running.");
+
+  // Disable automine and set interval mining instead for more realistic behaviour + this allows queuing of TX's
+  await provider.send("evm_setAutomine", [false]);
+  await provider.send("evm_setIntervalMining", [1000]);
 
   const pushOffer = async (market, ba /*bids|asks*/) => {
     let tkout = "base",

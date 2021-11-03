@@ -42,7 +42,9 @@ config.hardhat = {
       ":MgvEvents$",
       ":MgvReader$",
       ":MgvCleaner$",
+      ":MgvOracle$",
       ":TestMaker$",
+      ":TestTokenWithDecimals$",
       ":IERC20$",
     ],
     spacing: 2,
@@ -57,7 +59,16 @@ config.hardhat = {
   // see github.com/wighawag/hardhat-deploy#1-namedaccounts-ability-to-name-addresses
   namedAccounts: {
     deployer: {
-      default: 2, // take second account as deployer
+      default: 1, // take second account as deployer
+    },
+    maker: {
+      default: 2,
+    },
+    cleaner: {
+      default: 3,
+    },
+    gasUpdater: {
+      default: 4,
     },
   },
   mocha: defer(function () {

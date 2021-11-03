@@ -13,6 +13,7 @@ config.hardhat = {
       gasMultiplier: 1,
       blockGasLimit: 7000000000,
       allowUnlimitedContractSize: true,
+      loggingEnabled: true,
     },
     localhost: {
       url: "http://127.0.0.1:8545",
@@ -38,6 +39,15 @@ config.hardhat = {
   namedAccounts: {
     deployer: {
       default: 1, // take second account as deployer
+    },
+    maker: {
+      default: 2,
+    },
+    cleaner: {
+      default: 3,
+    },
+    gasUpdater: {
+      default: 4,
     },
   },
   mocha: defer(function () {

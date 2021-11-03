@@ -73,6 +73,7 @@ export type Offer = {
 export interface ConnectOptions {
   privateKey?: string;
   mnemonic?: string;
+  path?: string;
   provider?: Provider | string;
 }
 
@@ -109,6 +110,7 @@ export interface CallOptions {
   nonce?: number;
   privateKey?: string;
   mnemonic?: string;
+  path?: string;
   signer?: any;
   mantissa?: boolean;
   blockTag?: number | string;

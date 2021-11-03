@@ -65,15 +65,36 @@ module.exports = async () => {
     },
   });
 
+  const gasUpdater = (await hre.getNamedAccounts()).gasUpdater;
+
+  const mgvOracle = await withAddress({
+    name: "MgvOracle",
+    options: {
+      from: deployer,
+      args: [deployer, gasUpdater],
+    },
+  });
+
+  const maker = (await hre.getNamedAccounts()).maker;
+
+  const testMaker = await withAddress({
+    name: "TestMaker",
+    options: {
+      from: maker,
+      args: [mangrove.address, tokenA.address, tokenB.address],
+    },
+  });
+
   return [
     mangrove,
+    mgvReader,
+    mgvCleaner,
     tokenA,
     tokenB,
     Dai,
     Usdc,
     Weth,
     testMaker,
-    mgvReader,
-    mgvCleaner,
+    mgvOracle,
   ];
 };

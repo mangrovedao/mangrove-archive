@@ -1,48 +1,42 @@
+/**
+ * A simple cleaning bot for Mangrove which monitors select markets and
+ * snipes and collects the bounty of offers that fail.
+ * @module
+ */
+
 import config from "./util/config";
 import { ErrorWithData } from "@giry/commonlib-js";
 import { MarketCleaner } from "./MarketCleaner";
 import { logger } from "./util/logger";
-import { TokenPair } from "./mangrove-js-type-aliases";
 // TODO Figure out where mangrove.js get its addresses from and make it configurable
 import Mangrove from "@giry/mangrove-js";
-import { Provider } from "@ethersproject/providers";
+import { JsonRpcProvider } from "@ethersproject/providers";
+import { NonceManager } from "@ethersproject/experimental";
 import { Wallet } from "@ethersproject/wallet";
 
+type TokenPair = { token1: string; token2: string };
+
 const main = async () => {
-  const mgv = await Mangrove.connect(config.get<string>("jsonRpcUrl"));
-  // TODO Initialize:
-  // - Connect to Ethereum endpoint (Infura, Alchemy, ...)
-  //   - Perhaps the safest is to connect to multiple by using the Ethers Default Provider?
-  //     - https://docs.ethers.io/v5/api/providers/#providers-getDefaultProvider
-  //     - Or is there a performance overhead that is problematic here?
-  const provider = mgv._provider; // TODO
-  // - Load private key and set up wallet for transaction signing
-  if (!process.env["PRIVATE_KEY_MNEMONIC"]) {
-    logger.error("No mnemonic provided in PRIVATE_KEY_MNEMONIC");
-    throw new Error("No mnemonic provided in PRIVATE_KEY_MNEMONIC");
+  logger.info("Starting cleaning bot...", { contextInfo: "init" });
+
+  if (!process.env["ETHEREUM_NODE_URL"]) {
+    throw new Error("No URL for a node has been provided in ETHEREUM_NODE_URL");
   }
-  const mnemonic = process.env["PRIVATE_KEY_MNEMONIC"];
-  const wallet = Wallet.fromMnemonic(mnemonic); // TODO
-  // - Connect Mangrove.js via the same provider
-  // - Load the environment:
-  //   - Addresses of relevant tokens and Mangrove on the chosen network
-  //   - Load the ABI's and construct ethers.Contracts for relevant contracts
-  //     - The cleaner contract
-  //     - Liquidit sources (Aave, Compound)?
-  //     - (Mangrove.js does this for its own contracts - maybe we should add that to the environment?)
+  if (!process.env["PRIVATE_KEY"]) {
+    throw new Error("No private key provided in PRIVATE_KEY");
+  }
+  const provider = new JsonRpcProvider(process.env["ETHEREUM_NODE_URL"]);
+  const signer = new Wallet(process.env["PRIVATE_KEY"], provider);
+  const nonceManager = new NonceManager(signer);
+  const mgv = await Mangrove.connect({
+    provider: process.env["ETHEREUM_NODE_URL"],
+    signer: nonceManager,
+  });
 
-  /* Get global config */
-  const mgvConfig = await mgv.config();
-  logger.info("Mangrove config retrieved", { data: mgvConfig });
+  await exitIfMangroveIsKilled(mgv, "init");
 
-  let marketCleanerMap = new Map<TokenPair, MarketCleaner>();
-
-  provider.on("block", async (blockNumber) =>
-    exitIfMangroveIsKilled(mgv, blockNumber)
-  );
-
-  /* Connect to markets */
   const marketConfigs = getMarketConfigsOrThrow();
+  const marketCleanerMap = new Map<TokenPair, MarketCleaner>();
   for (const marketConfig of marketConfigs) {
     if (!Array.isArray(marketConfig) || marketConfig.length != 2) {
       logger.error("Market configuration is malformed: Should be a pair", {
@@ -57,25 +51,24 @@ const main = async () => {
     });
 
     marketCleanerMap.set(
-      { base: market.base.name, quote: market.quote.name },
+      { token1: market.base.name, token2: market.quote.name },
       new MarketCleaner(market, provider)
     );
   }
-};
 
-async function exitIfMangroveIsKilled(
-  mgv: Mangrove,
-  blockNumber: number
-): Promise<void> {
-  const globalConfig = await mgv.config();
-  // FIXME maybe this should be a property/method on Mangrove.
-  if (globalConfig.dead) {
-    logger.warn(
-      `Mangrove is dead at block number ${blockNumber}. Stopping the bot`
-    );
-    process.exit();
-  }
-}
+  provider.on("block", async function (blockNumber) {
+    const contextInfo = `block#=${blockNumber}`;
+
+    exitIfMangroveIsKilled(mgv, contextInfo);
+
+    logger.debug("Cleaning triggered by new block event", { contextInfo });
+    const cleaningPromises = [];
+    for (const marketCleaner of marketCleanerMap.values()) {
+      cleaningPromises.push(marketCleaner.clean(contextInfo));
+    }
+    return Promise.allSettled(cleaningPromises);
+  });
+};
 
 function getMarketConfigsOrThrow() {
   if (!config.has("markets")) {
@@ -90,6 +83,22 @@ function getMarketConfigsOrThrow() {
   }
   return marketsConfig;
 }
+
+async function exitIfMangroveIsKilled(
+  mgv: Mangrove,
+  contextInfo: string
+): Promise<void> {
+  const globalConfig = await mgv.config();
+  // FIXME maybe this should be a property/method on Mangrove.
+  if (globalConfig.dead) {
+    logger.warn("Mangrove is dead, stopping the bot", { contextInfo });
+    process.exit();
+  }
+}
+
+process.on("unhandledRejection", function (reason, promise) {
+  logger.warn("Unhandled Rejection", { data: reason });
+});
 
 main().catch((e) => {
   logger.exception(e);

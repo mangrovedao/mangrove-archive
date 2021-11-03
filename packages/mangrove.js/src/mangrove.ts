@@ -29,6 +29,7 @@ export class Mangrove {
   contract: typechain.Mangrove;
   readerContract: typechain.MgvReader;
   cleanerContract: typechain.MgvCleaner;
+  oracleContract: typechain.MgvOracle;
   static typechain = typechain;
 
   /**
@@ -47,7 +48,8 @@ export class Mangrove {
    * Options:
    * * privateKey: `0x...`
    * * mnemonic: `horse battery ...`
-   * * provider: url, provider object, or chain strin￼g
+   * * path: `m/44'/60'/0'/...`
+   * * provider: url, provider object, or chain string
    *
    * @returns {Mangrove} Returns an instance mangrove.js
    */
@@ -102,6 +104,11 @@ export class Mangrove {
     );
     this.cleanerContract = typechain.MgvCleaner__factory.connect(
       cleanerAddress,
+      this._signer
+    );
+    const oracleAddress = Mangrove.getAddress("MgvOracle", this._network.name);
+    this.oracleContract = typechain.MgvOracle__factory.connect(
+      oracleAddress,
       this._signer
     );
   }

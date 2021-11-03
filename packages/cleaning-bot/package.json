@@ -13,16 +13,15 @@
   "scripts": {
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "precommit": "lint-staged",
-    "format": "prettier --write --ignore-unknown .",
-    "build-this-package": "yarn run format && tsc && yarn run copy-static-assets",
+    "format": "prettier --write --ignore-unknown --loglevel warn .",
+    "build-this-package": "yarn run format && tsc",
     "build": "yarn install && yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run build-this-package",
-    "copy-static-assets": "ts-node build-scripts/copyStaticAssets.ts",
     "clean-this-package": "rimraf dist",
     "clean": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run clean-this-package",
     "test-with-dependencies": "yarn workspaces foreach -vpiR --topological-dev --from $npm_package_name run test",
     "test": "npm-run-all \"test:*\"",
     "test:integration": "cross-env NODE_ENV=test mocha --config test/mocha/config/integration-tests.json",
-    "start": "node dist/nodejs/index.js",
+    "start": "node build/index.js",
     "local-hardhat:start-node": "hardhat node --no-deploy",
     "local-hardhat:deploy-mangrove": "hardhat deploy --network localhost"
   },
@@ -30,13 +29,15 @@
     "**/*": "prettier --write --ignore-unknown"
   },
   "dependencies": {
+    "@ethersproject/experimental": "^5.5.0",
     "@giry/commonlib-js": "workspace:*",
     "@giry/mangrove-js": "workspace:*",
     "@types/big.js": "^6.1.2",
     "big.js": "^6.1.1",
     "config": "^3.3.6",
     "dotenv-flow": "^3.2.0",
-    "ethers": "^5.4.7"
+    "ethers": "^5.4.7",
+    "fast-safe-stringify": "^2.1.1"
   },
   "devDependencies": {
     "@espendk/json-file-reporter": "^1.4.2",
@@ -44,7 +45,7 @@
     "@giry/hardhat-mangrove": "workspace:*",
     "@giry/mangrove-solidity": "workspace:*",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
-    "@types/chai": "^4.2.21",
+    "@types/chai": "^4.2.22",
     "@types/chai-as-promised": "^7.1.4",
     "@types/config": "^0.0.39",
     "@types/dotenv-flow": "^3.2.0",
@@ -58,7 +59,6 @@
     "cross-env": "^7.0.3",
     "eslint": "^7.32.0",
     "eslint-config-prettier": "^8.3.0",
-    "eslint-plugin-prettier": "^4.0.0",
     "hardhat": "^2.6.4",
     "hardhat-deploy": "^0.9.1",
     "hardhat-deploy-ethers": "^0.3.0-beta.11",
