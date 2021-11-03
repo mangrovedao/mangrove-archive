@@ -61,7 +61,7 @@ export class Mangrove {
       options = { provider: options };
     }
 
-    const signer = eth._createSigner(options);
+    const signer = eth._createSigner(options); // returns a provider equipped signer
     const network = await eth.getProviderNetwork(signer.provider);
     canConstructMangrove = true;
     const mgv = new Mangrove({
@@ -214,7 +214,7 @@ export class Mangrove {
    */
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   async config(): Promise<globalConfig> {
-    const config = await this.contract.config(
+    const config = await this.readerContract.config(
       ethers.constants.AddressZero,
       ethers.constants.AddressZero
     );

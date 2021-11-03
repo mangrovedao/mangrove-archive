@@ -117,7 +117,7 @@ const main = async () => {
     } catch (e) {
       console.log(e);
       console.warn(
-        `Posting offer failed - base=${base}, quote=${quote}, wants=${wants}, gives=${gives}, gasreq=${gasreq}, gasprice=${gasprice}`
+        `Posting offer failed - tkout=${tkout}, tkin=${tkin}, wants=${wants}, gives=${gives}, gasreq=${gasreq}, gasprice=${gasprice}`
       );
     }
   };

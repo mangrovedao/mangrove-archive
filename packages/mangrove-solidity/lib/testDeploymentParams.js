@@ -40,6 +40,7 @@ module.exports = async () => {
 
   const mgvReader = await withAddress({
     name: "MgvReader",
+    token: false,
     options: {
       from: deployer,
       args: [mangrove.address],
@@ -48,6 +49,7 @@ module.exports = async () => {
 
   const mgvCleaner = await withAddress({
     name: "MgvCleaner",
+    token: false,
     options: {
       from: deployer,
       args: [mangrove.address],
