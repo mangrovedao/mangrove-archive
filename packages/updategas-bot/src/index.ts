@@ -32,8 +32,9 @@ const main = async () => {
   // read and use file config
   // - set defaults explicitly
   let acceptableGasGapToOracle = 0;
-  let constantOracleGasPrice: number | undefined = undefined;
+  let constantOracleGasPrice: number | undefined;
   let oracleURL = "";
+  let oracleURL_Key = "";
   let runEveryXHours = 12; // twice a day, by default
 
   // - read in values
@@ -53,17 +54,26 @@ const main = async () => {
     runEveryXHours = config.get<number>("runEveryXHours");
   }
 
+  if (config.has("oracleURL_Key")) {
+    oracleURL_Key = config.get<string>("oracleURL_Key");
+  }
+
   // - config validation and logging
   //   if constant price set, use that and ignore other gas price config
-  if (constantOracleGasPrice !== undefined) {
+  if (constantOracleGasPrice != null) {
     logger.info(
       `config value for 'constantOracleGasPrice' set. Using the configured value.`,
       { data: constantOracleGasPrice }
     );
   } else {
-    if (oracleURL === undefined) {
+    if (
+      oracleURL == null ||
+      oracleURL == "" ||
+      oracleURL_Key == null ||
+      oracleURL_Key == ""
+    ) {
       throw new Error(
-        `Either 'constantOracleGasPrice' or 'oracleURL' must be set in config. Neither found.`
+        `Either 'constantOracleGasPrice' or the pair ('oracleURL', 'oracleURL_Key') must be set in config. Found values: constantOracleGasPrice: '${constantOracleGasPrice}', oracleURL: '${oracleURL}', oracleURL_Key: '${oracleURL_Key}'`
       );
     }
   }
@@ -72,7 +82,8 @@ const main = async () => {
     mgv,
     acceptableGasGapToOracle,
     constantOracleGasPrice,
-    oracleURL
+    oracleURL,
+    oracleURL_Key
   );
 
   // create and schedule task
