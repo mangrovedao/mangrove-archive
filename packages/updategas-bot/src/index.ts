@@ -88,11 +88,11 @@ const main = async () => {
       });
 
       logger.verbose(`scheduled bot task running on block ${blockNumber}...`);
-      exitIfMangroveIsKilled(mgv, blockNumber);
+      await exitIfMangroveIsKilled(mgv, blockNumber);
       await gasUpdater.checkSetGasprice();
     },
     (err: Error) => {
-      logger.exception(err);
+      logErrorAndExit(err);
     }
   );
 
@@ -121,13 +121,16 @@ async function exitIfMangroveIsKilled(
   }
 }
 
+function logErrorAndExit(err: Error) {
+  logger.exception(err);
+  scheduler.stop();
+  process.exit(1);
+}
+
 process.on("unhandledRejection", function (reason, promise) {
   logger.warn("Unhandled Rejection", { data: reason });
 });
 
 main().catch((e) => {
-  //NOTE: naive implementation
-  logger.exception(e);
-  scheduler.stop();
-  process.exit(1);
+  logErrorAndExit(e);
 });
