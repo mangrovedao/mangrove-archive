@@ -42,7 +42,7 @@ $ yarn start
 
 ## Configuration
 
-The bot has a number of configurable settings (which are currently read and used at startup, so need a redeploy to change configuration (_subject to change_)).
+The bot has a number of configurable settings (which are currently read and used at startup, so bot needs to be restarted to change configuration).
 
 Here's an example configuration file with instances of all possible configuration values:
 
