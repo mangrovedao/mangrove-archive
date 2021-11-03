@@ -39,11 +39,6 @@ const main = async () => {
     provider: `http://localhost:${opts.port}`,
   });
 
-  const mgv2 = await Mangrove.connect({
-    signerIndex: 0,
-    provider: `http://localhost:${opts.port}`,
-  });
-
   // contract create2 addresses exported by mangrove-solidity to hardhatAddresses
 
   // const mgvContract = mgv.contract;
