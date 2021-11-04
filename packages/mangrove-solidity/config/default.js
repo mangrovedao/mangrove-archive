@@ -18,10 +18,10 @@ config.hardhat = {
       gasPrice: 30 * 10 ** 9,
       gasMultiplier: 1,
       blockGasLimit: 12000000,
-      url: process.env["MUMBAI_NODE_URL"],
+      url: process.env["MUMBAI_NODE_URL"] || "",
       chainId: 80001,
       accounts: {
-        mnemonic: process.env["MUMBAI_MNEMONIC"],
+        mnemonic: process.env["MUMBAI_MNEMONIC"] || "",
       },
     },
     localhost: {
