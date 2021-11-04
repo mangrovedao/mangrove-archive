@@ -14,6 +14,16 @@ config.hardhat = {
       blockGasLimit: 7000000000,
       allowUnlimitedContractSize: true,
     },
+    mumbai: {
+      gasPrice: 30 * 10 ** 9,
+      gasMultiplier: 1,
+      blockGasLimit: 12000000,
+      url: process.env["MUMBAI_NODE_URL"],
+      chainId: 80001,
+      accounts: {
+        mnemonic: process.env["MUMBAI_MNEMONIC"],
+      },
+    },
     localhost: {
       url: "http://127.0.0.1:8545",
     },
