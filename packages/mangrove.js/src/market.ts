@@ -14,7 +14,7 @@ import { MgvToken } from "./mgvtoken";
 let canConstructMarket = false;
 
 const DEFAULT_MAX_OFFERS = 50;
-const MAX_MARKET_ORDER_GAS = 1500000;
+const MAX_MARKET_ORDER_GAS = 6500000;
 
 /* Note on big.js:
 ethers.js's BigNumber (actually BN.js) only handles integers
@@ -101,7 +101,11 @@ export class Market {
   #lowLevelCallbacks: null | { asksCallback?: any; bidsCallback?: any };
   _book: { asks: Offer[]; bids: Offer[] };
 
-  static async connect(params: { mgv: Mangrove; base: string; quote: string }) {
+  static async connect(params: {
+    mgv: Mangrove;
+    base: string;
+    quote: string;
+  }): Promise<Market> {
     canConstructMarket = true;
     const market = new Market(params);
     canConstructMarket = false;
@@ -139,7 +143,7 @@ export class Market {
   }
 
   /* Stop calling a user-provided function on book-related events. */
-  unsubscribe(cb): void {
+  unsubscribe(cb: (bookSubscriptionCbArgument) => void): void {
     this.#subscriptions.delete(cb);
   }
 
@@ -211,11 +215,6 @@ export class Market {
    * `opts` may specify the maximum of offers to read initially, and the chunk
    * size used when querying the reader contract (always ran locally).
    *
-   * The callback `cb` takes a `utils` object as a second argument which has a
-   * `book` function that returns the updated `book`, taking the current event
-   * into account. It is more efficient to call `utils.book()` than to call
-   * `market.book()`.
-   *
    * @example
    * ```
    * const market = await mgv.market({base:"USDC",quote:"DAI"}
@@ -227,8 +226,7 @@ export class Market {
    * @note Only one subscription may be active at a time.
    */
   async subscribe(
-    cb: (event: bookSubscriptionCbArgument) => void,
-    opts: Omit<bookOpts, "fromId"> = bookOptsDefault
+    cb: (event: bookSubscriptionCbArgument) => void
   ): Promise<void> {
     this.#subscriptions.set(cb, { type: "multiple" });
   }
@@ -236,10 +234,7 @@ export class Market {
   /**
    *  Returns a promise which is fulfilled after execution of the callback.
    */
-  async once<T>(
-    cb: (event: bookSubscriptionCbArgument) => T,
-    opts: Omit<bookOpts, "fromId"> = bookOptsDefault
-  ): Promise<T> {
+  async once<T>(cb: (event: bookSubscriptionCbArgument) => T): Promise<T> {
     return new Promise((ok, ko) => {
       this.#subscriptions.set(cb, { type: "once", ok, ko });
     });
@@ -281,7 +276,8 @@ export class Market {
       ...this.rawToMap("bids", ...rawBids),
     };
 
-    const blockNum = await this.mgv._provider.getBlockNumber();
+    // TODO ensure no missed events
+    // const blockNum = await this.mgv._provider.getBlockNumber();
 
     const asksCallback = this.#createBookEventCallback(asks);
     const bidsCallback = this.#createBookEventCallback(bids);
@@ -316,11 +312,11 @@ export class Market {
    * fee *remains* in basis points of the token being bought
    */
   async rawConfig(): Promise<{ asks: rawConfig; bids: rawConfig }> {
-    const rawAskConfig = await this.mgv.contract.config(
+    const rawAskConfig = await this.mgv.readerContract.config(
       this.base.address,
       this.quote.address
     );
-    const rawBidsConfig = await this.mgv.contract.config(
+    const rawBidsConfig = await this.mgv.readerContract.config(
       this.quote.address,
       this.base.address
     );
@@ -465,14 +461,17 @@ export class Market {
     let offerIds = [],
       offers = [],
       details = [];
-    await this.mgv.contract.config(this.mgv._address, this.mgv._address);
+
+    const blockNum = await this.mgv._provider.getBlockNumber(); //stay consistent
+    await this.mgv.readerContract.config(this.mgv._address, this.mgv._address);
     do {
       const [_nextId, _offerIds, _offers, _details] =
-        await this.mgv.readerContract.book(
+        await this.mgv.readerContract.offerList(
           base_a,
           quote_a,
           opts.fromId,
-          chunkSize
+          chunkSize,
+          { blockTag: blockNum }
         );
       offerIds = offerIds.concat(_offerIds);
       offers = offers.concat(_offers);
@@ -509,7 +508,9 @@ export class Market {
     return this._book;
   }
 
-  async requestBook(opts: bookOpts = bookOptsDefault) {
+  async requestBook(
+    opts: bookOpts = bookOptsDefault
+  ): Promise<Market["_book"]> {
     const rawAsks = await this.rawBook(
       this.base.address,
       this.quote.address,
@@ -629,27 +630,37 @@ export class Market {
         _evt
       ) as any;
 
-      // declare const evt: EventTypes.OfferWriteEvent;
-      let next;
       let offer;
+      let removedOffer;
+      let next;
 
       const takerWants_bq = semibook.ba === "asks" ? "base" : "quote";
       const takerGives_bq = semibook.ba === "asks" ? "quote" : "base";
 
       switch (evt.name) {
         case "OfferWrite":
+          // We ignore the return value here because the offer may have been outside the local
+          // cache, but may now enter the local cache due to its new price.
           removeOffer(semibook, evt.args.id.toNumber());
 
+          /* After removing the offer (a noop if the offer was not in local cache),
+             we reinsert it.
+
+             * The offer comes with id of its prev. If prev does not exist in cache, we skip
+             the event. Note that we still want to remove the offer from the cache.
+             * If the prev exists, we take the prev's next as the offer's next. Whether that next exists in the cache or not is irrelevant.
+          */
           try {
-            next = BigNumber.from(getNext(semibook, evt.args.prev.toNumber()));
+            next = getNext(semibook, evt.args.prev.toNumber());
           } catch (e) {
-            // next was not found, we are outside local OB copy. skip.
+            // offer.prev was not found, we are outside local OB copy. skip.
+            break;
           }
 
           offer = this.#toOfferObject(semibook.ba, {
             ...evt.args,
             ...semibook.gasbase,
-            next,
+            next: BigNumber.from(next),
           });
 
           insertOffer(semibook, evt.args.id.toNumber(), offer);
@@ -665,43 +676,54 @@ export class Market {
           break;
 
         case "OfferFail":
-          this.defaultCallback(
-            {
-              type: evt.name,
-              ba: semibook.ba,
-              taker: evt.args.taker,
-              offer: removeOffer(semibook, evt.args.id.toNumber()),
-              takerWants: this[takerWants_bq].fromUnits(evt.args.takerWants),
-              takerGives: this[takerGives_bq].fromUnits(evt.args.takerGives),
-              mgvData: evt.args.mgvData,
-            },
-            semibook
-          );
+          removedOffer = removeOffer(semibook, evt.args.id.toNumber());
+          // Don't trigger an event about an offer outside of the local cache
+          if (removedOffer) {
+            this.defaultCallback(
+              {
+                type: evt.name,
+                ba: semibook.ba,
+                taker: evt.args.taker,
+                offer: removedOffer,
+                takerWants: this[takerWants_bq].fromUnits(evt.args.takerWants),
+                takerGives: this[takerGives_bq].fromUnits(evt.args.takerGives),
+                mgvData: evt.args.mgvData,
+              },
+              semibook
+            );
+          }
           break;
 
         case "OfferSuccess":
-          this.defaultCallback(
-            {
-              type: evt.name,
-              ba: semibook.ba,
-              taker: evt.args.taker,
-              offer: removeOffer(semibook, evt.args.id.toNumber()),
-              takerWants: this[takerWants_bq].fromUnits(evt.args.takerWants),
-              takerGives: this[takerGives_bq].fromUnits(evt.args.takerGives),
-            },
-            semibook
-          );
+          removedOffer = removeOffer(semibook, evt.args.id.toNumber());
+          if (removedOffer) {
+            this.defaultCallback(
+              {
+                type: evt.name,
+                ba: semibook.ba,
+                taker: evt.args.taker,
+                offer: removedOffer,
+                takerWants: this[takerWants_bq].fromUnits(evt.args.takerWants),
+                takerGives: this[takerGives_bq].fromUnits(evt.args.takerGives),
+              },
+              semibook
+            );
+          }
           break;
 
         case "OfferRetract":
-          this.defaultCallback(
-            {
-              type: evt.name,
-              ba: semibook.ba,
-              offer: removeOffer(semibook, evt.args.id.toNumber()),
-            },
-            semibook
-          );
+          removedOffer = removeOffer(semibook, evt.args.id.toNumber());
+          // Don't trigger an event about an offer outside of the local cache
+          if (removedOffer) {
+            this.defaultCallback(
+              {
+                type: evt.name,
+                ba: semibook.ba,
+                offer: removedOffer,
+              },
+              semibook
+            );
+          }
           break;
 
         case "SetGasbase":
@@ -718,7 +740,9 @@ export class Market {
   async estimateGas(bs: "buy" | "sell", volume: BigNumber): Promise<BigNumber> {
     const rawConfig = await this.rawConfig();
     const ba = bs === "buy" ? "asks" : "bids";
-    const estimation = volume.div(rawConfig[ba].local.density);
+    const estimation = rawConfig[ba].local.overhead_gasbase.add(
+      volume.div(rawConfig[ba].local.density)
+    );
     if (estimation.gt(MAX_MARKET_ORDER_GAS)) {
       return BigNumber.from(MAX_MARKET_ORDER_GAS);
     } else {
@@ -743,7 +767,7 @@ export class Market {
     given: Bigish;
     what: "base" | "quote";
     to: "buy" | "sell";
-  }) {
+  }): { estimatedVolume: Big; givenResidue: Big } {
     const dict = {
       base: {
         buy: { offers: "asks", drainer: "gives", filler: "wants" },
@@ -768,21 +792,33 @@ export class Market {
       filling = filling.plus(filler);
       if (draining.eq(0)) break;
     }
-    return filling;
+    return { estimatedVolume: filling, givenResidue: draining };
   }
+  /* remove an offer from a {offerMap,bestOffer} pair and keep the structure in a coherent state */
 }
 
+// remove offer id from book and connect its prev/next.
+// return null if offer was not found in book
 const removeOffer = (semibook: semibook, id: number) => {
   const ofr = semibook.offers.get(id);
   if (ofr) {
+    // we differentiate prev==0 (offer is best)
+    // from offers[prev] does not exist (we're outside of the local cache)
     if (ofr.prev === 0) {
       semibook.best = ofr.next;
     } else {
-      semibook.offers.get(ofr.prev).next = ofr.next;
+      const prevOffer = semibook.offers.get(ofr.prev);
+      if (prevOffer) {
+        prevOffer.next = ofr.next;
+      }
     }
 
-    if (ofr.next !== 0) {
-      semibook.offers.get(ofr.next).prev = ofr.prev;
+    // checking that nextOffers exists takes care of
+    // 1. ofr.next==0, i.e. we're at the end of the book
+    // 2. offers[ofr.next] does not exist, i.e. we're at the end of the local cache
+    const nextOffer = semibook.offers.get(ofr.next);
+    if (nextOffer) {
+      nextOffer.prev = ofr.prev;
     }
 
     semibook.offers.delete(id);
@@ -790,6 +826,7 @@ const removeOffer = (semibook: semibook, id: number) => {
   } else {
     return null;
   }
+  /* Insert an offer in a {offerMap,bestOffer} semibook and keep the structure in a coherent state */
 };
 
 // Assumes ofr.prev and ofr.next are present in local OB copy.
@@ -807,21 +844,24 @@ const insertOffer = (semibook: semibook, id: number, ofr: Offer) => {
   }
 };
 
-const getNext = ({ offers, best }: semibook, prev: number) => {
-  if (prev === 0) {
+// return id of offer next to offerId, according to cache.
+// note that offers[offers[offerId].next] may be not exist!
+// throws if offerId is not found
+const getNext = ({ offers, best }: semibook, offerId: number) => {
+  if (offerId === 0) {
     return best;
   } else {
-    if (!offers.get(prev)) {
+    if (!offers.get(offerId)) {
       throw Error(
         "Trying to get next of an offer absent from local orderbook copy"
       );
     } else {
-      return offers.get(prev).next;
+      return offers.get(offerId).next;
     }
   }
 };
 
-// May stop before endofbook if we only have a prefix
+/* Turn {bestOffer,offerMap} into an offer array */
 const mapToArray = (best: number, offers: Map<number, Offer>) => {
   const ary = [];
 

@@ -308,8 +308,8 @@ describe("Deploy strategies", function () {
 
     mgv = await lc.deployMangrove();
     await lc.activateMarket(mgv, dai.address, wEth.address);
-    let cfg = await mgv.config(dai.address, wEth.address);
-    assert(cfg.local.active, "Market is inactive");
+    let [, local] = await mgv.reader.config(dai.address, wEth.address);
+    assert(local.active, "Market is inactive");
   });
 
   it("Pure lender strat on compound", async function () {

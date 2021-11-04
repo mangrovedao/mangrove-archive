@@ -61,7 +61,7 @@ export class Mangrove {
       options = { provider: options };
     }
 
-    const signer = eth._createSigner(options);
+    const signer = eth._createSigner(options); // returns a provider equipped signer
     const network = await eth.getProviderNetwork(signer.provider);
     canConstructMangrove = true;
     const mgv = new Mangrove({
@@ -124,7 +124,7 @@ export class Mangrove {
   }
 
   /* Return MgvToken instance tied to mangrove object. */
-  token(name: string) {
+  token(name: string): MgvToken {
     return new MgvToken(name, this);
   }
 
@@ -196,7 +196,7 @@ export class Mangrove {
    *  mgv.fromUnits("1e19",18) // 10
    *  ```
    */
-  fromUnits(amount: Bigish | ethers.BigNumber, extra: string | number) {
+  fromUnits(amount: Bigish | ethers.BigNumber, extra: string | number): Big {
     let decimals;
     if (typeof extra === "number") {
       decimals = extra;
@@ -214,7 +214,7 @@ export class Mangrove {
    */
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   async config(): Promise<globalConfig> {
-    const config = await this.contract.config(
+    const config = await this.readerContract.config(
       ethers.constants.AddressZero,
       ethers.constants.AddressZero
     );
