@@ -19,15 +19,13 @@ import { MgvReader, Mangrove } from "./typechain";
 export type { Signer, Provider };
 
 export namespace BookReturns {
-  type _bookReturns = Awaited<ReturnType<MgvReader["functions"]["book"]>>;
+  type _bookReturns = Awaited<ReturnType<MgvReader["functions"]["offerList"]>>;
   export type indices = _bookReturns[1];
   export type offers = _bookReturns[2];
   export type details = _bookReturns[3];
 }
 
-export type rawConfig = Awaited<
-  ReturnType<Mangrove["functions"]["config"]>
->["ret"];
+export type rawConfig = Awaited<ReturnType<MgvReader["functions"]["config"]>>;
 
 export type localConfig = {
   active: boolean;
@@ -124,9 +122,9 @@ export interface CreateSignerOptions {
   provider?: Provider | string;
   privateKey?: string;
   mnemonic?: string;
+  path?: string;
   signer?: any;
   signerIndex?: number;
-  path?: string;
 }
 
 export interface Connection {

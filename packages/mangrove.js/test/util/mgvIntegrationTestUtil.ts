@@ -90,21 +90,15 @@ export enum AccountName {
   Maker = "maker", // Owner of TestMaker contract
   Cleaner = "cleaner", // Owner of cleaner EOA
 }
-const accounts = new Map<AccountName, Account>();
 
 export const getAccount = async (name: AccountName): Promise<Account> => {
-  let account = accounts.get(name);
-  if (!account) {
-    const signer = await hardhatEthers.getNamedSigner(name);
-    account = {
-      name: name,
-      address: signer.address,
-      signer: signer,
-      connectedContracts: await getContracts(signer),
-    };
-    accounts.set(name, account);
-  }
-  return account;
+  const signer = await hardhatEthers.getNamedSigner(name);
+  return {
+    name: name,
+    address: signer.address,
+    signer: signer,
+    connectedContracts: await getContracts(signer),
+  };
 };
 
 export const getAccountBalances = async (

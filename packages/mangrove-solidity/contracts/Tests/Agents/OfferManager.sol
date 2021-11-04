@@ -5,6 +5,7 @@ pragma abicoder v2;
 import "../../AbstractMangrove.sol";
 //import "../../MgvLib.sol";
 import {IERC20, IMaker, ITaker, MgvLib as ML, HasMgvEvents, IMgvMonitor} from "../../MgvLib.sol";
+import {MgvPack as MP} from "../../MgvPack.sol";
 import "hardhat/console.sol";
 
 contract OfferManager is IMaker, ITaker {
@@ -141,9 +142,10 @@ contract OfferManager is IMaker, ITaker {
       } else {
         _MGV = mgv;
       }
-      ML.Config memory config = _MGV.config(base, quote);
+      (bytes32 config, ) = _MGV.config(base, quote);
       require(
-        msg.value >= gas_to_execute * uint(config.global.gasprice) * 10**9,
+        msg.value >=
+          gas_to_execute * uint(MP.global_unpack_gasprice(config)) * 10**9,
         "Insufficent funds to delegate order"
       ); //not checking overflow issues
       (bool success, ) = address(_MGV).call{value: msg.value}("");
