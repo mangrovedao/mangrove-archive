@@ -38,15 +38,6 @@ module.exports = async () => {
   const Usdc = await withAddress(makeToken("USDC", "USDC", 6));
   const Weth = await withAddress(makeToken("WETH", "WETH", 18));
 
-  const testMaker = await withAddress({
-    name: "TestMaker",
-    token: false,
-    options: {
-      from: deployer,
-      args: [mangrove.address, tokenA.address, tokenB.address],
-    },
-  });
-
   const mgvReader = await withAddress({
     name: "MgvReader",
     token: false,
@@ -79,6 +70,7 @@ module.exports = async () => {
 
   const testMaker = await withAddress({
     name: "TestMaker",
+    token: false,
     options: {
       from: maker,
       args: [mangrove.address, tokenA.address, tokenB.address],

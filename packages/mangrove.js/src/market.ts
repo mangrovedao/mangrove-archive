@@ -462,7 +462,7 @@ export class Market {
       offers = [],
       details = [];
 
-    const blockNum = await mgv._provider.getBlockNumber(); //stay consistent
+    const blockNum = await this.mgv._provider.getBlockNumber(); //stay consistent
     await this.mgv.readerContract.config(this.mgv._address, this.mgv._address);
     do {
       const [_nextId, _offerIds, _offers, _details] =
