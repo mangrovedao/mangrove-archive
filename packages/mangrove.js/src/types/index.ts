@@ -122,8 +122,9 @@ export interface CreateSignerOptions {
   provider?: Provider | string;
   privateKey?: string;
   mnemonic?: string;
-  signerIndex?: number;
   path?: string;
+  signer?: any;
+  signerIndex?: number;
 }
 
 export interface Connection {
