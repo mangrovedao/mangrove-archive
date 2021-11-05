@@ -601,7 +601,7 @@ export class Market {
   }
 
   defaultCallback(evt: bookSubscriptionCbArgument, semibook: semibook): void {
-    this._book[semibook.ba] = mapToArray(semibook.best, semibook.offers);
+    this.#updateBook(semibook);
     for (const [cb, params] of this.#subscriptions) {
       if (params.type === "once") {
         this.#subscriptions.delete(cb);
@@ -610,6 +610,10 @@ export class Market {
         cb(evt);
       }
     }
+  }
+
+  #updateBook(semibook: semibook): void {
+    this._book[semibook.ba] = mapToArray(semibook.best, semibook.offers);
   }
 
   #createBookEventCallback(
@@ -629,7 +633,7 @@ export class Market {
     return async (event) => {
       // Initialize by reading a prefix of the offer list on the first callback
       if (firstBlockNumber === undefined) {
-        firstBlockNumber = event.blockNumber;
+        firstBlockNumber = event.blockNumber - 1;
 
         const rawOffers = await this.rawBook(
           inboundTkn.address,
@@ -649,17 +653,20 @@ export class Market {
           ...this.rawToMap(ba, ...rawOffers),
         };
 
+        this.#updateBook(semibook);
+        this.#handleBookEvent(semibook, event);
+
         // Signal any queued events
         inilizationCompleteCallback(semibook);
-        return;
+      } else {
+        // Subsequent callbacks must ensure initialization has completed
+        const semibook = await initializationPromise;
+        // If event is from firstBlockNumber (or before), ignore it as it will be included in the initially read offer list
+        if (event.blockNumber <= firstBlockNumber) {
+          return;
+        }
+        this.#handleBookEvent(semibook, event);
       }
-      // Subsequent callbacks must ensure initialization has completed
-      const semibook = await initializationPromise;
-      // If event is from firstBlockNumber (or before), ignore it as it will be included in the initially read offer list
-      if (event.blockNumber <= firstBlockNumber) {
-        return;
-      }
-      this.#handleBookEvent(semibook, event);
     };
   }
 
