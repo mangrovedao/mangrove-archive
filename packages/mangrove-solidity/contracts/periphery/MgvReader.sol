@@ -1,15 +1,55 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier:	AGPL-3.0
+
+// MgvReader.sol
+
+// Copyright (C) 2021 Giry SAS.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 pragma solidity ^0.7.6;
 pragma abicoder v2;
 import {MgvLib as ML} from "../MgvLib.sol";
 import {MgvPack as MP} from "../MgvPack.sol";
-import {Mangrove} from "../Mangrove.sol";
+
+interface MangroveLike {
+  function best(address, address) external view returns (uint);
+
+  function offers(
+    address,
+    address,
+    uint
+  ) external view returns (bytes32);
+
+  function offerDetails(
+    address,
+    address,
+    uint
+  ) external view returns (bytes32);
+
+  function offerInfo(
+    address,
+    address,
+    uint
+  ) external view returns (ML.Offer memory, ML.OfferDetail memory);
+
+  function config(address, address) external view returns (bytes32, bytes32);
+}
 
 contract MgvReader {
-  Mangrove immutable mgv;
+  MangroveLike immutable mgv;
 
   constructor(address _mgv) {
-    mgv = Mangrove(payable(_mgv));
+    mgv = MangroveLike(payable(_mgv));
   }
 
   /*

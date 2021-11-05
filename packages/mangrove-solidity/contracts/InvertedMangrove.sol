@@ -1,9 +1,27 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier:	AGPL-3.0
+
+// InvertedMangrove.sol
+
+// Copyright (C) 2021 Giry SAS.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import {ITaker, MgvLib as ML} from "./MgvLib.sol";
 
 import {AbstractMangrove} from "./AbstractMangrove.sol";
+import {MgvPack as MP} from "./MgvPack.sol";
 
 /* <a id="InvertedMangrove"></a> The `InvertedMangrove` contract implements the "inverted" version of Mangrove, where each maker loans money to the taker. The taker is then called, and finally each maker is sent its payment and called again (with the orderbook unlocked). */
 contract InvertedMangrove is AbstractMangrove {
@@ -48,7 +66,7 @@ So :
     if (
       !transferToken(
         sor.inbound_tkn,
-        $$(offerDetail_maker("sor.offerDetail")),
+        MP.offerDetail_unpack_maker(sor.offerDetail),
         sor.gives
       )
     ) {

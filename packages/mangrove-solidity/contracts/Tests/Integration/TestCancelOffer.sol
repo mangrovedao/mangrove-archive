@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier:	AGPL-3.0
 pragma solidity ^0.7.0;
 import "../Toolbox/TestUtils.sol";
 
@@ -20,13 +20,12 @@ library TestCancelOffer {
       TestEvents.eq(reason, "mgv/cancelOffer/unauthorized", "Unexpected throw");
       try maker.retractOfferWithDeprovision(offerId) {
         maker.retractOfferWithDeprovision(0);
-        uint provisioned =
-          TestUtils.getProvision(
-            mgv,
-            address(base),
-            address(quote),
-            offers[offerId][TestUtils.Info.gasreq]
-          );
+        uint provisioned = TestUtils.getProvision(
+          mgv,
+          address(base),
+          address(quote),
+          offers[offerId][TestUtils.Info.gasreq]
+        );
         TestEvents.eq(
           mgv.balanceOf(address(maker)),
           balances.makersBalanceWei[offerId] + provisioned,

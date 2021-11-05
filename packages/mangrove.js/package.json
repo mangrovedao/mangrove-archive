@@ -32,6 +32,7 @@
     "LICENSE",
     "README.md"
   ],
+  "types": "dist/nodesjs/index.d.ts",
   "repository": {
     "type": "git",
     "url": "https://github.com/giry-dev/mangrove.git"

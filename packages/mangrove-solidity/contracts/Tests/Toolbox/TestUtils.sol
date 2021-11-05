@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Unlicense
 pragma solidity ^0.7.0;
 // Encode structs
 pragma abicoder v2;

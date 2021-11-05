@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier:	AGPL-3.0
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 
@@ -51,9 +51,9 @@ library TestSnipe {
       "Incorrect takerGot"
     );
     {
-      uint shouldGive =
-        (orderAmount * offers[snipedId][TestUtils.Info.makerWants]) /
-          offers[snipedId][TestUtils.Info.makerGives];
+      uint shouldGive = (orderAmount *
+        offers[snipedId][TestUtils.Info.makerWants]) /
+        offers[snipedId][TestUtils.Info.makerGives];
       TestEvents.eq(
         quote.balanceOf(address(taker)),
         balances.takerBalanceB - shouldGive,
@@ -74,8 +74,11 @@ library TestSnipe {
       "incorrect maker B balance"
     );
     // Testing residual offer
-    (ML.Offer memory ofr, ) =
-      mgv.offerInfo(address(base), address(quote), snipedId);
+    (ML.Offer memory ofr, ) = mgv.offerInfo(
+      address(base),
+      address(quote),
+      snipedId
+    );
     TestEvents.check(ofr.gives == 0, "Offer should not have a residual");
   }
 }

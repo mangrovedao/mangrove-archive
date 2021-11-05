@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier:	AGPL-3.0
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import "../Toolbox/TestUtils.sol";
@@ -33,16 +33,14 @@ library TestCollectFailingOffer {
           "Failing offer should have been removed from Mgv"
         );
       }
-      uint provision =
-        TestUtils.getProvision(
-          mgv,
-          address(base),
-          address(quote),
-          offers[failingOfferId][TestUtils.Info.gasreq]
-        );
-      uint returned =
-        mgv.balanceOf(address(makers.getMaker(0))) -
-          balances.makersBalanceWei[0];
+      uint provision = TestUtils.getProvision(
+        mgv,
+        address(base),
+        address(quote),
+        offers[failingOfferId][TestUtils.Info.gasreq]
+      );
+      uint returned = mgv.balanceOf(address(makers.getMaker(0))) -
+        balances.makersBalanceWei[0];
       TestEvents.eq(
         address(mgv).balance,
         balances.mgvBalanceWei - (provision - returned),

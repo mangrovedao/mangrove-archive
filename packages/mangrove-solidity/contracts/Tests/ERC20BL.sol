@@ -5,7 +5,7 @@ pragma solidity ^0.7.0;
 import "./SafeMath.sol";
 import {IERC20} from "../MgvLib.sol";
 
-// From OpenZeppelin
+// From OpenZeppelin & Giry
 //The MIT License (MIT)
 
 //Copyright (c) 2016-2020 zOS Global Limited
