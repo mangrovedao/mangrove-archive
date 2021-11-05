@@ -18,9 +18,11 @@ config.hardhat = {
       gasPrice: 30 * 10 ** 9,
       gasMultiplier: 1,
       blockGasLimit: 12000000,
+      // add a node url in mangrove-solidity/.env.local
       url: process.env["MUMBAI_NODE_URL"] || "",
       chainId: 80001,
       accounts: {
+        // add a mnemonic in mangrove-solidity/.env.local
         mnemonic: process.env["MUMBAI_MNEMONIC"] || "",
       },
     },
