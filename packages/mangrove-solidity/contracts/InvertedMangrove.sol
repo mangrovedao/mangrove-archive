@@ -1,4 +1,4 @@
-// SPDX-License-Identifier:	AGPL-3.0-only
+// SPDX-License-Identifier:	AGPL-3.0
 
 // InvertedMangrove.sol
 
@@ -21,6 +21,7 @@ pragma abicoder v2;
 import {ITaker, MgvLib as ML} from "./MgvLib.sol";
 
 import {AbstractMangrove} from "./AbstractMangrove.sol";
+import {MgvPack as MP} from "./MgvPack.sol";
 
 /* <a id="InvertedMangrove"></a> The `InvertedMangrove` contract implements the "inverted" version of Mangrove, where each maker loans money to the taker. The taker is then called, and finally each maker is sent its payment and called again (with the orderbook unlocked). */
 contract InvertedMangrove is AbstractMangrove {
@@ -65,7 +66,7 @@ So :
     if (
       !transferToken(
         sor.inbound_tkn,
-        $$(offerDetail_maker("sor.offerDetail")),
+        MP.offerDetail_unpack_maker(sor.offerDetail),
         sor.gives
       )
     ) {

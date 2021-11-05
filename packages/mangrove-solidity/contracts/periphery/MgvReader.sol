@@ -1,4 +1,4 @@
-// SPDX-License-Identifier:	AGPL-3.0-only
+// SPDX-License-Identifier:	AGPL-3.0
 
 // MgvReader.sol
 
@@ -20,13 +20,36 @@ pragma solidity ^0.7.6;
 pragma abicoder v2;
 import {MgvLib as ML} from "../MgvLib.sol";
 import {MgvPack as MP} from "../MgvPack.sol";
-import {Mangrove} from "../Mangrove.sol";
+
+interface MangroveLike {
+  function best(address, address) external view returns (uint);
+
+  function offers(
+    address,
+    address,
+    uint
+  ) external view returns (bytes32);
+
+  function offerDetails(
+    address,
+    address,
+    uint
+  ) external view returns (bytes32);
+
+  function offerInfo(
+    address,
+    address,
+    uint
+  ) external view returns (ML.Offer memory, ML.OfferDetail memory);
+
+  function config(address, address) external view returns (bytes32, bytes32);
+}
 
 contract MgvReader {
-  Mangrove immutable mgv;
+  MangroveLike immutable mgv;
 
   constructor(address _mgv) {
-    mgv = Mangrove(payable(_mgv));
+    mgv = MangroveLike(payable(_mgv));
   }
 
   /*
