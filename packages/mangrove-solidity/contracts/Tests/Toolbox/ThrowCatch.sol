@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Unlicense
 
 // We can't even encode storage references without the experimental encoder
 pragma abicoder v2;

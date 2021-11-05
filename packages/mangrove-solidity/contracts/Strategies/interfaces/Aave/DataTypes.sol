@@ -1,4 +1,16 @@
 // SPDX-License-Identifier: agpl-3.0
+// Copyright (C) 2020 Aave
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// [GNU Affero General Public License](https://www.gnu.org/licenses/agpl-3.0.en.html)
+//for more details
 pragma solidity >=0.6.12;
 
 library DataTypes {
@@ -38,15 +50,18 @@ library DataTypes {
     //bit 59: stable rate borrowing enabled
     //bit 60-63: reserved
     //bit 64-79: reserve factor
-    uint256 data;
+    uint data;
   }
 
   struct UserConfigurationMap {
-    uint256 data;
+    uint data;
   }
 
-  enum InterestRateMode {NONE, STABLE, VARIABLE}
-
+  enum InterestRateMode {
+    NONE,
+    STABLE,
+    VARIABLE
+  }
 
   uint256 constant LTV_MASK =                   0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000; // prettier-ignore
   uint256 constant LIQUIDATION_THRESHOLD_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000FFFF; // prettier-ignore
@@ -59,43 +74,43 @@ library DataTypes {
   uint256 constant RESERVE_FACTOR_MASK =        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000FFFFFFFFFFFFFFFF; // prettier-ignore
 
   /// @dev For the LTV, the start bit is 0 (up to 15), hence no bitshifting is needed
-  uint256 constant LIQUIDATION_THRESHOLD_START_BIT_POSITION = 16;
-  uint256 constant LIQUIDATION_BONUS_START_BIT_POSITION = 32;
-  uint256 constant RESERVE_DECIMALS_START_BIT_POSITION = 48;
-  uint256 constant IS_ACTIVE_START_BIT_POSITION = 56;
-  uint256 constant IS_FROZEN_START_BIT_POSITION = 57;
-  uint256 constant BORROWING_ENABLED_START_BIT_POSITION = 58;
-  uint256 constant STABLE_BORROWING_ENABLED_START_BIT_POSITION = 59;
-  uint256 constant RESERVE_FACTOR_START_BIT_POSITION = 64;
+  uint constant LIQUIDATION_THRESHOLD_START_BIT_POSITION = 16;
+  uint constant LIQUIDATION_BONUS_START_BIT_POSITION = 32;
+  uint constant RESERVE_DECIMALS_START_BIT_POSITION = 48;
+  uint constant IS_ACTIVE_START_BIT_POSITION = 56;
+  uint constant IS_FROZEN_START_BIT_POSITION = 57;
+  uint constant BORROWING_ENABLED_START_BIT_POSITION = 58;
+  uint constant STABLE_BORROWING_ENABLED_START_BIT_POSITION = 59;
+  uint constant RESERVE_FACTOR_START_BIT_POSITION = 64;
 
   function getParams(ReserveConfigurationMap memory configMap)
     internal
     view
     returns (
-      uint256,
-      uint256,
-      uint256,
-      uint256,
-      uint256
+      uint,
+      uint,
+      uint,
+      uint,
+      uint
     )
   {
-    uint256 dataLocal = configMap.data;
+    uint dataLocal = configMap.data;
     return (
       dataLocal & ~LTV_MASK,
-      (dataLocal & ~LIQUIDATION_THRESHOLD_MASK) >> LIQUIDATION_THRESHOLD_START_BIT_POSITION,
-      (dataLocal & ~LIQUIDATION_BONUS_MASK) >> LIQUIDATION_BONUS_START_BIT_POSITION,
+      (dataLocal & ~LIQUIDATION_THRESHOLD_MASK) >>
+        LIQUIDATION_THRESHOLD_START_BIT_POSITION,
+      (dataLocal & ~LIQUIDATION_BONUS_MASK) >>
+        LIQUIDATION_BONUS_START_BIT_POSITION,
       (dataLocal & ~DECIMALS_MASK) >> RESERVE_DECIMALS_START_BIT_POSITION,
       (dataLocal & ~RESERVE_FACTOR_MASK) >> RESERVE_FACTOR_START_BIT_POSITION
     );
   }
 
-
   function isUsingAsCollateral(
     DataTypes.UserConfigurationMap memory configMap,
-    uint256 reserveIndex
+    uint reserveIndex
   ) internal pure returns (bool) {
     require(reserveIndex < 128, "Invalid index");
     return (configMap.data >> (reserveIndex * 2 + 1)) & 1 != 0;
   }
-
 }
