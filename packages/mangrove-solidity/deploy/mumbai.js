@@ -15,4 +15,4 @@ module.exports = async (hre) => {
   });
 };
 
-module.exports.tags = ["mumbai1"];
+module.exports.tags = ["mumbai"];
