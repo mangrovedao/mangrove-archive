@@ -5,6 +5,15 @@ var defer = require("config/defer").deferConfig;
 
 ///////////////////////////
 // Hardhat configuration //
+/* to test deployments, make the hardhat network emulate another network & reuse 
+   the deployment addresses in `accounts` so they are funded:
+   hardaht {
+     ...
+      chainId: 80001,
+      accounts: [{privateKey: process.env["MUMBAI_DEPLOYER_PRIVATE_KEY"] || "", balance: "10000000000000000000000"}]
+   }
+*/
+
 config.hardhat = {
   defaultNetwork: "hardhat",
   networks: {
