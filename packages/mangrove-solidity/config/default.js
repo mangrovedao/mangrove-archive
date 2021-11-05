@@ -21,10 +21,7 @@ config.hardhat = {
       // add a node url in mangrove-solidity/.env.local
       url: process.env["MUMBAI_NODE_URL"] || "",
       chainId: 80001,
-      accounts: {
-        // add a mnemonic in mangrove-solidity/.env.local
-        mnemonic: process.env["MUMBAI_MNEMONIC"] || "",
-      },
+      accounts: [process.env["MUMBAI_DEPLOYER_PRIVATE_KEY"] || ""],
     },
     localhost: {
       url: "http://127.0.0.1:8545",
