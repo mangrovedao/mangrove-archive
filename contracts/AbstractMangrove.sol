@@ -31,8 +31,12 @@ abstract contract AbstractMangrove is
   MgvOfferMaking
 {
   constructor(
+    address governance,
     uint gasprice,
     uint gasmax,
     string memory contractName
-  ) MgvOfferTakingWithPermit(contractName) MgvGovernable(gasprice, gasmax) {}
+  )
+    MgvOfferTakingWithPermit(contractName)
+    MgvGovernable(governance, gasprice, gasmax)
+  {}
 }

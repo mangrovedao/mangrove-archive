@@ -25,23 +25,30 @@ contract MgvGovernable is MgvRoot {
   /* The `governance` address. Governance is the only address that can configure parameters. */
   address public governance;
 
-  constructor(uint _gasprice, uint gasmax) MgvRoot() {
+  constructor(
+    address _governance,
+    uint _gasprice,
+    uint gasmax
+  ) MgvRoot() {
     emit NewMgv();
 
-    /* Initialize governance. */
-    _setGovernance(msg.sender);
+    /* Initially, governance is open to anyone. */
 
-    /* Initialize vault to sender's address, and set initial gasprice and gasmax. */
-    setVault(msg.sender);
+    /* Initialize vault to governance address, and set initial gasprice and gasmax. */
+    setVault(_governance);
     setGasprice(_gasprice);
     setGasmax(gasmax);
+    /* Initialize governance to `_governance` after parameter setting. */
+    setGovernance(_governance);
   }
 
   /* ## `authOnly` check */
 
   function authOnly() internal view {
     require(
-      msg.sender == governance || msg.sender == address(this),
+      msg.sender == governance ||
+        msg.sender == address(this) ||
+        governance == address(0),
       "mgv/unauthorized"
     );
   }
@@ -165,13 +172,8 @@ contract MgvGovernable is MgvRoot {
   }
 
   /* ### `governance` */
-  /* Since this is called from the constructor before gov has been set, the setter must be split between an internal and an external function. */
-  function setGovernance(address governanceAddress) external {
+  function setGovernance(address governanceAddress) public {
     authOnly();
-    _setGovernance(governanceAddress);
-  }
-
-  function _setGovernance(address governanceAddress) internal {
     governance = governanceAddress;
     emit SetGovernance(governanceAddress);
   }
