@@ -16,7 +16,6 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import {IMaker, HasMgvEvents} from "./MgvLib.sol";
@@ -122,7 +121,7 @@ contract MgvOfferMaking is MgvHasOffers {
     uint gasprice,
     uint pivotId,
     uint offerId
-  ) external returns (uint) {
+  ) external {
     OfferPack memory ofp;
     (ofp.global, ofp.local) = config(outbound_tkn, inbound_tkn);
     unlockedMarketOnly(ofp.local);
@@ -144,7 +143,6 @@ contract MgvOfferMaking is MgvHasOffers {
     if (oldLocal != ofp.local) {
       locals[ofp.outbound_tkn][ofp.inbound_tkn] = ofp.local;
     }
-    return ofp.id;
   }
 
   /* ## Retract Offer */
@@ -155,7 +153,7 @@ contract MgvOfferMaking is MgvHasOffers {
     address inbound_tkn,
     uint offerId,
     bool deprovision
-  ) external {
+  ) external returns (uint provision) {
     (, bytes32 local) = config(outbound_tkn, inbound_tkn);
     unlockedMarketOnly(local);
     bytes32 offer = offers[outbound_tkn][inbound_tkn][offerId];
@@ -185,7 +183,7 @@ contract MgvOfferMaking is MgvHasOffers {
 
     /* If the user wants to get their provision back, we compute its provision from the offer's `gasprice`, `*_gasbase` and `gasreq`. */
     if (deprovision) {
-      uint provision = 10**9 *
+      provision = 10**9 *
         $$(offer_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
         ($$(offerDetail_gasreq("offerDetail")) +
           $$(offerDetail_overhead_gasbase("offerDetail")) +
