@@ -19,7 +19,7 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {IMaker, MgvEvents} from "./MgvLib.sol";
+import {IMaker, HasMgvEvents} from "./MgvLib.sol";
 import {MgvHasOffers} from "./MgvHasOffers.sol";
 
 /* `MgvOfferMaking` contains market-making-related functions. */
@@ -193,7 +193,7 @@ contract MgvOfferMaking is MgvHasOffers {
       // credit `balanceOf` and log transfer
       creditWei(msg.sender, provision);
     }
-    emit MgvEvents.RetractOffer(base, quote, offerId);
+    emit OfferRetract(base, quote, offerId);
   }
 
   /* ## Provisioning
@@ -262,7 +262,7 @@ contract MgvOfferMaking is MgvHasOffers {
     require(uint96(ofp.wants) == ofp.wants, "mgv/writeOffer/wants/96bits");
 
     /* Log the write offer event. */
-    emit MgvEvents.WriteOffer(
+    emit OfferWrite(
       ofp.base,
       ofp.quote,
       msg.sender,

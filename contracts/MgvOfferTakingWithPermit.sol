@@ -19,7 +19,7 @@
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {MgvEvents} from "./MgvLib.sol";
+import {HasMgvEvents} from "./MgvLib.sol";
 
 import {MgvOfferTaking} from "./MgvOfferTaking.sol";
 
@@ -98,7 +98,7 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
     );
 
     allowances[base][quote][owner][spender] = value;
-    emit MgvEvents.Approval(base, quote, owner, spender, value);
+    emit Approval(base, quote, owner, spender, value);
   }
 
   function approve(
@@ -108,7 +108,7 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
     uint value
   ) external returns (bool) {
     allowances[base][quote][msg.sender][spender] = value;
-    emit MgvEvents.Approval(base, quote, msg.sender, spender, value);
+    emit Approval(base, quote, msg.sender, spender, value);
     return true;
   }
 

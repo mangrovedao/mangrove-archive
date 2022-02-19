@@ -18,7 +18,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {IERC20, MgvEvents, IMaker, IMgvMonitor, MgvLib as ML} from "./MgvLib.sol";
+import {IERC20, HasMgvEvents, IMaker, IMgvMonitor, MgvLib as ML} from "./MgvLib.sol";
 import {MgvHasOffers} from "./MgvHasOffers.sol";
 
 abstract contract MgvOfferTaking is MgvHasOffers {
@@ -466,7 +466,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       gasused = abi.decode(retdata, (uint));
       /* `StatusCode` indicates trade success */
       statusCode = bytes32("mgv/tradeSuccess");
-      emit MgvEvents.Success(
+      emit OfferSuccess(
         sor.base,
         sor.quote,
         sor.offerId,
@@ -497,7 +497,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       ) {
         mor.failCount += 1;
 
-        emit MgvEvents.MakerFail(
+        emit OfferFail(
           sor.base,
           sor.quote,
           sor.offerId,
@@ -659,12 +659,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     gasused = oldGas - gasleft();
 
     if (!callSuccess) {
-      emit MgvEvents.PosthookFail(
-        sor.base,
-        sor.quote,
-        sor.offerId,
-        postHookData
-      );
+      emit PosthookFail(sor.base, sor.quote, sor.offerId, postHookData);
     }
   }
 

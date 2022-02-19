@@ -87,7 +87,7 @@ library MgvLib {
 
 /* # Events
 The events emitted for use by bots are listed here: */
-library MgvEvents {
+contract HasMgvEvents {
   /* * Emitted at the creation of the new Mangrove contract on the pair (`quote`, `base`)*/
   event NewMgv();
 
@@ -116,22 +116,22 @@ library MgvEvents {
   event SetGasprice(uint value);
 
   /* * Offer execution */
-  event Success(
+  event OfferSuccess(
     address indexed base,
     address indexed quote,
-    uint offerId,
-    // maker's address is not logged because it can be retrieved from `WriteOffer` event using `offerId`.
+    uint id,
+    // `maker` is not logged because it can be retrieved from the state using `(base,quote,id)`.
     address taker,
     uint takerWants,
     uint takerGives
   );
 
   /* Log information when a trade execution reverts */
-  event MakerFail(
+  event OfferFail(
     address indexed base,
     address indexed quote,
-    uint offerId,
-    // maker's address is not logged because it can be retrieved from `WriteOffer` event using `offerId`.
+    uint id,
+    // `maker` is not logged because it can be retrieved from the state using `(base,quote,id)`.
     address taker,
     uint takerWants,
     uint takerGives,
@@ -161,19 +161,19 @@ library MgvEvents {
   event Kill();
 
   /* * An offer was created or updated. */
-  event WriteOffer(
+  event OfferWrite(
     address indexed base,
     address indexed quote,
     address maker,
-    uint makerWants,
-    uint makerGives,
+    uint wants,
+    uint gives,
     uint gasprice,
     uint gasreq,
-    uint offerId
+    uint id
   );
 
   /* * `offerId` was present and is now removed from the book. */
-  event RetractOffer(address indexed base, address indexed quote, uint offerId);
+  event OfferRetract(address indexed base, address indexed quote, uint id);
 }
 
 /* # IMaker interface */

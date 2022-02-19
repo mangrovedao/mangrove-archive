@@ -18,7 +18,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {MgvLib as ML, MgvEvents, IMgvMonitor} from "./MgvLib.sol";
+import {MgvLib as ML, HasMgvEvents, IMgvMonitor} from "./MgvLib.sol";
 import {MgvRoot} from "./MgvRoot.sol";
 
 /* `MgvHasOffers` contains the state variables and functions common to both market-maker operations and market-taker operations. Mostly: storing offers, removing them, updating market makers' provisions. */
@@ -81,12 +81,12 @@ contract MgvHasOffers is MgvRoot {
     uint makerBalance = balanceOf[maker];
     require(makerBalance >= amount, "mgv/insufficientProvision");
     balanceOf[maker] = makerBalance - amount;
-    emit MgvEvents.Debit(maker, amount);
+    emit Debit(maker, amount);
   }
 
   function creditWei(address maker, uint amount) internal {
     balanceOf[maker] += amount;
-    emit MgvEvents.Credit(maker, amount);
+    emit Credit(maker, amount);
   }
 
   /* # Misc. low-level functions */
