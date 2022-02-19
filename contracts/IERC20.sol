@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Unlicense
 
-// MgvPack.sol
+// IERC20.sol
 
 // This is free and unencumbered software released into the public domain.
 
@@ -11,42 +11,41 @@
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // For more information, please refer to <https://unlicense.org/>
-pragma solidity ^0.7.0;
 
-library MgvPack {
+/* `MgvLib` contains data structures returned by external calls to Mangrove and the interfaces it uses for its own external calls. */
 
-  // fields are of the form [name,bits,type]
+pragma solidity ^0.7.6;
+pragma abicoder v2;
 
-  // $for ns in structs
+interface IERC20 {
+  function totalSupply() external view returns (uint);
 
-  // $def sname ns[0]
-  // $def scontents ns[1]
-  /* $def arguments
-    join(map(scontents,(field) => `$${field[2]} __$${field[0]}`),', ')
-  */
+  function balanceOf(address account) external view returns (uint);
 
-  /* $def params
-     map(scontents, (field) => [field[0],`__$${field[0]}`])
-  */
+  function transfer(address recipient, uint amount) external returns (bool);
 
-  function $$(sname)_pack($$(arguments)) internal pure returns (bytes32) {
-    return $$(make(
-      scontents,
-      map(scontents, (field) =>
-    [field[0],`__$${field[0]}`])));
-  }
+  function allowance(address owner, address spender)
+    external
+    view
+    returns (uint);
 
-  function $$(sname)_unpack(bytes32 __packed) internal pure returns ($$(arguments)) {
-    // $for field in scontents
-    __$$(field[0]) = $$(get('__packed',scontents,field[0]));
-    // $done
-  }
+  function approve(address spender, uint amount) external returns (bool);
 
-  // $for field in scontents
-  function $$(sname)_unpack_$$(field[0])(bytes32 __packed) internal pure returns($$(field[2])) {
-    return $$(get('__packed',scontents,field[0]));
-  }
-  // $done
+  function transferFrom(
+    address sender,
+    address recipient,
+    uint amount
+  ) external returns (bool);
 
-  // $done
+  function symbol() external view returns (string memory);
+
+  event Transfer(address indexed from, address indexed to, uint value);
+  event Approval(address indexed owner, address indexed spender, uint value);
+
+  /// for wETH contract
+  function deposit() external payable;
+
+  function withdraw(uint) external;
+
+  function decimals() external view returns (uint8);
 }

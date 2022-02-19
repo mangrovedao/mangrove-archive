@@ -1,4 +1,21 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier:	AGPL-3.0
+
+// MgvOfferMaking.sol
+
+// Copyright (C) 2021 Giry SAS.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
@@ -168,12 +185,11 @@ contract MgvOfferMaking is MgvHasOffers {
 
     /* If the user wants to get their provision back, we compute its provision from the offer's `gasprice`, `*_gasbase` and `gasreq`. */
     if (deprovision) {
-      uint provision =
-        10**9 *
-          $$(offer_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
-          ($$(offerDetail_gasreq("offerDetail")) +
-            $$(offerDetail_overhead_gasbase("offerDetail")) +
-            $$(offerDetail_offer_gasbase("offerDetail")));
+      uint provision = 10**9 *
+        $$(offer_gasprice("offer")) * //gasprice is 0 if offer was deprovisioned
+        ($$(offerDetail_gasreq("offerDetail")) +
+          $$(offerDetail_overhead_gasbase("offerDetail")) +
+          $$(offerDetail_offer_gasbase("offerDetail")));
       // credit `balanceOf` and log transfer
       creditWei(msg.sender, provision);
     }
@@ -258,9 +274,7 @@ contract MgvOfferMaking is MgvHasOffers {
     );
 
     /* The position of the new or updated offer is found using `findPosition`. If the offer is the best one, `prev == 0`, and if it's the last in the book, `next == 0`.
-
        `findPosition` is only ever called here, but exists as a separate function to make the code easier to read.
-
     **Warning**: `findPosition` will call `better`, which may read the offer's `offerDetails`. So it is important to find the offer position _before_ we update its `offerDetail` in storage. We waste 1 (hot) read in that case but we deem that the code would get too ugly if we passed the old `offerDetail` as argument to `findPosition` and to `better`, just to save 1 hot read in that specific case.  */
     (uint prev, uint next) = findPosition(ofp);
 
@@ -307,12 +321,11 @@ contract MgvOfferMaking is MgvHasOffers {
 
     /* With every change to an offer, a maker may deduct provisions from its `balanceOf` balance. It may also get provisions back if the updated offer requires fewer provisions than before. */
     {
-      uint provision =
-        (ofp.gasreq +
-          $$(local_offer_gasbase("ofp.local")) +
-          $$(local_overhead_gasbase("ofp.local"))) *
-          ofp.gasprice *
-          10**9;
+      uint provision = (ofp.gasreq +
+        $$(local_offer_gasbase("ofp.local")) +
+        $$(local_overhead_gasbase("ofp.local"))) *
+        ofp.gasprice *
+        10**9;
       if (provision > oldProvision) {
         debitWei(msg.sender, provision - oldProvision);
       } else if (provision < oldProvision) {
@@ -354,18 +367,17 @@ contract MgvOfferMaking is MgvHasOffers {
     }
 
     /* With the `prev`/`next` in hand, we finally store the offer in the `offers` map. */
-    bytes32 ofr =
-      $$(
-        make_offer(
-          [
-            ["prev", "prev"],
-            ["next", "next"],
-            ["wants", "ofp.wants"],
-            ["gives", "ofp.gives"],
-            ["gasprice", "ofp.gasprice"]
-          ]
-        )
-      );
+    bytes32 ofr = $$(
+      make_offer(
+        [
+          ["prev", "prev"],
+          ["next", "next"],
+          ["wants", "ofp.wants"],
+          ["gives", "ofp.gives"],
+          ["gasprice", "ofp.gasprice"]
+        ]
+      )
+    );
     offers[ofp.base][ofp.quote][ofp.id] = ofr;
   }
 
@@ -382,8 +394,9 @@ contract MgvOfferMaking is MgvHasOffers {
     uint nextId;
     uint pivotId = ofp.pivotId;
     /* Get `pivot`, optimizing for the case where pivot info is already known */
-    bytes32 pivot =
-      pivotId == ofp.id ? ofp.oldOffer : offers[ofp.base][ofp.quote][pivotId];
+    bytes32 pivot = pivotId == ofp.id
+      ? ofp.oldOffer
+      : offers[ofp.base][ofp.quote][pivotId];
 
     /* In case pivotId is not an active offer, it is unusable (since it is out of the book). We default to the current best offer. If the book is empty pivot will be 0. That is handled through a test in the `better` comparison function. */
     if (!isLive(pivot)) {
@@ -451,8 +464,9 @@ contract MgvOfferMaking is MgvHasOffers {
     uint weight1 = wants1 * gives2;
     uint weight2 = wants2 * gives1;
     if (weight1 == weight2) {
-      uint gasreq1 =
-        $$(offerDetail_gasreq("offerDetails[ofp.base][ofp.quote][offerId1]"));
+      uint gasreq1 = $$(
+        offerDetail_gasreq("offerDetails[ofp.base][ofp.quote][offerId1]")
+      );
       uint gasreq2 = ofp.gasreq;
       return (gives1 * gasreq2 >= gives2 * gasreq1);
     } else {

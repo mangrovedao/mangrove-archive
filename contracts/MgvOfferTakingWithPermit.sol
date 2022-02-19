@@ -1,4 +1,21 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier:	AGPL-3.0
+
+// MgvOfferTakingWithPermit.sol
+
+// Copyright (C) 2021 Giry SAS.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pragma solidity ^0.7.0;
 pragma abicoder v2;
@@ -56,25 +73,24 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
     require(deadline >= block.timestamp, "mgv/permit/expired");
 
     uint nonce = nonces[owner]++;
-    bytes32 digest =
-      keccak256(
-        abi.encodePacked(
-          "\x19\x01",
-          DOMAIN_SEPARATOR,
-          keccak256(
-            abi.encode(
-              PERMIT_TYPEHASH,
-              base,
-              quote,
-              owner,
-              spender,
-              value,
-              nonce,
-              deadline
-            )
+    bytes32 digest = keccak256(
+      abi.encodePacked(
+        "\x19\x01",
+        DOMAIN_SEPARATOR,
+        keccak256(
+          abi.encode(
+            PERMIT_TYPEHASH,
+            base,
+            quote,
+            owner,
+            spender,
+            value,
+            nonce,
+            deadline
           )
         )
-      );
+      )
+    );
     address recoveredAddress = ecrecover(digest, v, r, s);
     require(
       recoveredAddress != address(0) && recoveredAddress == owner,
@@ -144,6 +160,7 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
       fillWants,
       taker
     );
+    /* The sender's allowance is verified after the order complete so that `takerGave` rather than `takerGives` is checked against the allowance. The former may be lower. */
     deductSenderAllowance(base, quote, taker, takerGave);
   }
 
@@ -169,6 +186,9 @@ abstract contract MgvOfferTakingWithPermit is MgvOfferTaking {
       fillWants,
       taker
     );
+    /* The sender's allowance is verified after the order complete so that the actual amounts are checked against the allowance, instead of the declared `takerGives`. The former may be lower.
+    
+    An immediate consequence is that any funds availale to Mangrove through `approve` can be used to clean offers. After a `snipesFor` where all offers have failed, all token transfers have been reverted, so `takerGave=0` and the check will succeed -- but the sender will still have received the bounty of the failing offers. */
     deductSenderAllowance(base, quote, taker, takerGave);
   }
 

@@ -1,14 +1,24 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier:	AGPL-3.0
 
+// MgvOfferTaking.sol
+
+// Copyright (C) 2021 Giry SAS.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 pragma solidity ^0.7.0;
 pragma abicoder v2;
-import {
-  IERC20,
-  MgvEvents,
-  IMaker,
-  IMgvMonitor,
-  MgvLib as ML
-} from "./MgvLib.sol";
+import {IERC20, MgvEvents, IMaker, IMgvMonitor, MgvLib as ML} from "./MgvLib.sol";
 import {MgvHasOffers} from "./MgvHasOffers.sol";
 
 abstract contract MgvOfferTaking is MgvHasOffers {
@@ -292,8 +302,13 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   {
     uint[4][] memory targets = new uint[4][](1);
     targets[0] = [offerId, takerWants, takerGives, gasreq];
-    (uint successes, uint takerGot, uint takerGave) =
-      generalSnipes(base, quote, targets, fillWants, taker);
+    (uint successes, uint takerGot, uint takerGave) = generalSnipes(
+      base,
+      quote,
+      targets,
+      fillWants,
+      taker
+    );
     return (successes == 1, takerGot, takerGave);
   }
 
@@ -502,10 +517,9 @@ abstract contract MgvOfferTaking is MgvHasOffers {
      * `msg.sender` is the Mangrove itself in those calls -- all operations related to the actual caller should be done outside of this call.
      * any spurious exception due to an error in Mangrove code will be falsely blamed on the Maker, and its provision for the offer will be unfairly taken away.
      */
-    (bool success, bytes memory retdata) =
-      address(this).call(
-        abi.encodeWithSelector(this.flashloan.selector, sor, mor.taker)
-      );
+    (bool success, bytes memory retdata) = address(this).call(
+      abi.encodeWithSelector(this.flashloan.selector, sor, mor.taker)
+    );
 
     /* `success` is true: trade is complete */
     if (success) {
@@ -611,7 +625,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       innerRevert([bytes32("mgv/notEnoughGasForMakerTrade"), "", ""]);
     }
 
-    (bool callSuccess, bytes32 makerData) = restrictedCall(maker,gasreq,cd);
+    (bool callSuccess, bytes32 makerData) = restrictedCall(maker, gasreq, cd);
 
     gasused = oldGas - gasleft();
 
@@ -619,8 +633,12 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       innerRevert([bytes32("mgv/makerRevert"), bytes32(gasused), makerData]);
     }
 
-    bool transferSuccess =
-      transferTokenFrom(sor.base, maker, address(this), sor.wants);
+    bool transferSuccess = transferTokenFrom(
+      sor.base,
+      maker,
+      address(this),
+      sor.wants
+    );
 
     if (!transferSuccess) {
       innerRevert(
@@ -680,12 +698,11 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     bytes32 statusCode
   ) internal returns (uint gasused) {
     /* At this point, statusCode can only be `"mgv/tradeSuccess"`, `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"` */
-    bytes memory cd =
-      abi.encodeWithSelector(
-        IMaker.makerPosthook.selector,
-        sor,
-        ML.OrderResult({makerData: makerData, statusCode: statusCode})
-      );
+    bytes memory cd = abi.encodeWithSelector(
+      IMaker.makerPosthook.selector,
+      sor,
+      ML.OrderResult({makerData: makerData, statusCode: statusCode})
+    );
 
     address maker = $$(offerDetail_maker("sor.offerDetail"));
 
@@ -695,31 +712,35 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       revert("mgv/notEnoughGasForMakerPosthook");
     }
 
-    (bool callSuccess, bytes32 postHookData) = restrictedCall(maker,gasLeft,cd);
+    (bool callSuccess, bytes32 postHookData) = restrictedCall(
+      maker,
+      gasLeft,
+      cd
+    );
 
     gasused = oldGas - gasleft();
 
     if (!callSuccess) {
-      emit MgvEvents.PosthookFail(sor.base,sor.quote,sor.offerId,postHookData);
+      emit MgvEvents.PosthookFail(
+        sor.base,
+        sor.quote,
+        sor.offerId,
+        postHookData
+      );
     }
   }
 
   /* ## `restrictedCall` */
   /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + overhead_gasbase/n + offer_gasbase` where `n` is the number of failing offers. This yul call only retrieves the first 32 bytes of the maker's `returndata`. */
-  function restrictedCall(address callee, uint gasreq, bytes memory cd) internal returns (bool success, bytes32 data) {
-
+  function restrictedCall(
+    address callee,
+    uint gasreq,
+    bytes memory cd
+  ) internal returns (bool success, bytes32 data) {
     bytes32[1] memory retdata;
 
     assembly {
-      success := call(
-        gasreq,
-        callee,
-        0,
-        add(cd, 32),
-        mload(cd),
-        retdata,
-        32
-      )
+      success := call(gasreq, callee, 0, add(cd, 32), mload(cd), retdata, 32)
     }
 
     data = retdata[0];
@@ -751,15 +772,13 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     uint gasused,
     uint failCount
   ) internal returns (uint) {
-
     uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
 
-    uint provision =
-      10**9 *
-        $$(offer_gasprice("sor.offer")) *
-        (gasreq +
-          $$(offerDetail_overhead_gasbase("sor.offerDetail")) +
-          $$(offerDetail_offer_gasbase("sor.offerDetail")));
+    uint provision = 10**9 *
+      $$(offer_gasprice("sor.offer")) *
+      (gasreq +
+        $$(offerDetail_overhead_gasbase("sor.offerDetail")) +
+        $$(offerDetail_offer_gasbase("sor.offerDetail")));
 
     /* We set `gasused = min(gasused,gasreq)` since `gasreq < gasused` is possible e.g. with `gasreq = 0` (all calls consume nonzero gas). */
     if (gasused > gasreq) {
@@ -767,13 +786,12 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     }
 
     /* As an invariant, `applyPenalty` is only called when `statusCode` is not in `["mgv/notExecuted","mgv/tradeSuccess"]`, and thus when `failCount > 0`. */
-    uint penalty =
-      10**9 *
-        $$(global_gasprice("sor.global")) *
-        (gasused +
-          $$(local_overhead_gasbase("sor.local")) /
-          failCount +
-          $$(local_offer_gasbase("sor.local")));
+    uint penalty = 10**9 *
+      $$(global_gasprice("sor.global")) *
+      (gasused +
+        $$(local_overhead_gasbase("sor.local")) /
+        failCount +
+        $$(local_offer_gasbase("sor.local")));
 
     if (penalty > provision) {
       penalty = provision;
@@ -852,8 +870,12 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     address to,
     uint value
   ) internal returns (bool) {
-    bytes memory cd =
-      abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, value);
+    bytes memory cd = abi.encodeWithSelector(
+      IERC20.transferFrom.selector,
+      from,
+      to,
+      value
+    );
     (bool noRevert, bytes memory data) = tokenAddress.call(cd);
     return (noRevert && (data.length == 0 || abi.decode(data, (bool))));
   }
@@ -863,8 +885,11 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     address to,
     uint value
   ) internal returns (bool) {
-    bytes memory cd =
-      abi.encodeWithSelector(IERC20.transfer.selector, to, value);
+    bytes memory cd = abi.encodeWithSelector(
+      IERC20.transfer.selector,
+      to,
+      value
+    );
     (bool noRevert, bytes memory data) = tokenAddress.call(cd);
     return (noRevert && (data.length == 0 || abi.decode(data, (bool))));
   }

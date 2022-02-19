@@ -1,5 +1,21 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier:	AGPL-3.0
 
+// MgvHasOffers.sol
+
+// Copyright (C) 2021 Giry SAS.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 pragma solidity ^0.7.0;
 pragma abicoder v2;
 import {MgvLib as ML, MgvEvents, IMgvMonitor} from "./MgvLib.sol";
@@ -39,24 +55,22 @@ contract MgvHasOffers is MgvRoot {
     uint offerId
   ) external view returns (ML.Offer memory, ML.OfferDetail memory) {
     bytes32 offer = offers[base][quote][offerId];
-    ML.Offer memory offerStruct =
-      ML.Offer({
-        prev: $$(offer_prev("offer")),
-        next: $$(offer_next("offer")),
-        wants: $$(offer_wants("offer")),
-        gives: $$(offer_gives("offer")),
-        gasprice: $$(offer_gasprice("offer"))
-      });
+    ML.Offer memory offerStruct = ML.Offer({
+      prev: $$(offer_prev("offer")),
+      next: $$(offer_next("offer")),
+      wants: $$(offer_wants("offer")),
+      gives: $$(offer_gives("offer")),
+      gasprice: $$(offer_gasprice("offer"))
+    });
 
     bytes32 offerDetail = offerDetails[base][quote][offerId];
 
-    ML.OfferDetail memory offerDetailStruct =
-      ML.OfferDetail({
-        maker: $$(offerDetail_maker("offerDetail")),
-        gasreq: $$(offerDetail_gasreq("offerDetail")),
-        overhead_gasbase: $$(offerDetail_overhead_gasbase("offerDetail")),
-        offer_gasbase: $$(offerDetail_offer_gasbase("offerDetail"))
-      });
+    ML.OfferDetail memory offerDetailStruct = ML.OfferDetail({
+      maker: $$(offerDetail_maker("offerDetail")),
+      gasreq: $$(offerDetail_gasreq("offerDetail")),
+      overhead_gasbase: $$(offerDetail_overhead_gasbase("offerDetail")),
+      offer_gasbase: $$(offerDetail_offer_gasbase("offerDetail"))
+    });
     return (offerStruct, offerDetailStruct);
   }
 
