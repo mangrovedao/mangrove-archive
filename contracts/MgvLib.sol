@@ -62,8 +62,8 @@ library MgvLib {
 
   /* `SingleOrder` holds data about an order-offer match in a struct. Used by `marketOrder` and `internalSnipes` (and some of their nested functions) to avoid stack too deep errors. */
   struct SingleOrder {
-    address base;
-    address quote;
+    address outbound_tkn;
+    address inbound_tkn;
     uint offerId;
     bytes32 offer;
     /* `wants`/`gives` mutate over execution. Initially the `wants`/`gives` from the taker's pov, then actual `wants`/`gives` adjusted by offer's price and volume. */
@@ -75,20 +75,20 @@ library MgvLib {
     bytes32 local;
   }
 
-  /* <a id="MgvLib/OrderResult"></a> `OrderResult` holds additional data for the maker and is given to them _after_ they fulfilled an offer. It gives them their own returned data from the previous call, and an `statusCode` specifying whether the Mangrove encountered an error. */
+  /* <a id="MgvLib/OrderResult"></a> `OrderResult` holds additional data for the maker and is given to them _after_ they fulfilled an offer. It gives them their own returned data from the previous call, and an `mgvData` specifying whether the Mangrove encountered an error. */
 
   struct OrderResult {
     /* `makerdata` holds a message that was either returned by the maker or passed as revert message at the end of the trade execution*/
     bytes32 makerData;
-    /* `statusCode` is an [internal Mangrove status](#MgvOfferTaking/statusCodes) code. */
-    bytes32 statusCode;
+    /* `mgvData` is an [internal Mangrove status](#MgvOfferTaking/statusCodes) code. */
+    bytes32 mgvData;
   }
 }
 
 /* # Events
 The events emitted for use by bots are listed here: */
 contract HasMgvEvents {
-  /* * Emitted at the creation of the new Mangrove contract on the pair (`quote`, `base`)*/
+  /* * Emitted at the creation of the new Mangrove contract on the pair (`inbound_tkn`, `outbound_tkn`)*/
   event NewMgv();
 
   /* Mangrove adds or removes wei from `maker`'s account */
@@ -98,11 +98,19 @@ contract HasMgvEvents {
   event Debit(address indexed maker, uint amount);
 
   /* * Mangrove reconfiguration */
-  event SetActive(address indexed base, address indexed quote, bool value);
-  event SetFee(address indexed base, address indexed quote, uint value);
+  event SetActive(
+    address indexed outbound_tkn,
+    address indexed inbound_tkn,
+    bool value
+  );
+  event SetFee(
+    address indexed outbound_tkn,
+    address indexed inbound_tkn,
+    uint value
+  );
   event SetGasbase(
-    address indexed base,
-    address indexed quote,
+    address indexed outbound_tkn,
+    address indexed inbound_tkn,
     uint overhead_gasbase,
     uint offer_gasbase
   );
@@ -112,14 +120,18 @@ contract HasMgvEvents {
   event SetUseOracle(bool value);
   event SetNotify(bool value);
   event SetGasmax(uint value);
-  event SetDensity(address indexed base, address indexed quote, uint value);
+  event SetDensity(
+    address indexed outbound_tkn,
+    address indexed inbound_tkn,
+    uint value
+  );
   event SetGasprice(uint value);
 
   /* Market order execution */
   event OrderStart();
   event OrderComplete(
-    address indexed base,
-    address indexed quote,
+    address indexed outbound_tkn,
+    address indexed inbound_tkn,
     address taker,
     uint takerGot,
     uint takerGave,
@@ -128,41 +140,41 @@ contract HasMgvEvents {
 
   /* * Offer execution */
   event OfferSuccess(
-    address indexed base,
-    address indexed quote,
+    address indexed outbound_tkn,
+    address indexed inbound_tkn,
     uint id,
-    // `maker` is not logged because it can be retrieved from the state using `(base,quote,id)`.
+    // `maker` is not logged because it can be retrieved from the state using `(outbound_tkn,inbound_tkn,id)`.
     address taker,
     uint takerWants,
     uint takerGives
   );
 
-  /* Log information when a trade execution reverts */
+  /* Log information when a trade execution reverts or returns a non empty bytes32 word */
   event OfferFail(
-    address indexed base,
-    address indexed quote,
+    address indexed outbound_tkn,
+    address indexed inbound_tkn,
     uint id,
-    // `maker` is not logged because it can be retrieved from the state using `(base,quote,id)`.
+    // `maker` is not logged because it can be retrieved from the state using `(outbound_tkn,inbound_tkn,id)`.
     address taker,
     uint takerWants,
     uint takerGives,
-    // `statusCode` may only be `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"`
-    bytes32 statusCode,
+    // `mgvData` may only be `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"`
+    bytes32 mgvData,
     bytes32 makerData
   );
 
   /* Log information when a posthook reverts */
   event PosthookFail(
-    address indexed base,
-    address indexed quote,
+    address indexed outbound_tkn,
+    address indexed inbound_tkn,
     uint offerId,
     bytes32 makerData
   );
 
   /* * After `permit` and `approve` */
   event Approval(
-    address indexed base,
-    address indexed quote,
+    address indexed outbound_tkn,
+    address indexed inbound_tkn,
     address owner,
     address spender,
     uint value
@@ -188,8 +200,8 @@ contract HasMgvEvents {
   useless in client code.
   */
   event OfferWrite(
-    address indexed base,
-    address indexed quote,
+    address indexed outbound_tkn,
+    address indexed inbound_tkn,
     address maker,
     uint wants,
     uint gives,
@@ -200,12 +212,16 @@ contract HasMgvEvents {
   );
 
   /* * `offerId` was present and is now removed from the book. */
-  event OfferRetract(address indexed base, address indexed quote, uint id);
+  event OfferRetract(
+    address indexed outbound_tkn,
+    address indexed inbound_tkn,
+    uint id
+  );
 }
 
 /* # IMaker interface */
 interface IMaker {
-  /* Called upon offer execution. If this function reverts, Mangrove will not try to transfer funds. Returned data (truncated to leftmost 32 bytes) can be accessed during the call to `makerPosthook` in the `result.statusCode` field. To revert with a 32 bytes value, use something like:
+  /* Called upon offer execution. If this function reverts, Mangrove will not try to transfer funds. Returned data (truncated to leftmost 32 bytes) can be accessed during the call to `makerPosthook` in the `result.mgvData` field. To revert with a 32 bytes value, use something like:
      ```
      function tradeRevert(bytes32 data) internal pure {
        bytes memory revData = new bytes(32);
@@ -231,11 +247,11 @@ interface IMaker {
 interface ITaker {
   /* Inverted mangrove only: call to taker after loans went through */
   function takerTrade(
-    address base,
-    address quote,
-    // total amount of base token that was flashloaned to the taker
+    address outbound_tkn,
+    address inbound_tkn,
+    // total amount of outbound_tkn token that was flashloaned to the taker
     uint totalGot,
-    // total amount of quote token that should be made available
+    // total amount of inbound_tkn token that should be made available
     uint totalGives
   ) external;
 }
@@ -248,7 +264,7 @@ interface IMgvMonitor {
 
   function notifyFail(MgvLib.SingleOrder calldata sor, address taker) external;
 
-  function read(address base, address quote)
+  function read(address outbound_tkn, address inbound_tkn)
     external
     view
     returns (uint gasprice, uint density);

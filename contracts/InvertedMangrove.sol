@@ -36,13 +36,13 @@ contract InvertedMangrove is AbstractMangrove {
     override
   {
     ITaker(mor.taker).takerTrade(
-      sor.base,
-      sor.quote,
+      sor.outbound_tkn,
+      sor.inbound_tkn,
       mor.totalGot,
       mor.totalGave
     );
     bool success = transferTokenFrom(
-      sor.quote,
+      sor.inbound_tkn,
       mor.taker,
       address(this),
       mor.totalGave
@@ -64,13 +64,13 @@ So :
     /* If `transferToken` returns false here, we're in a special (and bad) situation. The taker is returning part of their total loan to a maker, but the maker can't receive the tokens. Only case we can see: maker is blacklisted. In that case, we send the tokens to the vault, so things have a chance of getting sorted out later (Mangrove is a token black hole). */
     if (
       !transferToken(
-        sor.quote,
+        sor.inbound_tkn,
         $$(offerDetail_maker("sor.offerDetail")),
         sor.gives
       )
     ) {
       /* If that transfer fails there's nothing we can do -- reverting would punish the taker for the maker's blacklisting. */
-      transferToken(sor.quote, vault, sor.gives);
+      transferToken(sor.inbound_tkn, vault, sor.gives);
     }
   }
 

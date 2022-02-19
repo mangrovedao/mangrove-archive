@@ -24,9 +24,9 @@ import {MgvRoot} from "./MgvRoot.sol";
 /* `MgvHasOffers` contains the state variables and functions common to both market-maker operations and market-taker operations. Mostly: storing offers, removing them, updating market makers' provisions. */
 contract MgvHasOffers is MgvRoot {
   /* # State variables */
-  /* Given a `base`,`quote` pair, the mappings `offers` and `offerDetails` associate two 256 bits words to each offer id. Those words encode information detailed in [`structs.js`](#structs.js).
+  /* Given a `outbound_tkn`,`inbound_tkn` pair, the mappings `offers` and `offerDetails` associate two 256 bits words to each offer id. Those words encode information detailed in [`structs.js`](#structs.js).
 
-     The mappings are `base => quote => offerId => bytes32`.
+     The mappings are `outbound_tkn => inbound_tkn => offerId => bytes32`.
    */
   mapping(address => mapping(address => mapping(uint => bytes32)))
     public offers;
@@ -43,18 +43,22 @@ contract MgvHasOffers is MgvRoot {
 
   /* # Read functions */
   /* Convenience function to get best offer of the given pair */
-  function best(address base, address quote) external view returns (uint) {
-    bytes32 local = locals[base][quote];
+  function best(address outbound_tkn, address inbound_tkn)
+    external
+    view
+    returns (uint)
+  {
+    bytes32 local = locals[outbound_tkn][inbound_tkn];
     return $$(local_best("local"));
   }
 
-  /* Returns information about an offer in ABI-compatible structs. Do not use internally, would be a huge memory-copying waste. Use `offers[base][quote]` and `offerDetails[base][quote]` instead. */
+  /* Returns information about an offer in ABI-compatible structs. Do not use internally, would be a huge memory-copying waste. Use `offers[outbound_tkn][inbound_tkn]` and `offerDetails[outbound_tkn][inbound_tkn]` instead. */
   function offerInfo(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint offerId
   ) external view returns (ML.Offer memory, ML.OfferDetail memory) {
-    bytes32 offer = offers[base][quote][offerId];
+    bytes32 offer = offers[outbound_tkn][inbound_tkn][offerId];
     ML.Offer memory offerStruct = ML.Offer({
       prev: $$(offer_prev("offer")),
       next: $$(offer_next("offer")),
@@ -63,7 +67,7 @@ contract MgvHasOffers is MgvRoot {
       gasprice: $$(offer_gasprice("offer"))
     });
 
-    bytes32 offerDetail = offerDetails[base][quote][offerId];
+    bytes32 offerDetail = offerDetails[outbound_tkn][inbound_tkn][offerId];
 
     ML.OfferDetail memory offerDetailStruct = ML.OfferDetail({
       maker: $$(offerDetail_maker("offerDetail")),
@@ -96,8 +100,8 @@ contract MgvHasOffers is MgvRoot {
 
      Now, when an offer is deleted, the offer can stay provisioned, or be `deprovision`ed. In the latter case, we set `gasprice` to 0, which induces a provision of 0. All code calling `dirtyDeleteOffer` with `deprovision` set to `true` must be careful to correctly account for where that provision is going (back to the maker's `balanceOf`, or sent to a taker as compensation). */
   function dirtyDeleteOffer(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint offerId,
     bytes32 offer,
     bool deprovision
@@ -106,7 +110,7 @@ contract MgvHasOffers is MgvRoot {
     if (deprovision) {
       offer = $$(set_offer("offer", [["gasprice", 0]]));
     }
-    offers[base][quote][offerId] = offer;
+    offers[outbound_tkn][inbound_tkn][offerId] = offer;
   }
 
   /* ## Stitching the orderbook */
@@ -117,23 +121,29 @@ contract MgvHasOffers is MgvRoot {
 
   **Warning**: may make memory copy of `local.best` stale. Returns new `local`. */
   function stitchOffers(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint betterId,
     uint worseId,
     bytes32 local
   ) internal returns (bytes32) {
     if (betterId != 0) {
-      offers[base][quote][betterId] = $$(
-        set_offer("offers[base][quote][betterId]", [["next", "worseId"]])
+      offers[outbound_tkn][inbound_tkn][betterId] = $$(
+        set_offer(
+          "offers[outbound_tkn][inbound_tkn][betterId]",
+          [["next", "worseId"]]
+        )
       );
     } else {
       local = $$(set_local("local", [["best", "worseId"]]));
     }
 
     if (worseId != 0) {
-      offers[base][quote][worseId] = $$(
-        set_offer("offers[base][quote][worseId]", [["prev", "betterId"]])
+      offers[outbound_tkn][inbound_tkn][worseId] = $$(
+        set_offer(
+          "offers[outbound_tkn][inbound_tkn][worseId]",
+          [["prev", "betterId"]]
+        )
       );
     }
 
@@ -141,7 +151,7 @@ contract MgvHasOffers is MgvRoot {
   }
 
   /* ## Check offer is live */
-  /* Check whether an offer is 'live', that is: inserted in the order book. The Mangrove holds a `base => quote => id => bytes32` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an offer with `gives` field at 0. */
+  /* Check whether an offer is 'live', that is: inserted in the order book. The Mangrove holds a `outbound_tkn => inbound_tkn => id => bytes32` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an offer with `gives` field at 0. */
   function isLive(bytes32 offer) public pure returns (bool) {
     return $$(offer_gives("offer")) > 0;
   }

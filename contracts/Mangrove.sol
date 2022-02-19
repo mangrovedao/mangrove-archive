@@ -40,7 +40,7 @@ contract Mangrove is AbstractMangrove {
   /* ## Flashloan */
   /*
      `flashloan` is for the 'normal' mode of operation. It:
-     1. Flashloans `takerGives` `quote` from the taker to the maker and returns false if the loan fails.
+     1. Flashloans `takerGives` `inbound_tkn` from the taker to the maker and returns false if the loan fails.
      2. Runs `offerDetail.maker`'s `execute` function.
      3. Returns the result of the operations, with optional makerData to help the maker debug.
    */
@@ -54,11 +54,11 @@ contract Mangrove is AbstractMangrove {
     /* The transfer taker -> maker is in 2 steps. First, taker->mgv. Then
        mgv->maker. With a direct taker->maker transfer, if one of taker/maker
        is blacklisted, we can't tell which one. We need to know which one:
-       if we incorrectly blame the taker, a blacklisted maker can block a pair forever; if we incorrectly blame the maker, a blacklisted taker can unfairly make makers fail all the time. Of course we assume the Mangrove is not blacklisted. Also note that this setup doesn not work well with tokens that take fees or recompute balances at transfer time. */
-    if (transferTokenFrom(sor.quote, taker, address(this), sor.gives)) {
+       if we incorrectly blame the taker, a blacklisted maker can block a pair forever; if we incorrectly blame the maker, a blacklisted taker can unfairly make makers fail all the time. Of course we assume the Mangrove is not blacklisted. Also note that this setup doesn't not work well with tokens that take fees or recompute balances at transfer time. */
+    if (transferTokenFrom(sor.inbound_tkn, taker, address(this), sor.gives)) {
       if (
         transferToken(
-          sor.quote,
+          sor.inbound_tkn,
           $$(offerDetail_maker("sor.offerDetail")),
           sor.gives
         )

@@ -58,63 +58,67 @@ contract MgvGovernable is MgvRoot {
   /* ## Locals */
   /* ### `active` */
   function activate(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint fee,
     uint density,
     uint overhead_gasbase,
     uint offer_gasbase
   ) public {
     authOnly();
-    locals[base][quote] = $$(set_local("locals[base][quote]", [["active", 1]]));
-    emit SetActive(base, quote, true);
-    setFee(base, quote, fee);
-    setDensity(base, quote, density);
-    setGasbase(base, quote, overhead_gasbase, offer_gasbase);
+    locals[outbound_tkn][inbound_tkn] = $$(
+      set_local("locals[outbound_tkn][inbound_tkn]", [["active", 1]])
+    );
+    emit SetActive(outbound_tkn, inbound_tkn, true);
+    setFee(outbound_tkn, inbound_tkn, fee);
+    setDensity(outbound_tkn, inbound_tkn, density);
+    setGasbase(outbound_tkn, inbound_tkn, overhead_gasbase, offer_gasbase);
   }
 
-  function deactivate(address base, address quote) public {
+  function deactivate(address outbound_tkn, address inbound_tkn) public {
     authOnly();
-    locals[base][quote] = $$(set_local("locals[base][quote]", [["active", 0]]));
-    emit SetActive(base, quote, false);
+    locals[outbound_tkn][inbound_tkn] = $$(
+      set_local("locals[outbound_tkn][inbound_tkn]", [["active", 0]])
+    );
+    emit SetActive(outbound_tkn, inbound_tkn, false);
   }
 
   /* ### `fee` */
   function setFee(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint fee
   ) public {
     authOnly();
     /* `fee` is in basis points, i.e. in percents of a percent. */
     require(fee <= 500, "mgv/config/fee/<=500"); // at most 5%
-    locals[base][quote] = $$(
-      set_local("locals[base][quote]", [["fee", "fee"]])
+    locals[outbound_tkn][inbound_tkn] = $$(
+      set_local("locals[outbound_tkn][inbound_tkn]", [["fee", "fee"]])
     );
-    emit SetFee(base, quote, fee);
+    emit SetFee(outbound_tkn, inbound_tkn, fee);
   }
 
   /* ### `density` */
   /* Useless if `global.useOracle != 0` */
   function setDensity(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint density
   ) public {
     authOnly();
     /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
     require(uint32(density) == density, "mgv/config/density/32bits");
     //+clear+
-    locals[base][quote] = $$(
-      set_local("locals[base][quote]", [["density", "density"]])
+    locals[outbound_tkn][inbound_tkn] = $$(
+      set_local("locals[outbound_tkn][inbound_tkn]", [["density", "density"]])
     );
-    emit SetDensity(base, quote, density);
+    emit SetDensity(outbound_tkn, inbound_tkn, density);
   }
 
   /* ### `gasbase` */
   function setGasbase(
-    address base,
-    address quote,
+    address outbound_tkn,
+    address inbound_tkn,
     uint overhead_gasbase,
     uint offer_gasbase
   ) public {
@@ -129,16 +133,16 @@ contract MgvGovernable is MgvRoot {
       "mgv/config/offer_gasbase/24bits"
     );
     //+clear+
-    locals[base][quote] = $$(
+    locals[outbound_tkn][inbound_tkn] = $$(
       set_local(
-        "locals[base][quote]",
+        "locals[outbound_tkn][inbound_tkn]",
         [
           ["offer_gasbase", "offer_gasbase"],
           ["overhead_gasbase", "overhead_gasbase"]
         ]
       )
     );
-    emit SetGasbase(base, quote, overhead_gasbase, offer_gasbase);
+    emit SetGasbase(outbound_tkn, inbound_tkn, overhead_gasbase, offer_gasbase);
   }
 
   /* ## Globals */
