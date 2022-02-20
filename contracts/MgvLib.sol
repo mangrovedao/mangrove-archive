@@ -56,11 +56,6 @@ library MgvLib {
     uint last;
   }
 
-  struct Config {
-    Global global;
-    Local local;
-  }
-
   /*
    Some miscellaneous data types useful to `Mangrove` and external contracts */
   //+clear+

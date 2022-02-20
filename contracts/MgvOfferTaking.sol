@@ -229,42 +229,11 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   }
 
   /* # Sniping */
-  /* ## Snipe(s) */
+  /* ## Snipes */
   //+clear+
-  /* `snipe` takes a single offer `offerId` from the book. Since offers can be updated, we specify `takerWants`,`takerGives` and `gasreq`, and only execute if the offer price is acceptable and the offer's gasreq does not exceed `gasreq`.
 
-  It is possible to ask for 0, so we return an additional boolean indicating if `offerId` was successfully executed. Note that we do not distinguish further between mismatched arguments/offer fields on the one hand, and an execution failure on the other. Still, a failed offer has to pay a penalty, and ultimately transaction logs explicitly mention execution failures (see `MgvLib.sol`). */
-
-  function snipe(
-    address base,
-    address quote,
-    uint offerId,
-    uint takerWants,
-    uint takerGives,
-    uint gasreq,
-    bool fillWants
-  )
-    external
-    returns (
-      bool,
-      uint,
-      uint
-    )
-  {
-    return
-      generalSnipe(
-        base,
-        quote,
-        offerId,
-        takerWants,
-        takerGives,
-        gasreq,
-        fillWants,
-        msg.sender
-      );
-  }
-
-  /* `snipes` executes multiple offers. It takes a `uint[4][]` as last argument, with each array element of the form `[offerId,takerWants,takerGives,gasreq]`. The return parameters are of the form `(successes,totalGot,totalGave)`. */
+  /* `snipes` executes multiple offers. It takes a `uint[4][]` as penultimate argument, with each array element of the form `[offerId,takerWants,takerGives,gasreq]`. The return parameters are of the form `(successes,totalGot,totalGave)`. 
+  Note that we do not distinguish further between mismatched arguments/offer fields on the one hand, and an execution failure on the other. Still, a failed offer has to pay a penalty, and ultimately transaction logs explicitly mention execution failures (see `MgvLib.sol`). */
   function snipes(
     address base,
     address quote,
@@ -279,37 +248,6 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     )
   {
     return generalSnipes(base, quote, targets, fillWants, msg.sender);
-  }
-
-  /* ## General Snipe(s) */
-  /* A conduit from `snipe` and `snipeFor` to `generalSnipes`. Returns `(success,takerGot,takerGave)`. */
-  function generalSnipe(
-    address base,
-    address quote,
-    uint offerId,
-    uint takerWants,
-    uint takerGives,
-    uint gasreq,
-    bool fillWants,
-    address taker
-  )
-    internal
-    returns (
-      bool,
-      uint,
-      uint
-    )
-  {
-    uint[4][] memory targets = new uint[4][](1);
-    targets[0] = [offerId, takerWants, takerGives, gasreq];
-    (uint successes, uint takerGot, uint takerGave) = generalSnipes(
-      base,
-      quote,
-      targets,
-      fillWants,
-      taker
-    );
-    return (successes == 1, takerGot, takerGave);
   }
 
   /*
@@ -454,7 +392,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   }
 
   /* # General execution */
-  /* During a market order or a snipe(s), offers get executed. The following code takes care of executing a single offer with parameters given by a `SingleOrder` within a larger context given by a `MultiOrder`. */
+  /* During a market order or a snipes, offers get executed. The following code takes care of executing a single offer with parameters given by a `SingleOrder` within a larger context given by a `MultiOrder`. */
 
   /* ## Execute */
   /* This function will compare `sor.wants` `sor.gives` with `sor.offer.wants` and `sor.offer.gives`. If the price of the offer is low enough, an execution will be attempted (with volume limited by the offer's advertised volume).
