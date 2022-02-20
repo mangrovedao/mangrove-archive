@@ -115,11 +115,23 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     sor.local = $$(set_local("sor.local", [["lock", 1]]));
     locals[base][quote] = sor.local;
 
+    emit OrderStart();
+
     /* Call recursive `internalMarketOrder` function.*/
     internalMarketOrder(mor, sor, true);
 
     /* Over the course of the market order, a penalty reserved for `msg.sender` has accumulated in `mor.totalPenalty`. No actual transfers have occured yet -- all the ethers given by the makers as provision are owned by the Mangrove. `sendPenalty` finally gives the accumulated penalty to `msg.sender`. */
     sendPenalty(mor.totalPenalty);
+
+    emit OrderComplete(
+      base,
+      quote,
+      taker,
+      mor.totalGot,
+      mor.totalGave,
+      mor.totalPenalty
+    );
+
     //+clear+
     return (mor.totalGot, mor.totalGave);
   }
@@ -279,6 +291,8 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     activeMarketOnly(sor.global, sor.local);
     unlockedMarketOnly(sor.local);
 
+    emit OrderStart();
+
     /* ### Main loop */
     //+clear+
 
@@ -292,6 +306,16 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     /* Over the course of the snipes order, a penalty reserved for `msg.sender` has accumulated in `mor.totalPenalty`. No actual transfers have occured yet -- all the ethers given by the makers as provision are owned by the Mangrove. `sendPenalty` finally gives the accumulated penalty to `msg.sender`. */
     sendPenalty(mor.totalPenalty);
     //+clear+
+
+    emit OrderComplete(
+      base,
+      quote,
+      taker,
+      mor.totalGot,
+      mor.totalGave,
+      mor.totalPenalty
+    );
+
     return (mor.successCount, mor.totalGot, mor.totalGave);
   }
 

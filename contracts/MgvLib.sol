@@ -115,6 +115,17 @@ contract HasMgvEvents {
   event SetDensity(address indexed base, address indexed quote, uint value);
   event SetGasprice(uint value);
 
+  /* Market order execution */
+  event OrderStart();
+  event OrderComplete(
+    address indexed base,
+    address indexed quote,
+    address taker,
+    uint takerGot,
+    uint takerGave,
+    uint penalty
+  );
+
   /* * Offer execution */
   event OfferSuccess(
     address indexed base,
@@ -160,7 +171,22 @@ contract HasMgvEvents {
   /* * Mangrove closure */
   event Kill();
 
-  /* * An offer was created or updated. */
+  /* * An offer was created or updated.
+  A few words about why we include a `prev` field, and why we don't include a
+  `next` field: in theory clients should need neither `prev` nor a `next` field.
+  They could just 1. Read the order book state at a given block `b`.  2. On
+  every event, update a local copy of the orderbook.  But in practice, we do not
+  want to force clients to keep a copy of the *entire* orderbook. There may be a
+  long tail of spam. Now if they only start with the first $N$ offers and
+  receive a new offer that goes to the end of the book, they cannot tell if
+  there are missing offers between the new offer and the end of the local copy
+  of the book.
+  
+  So we add a prev pointer so clients with only a prefix of the book can receive
+  out-of-prefix offers and know what to do with them. The `next` pointer is an
+  optimization useful in Solidity (we traverse fewer memory locations) but
+  useless in client code.
+  */
   event OfferWrite(
     address indexed base,
     address indexed quote,
@@ -169,7 +195,8 @@ contract HasMgvEvents {
     uint gives,
     uint gasprice,
     uint gasreq,
-    uint id
+    uint id,
+    uint prev
   );
 
   /* * `offerId` was present and is now removed from the book. */
