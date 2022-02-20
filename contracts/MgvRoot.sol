@@ -35,7 +35,7 @@
    <img src="./modular_mangrove.svg" width="180%"> </img>
  */
 
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.10;
 pragma abicoder v2;
 import {MgvLib as ML, HasMgvEvents, IMgvMonitor} from "./MgvLib.sol";
 
@@ -52,14 +52,14 @@ contract MgvRoot is HasMgvEvents {
   mapping(address => mapping(address => bytes32)) public locals;
 
   /* Checking the size of `density` is necessary to prevent overflow when `density` is used in calculations. */
-  function checkDensity(uint density) internal pure returns (bool) {
+  function checkDensity(uint density) internal pure returns (bool) { unchecked {
     return uint112(density) == density;
-  }
+  }}
 
   /* Checking the size of `gasprice` is necessary to prevent a) data loss when `gasprice` is copied to an `OfferDetail` struct, and b) overflow when `gasprice` is used in calculations. */
-  function checkGasprice(uint gasprice) internal pure returns (bool) {
+  function checkGasprice(uint gasprice) internal pure returns (bool) { unchecked {
     return uint16(gasprice) == gasprice;
-  }
+  }}
 
   /* # Configuration Reads */
   /* Reading the configuration for a pair involves reading the config global to all pairs and the local one. In addition, a global parameter (`gasprice`) and a local one (`density`) may be read from the oracle. */
@@ -67,7 +67,7 @@ contract MgvRoot is HasMgvEvents {
     public
     view
     returns (bytes32 _global, bytes32 _local)
-  {
+  { unchecked {
     _global = global;
     _local = locals[outbound_tkn][inbound_tkn];
     if ($$(global_useOracle("_global")) > 0) {
@@ -80,7 +80,7 @@ contract MgvRoot is HasMgvEvents {
         _local = $$(set_local("_local", [["density", "density"]]));
       }
     }
-  }
+  }}
 
   /* Convenience function to check whether given pair is locked */
   function locked(address outbound_tkn, address inbound_tkn)

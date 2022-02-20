@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.10;
 pragma abicoder v2;
 import {MgvLib as ML, HasMgvEvents, IMgvMonitor} from "./MgvLib.sol";
 import {MgvRoot} from "./MgvRoot.sol";
@@ -47,17 +47,17 @@ contract MgvHasOffers is MgvRoot {
     external
     view
     returns (uint)
-  {
+  { unchecked {
     bytes32 local = locals[outbound_tkn][inbound_tkn];
     return $$(local_best("local"));
-  }
+  }}
 
   /* Returns information about an offer in ABI-compatible structs. Do not use internally, would be a huge memory-copying waste. Use `offers[outbound_tkn][inbound_tkn]` and `offerDetails[outbound_tkn][inbound_tkn]` instead. */
   function offerInfo(
     address outbound_tkn,
     address inbound_tkn,
     uint offerId
-  ) external view returns (ML.Offer memory, ML.OfferDetail memory) {
+  ) external view returns (ML.OfferStruct memory, ML.OfferDetail memory) { unchecked {
     bytes32 offer = offers[outbound_tkn][inbound_tkn][offerId];
     ML.Offer memory offerStruct = ML.Offer({
       prev: $$(offer_prev("offer")),
@@ -76,22 +76,22 @@ contract MgvHasOffers is MgvRoot {
       gasprice: $$(offerDetail_gasprice("offerDetail"))
     });
     return (offerStruct, offerDetailStruct);
-  }
+  }}
 
   /* # Provision debit/credit utility functions */
   /* `balanceOf` is in wei of ETH. */
 
-  function debitWei(address maker, uint amount) internal {
+  function debitWei(address maker, uint amount) internal { unchecked {
     uint makerBalance = balanceOf[maker];
     require(makerBalance >= amount, "mgv/insufficientProvision");
     balanceOf[maker] = makerBalance - amount;
     emit Debit(maker, amount);
-  }
+  }}
 
-  function creditWei(address maker, uint amount) internal {
+  function creditWei(address maker, uint amount) internal { unchecked {
     balanceOf[maker] += amount;
     emit Credit(maker, amount);
-  }
+  }}
 
   /* # Misc. low-level functions */
   /* ## Offer deletion */
@@ -106,14 +106,14 @@ contract MgvHasOffers is MgvRoot {
     bytes32 offer,
     bytes32 offerDetail,
     bool deprovision
-  ) internal {
+  ) internal { unchecked {
     offer = $$(set_offer("offer", [["gives", 0]]));
     if (deprovision) {
       offerDetail = $$(set_offerDetail("offerDetail", [["gasprice", 0]]));
     }
     offers[outbound_tkn][inbound_tkn][offerId] = offer;
     offerDetails[outbound_tkn][inbound_tkn][offerId] = offerDetail;
-  }
+  }}
 
   /* ## Stitching the orderbook */
 
@@ -128,7 +128,7 @@ contract MgvHasOffers is MgvRoot {
     uint betterId,
     uint worseId,
     bytes32 local
-  ) internal returns (bytes32) {
+  ) internal returns (bytes32) { unchecked {
     if (betterId != 0) {
       offers[outbound_tkn][inbound_tkn][betterId] = $$(
         set_offer(
@@ -150,11 +150,11 @@ contract MgvHasOffers is MgvRoot {
     }
 
     return local;
-  }
+  }}
 
   /* ## Check offer is live */
   /* Check whether an offer is 'live', that is: inserted in the order book. The Mangrove holds a `outbound_tkn => inbound_tkn => id => bytes32` mapping in storage. Offer ids that are not yet assigned or that point to since-deleted offer will point to an offer with `gives` field at 0. */
-  function isLive(bytes32 offer) public pure returns (bool) {
+  function isLive(bytes32 offer) public pure returns (bool) { unchecked {
     return $$(offer_gives("offer")) > 0;
   }
 }

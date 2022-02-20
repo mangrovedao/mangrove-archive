@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.10;
 pragma abicoder v2;
 import {IMaker, HasMgvEvents} from "./MgvLib.sol";
 import {MgvHasOffers} from "./MgvHasOffers.sol";
@@ -70,7 +70,7 @@ contract MgvOfferMaking is MgvHasOffers {
     uint gasreq,
     uint gasprice,
     uint pivotId
-  ) external returns (uint) {
+  ) external returns (uint) { unchecked {
     /* In preparation for calling `writeOffer`, we read the `outbound_tkn`,`inbound_tkn` pair configuration, check for reentrancy and market liveness, fill the `OfferPack` struct and increment the `outbound_tkn`,`inbound_tkn` pair's `last`. */
     OfferPack memory ofp;
     (ofp.global, ofp.local) = config(outbound_tkn, inbound_tkn);
@@ -96,7 +96,7 @@ contract MgvOfferMaking is MgvHasOffers {
     /* Since we locally modified a field of the local configuration (`last`), we save the change to storage. Note that `writeOffer` may have further modified the local configuration by updating the current `best` offer. */
     locals[ofp.outbound_tkn][ofp.inbound_tkn] = ofp.local;
     return ofp.id;
-  }
+  }}
 
   /* ## Update Offer */
   //+clear+
@@ -121,7 +121,7 @@ contract MgvOfferMaking is MgvHasOffers {
     uint gasprice,
     uint pivotId,
     uint offerId
-  ) external {
+  ) external { unchecked {
     OfferPack memory ofp;
     (ofp.global, ofp.local) = config(outbound_tkn, inbound_tkn);
     unlockedMarketOnly(ofp.local);
@@ -143,7 +143,7 @@ contract MgvOfferMaking is MgvHasOffers {
     if (oldLocal != ofp.local) {
       locals[ofp.outbound_tkn][ofp.inbound_tkn] = ofp.local;
     }
-  }
+  }}
 
   /* ## Retract Offer */
   //+clear+
@@ -153,7 +153,7 @@ contract MgvOfferMaking is MgvHasOffers {
     address inbound_tkn,
     uint offerId,
     bool deprovision
-  ) external returns (uint provision) {
+  ) external returns (uint provision) { unchecked {
     (, bytes32 local) = config(outbound_tkn, inbound_tkn);
     unlockedMarketOnly(local);
     bytes32 offer = offers[outbound_tkn][inbound_tkn][offerId];
@@ -200,7 +200,7 @@ contract MgvOfferMaking is MgvHasOffers {
       creditWei(msg.sender, provision);
     }
     emit OfferRetract(outbound_tkn, inbound_tkn, offerId);
-  }
+  }}
 
   /* ## Provisioning
   Market makers must have enough provisions for possible penalties. These provisions are in ETH. Every time a new offer is created or an offer is updated, `balanceOf` is adjusted to provision the offer's maximum possible penalty (`gasprice * (gasreq + overhead_gasbase + offer_gasbase)`).
@@ -211,33 +211,33 @@ contract MgvOfferMaking is MgvHasOffers {
   //+clear+
 
   /* Fund should be called with a nonzero value (hence the `payable` modifier). The provision will be given to `maker`, not `msg.sender`. */
-  function fund(address maker) public payable {
+  function fund(address maker) public payable { unchecked {
     (bytes32 _global, ) = config(address(0), address(0));
     liveMgvOnly(_global);
     creditWei(maker, msg.value);
-  }
+  }}
 
-  function fund() external payable {
+  function fund() external payable { unchecked {
     fund(msg.sender);
-  }
+  }}
 
   /* A transfer with enough gas to the Mangrove will increase the caller's available `balanceOf` balance. _You should send enough gas to execute this function when sending money to the Mangrove._  */
-  receive() external payable {
+  receive() external payable { unchecked {
     fund(msg.sender);
-  }
+  }}
 
   /* Any provision not currently held to secure an offer's possible penalty is available for withdrawal. */
-  function withdraw(uint amount) external returns (bool noRevert) {
+  function withdraw(uint amount) external returns (bool noRevert) { unchecked {
     /* Since we only ever send money to the caller, we do not need to provide any particular amount of gas, the caller should manage this herself. */
     debitWei(msg.sender, amount);
     (noRevert, ) = msg.sender.call{value: amount}("");
-  }
+  }}
 
   /* # Low-level Maker functions */
 
   /* ## Write Offer */
 
-  function writeOffer(OfferPack memory ofp, bool update) internal {
+  function writeOffer(OfferPack memory ofp, bool update) internal { unchecked {
     /* `gasprice`'s floor is Mangrove's own gasprice estimate, `ofp.global.gasprice`. We first check that gasprice fits in 16 bits. Otherwise it could be that `uint16(gasprice) < global_gasprice < gasprice`, and the actual value we store is `uint16(gasprice)`. */
     require(
       uint16(ofp.gasprice) == ofp.gasprice,
@@ -321,7 +321,7 @@ contract MgvOfferMaking is MgvHasOffers {
         offerDetails[ofp.outbound_tkn][ofp.inbound_tkn][ofp.id] = $$(
           make_offerDetail(
             [
-              ["maker", "uint(msg.sender)"],
+              ["maker", "uint160(msg.sender)"],
               ["gasreq", "ofp.gasreq"],
               ["overhead_gasbase", "overhead_gasbase"],
               ["offer_gasbase", "offer_gasbase"],
@@ -397,7 +397,7 @@ contract MgvOfferMaking is MgvHasOffers {
       )
     );
     offers[ofp.outbound_tkn][ofp.inbound_tkn][ofp.id] = ofr;
-  }
+  }}
 
   /* ## Find Position */
   /* `findPosition` takes a price in the form of a (`ofp.wants`,`ofp.gives`) pair, an offer id (`ofp.pivotId`) and walks the book from that offer (backward or forward) until the right position for the price is found. The position is returned as a `(prev,next)` pair, with `prev` or `next` at 0 to mark the beginning/end of the book (no offer ever has id 0).
@@ -407,7 +407,7 @@ contract MgvOfferMaking is MgvHasOffers {
     internal
     view
     returns (uint, uint)
-  {
+  { unchecked {
     uint prevId;
     uint nextId;
     uint pivotId = ofp.pivotId;
@@ -459,7 +459,7 @@ contract MgvOfferMaking is MgvHasOffers {
       prevId == ofp.id ? $$(offer_prev("ofp.oldOffer")) : prevId,
       nextId == ofp.id ? $$(offer_next("ofp.oldOffer")) : nextId
     );
-  }
+  }}
 
   /* ## Better */
   /* The utility method `better` takes an offer represented by `ofp` and another represented by `offer1`. It returns true iff `offer1` is better or as good as `ofp`.
@@ -470,7 +470,7 @@ contract MgvOfferMaking is MgvHasOffers {
     OfferPack memory ofp,
     bytes32 offer1,
     uint offerId1
-  ) internal view returns (bool) {
+  ) internal view returns (bool) { unchecked {
     if (offerId1 == 0) {
       /* Happens on empty book. Returning `false` would work as well due to specifics of `findPosition` but true is more consistent. Here we just want to avoid reading `offerDetail[...][0]` for nothing. */
       return true;
@@ -492,5 +492,5 @@ contract MgvOfferMaking is MgvHasOffers {
     } else {
       return weight1 < weight2;
     }
-  }
+  }}
 }

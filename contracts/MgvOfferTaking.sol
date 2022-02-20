@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.10;
 pragma abicoder v2;
 import {IERC20, HasMgvEvents, IMaker, IMgvMonitor, MgvLib as ML} from "./MgvLib.sol";
 import {MgvHasOffers} from "./MgvHasOffers.sol";
@@ -61,7 +61,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       uint,
       uint
     )
-  {
+  { unchecked {
     return
       generalMarketOrder(
         outbound_tkn,
@@ -71,7 +71,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         fillWants,
         msg.sender
       );
-  }
+  }}
 
   /* # General Market Order */
   //+clear+
@@ -91,7 +91,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       uint,
       uint
     )
-  {
+  { unchecked {
     /* Since amounts stored in offers are 96 bits wide, checking that `takerWants` and `takerGives` fit in 160 bits prevents overflow during the main market order loop. */
     require(uint160(takerWants) == takerWants, "mgv/mOrder/takerWants/160bits");
     require(uint160(takerGives) == takerGives, "mgv/mOrder/takerGives/160bits");
@@ -148,7 +148,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
 
     //+clear+
     return (mor.totalGot, mor.totalGave, mor.totalPenalty);
-  }
+  }}
 
   /* ## Internal market order */
   //+clear+
@@ -159,7 +159,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     MultiOrder memory mor,
     ML.SingleOrder memory sor,
     bool proceed
-  ) internal {
+  ) internal { unchecked {
     /* #### Case 1 : End of order */
     /* We execute the offer currently stored in `sor`. */
     if (
@@ -261,7 +261,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       /* In an inverted Mangrove, amounts have been lent by each offer's maker to the taker. We now call the taker. This is a noop in a normal Mangrove. */
       executeEnd(mor, sor);
     }
-  }
+  }}
 
   /* # Sniping */
   /* ## Snipes */
@@ -282,10 +282,10 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       uint,
       uint
     )
-  {
+  { unchecked {
     return
       generalSnipes(outbound_tkn, inbound_tkn, targets, fillWants, msg.sender);
-  }
+  }}
 
   /*
      From an array of _n_ `[offerId, takerWants,takerGives,gasreq]` elements, execute each snipe in sequence. Returns `(successes, takerGot, takerGave, bounty)`. 
@@ -305,7 +305,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       uint,
       uint
     )
-  {
+  { unchecked {
     ML.SingleOrder memory sor;
     sor.outbound_tkn = outbound_tkn;
     sor.inbound_tkn = inbound_tkn;
@@ -345,7 +345,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     );
 
     return (mor.successCount, mor.totalGot, mor.totalGave, mor.totalPenalty);
-  }
+  }}
 
   /* ## Internal snipes */
   //+clear+
@@ -357,7 +357,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     ML.SingleOrder memory sor,
     uint[4][] calldata targets,
     uint i
-  ) internal {
+  ) internal { unchecked {
     /* #### Case 1 : continuation of snipes */
     if (i < targets.length) {
       sor.offerId = targets[i][0];
@@ -443,7 +443,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       /* In an inverted Mangrove, amounts have been lent by each offer's maker to the taker. We now call the taker. This is a noop in a normal Mangrove. */
       executeEnd(mor, sor);
     }
-  }
+  }}
 
   /* # General execution */
   /* During a market order or a snipes, offers get executed. The following code takes care of executing a single offer with parameters given by a `SingleOrder` within a larger context given by a `MultiOrder`. */
@@ -463,7 +463,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       bytes32 makerData,
       bytes32 mgvData
     )
-  {
+  { unchecked {
     /* #### `Price comparison` */
     //+clear+
     /* The current offer has a price `p = offerWants ÷ offerGives` and the taker is ready to accept a price up to `p' = takerGives ÷ takerWants`. Comparing `offerWants * takerWants` and `offerGives * takerGives` tels us whether `p < p'`.
@@ -626,7 +626,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       sor.offerDetail,
       mgvData != "mgv/tradeSuccess"
     );
-  }
+  }}
 
   /* ## flashloan (abstract) */
   /* Externally called by `execute`, flashloan lends money (from the taker to the maker, or from the maker to the taker, depending on the implementation) then calls `makerExecute` to run the maker liquidity fetching code. If `makerExecute` is unsuccessful, `flashloan` reverts (but the larger orderbook traversal will continue). 
@@ -643,7 +643,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
   function makerExecute(ML.SingleOrder calldata sor)
     internal
     returns (uint gasused)
-  {
+  { unchecked {
     bytes memory cd = abi.encodeWithSelector(IMaker.makerExecute.selector, sor);
 
     uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
@@ -681,7 +681,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         [bytes32("mgv/makerTransferFail"), bytes32(gasused), makerData]
       );
     }
-  }
+  }}
 
   /* ## executeEnd (abstract) */
   /* Called by `internalSnipes` and `internalMarketOrder`, `executeEnd` may run implementation-specific code after all makers have been called once. In [`InvertedMangrove`](#InvertedMangrove), the function calls the taker once so they can act on their flashloan. In [`Mangrove`], it does nothing. */
@@ -700,7 +700,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     uint gasused,
     bytes32 makerData,
     bytes32 mgvData
-  ) internal {
+  ) internal { unchecked {
     if (mgvData == "mgv/tradeSuccess") {
       beforePosthook(sor);
     }
@@ -719,7 +719,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     if (mgvData != "mgv/tradeSuccess") {
       mor.totalPenalty += applyPenalty(sor, gasused, mor.failCount);
     }
-  }
+  }}
 
   /* ## beforePosthook (abstract) */
   /* Called by `makerPosthook`, this function can run implementation-specific code before calling the maker has been called a second time. In [`InvertedMangrove`](#InvertedMangrove), all makers are called once so the taker gets all of its money in one shot. Then makers are traversed again and the money is sent back to each taker using `beforePosthook`. In [`Mangrove`](#Mangrove), `beforePosthook` does nothing. */
@@ -732,7 +732,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     uint gasLeft,
     bytes32 makerData,
     bytes32 mgvData
-  ) internal returns (uint gasused) {
+  ) internal returns (uint gasused) { unchecked {
     /* At this point, mgvData can only be `"mgv/tradeSuccess"`, `"mgv/makerAbort"`, `"mgv/makerRevert"`, `"mgv/makerTransferFail"` or `"mgv/makerReceiveFail"` */
     bytes memory cd = abi.encodeWithSelector(
       IMaker.makerPosthook.selector,
@@ -755,7 +755,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     if (!callSuccess) {
       emit PosthookFail(sor.outbound_tkn, sor.inbound_tkn, sor.offerId);
     }
-  }
+  }}
 
   /* ## `controlledCall` */
   /* Calls an external function with controlled gas expense. A direct call of the form `(,bytes memory retdata) = maker.call{gas}(selector,...args)` enables a griefing attack: the maker uses half its gas to write in its memory, then reverts with that memory segment as argument. After a low-level call, solidity automaticaly copies `returndatasize` bytes of `returndata` into memory. So the total gas consumed to execute a failing offer could exceed `gasreq + overhead_gasbase/n + offer_gasbase` where `n` is the number of failing offers. This yul call only retrieves the first 32 bytes of the maker's `returndata`. */
@@ -763,7 +763,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     address callee,
     uint gasreq,
     bytes memory cd
-  ) internal returns (bool success, bytes32 data) {
+  ) internal returns (bool success, bytes32 data) { unchecked {
     bytes32[1] memory retdata;
 
     assembly {
@@ -771,7 +771,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     }
 
     data = retdata[0];
-  }
+  }}
 
   /* # Penalties */
   /* Offers are just promises. They can fail. Penalty provisioning discourages from failing too much: we ask makers to provision more ETH than the expected gas cost of executing their offer and penalize them accoridng to wasted gas.
@@ -798,7 +798,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     ML.SingleOrder memory sor,
     uint gasused,
     uint failCount
-  ) internal returns (uint) {
+  ) internal returns (uint) { unchecked {
     uint gasreq = $$(offerDetail_gasreq("sor.offerDetail"));
 
     uint provision = 10**9 *
@@ -828,19 +828,19 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     creditWei($$(offerDetail_maker("sor.offerDetail")), provision - penalty);
 
     return penalty;
-  }
+  }}
 
-  function sendPenalty(uint amount) internal {
+  function sendPenalty(uint amount) internal { unchecked {
     if (amount > 0) {
       (bool noRevert, ) = msg.sender.call{value: amount}("");
       require(noRevert, "mgv/sendPenaltyReverted");
     }
-  }
+  }}
 
   /* Post-trade, `payTakerMinusFees` sends what's due to the taker and the rest (the fees) to the vault. Routing through the Mangrove like that also deals with blacklisting issues (separates the maker-blacklisted and the taker-blacklisted cases). */
   function payTakerMinusFees(MultiOrder memory mor, ML.SingleOrder memory sor)
     internal
-  {
+  { unchecked {
     /* Should be statically provable that the 2 transfers below cannot return false under well-behaved ERC20s and a non-blacklisted, non-0 target. */
 
     uint concreteFee = (mor.totalGot * $$(local_fee("sor.local"))) / 10_000;
@@ -857,7 +857,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
         "mgv/MgvFailToPayTaker"
       );
     }
-  }
+  }}
 
   /* # Misc. functions */
 
@@ -870,21 +870,21 @@ abstract contract MgvOfferTaking is MgvHasOffers {
       uint gasused,
       bytes32 makerData
     )
-  {
+  { unchecked {
     /* The `data` pointer is of the form `[mgvData,gasused,makerData]` where each array element is contiguous and has size 256 bits. */
     assembly {
       mgvData := mload(add(data, 32))
       gasused := mload(add(data, 64))
       makerData := mload(add(data, 96))
     }
-  }
+  }}
 
   /* <a id="MgvOfferTaking/innerRevert"></a>`innerRevert` reverts a raw triple of values to be interpreted by `innerDecode`.    */
-  function innerRevert(bytes32[3] memory data) internal pure {
+  function innerRevert(bytes32[3] memory data) internal pure { unchecked {
     assembly {
       revert(data, 96)
     }
-  }
+  }}
 
   /* `transferTokenFrom` is adapted from [existing code](https://soliditydeveloper.com/safe-erc20) and in particular avoids the
   "no return value" bug. It never throws and returns true iff the transfer was successful according to `tokenAddress`.
@@ -896,7 +896,7 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     address from,
     address to,
     uint value
-  ) internal returns (bool) {
+  ) internal returns (bool) { unchecked {
     bytes memory cd = abi.encodeWithSelector(
       IERC20.transferFrom.selector,
       from,
@@ -905,13 +905,13 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     );
     (bool noRevert, bytes memory data) = tokenAddress.call(cd);
     return (noRevert && (data.length == 0 || abi.decode(data, (bool))));
-  }
+  }}
 
   function transferToken(
     address tokenAddress,
     address to,
     uint value
-  ) internal returns (bool) {
+  ) internal returns (bool) { unchecked {
     bytes memory cd = abi.encodeWithSelector(
       IERC20.transfer.selector,
       to,
@@ -919,5 +919,5 @@ abstract contract MgvOfferTaking is MgvHasOffers {
     );
     (bool noRevert, bytes memory data) = tokenAddress.call(cd);
     return (noRevert && (data.length == 0 || abi.decode(data, (bool))));
-  }
+  }}
 }
