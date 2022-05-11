@@ -11,11 +11,11 @@ module.exports = (ethers) => {
 
   if (config.has("polygon")) {
     mainnetConfig = config.get("polygon");
-    networkName = "polygon";
+    networkName = mainnetConfig.network;
   }
 
   // if no network name is defined, then one is not forking mainnet
-  if (!networkName) {
+  if (!mainnetConfig.network) {
     return;
   }
 
@@ -23,8 +23,8 @@ module.exports = (ethers) => {
 
   env.mainnet = {
     network: mainnetConfig.network,
-    name: networkName,
-    tokens: getConfiguredTokens(mainnetConfig, networkName, ethers),
+    chain: mainnetConfig.chain,
+    tokens: getConfiguredTokens(mainnetConfig, ethers),
     abis: getExtraAbis(mainnetConfig),
   };
 
@@ -33,17 +33,17 @@ module.exports = (ethers) => {
     env.mainnet.childChainManager = childChainManager;
   }
 
-  const mangrove = tryGetMangroveEnv(mainnetConfig, networkName, ethers);
+  const mangrove = tryGetMangroveEnv(mainnetConfig, ethers);
   if (mangrove) {
     env.mainnet.mgv = mangrove;
   }
 
-  const compound = tryGetCompoundEnv(mainnetConfig, networkName, ethers);
+  const compound = tryGetCompoundEnv(mainnetConfig, ethers);
   if (compound) {
     env.mainnet.compound = compound;
   }
 
-  const aave = tryGetAaveEnv(mainnetConfig, networkName, ethers);
+  const aave = tryGetAaveEnv(mainnetConfig, ethers);
   if (aave) {
     env.mainnet.aave = aave;
   }
@@ -71,12 +71,12 @@ function getExtraAbis(mainnetConfig) {
   return abis;
 }
 
-function getConfiguredTokens(mainnetConfig, networkName, ethers) {
+function getConfiguredTokens(mainnetConfig, ethers) {
   let tokens = {};
 
   if (!mainnetConfig) {
     console.warn(
-      `No network configuration was loaded, cannot fork ${networkName} mainnet`
+      `No network configuration was loaded, cannot fork ${mainnetConfig.network}`
     );
     return;
   }
@@ -87,7 +87,6 @@ function getConfiguredTokens(mainnetConfig, networkName, ethers) {
       "DAI",
       "dai",
       mainnetConfig,
-      networkName,
       ethers
     );
     if (daiContract) {
@@ -106,7 +105,6 @@ function getConfiguredTokens(mainnetConfig, networkName, ethers) {
       "USDC",
       "usdc",
       mainnetConfig,
-      networkName,
       ethers
     );
     if (usdcContract) {
@@ -125,7 +123,6 @@ function getConfiguredTokens(mainnetConfig, networkName, ethers) {
       "WETH",
       "wEth",
       mainnetConfig,
-      networkName,
       ethers
     );
     if (wEthContract) {
@@ -140,7 +137,6 @@ function getConfiguredTokens(mainnetConfig, networkName, ethers) {
       "CDAI",
       "cDai",
       mainnetConfig,
-      networkName,
       ethers
     );
     if (cDaiContract) {
@@ -156,7 +152,6 @@ function getConfiguredTokens(mainnetConfig, networkName, ethers) {
       "CUSDC",
       "cUsdc",
       mainnetConfig,
-      networkName,
       ethers
     );
     if (cUsdcContract) {
@@ -173,7 +168,6 @@ function getConfiguredTokens(mainnetConfig, networkName, ethers) {
       "CWETH",
       "cwEth",
       mainnetConfig,
-      networkName,
       ethers
     );
     if (cEthContract) {
@@ -187,13 +181,7 @@ function getConfiguredTokens(mainnetConfig, networkName, ethers) {
   return tokens;
 }
 
-function tryCreateTokenContract(
-  tokenName,
-  configName,
-  mainnetConfig,
-  networkName,
-  ethers
-) {
+function tryCreateTokenContract(tokenName, configName, mainnetConfig, ethers) {
   if (!mainnetConfig.has(`tokens.${configName}`)) {
     return null;
   }
@@ -201,14 +189,14 @@ function tryCreateTokenContract(
 
   if (!tokenConfig.has("address")) {
     console.warn(
-      `Config for ${tokenName} does not specify an address on ${networkName}. Contract therefore not available.`
+      `Config for ${tokenName} does not specify an address on ${mainnetConfig.network}. Contract therefore not available.`
     );
     return null;
   }
   const tokenAddress = tokenConfig.get("address");
   if (!tokenConfig.has("abi")) {
     console.warn(
-      `Config for ${tokenName} does not specify an abi file for on ${networkName}. Contract therefore not available.`
+      `Config for ${tokenName} does not specify an abi file for on ${mainnetConfig.network}. Contract therefore not available.`
     );
     return null;
   }
@@ -218,7 +206,7 @@ function tryCreateTokenContract(
   return new ethers.Contract(tokenAddress, tokenAbi, ethers.provider);
 }
 
-function tryGetCompoundEnv(mainnetConfig, networkName, ethers) {
+function tryGetCompoundEnv(mainnetConfig, ethers) {
   if (!mainnetConfig.has("compound")) {
     return null;
   }
@@ -249,12 +237,12 @@ function tryGetCompoundEnv(mainnetConfig, networkName, ethers) {
   }
 
   console.info(
-    `${networkName} Compound ABI loaded. Unitroller address: ${unitrollerAddress}`
+    `${mainnetConfig.network} Compound ABI loaded. Unitroller address: ${unitrollerAddress}`
   );
   return compound;
 }
 
-function tryGetAaveEnv(mainnetConfig, networkName, ethers) {
+function tryGetAaveEnv(mainnetConfig, ethers) {
   if (!mainnetConfig.has("aave")) {
     return null;
   }
@@ -297,14 +285,14 @@ function tryGetAaveEnv(mainnetConfig, networkName, ethers) {
   };
 
   console.info(
-    `${networkName} Aave ABI loaded. LendingPool is at: ${lendingPoolAddress}`
+    `${mainnetConfig.network} Aave ABI loaded. LendingPool is at: ${lendingPoolAddress}`
   );
   return aave;
 }
 
-function tryGetMangroveEnv(mainnetConfig, networkName, ethers) {
+function tryGetMangroveEnv(mainnetConfig, ethers) {
   if (!mainnetConfig.has("mangrove")) {
-    console.warn(`Mangrove is not pre deployed on ${networkName} mainnet`);
+    console.warn(`Mangrove is not pre deployed on ${mainnetConfig.network}`);
     return null;
   }
   mangroveConfig = mainnetConfig.get("mangrove");
@@ -338,7 +326,7 @@ function tryGetMangroveEnv(mainnetConfig, networkName, ethers) {
   }
 
   console.info(
-    `${networkName} Mangrove ABI loaded. Address: ${mangroveAddress}`
+    `${mainnetConfig.network} Mangrove ABI loaded. Address: ${mangroveAddress}`
   );
   return mangrove;
 }

@@ -17,6 +17,7 @@
     "test:solidity": "cross-env NODE_ENV=test NODE_APP_INSTANCE=solidity hardhat test-solidity",
     "test:ethereum-mainnet": "yarn run testSuites --network ethereum",
     "test:polygon-mainnet": "yarn run testSuites --network polygon",
+    "test:polygon-mumbai": "yarn run testSuites --network mumbai",
     "testSuites": "cross-env NODE_ENV=test node lib/test-suite-runner.js"
   },
   "devDependencies": {

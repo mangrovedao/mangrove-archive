@@ -2,6 +2,7 @@
 //
 // We use this runner instead of Mocha's and Hardhat's runners in order to
 // ensure that the right configuration is loaded for the chosen network.
+const chalk = require("chalk");
 const argv = require("yargs")
   .usage("Usage: $0 --network <network> [testSuite1 ...]")
   .option("network", {
@@ -12,7 +13,11 @@ const argv = require("yargs")
   })
   .help().argv;
 
-process.env["NODE_APP_INSTANCE"] = argv.network + "-mainnet";
+if (argv.network == "mumbai") {
+  process.env["NODE_APP_INSTANCE"] = "polygon-mumbai";
+} else {
+  process.env["NODE_APP_INSTANCE"] = argv.network + "-mainnet";
+}
 
 require("app-module-path").addPath(__dirname + "/..");
 require("dotenv-flow").config({ silent: true }); // Reads local environment variables from .env*.local files
@@ -40,12 +45,25 @@ const main = async () => {
       file.substring(5, file.length - 3)
     );
   }
-  console.log(`Running all test suites: ${testSuites}`);
-  console.log(`  on network: ${argv.network}`);
-
-  testSuites.forEach((testSuite) =>
-    mocha.addFile(`./test/test-${testSuite}.js`)
+  console.log(
+    `Running all test suites:`,
+    chalk.green(`${testSuites}`),
+    `on`,
+    chalk.yellow(`${argv.network}`)
   );
+
+  testSuites.forEach((testSuite) => {
+    if (testSuite == "mumbai" && argv.network != "mumbai") {
+      console.warn(
+        `Skipping`,
+        chalk.green(`mumbai`),
+        `test on`,
+        chalk.yellow(`${argv.network}`)
+      );
+    } else {
+      mocha.addFile(`./test/test-${testSuite}.js`);
+    }
+  });
 
   mocha.run(function (failures) {
     process.exitCode = failures ? 1 : 0; // exit with non-zero status if there were failures
